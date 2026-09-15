@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - InfraManager</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#4f46e5', // Indigo 600
+                        'primary-hover': '#4338ca', // Indigo 700
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .fade-in-up {
+            animation: fadeInUp 0.5s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800 font-sans h-screen flex overflow-hidden">
+
+    <main class="flex-1 flex items-center justify-center p-4 relative w-full h-full">
+        
+        <div class="absolute top-0 left-0 w-full h-64 bg-primary/5 -skew-y-3 transform origin-top-left -z-10"></div>
+
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-8 w-full max-w-sm fade-in-up transition-all relative z-10">
+            
+            <div class="flex flex-col items-center justify-center gap-2 mb-8">
+                <div class="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-2xl mb-2">
+                    <ion-icon name="server"></ion-icon>
+                </div>
+                <h1 class="text-xl font-bold text-gray-900 tracking-tight">InfraManager</h1>
+                <p id="view-title" class="text-sm font-medium text-gray-500 mt-1">Iniciar sesión en tu cuenta</p>
+            </div>
+
+            <form id="auth-form" class="space-y-5">
+                
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700 mb-1.5">Correo Electrónico</label>
+                    <div class="relative">
+                        <ion-icon name="mail-outline" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></ion-icon>
+                        <input type="email" id="email" placeholder="usuario@empresa.com" 
+                            class="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
+                    </div>
+                </div>
+
+                <!-- Input Contraseña con Botón de Ojo y Texto de Requisitos -->
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-1.5">Contraseña</label>
+                    <div class="relative">
+                        <ion-icon name="lock-closed-outline" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"></ion-icon>
+                        <!-- Se ajustó pr-4 a pr-10 para que el texto no choque con el icono del ojo -->
+                        <input type="password" id="password" placeholder="••••••••" 
+                            class="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
+                        
+                        <!-- Boton interactivo para visualizar/ocultar contraseña -->
+                        <button type="button" id="toggle-password-btn" 
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none flex items-center justify-center p-1">
+                            <ion-icon id="toggle-password-icon" name="eye-outline" class="text-xl"></ion-icon>
+                        </button>
+                    </div>
+                    <p id="password-req-text" class="text-xs text-gray-500 mt-2 hidden transition-colors">
+                        La contraseña debe poseer al menos: 8 caracteres totales, minimo 1 caracter numerico y minimo 1 símbolo especial.
+                    </p>
+                </div>
+
+                <button type="submit" id="submit-btn" disabled
+                    class="w-full mt-2 bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <span id="btn-text">Ingresar</span>
+                    <ion-icon name="arrow-forward-outline"></ion-icon>
+                </button>
+            </form>
+
+            <div class="my-6 flex items-center gap-3">
+                <div class="h-px flex-1 bg-gray-100"></div>
+                <span class="text-xs text-gray-400 font-medium uppercase tracking-wider">O</span>
+                <div class="h-px flex-1 bg-gray-100"></div>
+            </div>
+
+            <div class="text-center text-sm text-gray-600">
+                <span id="toggle-desc">¿No tienes cuenta?</span>
+                <button type="button" id="toggle-view-btn" class="text-primary hover:text-primary-hover font-medium transition-colors ml-1 outline-none">
+                    Crear cuenta
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const state = {
+            mode: 'login',
+            email: '',
+            password: ''
+        };
+
+        const form = document.getElementById('auth-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const submitBtn = document.getElementById('submit-btn');
+        const viewTitle = document.getElementById('view-title');
+        const btnText = document.getElementById('btn-text');
+        const toggleDesc = document.getElementById('toggle-desc');
+        const toggleViewBtn = document.getElementById('toggle-view-btn');
+        
+        const passwordReqText = document.getElementById('password-req-text');
+        
+        // Referencias al boton y al icono de visibilidad de contrasena
+        const togglePasswordBtn = document.getElementById('toggle-password-btn');
+        const togglePasswordIcon = document.getElementById('toggle-password-icon');
+
+        function isStrongPassword(pwd) {
+            const hasMinLength = pwd.length >= 8;
+            const hasNumber = /\d/.test(pwd);
+            const hasSpecialChar = /[^a-zA-Z0-9]/.test(pwd); 
+            
+            return hasMinLength && hasNumber && hasSpecialChar;
+        }
+
+        function updateUI() {
+            let isFormValid = false;
+
+            if (state.mode === 'login') {
+                isFormValid = state.email.trim() !== '' && state.password.trim() !== '';
+                passwordReqText.classList.add('hidden');
+            } else {
+                const isValidPwd = isStrongPassword(state.password);
+                isFormValid = state.email.trim() !== '' && isValidPwd;
+                
+                passwordReqText.classList.remove('hidden');
+                
+                if (state.password.length > 0) {
+                    if (isValidPwd) {
+                        passwordReqText.classList.replace('text-gray-500', 'text-emerald-600');
+                        passwordReqText.classList.replace('text-red-500', 'text-emerald-600');
+                    } else {
+                        passwordReqText.classList.replace('text-gray-500', 'text-red-500');
+                        passwordReqText.classList.replace('text-emerald-600', 'text-red-500');
+                    }
+                } else {
+                    passwordReqText.classList.remove('text-red-500', 'text-emerald-600');
+                    passwordReqText.classList.add('text-gray-500');
+                }
+            }
+
+            submitBtn.disabled = !isFormValid;
+            
+            if (isFormValid) {
+                submitBtn.classList.add('hover:shadow-md', 'hover:-translate-y-0.5');
+            } else {
+                submitBtn.classList.remove('hover:shadow-md', 'hover:-translate-y-0.5');
+            }
+
+            if (state.mode === 'login') {
+                viewTitle.innerText = 'Iniciar sesión en tu cuenta';
+                btnText.innerText = 'Ingresar';
+                toggleDesc.innerText = '¿No tienes cuenta?';
+                toggleViewBtn.innerText = 'Crear cuenta';
+            } else {
+                viewTitle.innerText = 'Crear una cuenta nueva';
+                btnText.innerText = 'Registrarse';
+                toggleDesc.innerText = '¿Ya tienes cuenta?';
+                toggleViewBtn.innerText = 'Iniciar sesión';
+            }
+        }
+
+        emailInput.addEventListener('input', (e) => {
+            state.email = e.target.value;
+            updateUI();
+        });
+
+        passwordInput.addEventListener('input', (e) => {
+            state.password = e.target.value;
+            updateUI();
+        });
+
+        toggleViewBtn.addEventListener('click', () => {
+            state.mode = state.mode === 'login' ? 'register' : 'login';
+            
+            state.email = '';
+            state.password = '';
+            emailInput.value = '';
+            passwordInput.value = '';
+            
+            // Restablecer el input a tipo "password" si fue revelado antes de cambiar de modo
+            passwordInput.setAttribute('type', 'password');
+            togglePasswordIcon.setAttribute('name', 'eye-outline');
+            
+            updateUI();
+        });
+
+        // Alternar visibilidad
+        togglePasswordBtn.addEventListener('click', () => {
+            const currentType = passwordInput.getAttribute('type');
+            
+            if (currentType === 'password') {
+                // Si esta oculta el ojo pasa a ser cerrado
+                passwordInput.setAttribute('type', 'text');
+                togglePasswordIcon.setAttribute('name', 'eye-off-outline');
+            } else {
+                // De caso contrario, si esta visible pasa al ojo abierto
+                passwordInput.setAttribute('type', 'password');
+                togglePasswordIcon.setAttribute('name', 'eye-outline');
+            }
+        });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            if (!submitBtn.disabled) {
+                const payload = {
+                    email: state.email,
+                    password: state.password
+                };
+                
+                const endpoint = state.mode === 'login' ? '/api/auth/login' : '/api/auth/register';
+                
+                console.log(`[Configuración Router] Simulando llamada POST a ${endpoint}`);
+                console.log('Payload a enviar al backend:', payload);
+                
+                const originalText = btnText.innerText;
+                btnText.innerText = 'Procesando...';
+                submitBtn.disabled = true;
+
+                setTimeout(() => {
+                    alert(`¡${state.mode === 'login' ? 'Inicio de sesión' : 'Registro'} exitoso preparado para la API!\nCorreo: ${state.email}`);
+                    
+                    btnText.innerText = originalText;
+                    submitBtn.disabled = false;
+                }, 1000);
+            }
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>
