@@ -9,6 +9,7 @@
 | ```docker compose up``` | Inicializar los contenedores
 | ```docker compose up -d``` | Inicializar los contenedores en segundo plano
 | ```docker compose down``` | Apagar los contenedores
+| ``` docker exec -it <contenedor> psql -U postgres -d <base_de_datos>``` <br> <span style="color:gray">- Ejemplo: <code style="color:gray;">docker exec -it incidencias_db psql -U postgres -d incidencias_db</code> </span> | Abrir la consola Postgres para navegar por la base de datos (Terminal) <br><span style="color:gray"><code style="color:gray;">\dt</code> Ver todas las tablas <br><code style="color:gray;">\d mi_tabla</code> Ver una tabla</span>
 
 
 
