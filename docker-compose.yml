@@ -1,0 +1,34 @@
+services:
+  auth_db:
+    image: postgres:16
+    container_name: auth_db
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=auth_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  activos_db:
+    image: postgres:16
+    container_name: activos_db
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=activos_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+
+  incidencias_db:
+    image: postgres:16
+    container_name: incidencias_db
+    restart: always
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_DB=incidencias_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
