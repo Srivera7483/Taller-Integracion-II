@@ -4,6 +4,14 @@
 
 **Guía de Arranque (Onboarding):** Comandos exactos para que cualquier integrante levante el proyecto tras clonarlo (ej. ejecutar docker-compose up -d, navegar a las carpetas e instalar dependencias).
 
+|Comando|Función|
+|-|-|
+| ```docker compose up``` | Inicializar los contenedores
+| ```docker compose up -d``` | Inicializar los contenedores en segundo plano
+| ```docker compose down``` | Apagar los contenedores
+
+
+
 **Políticas de Ramas (Branching Strategy):** La regla de oro escrita: prohibido hacer push directamente a main. Definir la nomenclatura de ramas, por ejemplo: 
 - 1. Se crea la rama DEV para el testeo general entre codigos de los miembros del proyecto y convalidacion entre.
 - 2. Acto seguido, utilizando como nucleo la rama DEV, Se crea el dev por integrante (Ejemplo: Benjamin-dev). Este es como el espacio individual de cada integrante posee para la verificacion y funcionalidad de cada tarea

@@ -9,6 +9,8 @@ services:
       - POSTGRES_DB=auth_db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
 
   activos_db:
     image: postgres:16
@@ -20,7 +22,8 @@ services:
       - POSTGRES_DB=activos_db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-
+    volumes:
+      - activos_db_data:/var/lib/postgresql/data
 
   incidencias_db:
     image: postgres:16
@@ -32,3 +35,10 @@ services:
       - POSTGRES_DB=incidencias_db
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    volumes:
+      - incidencias_db_data:/var/lib/postgresql/data
+
+volumes:
+    auth_db_data:
+    activos_db_data:
+    incidencias_db_data:
