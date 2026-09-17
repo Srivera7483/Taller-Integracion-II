@@ -7,6 +7,8 @@
     "dev": "node index.js"
   },
   "dependencies": {
+  "dependencies": {
+    "@fastify/http-proxy": "^11.6.2",
     "dotenv": "^17.4.2",
     "fastify": "^5.12.4"
   }

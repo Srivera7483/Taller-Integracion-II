@@ -1,0 +1,119 @@
+'use strict'
+
+const { test } = require('node:test')
+const { buildURL } = require('../lib/utils')
+
+test('should produce valid URL', (t) => {
+  t.plan(1)
+  const url = buildURL('/hi', 'http://localhost')
+  t.assert.strictEqual(url.href, 'http://localhost/hi')
+})
+
+test('should produce valid URL', (t) => {
+  t.plan(1)
+  const url = buildURL('http://localhost/hi', 'http://localhost')
+  t.assert.strictEqual(url.href, 'http://localhost/hi')
+})
+
+test('should return same source when base is not specified', (t) => {
+  t.plan(1)
+  const url = buildURL('http://localhost/hi')
+  t.assert.strictEqual(url.href, 'http://localhost/hi')
+})
+
+test('should handle lack of trailing slash in base', (t) => {
+  t.plan(3)
+  let url = buildURL('hi', 'http://localhost/hi')
+  t.assert.strictEqual(url.href, 'http://localhost/hi')
+
+  url = buildURL('hi/', 'http://localhost/hi')
+  t.assert.strictEqual(url.href, 'http://localhost/hi/')
+
+  url = buildURL('hi/more', 'http://localhost/hi')
+  t.assert.strictEqual(url.href, 'http://localhost/hi/more')
+})
+
+test('should handle default port in base', (t) => {
+  t.plan(2)
+  let url = buildURL('/hi', 'http://localhost:80/hi')
+  t.assert.strictEqual(url.href, 'http://localhost/hi')
+
+  url = buildURL('/hi', 'https://localhost:443/hi')
+  t.assert.strictEqual(url.href, 'https://localhost/hi')
+})
+
+test('should append instead of override base', (t) => {
+  t.plan(2)
+  let url = buildURL('//10.0.0.10/hi', 'http://localhost')
+  t.assert.strictEqual(url.href, 'http://localhost//10.0.0.10/hi')
+
+  url = buildURL('//httpbin.org/hi', 'http://localhost')
+  t.assert.strictEqual(url.href, 'http://localhost//httpbin.org/hi')
+})
+
+const errorInputs = [
+  { source: 'http://10.0.0.10/hi', base: 'http://localhost' },
+  { source: 'https://10.0.0.10/hi', base: 'http://localhost' },
+  { source: 'blah://10.0.0.10/hi', base: 'http://localhost' },
+  { source: 'urn:foo:bar', base: 'http://localhost' },
+  { source: 'http://localhost/private', base: 'http://localhost/exposed/' },
+  { source: 'http://localhost/exposed-extra', base: 'http://localhost/exposed' },
+  { source: '/private', base: 'http://localhost/exposed/' },
+  { source: '/exposed-extra', base: 'http://localhost/exposed' },
+  { source: '../private', base: 'http://localhost/exposed/' },
+  { source: 'exposed-extra', base: 'http://localhost/exposed' }
+]
+
+test('should throw when trying to override base', async (t) => {
+  t.plan(errorInputs.length)
+
+  const promises = errorInputs.map(({ source, base }) => {
+    return t.test(source, (t) => {
+      t.plan(1)
+      t.assert.throws(() => buildURL(source, base))
+    })
+  })
+
+  await Promise.all(promises)
+})
+
+test('should not throw on URLs containing "..." (e.g. Next.js catch-all routes)', (t) => {
+  t.plan(2)
+  // Next.js catch-all routes like [...slug] appear percent-encoded in static chunk URLs.
+  // These contain '...' as a substring but are not path traversal.
+  // See: https://github.com/fastify/fastify-reply-from/issues/460
+  t.assert.doesNotThrow(() => buildURL('/_next/static/chunks/pages/%5B...slug%5D.js', 'http://localhost'))
+  t.assert.doesNotThrow(() => buildURL('/_next/static/chunks/pages/%5B%5B...slug%5D%5D.js', 'http://localhost'))
+})
+
+test('should throw on path traversal attempts', (t) => {
+  t.assert.throws(
+    () => buildURL('/foo/bar/../', 'http://localhost'),
+    new Error('source/request contain invalid characters')
+  )
+
+  t.assert.throws(
+    () => buildURL('/foo/bar/..', 'http://localhost'),
+    new Error('source/request contain invalid characters')
+  )
+
+  t.assert.throws(
+    () => buildURL('/foo/bar/%2e%2e/', 'http://localhost'),
+    new Error('source/request contain invalid characters')
+  )
+
+  t.assert.throws(
+    () => buildURL('/foo/bar/%2E%2E/', 'http://localhost'),
+    new Error('source/request contain invalid characters')
+  )
+
+  t.assert.throws(
+    () => buildURL('/foo/bar/..%2f', 'http://localhost'),
+    new Error('source/request contain invalid characters')
+  )
+
+  t.assert.throws(
+    () => buildURL('/foo/bar/%2e%2e%2f', 'http://localhost'),
+    new Error('source/request contain invalid characters')
+  )
+})
