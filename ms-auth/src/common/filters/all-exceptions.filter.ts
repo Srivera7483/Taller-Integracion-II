@@ -24,10 +24,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const errorMessage =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : 'Internal server error';
+    // Obtener la respuesta nativa de NestJS para parsear el mensaje
+    let errorMessage: string | string[] = 'Internal server error';
+    if (exception instanceof HttpException) {
+      const response = exception.getResponse();
+      // Si proviene de class-validator, la estructura típica es un objeto con la propiedad "message" en forma de array.
+      if (typeof response === 'object' && response !== null && 'message' in response) {
+        errorMessage = (response as any).message;
+      } else if (typeof response === 'string') {
+        errorMessage = response;
+      } else {
+        errorMessage = exception.message;
+      }
+    }
 
     // Logueamos solo si es un error fatal (500) para no exponer información sensible 
     // y no colapsar la consola con errores comunes (400, 404, etc).
@@ -37,7 +46,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       );
     }
 
-    // JSON estandarizado para la respuesta del cliente
+    // JSON estandarizado para la respuesta del cliente (TAL-35)
     const responseBody = {
       statusCode: httpStatus,
       timestamp: new Date().toISOString(),
