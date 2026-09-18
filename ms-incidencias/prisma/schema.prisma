@@ -7,10 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model usuarios {
-  id             Int       @id @default(autoincrement())
-  nombre         String    @db.VarChar(100)
-  email          String    @unique @db.VarChar(150)
-  activo         Boolean?  @default(true)
-  fecha_registro DateTime? @default(now()) @db.Timestamp(6)
+model Incidencias {
+  id int @id @unique @default(autoincrement())
 }
