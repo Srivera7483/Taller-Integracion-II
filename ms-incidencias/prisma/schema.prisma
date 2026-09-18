@@ -8,5 +8,10 @@ datasource db {
 }
 
 model Incidencias {
-  id int @id @unique @default(autoincrement())
+	id_incidencia String @id @unique @default(uuid())
+	id_activo String
+	id_reportante String
+	titulo String @db.VarChar(255)
+	descripcion String @db.Text
+	created_at DateTime @default(now()) @db.Timestamp()
 }
