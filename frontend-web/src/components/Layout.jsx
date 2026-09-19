@@ -1,9 +1,10 @@
 import React from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiMenu } from 'react-icons/fi';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut } from 'react-icons/fi';
 
 const Layout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   const getPageTitle = () => {
     switch (location.pathname) {
@@ -61,6 +62,14 @@ const Layout = () => {
             <h2 className="text-xl font-semibold text-gray-800">{getPageTitle()}</h2>
           </div>
           <div className="flex items-center gap-4">
+            <button 
+              onClick={() => navigate('/login')}
+              className="flex items-center gap-2 text-gray-500 hover:text-red-600 transition-colors"
+              title="Cerrar sesión"
+            >
+              <FiLogOut className="w-5 h-5" />
+              <span className="hidden sm:inline text-sm font-medium">Salir</span>
+            </button>
             <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200">
               U
             </div>
