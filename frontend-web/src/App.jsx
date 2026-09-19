@@ -8,12 +8,17 @@ import Layout from './components/Layout';
 import Dashboard from './views/Dashboard';
 import Incidencias from './views/Incidencias';
 import Inventario from './views/Inventario';
+import Login from './views/Login';
 
 function App() {
   return (
     <Router>
       <ToastProvider>
         <Routes>
+          {/* Ruta pública sin Layout */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Rutas protegidas con Layout */}
           <Route path="/" element={<Layout />}>
             {/* Redirección por defecto */}
             <Route index element={<Navigate to="/dashboard" replace />} />
