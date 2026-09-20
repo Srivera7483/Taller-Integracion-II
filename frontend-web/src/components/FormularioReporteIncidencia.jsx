@@ -70,42 +70,84 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     setIsUrlPreloaded(Boolean(assetFromUrl));
   }
 
-  // Validaciones en tiempo real
-  const validateForm = () => {
+  // Reglas de validación centralizadas para campos obligatorios
+  const validateField = (field, value) => {
+    const val = typeof value === 'string' ? value.trim() : value;
+    switch (field) {
+      case 'titulo':
+        if (!val) return 'El título de la incidencia es obligatorio';
+        if (val.length < 5) return 'El título debe tener al menos 5 caracteres';
+        return '';
+      case 'idActivo':
+        if (!val) return 'Debes especificar el ID o número de serie del activo';
+        return '';
+      case 'categoria':
+        if (!val) return 'Selecciona una categoría de falla';
+        return '';
+      case 'descripcion':
+        if (!val) return 'La descripción del problema es obligatoria';
+        if (val.length < 15) return 'Por favor proporciona una descripción más detallada (mínimo 15 caracteres)';
+        return '';
+      default:
+        return '';
+    }
+  };
+
+  // Validador general de formulario
+  const validateForm = (values = { titulo, idActivo, categoria, descripcion }) => {
     const newErrors = {};
-
-    if (!titulo.trim()) {
-      newErrors.titulo = 'El título de la incidencia es obligatorio';
-    } else if (titulo.trim().length < 5) {
-      newErrors.titulo = 'El título debe tener al menos 5 caracteres';
-    }
-
-    if (!idActivo.trim()) {
-      newErrors.idActivo = 'Debes especificar el ID o número de serie del activo';
-    }
-
-    if (!categoria) {
-      newErrors.categoria = 'Selecciona una categoría de falla';
-    }
-
-    if (!descripcion.trim()) {
-      newErrors.descripcion = 'La descripción del problema es obligatoria';
-    } else if (descripcion.trim().length < 15) {
-      newErrors.descripcion = 'Por favor proporciona una descripción más detallada (mínimo 15 caracteres)';
-    }
+    const requiredFields = ['titulo', 'idActivo', 'categoria', 'descripcion'];
+    
+    requiredFields.forEach((field) => {
+      const errorMsg = validateField(field, values[field]);
+      if (errorMsg) {
+        newErrors[field] = errorMsg;
+      }
+    });
 
     return newErrors;
   };
 
+  // Manejador centralizado de cambio de valor con revalidación reactiva si ya fue tocado
+  const handleFieldChange = (field, value) => {
+    if (field === 'titulo') setTitulo(value);
+    else if (field === 'idActivo') {
+      setIdActivo(value);
+      setIsUrlPreloaded(false);
+    } else if (field === 'categoria') setCategoria(value);
+    else if (field === 'descripcion') setDescripcion(value);
+
+    // Si el usuario ya intentó enviar o tocó el campo, revalidar inmediatamente
+    if (touched[field]) {
+      setErrors((prev) => ({
+        ...prev,
+        [field]: validateField(field, value),
+      }));
+    }
+  };
+
   const handleBlur = (field) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
-    const formErrors = validateForm();
-    setErrors(formErrors);
+    const currentValue =
+      field === 'titulo' ? titulo :
+      field === 'idActivo' ? idActivo :
+      field === 'categoria' ? categoria :
+      field === 'descripcion' ? descripcion : '';
+    setErrors((prev) => ({
+      ...prev,
+      [field]: validateField(field, currentValue),
+    }));
   };
 
   const handleClearPreloadedAsset = () => {
     setIdActivo('');
     setIsUrlPreloaded(false);
+    if (touched.idActivo) {
+      setErrors((prev) => ({
+        ...prev,
+        idActivo: validateField('idActivo', ''),
+      }));
+    }
   };
 
   const handleFileChange = (e) => {
@@ -116,12 +158,31 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     }
   };
 
+  const handleResetForm = () => {
+    setTitulo('');
+    if (!assetFromUrl) {
+      setIdActivo('');
+      setIsUrlPreloaded(false);
+    }
+    setCategoria('');
+    setPrioridad('media');
+    setDescripcion('');
+    setUbicacion('');
+    setAdjuntoNombre('');
+    setErrors({});
+    setTouched({});
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    const formErrors = validateForm();
+
+    if (isSubmitting) return;
+
+    const currentValues = { titulo, idActivo, categoria, descripcion };
+    const formErrors = validateForm(currentValues);
     setErrors(formErrors);
 
-    // Marcar todos como tocados para mostrar validaciones
+    // Marcar todos los campos obligatorios como tocados para desplegar advertencias en rojo
     setTouched({
       titulo: true,
       idActivo: true,
@@ -129,11 +190,13 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       descripcion: true,
     });
 
+    // Criterio 1: Prevenir envío y notificar si faltan campos obligatorios
     if (Object.keys(formErrors).length > 0) {
       showToast('Por favor completa todos los campos requeridos correctamente', 'error');
       return;
     }
 
+    // Criterio 2: Activar estado de envío / loading y deshabilitar botón
     setIsSubmitting(true);
 
     const nuevaIncidencia = {
@@ -154,7 +217,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     // Persistir temporalmente en Cookie para pruebas del frontend
     saveIncidencia(nuevaIncidencia);
 
-    // Simulación de respuesta de backend
+    // Simulación de respuesta de backend con bloqueo de doble click
     setTimeout(() => {
       setIsSubmitting(false);
       showToast(`¡Incidencia ${nuevaIncidencia.id} registrada con éxito!`, 'success');
@@ -196,24 +259,20 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 id="incidencia-titulo"
                 type="text"
                 value={titulo}
-                onChange={(e) => {
-                  setTitulo(e.target.value);
-                  if (touched.titulo) {
-                    setErrors((prev) => ({ ...prev, titulo: e.target.value.trim() ? '' : 'El título es obligatorio' }));
-                  }
-                }}
+                onChange={(e) => handleFieldChange('titulo', e.target.value)}
                 onBlur={() => handleBlur('titulo')}
+                disabled={isSubmitting}
                 placeholder="Ej. Interrupción de servicio en base de datos PostgreSQL principal"
                 className={`w-full pl-11 pr-4 py-2.5 rounded-lg border text-sm transition-all outline-none ${
                   touched.titulo && errors.titulo
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
                     : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white'
-                }`}
+                } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
                 required
               />
             </div>
             {touched.titulo && errors.titulo ? (
-              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+              <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
                 <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                 {errors.titulo}
               </p>
@@ -246,14 +305,9 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 id="incidencia-id-activo"
                 type="text"
                 value={idActivo}
-                onChange={(e) => {
-                  setIdActivo(e.target.value);
-                  setIsUrlPreloaded(false);
-                  if (touched.idActivo) {
-                    setErrors((prev) => ({ ...prev, idActivo: e.target.value.trim() ? '' : 'El ID de activo es obligatorio' }));
-                  }
-                }}
+                onChange={(e) => handleFieldChange('idActivo', e.target.value)}
                 onBlur={() => handleBlur('idActivo')}
+                disabled={isSubmitting}
                 placeholder="Ej. SN-MPM2-2023-001 o ACT-SRV-04"
                 className={`w-full pl-11 ${
                   isUrlPreloaded ? 'pr-10 bg-blue-50/30' : 'pr-4 bg-white'
@@ -261,15 +315,16 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                   touched.idActivo && errors.idActivo
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
                     : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                }`}
+                } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
                 required
               />
               {isUrlPreloaded && (
                 <button
                   type="button"
                   onClick={handleClearPreloadedAsset}
+                  disabled={isSubmitting}
                   title="Limpiar ID pre-cargado"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors disabled:cursor-not-allowed"
                 >
                   <FiX className="w-4 h-4" />
                 </button>
@@ -277,7 +332,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             </div>
 
             {touched.idActivo && errors.idActivo ? (
-              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+              <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
                 <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                 {errors.idActivo}
               </p>
@@ -337,18 +392,14 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               <select
                 id="incidencia-categoria"
                 value={categoria}
-                onChange={(e) => {
-                  setCategoria(e.target.value);
-                  if (touched.categoria) {
-                    setErrors((prev) => ({ ...prev, categoria: e.target.value ? '' : 'Selecciona una categoría' }));
-                  }
-                }}
+                onChange={(e) => handleFieldChange('categoria', e.target.value)}
                 onBlur={() => handleBlur('categoria')}
+                disabled={isSubmitting}
                 className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-all outline-none appearance-none bg-white ${
                   touched.categoria && errors.categoria
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
                     : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-                }`}
+                } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
                 required
               >
                 <option value="" disabled>-- Selecciona el tipo de falla --</option>
@@ -366,7 +417,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             </div>
 
             {touched.categoria && errors.categoria ? (
-              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+              <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
                 <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                 {errors.categoria}
               </p>
@@ -437,27 +488,20 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             rows={5}
             maxLength={1000}
             value={descripcion}
-            onChange={(e) => {
-              setDescripcion(e.target.value);
-              if (touched.descripcion) {
-                setErrors((prev) => ({
-                  ...prev,
-                  descripcion: e.target.value.trim().length >= 15 ? '' : 'La descripción debe tener al menos 15 caracteres',
-                }));
-              }
-            }}
+            onChange={(e) => handleFieldChange('descripcion', e.target.value)}
             onBlur={() => handleBlur('descripcion')}
+            disabled={isSubmitting}
             placeholder="Describe qué ocurrió, cuáles fueron los síntomas observados, mensajes de error en pantalla o códigos emitidos, y si el incidente causó la detención de operaciones..."
             className={`w-full p-4 rounded-lg border text-sm transition-all outline-none resize-y ${
               touched.descripcion && errors.descripcion
                 ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
                 : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white'
-            }`}
+            } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
             required
           />
 
           {touched.descripcion && errors.descripcion ? (
-            <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+            <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
               <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
               {errors.descripcion}
             </p>
@@ -504,6 +548,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 pt-2">
         <button
           type="button"
+          disabled={isSubmitting}
           onClick={() => {
             if (onCancel) {
               onCancel();
@@ -511,7 +556,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               navigate('/incidencias');
             }
           }}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors shadow-sm"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <FiArrowLeft className="w-4 h-4" />
           Volver a Incidencias
@@ -520,25 +565,18 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
         <div className="flex w-full sm:w-auto items-center gap-3">
           <button
             type="button"
-            onClick={() => {
-              setTitulo('');
-              if (!assetFromUrl) setIdActivo('');
-              setCategoria('');
-              setDescripcion('');
-              setUbicacion('');
-              setAdjuntoNombre('');
-              setErrors({});
-              setTouched({});
-            }}
-            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors"
+            disabled={isSubmitting}
+            onClick={handleResetForm}
+            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             Limpiar Campos
           </button>
 
           <button
             type="submit"
+            id="btn-enviar-incidencia"
             disabled={isSubmitting}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >
             {isSubmitting ? (
               <>
@@ -546,12 +584,12 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                 </svg>
-                Registrando...
+                <span>Enviando incidencia...</span>
               </>
             ) : (
               <>
                 <FiSend className="w-4 h-4" />
-                Registrar Incidencia
+                <span>Enviar Incidencia</span>
               </>
             )}
           </button>
