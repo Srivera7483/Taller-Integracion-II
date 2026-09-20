@@ -1,15 +1,20 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
+  Req,
   UnauthorizedException,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import type { FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
+import { JwtAuthGuard } from './jwt-auth.guard.js';
 
 @Controller('auth')
 export class AuthController {
@@ -28,5 +33,11 @@ export class AuthController {
 
       throw new UnauthorizedException('Credenciales inválidas');
     }
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  getAuthenticatedUser(@Req() request: FastifyRequest) {
+    return request.user;
   }
 }
