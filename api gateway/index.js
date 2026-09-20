@@ -1,31 +1,18 @@
 require('dotenv').config();
 
-const fastify = require('fastify')({ logger: true });
-const port = Number(process.env.PORT) || 3000;
-
-fastify.get('/', async () => ({ status: 'OK' }));
-
-const start = async () => {
-  try {
-    await fastify.listen({ port, host: '0.0.0.0' });
-  } catch (error) {
-    fastify.log.error(error);
-    process.exit(1);
-  }
-};
-
-start();
 const Fastify = require('fastify');
 const proxy = require('@fastify/http-proxy');
 
-const fastify = Fastify({ logger: false });
-const PORT = process.env.GATEWAY_PORT || 3000;
+const fastify = Fastify({ logger: true });
+const port = Number(process.env.GATEWAY_PORT ?? process.env.PORT ?? 3000);
+
+fastify.get('/', async () => ({ status: 'OK' }));
 
 const handleProxyError = (reply, error) => {
-    console.error(`[Gateway Error] Fallo al conectar con microservicio: ${error.message}`);
+    fastify.log.error(error, 'Fallo al conectar con el microservicio de destino');
     reply.code(502).send({
         error: 'Bad Gateway',
-        message: 'El microservicio de destino se encuentra apagado o inaccesible en este momento.'
+        message: 'El microservicio de destino se encuentra apagado o inaccesible en este momento.',
     });
 };
 
@@ -43,10 +30,10 @@ fastify.register(proxy, {
 
 const start = async () => {
     try {
-        await fastify.listen({ port: PORT, host: '0.0.0.0' });
-        console.log(`🚀 API Gateway (Fastify) ejecutándose en http://localhost:${PORT}`);
-    } catch (err) {
-        fastify.log.error(err);
+        await fastify.listen({ port, host: '0.0.0.0' });
+        fastify.log.info(`API Gateway ejecutándose en http://localhost:${port}`);
+    } catch (error) {
+        fastify.log.error(error);
         process.exit(1);
     }
 };

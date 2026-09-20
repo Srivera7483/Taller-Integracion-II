@@ -6,6 +6,7 @@ Microservicio responsable de validar credenciales y generar tokens JWT para el p
 
 - Node.js
 - NestJS
+- Fastify mediante `@nestjs/platform-fastify`
 - TypeScript
 - Prisma ORM
 - PostgreSQL
@@ -38,14 +39,18 @@ ms-auth/
 │   ├── auth/
 │   │   ├── dto/login.dto.ts
 │   │   ├── auth.controller.ts
+│   │   ├── auth.types.ts
 │   │   ├── auth.module.ts
+│   │   ├── jwt-auth.guard.ts
+│   │   ├── jwt-auth.guard.spec.ts
 │   │   ├── auth.service.spec.ts
 │   │   └── auth.service.ts
 │   ├── prisma/
 │   │   ├── prisma.module.ts
 │   │   └── prisma.service.ts
 │   ├── app.module.ts
-│   └── main.ts
+│   ├── main.ts
+│   └── types/fastify.d.ts
 ├── .env.example
 ├── package.json
 └── vitest.config.ts
@@ -98,6 +103,44 @@ Respuesta exitosa (`200 OK`):
 ```
 
 Las credenciales inexistentes o incorrectas producen `401 Unauthorized`. El servicio no revela si falló el correo o la contraseña.
+
+## Ruta protegida por JWT
+
+### `GET /auth/me`
+
+La ruta requiere `Authorization: Bearer <token>`. El guard `JwtAuthGuard` verifica la firma y la expiración mediante la configuración compartida de `JwtService`. Cuando la validación es correcta, inyecta `{ userId, role }` en `request.user` y el controlador devuelve esos claims.
+
+Flujo:
+
+1. Nest recibe la cabecera `Authorization`.
+2. `JwtAuthGuard` extrae el token Bearer y ejecuta `JwtService.verify`.
+3. Un token ausente, expirado, con firma inválida o con claims incompletos produce `401 Unauthorized`.
+4. Un token válido se asigna a `request.user` y `GET /auth/me` responde `200 OK`.
+
+Prueba con un token válido obtenido desde `/auth/login`:
+
+```bash
+TOKEN="<token-jwt>"
+curl -i http://localhost:3001/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Respuesta esperada (`200 OK`):
+
+```json
+{
+  "userId": "<id-del-usuario>",
+  "role": "admin"
+}
+```
+
+Prueba sin token:
+
+```bash
+curl -i http://localhost:3001/auth/me
+```
+
+Respuesta esperada: `401 Unauthorized`. El mismo código se devuelve para tokens expirados o firmados con un secreto diferente al valor de `JWT_SECRET`.
 
 ## Payload del JWT
 
@@ -173,20 +216,31 @@ El servicio queda disponible en:
 http://localhost:3001
 ```
 
+El servidor HTTP se crea con `FastifyAdapter`; Express no forma parte de las dependencias ni del bootstrap de este microservicio.
+
 ## Pruebas
 
-El archivo [src/auth/auth.service.spec.ts](src/auth/auth.service.spec.ts) cubre:
+Las pruebas cubren:
 
 1. login válido y generación del token;
 2. rechazo de credenciales inválidas;
 3. verificación de contraseña con Argon2;
 4. payload `{ userId, role }`;
 5. ausencia de firma cuando las credenciales fallan.
+6. rechazo de tokens ausentes, inválidos o expirados.
+7. inyección de `{ userId, role }` en `request.user`.
 
 Ejecutar las pruebas:
 
 ```bash
 corepack pnpm exec vitest run src/auth/auth.service.spec.ts --reporter=verbose
+```
+
+Suite completa:
+
+```bash
+corepack pnpm test
+corepack pnpm run test:e2e
 ```
 
 En Windows:
@@ -200,8 +254,8 @@ En Windows:
 Después de generar Prisma, las pruebas se ejecutaron correctamente:
 
 ```text
-Test Files  1 passed (1)
-Tests       2 passed (2)
+Test Files  3 passed (3)
+Tests       6 passed (6)
 ```
 
 Casos verificados:
