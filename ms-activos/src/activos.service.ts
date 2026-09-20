@@ -3,6 +3,7 @@ import {
   EstadoActivo,
   CategoriaActivo,
   RespuestaValidacionQR,
+  RespuestaRedireccionIncidencia,
 } from './interfaces/activo.interface';
 import { ValidarQrDto } from './dto/validar-qr.dto';
 
@@ -43,6 +44,23 @@ export class ActivosService {
     },
   ];
 
+  private construirEnlacesRedireccion(activo: Activo): { urlWeb: string; deepLinkMovil: string } {
+    const params = new URLSearchParams({
+      activoId: activo.id,
+      codigoQr: activo.codigoQr,
+      nombre: activo.nombre,
+      ubicacion: activo.ubicacion,
+      categoria: String(activo.categoria),
+    });
+
+    const queryString = params.toString();
+
+    return {
+      urlWeb: `/incidencias/crear?${queryString}`,
+      deepLinkMovil: `app://incidencias/crear?${queryString}`,
+    };
+  }
+
   async validarCodigoQR(codigoBruto: string): Promise<RespuestaValidacionQR> {
     const resultadoValidacion = ValidarQrDto.validar(codigoBruto);
     if (!resultadoValidacion.valido || !resultadoValidacion.codigoLimpio) {
@@ -76,11 +94,43 @@ export class ActivosService {
       };
     }
 
+    const enlaces = this.construirEnlacesRedireccion(activo);
+
     return {
       valido: true,
       mensaje: `Activo '${activo.nombre}' validado exitosamente.`,
       activo,
       permiteReportarIncidencia: true,
+      urlRedireccion: enlaces.urlWeb,
+      deepLinkMovil: enlaces.deepLinkMovil,
+    };
+  }
+
+  async generarEnlaceIncidencia(codigoBruto: string): Promise<RespuestaRedireccionIncidencia> {
+    const validacion = await this.validarCodigoQR(codigoBruto);
+
+    if (!validacion.valido || !validacion.activo || !validacion.permiteReportarIncidencia) {
+      return {
+        valido: false,
+        mensaje: validacion.mensaje,
+      };
+    }
+
+    const activo = validacion.activo;
+    const enlaces = this.construirEnlacesRedireccion(activo);
+
+    return {
+      valido: true,
+      mensaje: `Enlace de redirección generado para '${activo.nombre}'.`,
+      urlRedireccion: enlaces.urlWeb,
+      deepLinkMovil: enlaces.deepLinkMovil,
+      datosPrecargados: {
+        activoId: activo.id,
+        codigoQr: activo.codigoQr,
+        nombre: activo.nombre,
+        ubicacion: activo.ubicacion,
+        categoria: String(activo.categoria),
+      },
     };
   }
 

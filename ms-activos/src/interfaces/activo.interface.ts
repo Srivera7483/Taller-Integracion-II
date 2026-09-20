@@ -31,4 +31,20 @@ export interface RespuestaValidacionQR {
   mensaje: string;
   activo?: Activo;
   permiteReportarIncidencia: boolean;
+  urlRedireccion?: string;
+  deepLinkMovil?: string;
+}
+
+export interface RespuestaRedireccionIncidencia {
+  valido: boolean;
+  mensaje: string;
+  urlRedireccion?: string;
+  deepLinkMovil?: string;
+  datosPrecargados?: {
+    activoId: string;
+    codigoQr: string;
+    nombre: string;
+    ubicacion: string;
+    categoria: string;
+  };
 }
