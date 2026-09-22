@@ -55,7 +55,8 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const endpoint = mode === 'login' ? `${baseUrl}/auth/login` : `${baseUrl}/auth/register`;
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
