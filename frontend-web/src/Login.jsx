@@ -43,7 +43,7 @@ const Login = () => {
     setShowPassword(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isFormValid || isSubmitting) return;
 
@@ -52,26 +52,49 @@ const Login = () => {
       password,
     };
 
-    const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
-    console.log(`[Configuración Router] Simulando llamada POST a ${endpoint}`);
-    console.log('Payload a enviar al backend:', payload);
-
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      setIsSubmitting(false);
-
-      const successMsg = `¡${mode === 'login' ? 'Inicio de sesión' : 'Registro'} exitoso preparado para la API!\nCorreo: ${email}`;
-      showToast(successMsg, 'success');
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const endpoint = mode === 'login' ? `${baseUrl}/auth/login` : `${baseUrl}/auth/register`;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
 
       if (mode === 'login') {
-        navigate('/dashboard');
+        if (response.status === 200) {
+          const data = await response.json();
+          const token = data.token || data.accessToken || data.access_token;
+          if (token) {
+            localStorage.setItem('token', token);
+          }
+          showToast('Inicio de sesión exitoso', 'success');
+          navigate('/dashboard');
+        } else if (response.status === 401) {
+          showToast('Credenciales inválidas', 'error');
+        } else {
+          showToast('Error al iniciar sesión', 'error');
+        }
       } else {
-        setMode('login');
-        setPassword('');
-        setShowPassword(false);
+        if (response.ok) {
+          showToast('Registro exitoso', 'success');
+          setMode('login');
+          setPassword('');
+          setShowPassword(false);
+        } else {
+          showToast('Error al registrarse', 'error');
+        }
       }
-    }, 1000);
+    } catch (error) {
+      console.error('Error de red:', error);
+      showToast('Error de conexión con el servidor', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Color del texto de requisitos de contraseña según estado de validación

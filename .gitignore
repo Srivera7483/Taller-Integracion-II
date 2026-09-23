@@ -1,0 +1,30 @@
+# Dependencies and generated build output in every project
+**/node_modules/
+**/dist/
+dist-ssr/
+**/build/
+out/
+
+# Test and coverage artifacts
+**/.env
+.env
+.env.test
+.env.production
+.DS_Store
+*.log
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+test-output/
+screenshots/
+videos/
+artifacts/
+
+# Tool caches and generated metadata
+.nest/
+*.tsbuildinfo
+.eslintcache
+.cache/
+.temp/
+.tmp/
