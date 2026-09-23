@@ -7,13 +7,19 @@ import Toast from './components/Toast';
 import Layout from './components/Layout';
 import Dashboard from './views/Dashboard';
 import Incidencias from './views/Incidencias';
+import ReporteIncidencia from './views/ReporteIncidencia';
 import Inventario from './views/Inventario';
+import Login from './views/Login';
 
 function App() {
   return (
     <Router>
       <ToastProvider>
         <Routes>
+          {/* Ruta pública sin Layout */}
+          <Route path="/login" element={<Login />} />
+
+          {/* Rutas protegidas con Layout */}
           <Route path="/" element={<Layout />}>
             {/* Redirección por defecto */}
             <Route index element={<Navigate to="/dashboard" replace />} />
@@ -21,6 +27,8 @@ function App() {
             {/* Rutas hijas que se renderizan en el <Outlet /> del Layout */}
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="incidencias" element={<Incidencias />} />
+            <Route path="incidencias/nueva" element={<ReporteIncidencia />} />
+            <Route path="incidencias/reportar" element={<ReporteIncidencia />} />
             <Route path="inventario" element={<Inventario />} />
           </Route>
         </Routes>
