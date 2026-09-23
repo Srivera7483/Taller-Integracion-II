@@ -1,6 +1,7 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
-import { FiSearch, FiPlus } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiAlertCircle } from 'react-icons/fi';
 
 const Inventario = () => {
   return (
@@ -28,20 +29,41 @@ const Inventario = () => {
                 <th className="px-6 py-3 font-medium">Categoría</th>
                 <th className="px-6 py-3 font-medium">Número de Serie</th>
                 <th className="px-6 py-3 font-medium">Estado</th>
+                <th className="px-6 py-3 font-medium text-right">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               <tr className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-gray-900">MacBook Pro M2</td>
                 <td className="px-6 py-4">Portátiles</td>
-                <td className="px-6 py-4 font-mono text-xs">SN-MPM2-2023-001</td>
+                <td className="px-6 py-4 font-mono text-xs text-blue-600 font-semibold">SN-MPM2-2023-001</td>
                 <td className="px-6 py-4"><StatusBadge status="Activo" /></td>
+                <td className="px-6 py-4 text-right">
+                  <Link
+                    to="/incidencias/nueva?id_activo=SN-MPM2-2023-001"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition-colors"
+                    title="Reportar incidencia para este equipo"
+                  >
+                    <FiAlertCircle className="w-3.5 h-3.5" />
+                    Reportar Falla
+                  </Link>
+                </td>
               </tr>
               <tr className="hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4 font-medium text-gray-900">Router Cisco C1111</td>
                 <td className="px-6 py-4">Redes</td>
-                <td className="px-6 py-4 font-mono text-xs">SN-RC-1111-042</td>
+                <td className="px-6 py-4 font-mono text-xs text-blue-600 font-semibold">SN-RC-1111-042</td>
                 <td className="px-6 py-4"><StatusBadge status="Mantenimiento" /></td>
+                <td className="px-6 py-4 text-right">
+                  <Link
+                    to="/incidencias/nueva?id_activo=SN-RC-1111-042"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-md transition-colors"
+                    title="Reportar incidencia para este equipo"
+                  >
+                    <FiAlertCircle className="w-3.5 h-3.5" />
+                    Reportar Falla
+                  </Link>
+                </td>
               </tr>
             </tbody>
           </table>

@@ -7,6 +7,9 @@ const Layout = () => {
   const navigate = useNavigate();
 
   const getPageTitle = () => {
+    if (location.pathname.startsWith('/incidencias/nueva') || location.pathname.startsWith('/incidencias/reportar')) {
+      return 'Reportar Incidencia';
+    }
     switch (location.pathname) {
       case '/dashboard': return 'Dashboard';
       case '/incidencias': return 'Incidencias';
@@ -30,23 +33,27 @@ const Layout = () => {
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
           <ul className="space-y-1 px-3">
-            {navItems.map((item) => (
-              <li key={item.path}>
-                <NavLink
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
-                      isActive 
+            {navItems.map((item) => {
+              const isItemActive = 
+                location.pathname === item.path || 
+                (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
+
+              return (
+                <li key={item.path}>
+                  <NavLink
+                    to={item.path}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                      isItemActive 
                         ? 'bg-blue-50 text-blue-700 font-medium' 
                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    }`
-                  }
-                >
-                  <item.icon className="w-5 h-5" />
-                  {item.label}
-                </NavLink>
-              </li>
-            ))}
+                    }`}
+                  >
+                    <item.icon className="w-5 h-5" />
+                    {item.label}
+                  </NavLink>
+                </li>
+              );
+            })}
           </ul>
         </nav>
       </aside>
