@@ -23,6 +23,7 @@ model Incidencias {
   created_at    DateTime         @default(now()) @db.Timestamp()
 
   historial HistorialIncidencia[]
+  evidencias Evidencia[]
 }
 
 model HistorialIncidencia {
@@ -32,6 +33,17 @@ model HistorialIncidencia {
   estado_nuevo    EstadoIncidencia
   usuario_id      String
   fecha           DateTime         @default(now()) @db.Timestamp()
+
+  incidencia Incidencias @relation(fields: [incidencia_id], references: [id_incidencia], onDelete: Cascade)
+
+  @@index([incidencia_id])
+}
+
+model Evidencia {
+  id_evidencia  String      @id @default(uuid())
+  incidencia_id String
+  descripcion   String      @db.Text
+  fecha         DateTime    @default(now()) @db.Timestamp()
 
   incidencia Incidencias @relation(fields: [incidencia_id], references: [id_incidencia], onDelete: Cascade)
 
