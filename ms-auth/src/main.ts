@@ -5,7 +5,7 @@ import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, new FastifyAdapter());
 
   // Registro del Interceptor / Filtro Global de Excepciones
   const httpAdapterHost = app.get(HttpAdapterHost);
