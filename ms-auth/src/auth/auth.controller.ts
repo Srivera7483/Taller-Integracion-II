@@ -15,6 +15,8 @@ import type { FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
+import { RolesGuard}  from './roles.guard.js';
+import { Roles } from './roles.decorator.js'
 
 @Controller('auth')
 export class AuthController {
@@ -39,5 +41,16 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   getAuthenticatedUser(@Req() request: FastifyRequest) {
     return request.user;
+  }
+
+  // Función de base para validación de Guards de Permisos (ignoradla chavales)
+  @Get('supervisor-data')
+  @UseGuards(JwtAuthGuard, RolesGuard) // Se ejecutan en orden
+  @Roles('SUPERVISOR', 'ADMINISTRADOR')
+  getSupervisorReport(@Req() request: FastifyRequest) {
+    return {
+      message: 'Acceso concedido a datos de supervisor',
+      user: request.user,
+    }
   }
 }
