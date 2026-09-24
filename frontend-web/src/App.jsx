@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
 import Toast from './components/Toast';
+import AxiosInterceptor from './components/AxiosInterceptor';
 
 // Componentes Estructurales y Vistas
 import Layout from './components/Layout';
@@ -17,7 +18,8 @@ function App() {
   return (
     <Router>
       <ToastProvider>
-        <Routes>
+        <AxiosInterceptor>
+          <Routes>
           {/* Ruta pública sin Layout */}
           <Route element={<PublicRoute />}>
             <Route path="/login" element={<Login />} />
@@ -37,10 +39,11 @@ function App() {
               <Route path="inventario" element={<Inventario />} />
             </Route>
           </Route>
-        </Routes>
-        
-        {/* Componente global para notificaciones */}
-        <Toast />
+          </Routes>
+          
+          {/* Componente global para notificaciones */}
+          <Toast />
+        </AxiosInterceptor>
       </ToastProvider>
     </Router>
   );
