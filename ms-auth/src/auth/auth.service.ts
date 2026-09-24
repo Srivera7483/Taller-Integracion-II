@@ -2,14 +2,12 @@ import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { verify } from 'argon2';
 import { UserRepository } from './user.repository.js';
-import { PrismaService } from '../prisma/prisma.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { UpdateRoleDto } from './dto/update-role.dto.js';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly userRepository: UserRepository,
   ) {}
@@ -17,18 +15,7 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<{ accessToken: string }> {
     const email = loginDto.email.trim().toLowerCase();
 
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-      select: {
-        id: true,
-        password: true,
-        role: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    });
+    const user = await this.userRepository.findByEmail(email);
 
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas');
