@@ -1,114 +1,317 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Microservicio de Autenticación
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Microservicio responsable de validar credenciales y generar tokens JWT para el proyecto Taller de Integración II.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Tecnologías
 
-## Description
+- Node.js
+- NestJS
+- Fastify mediante `@nestjs/platform-fastify`
+- TypeScript
+- Prisma ORM
+- PostgreSQL
+- JWT
+- Argon2
+- Vitest
+- pnpm
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Funcionalidad implementada
 
-## Project setup
+Se implementó el flujo de autenticación correspondiente a TAL-28:
 
-```bash
-$ pnpm install
+- búsqueda de usuarios por correo electrónico;
+- validación de contraseñas mediante hashes Argon2;
+- generación de tokens JWT;
+- payload limitado a `userId` y `role`;
+- respuesta `200 OK` cuando el login es válido;
+- respuesta `401 Unauthorized` cuando las credenciales son inválidas;
+- validación del cuerpo con `class-validator`;
+- acceso a PostgreSQL mediante Prisma.
+
+## Estructura principal
+
+```text
+ms-auth/
+├── prisma/
+│   ├── migrations/
+│   └── schema.prisma
+├── src/
+│   ├── auth/
+│   │   ├── dto/login.dto.ts
+│   │   ├── auth.controller.ts
+│   │   ├── auth.types.ts
+│   │   ├── auth.module.ts
+│   │   ├── jwt-auth.guard.ts
+│   │   ├── jwt-auth.guard.spec.ts
+│   │   ├── auth.service.spec.ts
+│   │   └── auth.service.ts
+│   ├── prisma/
+│   │   ├── prisma.module.ts
+│   │   └── prisma.service.ts
+│   ├── app.module.ts
+│   ├── main.ts
+│   └── types/fastify.d.ts
+├── .env.example
+├── package.json
+└── vitest.config.ts
 ```
 
-## Compile and run the project
+## Modelos de datos
 
-```bash
-# development
-$ pnpm run start
+Los modelos de usuarios y roles están definidos en [prisma/schema.prisma](prisma/schema.prisma).
 
-# watch mode
-$ pnpm run start:dev
+### Role
 
-# production mode
-$ pnpm run start:prod
+`Role` contiene el nombre y la descripción del rol. El nombre es único y un rol puede estar asociado con varios usuarios.
+
+### User
+
+`User` contiene un identificador UUID, correo único, contraseña almacenada como hash, nombre opcional, estado activo y una relación obligatoria con `Role` mediante `roleId`.
+
+La relación permite recuperar el rol durante el login sin incluir información innecesaria en el token.
+
+## Conexión a la base de datos
+
+La conexión está encapsulada en [src/prisma/prisma.service.ts](src/prisma/prisma.service.ts). `PrismaService` hereda de `PrismaClient`, conecta en `onModuleInit`, libera la conexión en `onModuleDestroy` y registra el estado de la conexión.
+
+La base de datos PostgreSQL está definida en el `docker-compose.yml` de la raíz. Para autenticación se utiliza el puerto local `5435`.
+
+## Endpoint de autenticación
+
+### `POST /auth/login`
+
+Solicitud:
+
+```http
+POST /auth/login
+Content-Type: application/json
 ```
 
-## Run tests
-
-```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+```json
+{
+  "email": "admin@test.com",
+  "password": "pass123"
+}
 ```
 
-## Deployment
+Respuesta exitosa (`200 OK`):
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+```json
+{
+  "accessToken": "<token-jwt>"
+}
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Las credenciales inexistentes o incorrectas producen `401 Unauthorized`. El servicio no revela si falló el correo o la contraseña.
 
-## Observability
+## Ruta protegida por JWT
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+### `GET /auth/me`
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+La ruta requiere `Authorization: Bearer <token>`. El guard `JwtAuthGuard` verifica la firma y la expiración mediante la configuración compartida de `JwtService`. Cuando la validación es correcta, inyecta `{ userId, role }` en `request.user` y el controlador devuelve esos claims.
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+Flujo:
 
-## Resources
+1. Nest recibe la cabecera `Authorization`.
+2. `JwtAuthGuard` extrae el token Bearer y ejecuta `JwtService.verify`.
+3. Un token ausente, expirado, con firma inválida o con claims incompletos produce `401 Unauthorized`.
+4. Un token válido se asigna a `request.user` y `GET /auth/me` responde `200 OK`.
 
-Check out a few resources that may come in handy when working with NestJS:
+Prueba con un token válido obtenido desde `/auth/login`:
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+```bash
+TOKEN="<token-jwt>"
+curl -i http://localhost:3001/auth/me \
+  -H "Authorization: Bearer $TOKEN"
+```
 
-## Support
+Respuesta esperada (`200 OK`):
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```json
+{
+  "userId": "<id-del-usuario>",
+  "role": "admin"
+}
+```
 
-## Stay in touch
+Prueba sin token:
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+curl -i http://localhost:3001/auth/me
+```
 
-## License
+Respuesta esperada: `401 Unauthorized`. El mismo código se devuelve para tokens expirados o firmados con un secreto diferente al valor de `JWT_SECRET`.
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+## Payload del JWT
+
+El token se firma exclusivamente con:
+
+```ts
+const payload = {
+  userId: user.id,
+  role: user.role.name,
+};
+```
+
+No se incluyen contraseñas, correos electrónicos ni otros datos personales. La expiración está configurada en una hora.
+
+## Variables de entorno
+
+Copia `.env.example` como `.env` dentro de `ms-auth`:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5435/auth_db
+AUTH_PORT=3001
+JWT_SECRET=super_secret_key_change_me
+```
+
+En producción, `JWT_SECRET` debe ser largo, aleatorio y administrado fuera del repositorio. No se debe publicar `.env`.
+
+## Instalación y configuración
+
+Desde `ms-auth`:
+
+```bash
+corepack pnpm install
+corepack pnpm exec prisma generate
+```
+
+En Windows, si PowerShell bloquea `pnpm.ps1`, utiliza:
+
+```powershell
+pnpm.cmd install
+pnpm.cmd exec prisma generate
+```
+
+También puedes habilitar scripts para el usuario actual:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+## Base de datos con Docker
+
+Desde la raíz del repositorio:
+
+```bash
+docker compose up -d auth_db
+```
+
+Para aplicar migraciones:
+
+```bash
+cd ms-auth
+corepack pnpm exec prisma migrate deploy
+```
+
+## Ejecución del servicio
+
+```bash
+corepack pnpm run start:dev
+```
+
+El servicio queda disponible en:
+
+```text
+http://localhost:3001
+```
+
+El servidor HTTP se crea con `FastifyAdapter`; Express no forma parte de las dependencias ni del bootstrap de este microservicio.
+
+## Pruebas
+
+Las pruebas cubren:
+
+1. login válido y generación del token;
+2. rechazo de credenciales inválidas;
+3. verificación de contraseña con Argon2;
+4. payload `{ userId, role }`;
+5. ausencia de firma cuando las credenciales fallan.
+6. rechazo de tokens ausentes, inválidos o expirados.
+7. inyección de `{ userId, role }` en `request.user`.
+
+Ejecutar las pruebas:
+
+```bash
+corepack pnpm exec vitest run src/auth/auth.service.spec.ts --reporter=verbose
+```
+
+Suite completa:
+
+```bash
+corepack pnpm test
+corepack pnpm run test:e2e
+```
+
+En Windows:
+
+```powershell
+.\node_modules\.bin\vitest.cmd run src/auth/auth.service.spec.ts --reporter=verbose --pool=threads --no-file-parallelism --maxWorkers=1
+```
+
+### Resultado comprobado
+
+Después de generar Prisma, las pruebas se ejecutaron correctamente:
+
+```text
+Test Files  3 passed (3)
+Tests       6 passed (6)
+```
+
+Casos verificados:
+
+```text
+✓ should return a JWT for a valid user and role
+✓ should throw UnauthorizedException when credentials are invalid
+```
+
+También se verificó que los archivos principales no presentan errores de TypeScript en el editor.
+
+## Problemas del entorno y solución
+
+### PowerShell bloqueaba pnpm
+
+Se solucionó utilizando `pnpm.cmd` o habilitando `RemoteSigned` para el usuario actual.
+
+### Builds nativos bloqueados por pnpm
+
+Prisma, Argon2 y esbuild requieren componentes nativos. Se configuró [pnpm-workspace.yaml](pnpm-workspace.yaml) con permisos explícitos:
+
+```yaml
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  argon2: true
+  esbuild: true
+  prisma: true
+```
+
+### Cliente Prisma inexistente
+
+El error `Cannot find module '.prisma/client/default'` se resolvió ejecutando:
+
+```bash
+pnpm exec prisma generate
+```
+
+### Vitest quedaba en estado `queued`
+
+Se actualizó [vitest.config.ts](vitest.config.ts) para utilizar la resolución nativa de rutas de Vite y se ejecutó Vitest con un único worker en Windows.
+
+## Scripts disponibles
+
+```bash
+pnpm run build       # compilar
+pnpm run start       # iniciar
+pnpm run start:dev   # iniciar en desarrollo
+pnpm run test        # ejecutar pruebas
+pnpm run test:e2e    # pruebas end-to-end
+pnpm run test:cov    # cobertura
+pnpm run lint        # linter
+```
+
+## Estado final
+
+La autenticación está implementada y validada a nivel unitario. El microservicio dispone de modelos `User` y `Role`, conexión Prisma, endpoint `POST /auth/login`, comparación Argon2, firma JWT mediante variable de entorno, payload limitado, respuestas HTTP adecuadas y pruebas exitosas.
+
+La validación contra una base de datos real requiere PostgreSQL levantado mediante Docker y usuarios existentes con contraseñas almacenadas como hashes Argon2.
