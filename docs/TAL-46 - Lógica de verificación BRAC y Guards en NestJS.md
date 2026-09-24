@@ -28,7 +28,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { FastifyRequest } from 'fastify';
+import type { Request } from 'express';
 import { ROLES_KEY } from './roles.decorator.js';
 
 @Injectable()
@@ -48,7 +48,7 @@ export class RolesGuard implements CanActivate {
     }
 
     // 2. Extraer el usuario que inyectó JwtAuthGuard en la petición
-    const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const request = context.switchToHttp().getRequest<Request & { user: any }>();
     const user = request.user;
 
     // 3. Validar si el usuario existe y si su rol coincide con los requeridos

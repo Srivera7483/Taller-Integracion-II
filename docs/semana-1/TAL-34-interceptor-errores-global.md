@@ -27,7 +27,7 @@ Para abordar el problema, se decidió aprovechar los patrones de diseño orienta
 
 ### 2.1. Implementación de un `ExceptionFilter` Global
 * **Decisión:** Se creó la clase `AllExceptionsFilter` implementando la interfaz nativa `ExceptionFilter` de NestJS, y se inyectó a nivel de aplicación en el `main.ts`.
-* **Justificación Técnica:** En lugar de interceptar errores en cada capa del servicio, un filtro de excepciones global actúa como una "malla de seguridad" final. Se sitúa en la capa más externa del servidor HTTP (Fastify/Express). Cualquier excepción arrojada —ya sea una advertencia de negocio (`HttpException` de código 400) o un error catastrófico no controlado (`TypeError` de código 500)—, es interceptada aquí antes de ser enviada al cliente.
+* **Justificación Técnica:** En lugar de interceptar errores en cada capa del servicio, un filtro de excepciones global actúa como una "malla de seguridad" final. Se sitúa en la capa más externa del servidor HTTP (Express). Cualquier excepción arrojada —ya sea una advertencia de negocio (`HttpException` de código 400) o un error catastrófico no controlado (`TypeError` de código 500)—, es interceptada aquí antes de ser enviada al cliente.
 
 ### 2.2. Seguridad por Obscuridad Controlada (Information Disclosure Prevention)
 * **Decisión:** El interceptor fue programado para evaluar el tipo de error. Si el error proviene de una regla de negocio programada por nosotros (`instanceof HttpException`), el filtro respeta el mensaje. Pero si es un error interno (`Error` nativo), el filtro sobrescribe el mensaje con un genérico *"Internal server error"*.
