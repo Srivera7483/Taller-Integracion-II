@@ -70,7 +70,10 @@ const Layout = () => {
           </div>
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => navigate('/login')}
+              onClick={() => {
+                localStorage.removeItem('token');
+                navigate('/login');
+              }}
               className="flex items-center gap-2 text-gray-500 hover:text-red-600 transition-colors"
               title="Cerrar sesión"
             >
