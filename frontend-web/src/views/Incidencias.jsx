@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
+import StatusFilter from '../components/StatusFilter';
 import { 
   FiSearch, 
   FiPlus, 
@@ -18,20 +19,36 @@ const Incidencias = () => {
   // Cargar incidencias desde cookies y datos base al montar
   const [incidencias, setIncidencias] = useState(() => getIncidencias());
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('Todas');
 
   const recargarIncidencias = () => {
     const data = getIncidencias();
     setIncidencias(data);
   };
 
+  // Calcular contadores por estado
+  const counts = incidencias.reduce((acc, inc) => {
+    const estado = inc.estado || 'Pendiente';
+    acc[estado] = (acc[estado] || 0) + 1;
+    acc['Todas'] = (acc['Todas'] || 0) + 1;
+    return acc;
+  }, { 'Todas': 0 });
+
   // Filtrado reactivo en tiempo real
   const incidenciasFiltradas = incidencias.filter((inc) => {
+    // Filtro por texto
     const texto = terminoBusqueda.toLowerCase();
     const coincideTitulo = inc.titulo?.toLowerCase().includes(texto);
     const coincideActivo = inc.id_activo?.toLowerCase().includes(texto);
     const coincideId = inc.id?.toLowerCase().includes(texto);
     const coincideCategoria = inc.categoria?.toLowerCase().includes(texto);
-    return coincideTitulo || coincideActivo || coincideId || coincideCategoria;
+    const matchBusqueda = coincideTitulo || coincideActivo || coincideId || coincideCategoria;
+
+    // Filtro por estado
+    const incEstado = inc.estado || 'Pendiente';
+    const matchEstado = filtroEstado === 'Todas' || incEstado.toLowerCase() === filtroEstado.toLowerCase();
+
+    return matchBusqueda && matchEstado;
   });
 
   const tieneTemporales = incidencias.some((inc) => inc.esTemporal);
@@ -85,6 +102,14 @@ const Incidencias = () => {
           </Link>
         </div>
       </div>
+
+      {/* Filtros visuales por estado */}
+      <StatusFilter 
+        options={['Todas', 'Pendiente', 'En Progreso', 'Resuelta', 'Cerrada']} 
+        activeFilter={filtroEstado} 
+        onFilterChange={setFiltroEstado} 
+        counts={counts} 
+      />
 
       {/* Banner Informativo sobre Cookies Temporales */}
       {tieneTemporales && (
