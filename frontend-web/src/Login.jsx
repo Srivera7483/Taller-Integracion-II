@@ -9,6 +9,7 @@ import {
   IoArrowForwardOutline 
 } from 'react-icons/io5';
 import { useToast } from './context/ToastContext';
+import api from './services/api';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -55,43 +56,31 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const endpoint = mode === 'login' ? `${baseUrl}/auth/login` : `${baseUrl}/auth/register`;
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      const endpoint = mode === 'login' ? '/auth/login' : '/auth/register';
+      const response = await api.post(endpoint, payload);
 
       if (mode === 'login') {
-        if (response.status === 200) {
-          const data = await response.json();
+        if (response.status === 200 || response.status === 201) {
+          const data = response.data;
           const token = data.token || data.accessToken || data.access_token;
           if (token) {
             localStorage.setItem('token', token);
           }
           showToast('Inicio de sesión exitoso', 'success');
           navigate('/dashboard');
-        } else if (response.status === 401) {
-          showToast('Credenciales inválidas', 'error');
-        } else {
-          showToast('Error al iniciar sesión', 'error');
         }
       } else {
-        if (response.ok) {
+        if (response.status === 200 || response.status === 201) {
           showToast('Registro exitoso', 'success');
           setMode('login');
           setPassword('');
           setShowPassword(false);
-        } else {
-          showToast('Error al registrarse', 'error');
         }
       }
     } catch (error) {
       console.error('Error de red:', error);
-      showToast('Error de conexión con el servidor', 'error');
+      // El Toast ya es disparado automáticamente por el AxiosInterceptor en caso de 4xx/5xx
+      // Solo mostramos toast genérico en caso de que no haya respuesta (ya manejado por interceptor también)
     } finally {
       setIsSubmitting(false);
     }
