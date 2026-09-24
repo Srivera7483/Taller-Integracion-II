@@ -10,6 +10,7 @@ import Incidencias from './views/Incidencias';
 import ReporteIncidencia from './views/ReporteIncidencia';
 import Inventario from './views/Inventario';
 import Login from './views/Login';
+import Usuarios from './views/Usuarios';
 
 function App() {
   return (
@@ -30,6 +31,7 @@ function App() {
             <Route path="incidencias/nueva" element={<ReporteIncidencia />} />
             <Route path="incidencias/reportar" element={<ReporteIncidencia />} />
             <Route path="inventario" element={<Inventario />} />
+            <Route path="usuarios" element={<Usuarios />} />
           </Route>
         </Routes>
         

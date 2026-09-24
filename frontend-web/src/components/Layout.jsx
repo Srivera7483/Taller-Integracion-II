@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut } from 'react-icons/fi';
+import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers } from 'react-icons/fi';
 
 const Layout = () => {
   const location = useLocation();
@@ -14,6 +14,7 @@ const Layout = () => {
       case '/dashboard': return 'Dashboard';
       case '/incidencias': return 'Incidencias';
       case '/inventario': return 'Inventario';
+      case '/usuarios': return 'Usuarios';
       default: return 'Sistema de Gestión';
     }
   };
@@ -22,6 +23,7 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
     { path: '/inventario', label: 'Inventario', icon: FiBox },
+    { path: '/usuarios', label: 'Usuarios', icon: FiUsers },
   ];
 
   return (
