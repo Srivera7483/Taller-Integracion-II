@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { FastifyRequest } from 'fastify';
+import type { Request } from 'express';
 import type { JwtUser } from './auth.types.js';
 
 @Injectable()
@@ -13,7 +13,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(private readonly jwtService: JwtService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const request = context.switchToHttp().getRequest<Request & { user: any }>();
     const authorization = request.headers.authorization;
     const token = authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
 

@@ -12,6 +12,13 @@ export class UserRepository {
     });
   }
 
+  async findByEmail(email: string) {
+    return await this.prisma.user.findUnique({
+      where: { email },
+      include: { role: true },
+    });
+  }
+
   async updateRole(id: string, roleName: string) {
     return await this.prisma.user.update({
       where: { id },
