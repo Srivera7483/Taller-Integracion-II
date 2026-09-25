@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { EstadoIncidencia } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
 
 const estadosIncidencia = new Set<string>(Object.values(EstadoIncidencia));
 
@@ -54,6 +55,25 @@ export class IncidenciasService {
       });
 
       return incidenciaActualizada;
+    });
+  }
+
+  async crearEvidencia(body: CrearEvidenciaDto) {
+    const incidencia = await this.prisma.incidencias.findUnique({
+      where: { id_incidencia: body.incidencia_id },
+      select: { id_incidencia: true },
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException('Incidencia no encontrada');
+    }
+
+    return this.prisma.evidencia.create({
+      data: {
+        incidencia_id: incidencia.id_incidencia,
+        descripcion: body.descripcion,
+        ...(body.fecha ? { fecha: new Date(body.fecha) } : {}),
+      },
     });
   }
 }
