@@ -4,9 +4,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { IncidenciasModule } from './incidencias/incidencias.module';
 import { PrismaModule } from './prisma/prisma.module';
-import { ConfigModule } from '@nestjs/config';
-import { PrismaModule } from './prisma/prisma.module';
-import { IncidenciasModule } from './incidencias/incidencias.module';
 import { OrdenesTrabajoModule } from './ordenes-trabajo/ordenes-trabajo.module';
 
 @Module({
