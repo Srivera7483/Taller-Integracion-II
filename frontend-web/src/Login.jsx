@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  IoServer, 
-  IoMailOutline, 
-  IoLockClosedOutline, 
-  IoEyeOutline, 
-  IoEyeOffOutline, 
-  IoArrowForwardOutline 
+import {
+  IoServer,
+  IoMailOutline,
+  IoLockClosedOutline,
+  IoEyeOutline,
+  IoEyeOffOutline,
+  IoArrowForwardOutline
 } from 'react-icons/io5';
 import { useToast } from './context/ToastContext';
 
@@ -111,7 +111,7 @@ const Login = () => {
 
         {/* Tarjeta de autenticación */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-8 w-full max-w-sm fade-in-up transition-all relative z-10">
-          
+
           {/* Encabezado con ícono de servidor */}
           <div className="flex flex-col items-center justify-center gap-2 mb-8">
             <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-2xl mb-2">
@@ -194,16 +194,15 @@ const Login = () => {
               type="submit"
               id="submit-btn"
               disabled={!isFormValid || isSubmitting}
-              className={`w-full mt-2 bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-                isFormValid && !isSubmitting ? 'hover:shadow-md hover:-translate-y-0.5' : ''
-              }`}
+              className={`w-full mt-2 bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${isFormValid && !isSubmitting ? 'hover:shadow-md hover:-translate-y-0.5' : ''
+                }`}
             >
               <span id="btn-text">
                 {isSubmitting
                   ? 'Procesando...'
                   : mode === 'login'
-                  ? 'Ingresar'
-                  : 'Registrarse'}
+                    ? 'Ingresar'
+                    : 'Registrarse'}
               </span>
               <IoArrowForwardOutline />
             </button>
