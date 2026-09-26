@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { ActualizarEstadoDto } from './dto/actualizar-estado.dto';
+import { ActualizarDiagnosticoDto } from './dto/actualizar-diagnostico.dto';
 import { IncidenciasService } from './incidencias.service';
 
 type RequestWithUser = Request & {
@@ -33,6 +34,25 @@ export class IncidenciasController {
     return this.incidenciasService.actualizarEstado(
       incidenciaId,
       body.estado,
+      usuarioId,
+    );
+  }
+
+  @Patch('ordenes-trabajo/:id_orden/diagnostico')
+  async actualizarDiagnostico(
+    @Param('id_orden') id_orden: string,
+    @Body() body: ActualizarDiagnosticoDto,
+    @Req() request: RequestWithUser,
+  ) {
+    const usuarioId = request.user?.userId ?? request.user?.sub;
+
+    if (!usuarioId) {
+      throw new UnauthorizedException('Usuario autenticado requerido');
+    }
+
+    return this.incidenciasService.actualizarDiagnostico(
+      id_orden,
+      body.diagnostico_tecnico,
       usuarioId,
     );
   }
