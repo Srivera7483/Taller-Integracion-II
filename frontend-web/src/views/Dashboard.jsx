@@ -11,7 +11,7 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-bold text-gray-800">Resumen General</h2>
-        <button 
+        <button
           onClick={() => showToast('¡El Toast funciona perfectamente!', 'success')}
           className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition shadow-sm"
         >
@@ -20,23 +20,23 @@ const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <MetricCard 
-          title="Incidencias Pendientes" 
-          value="12" 
-          icon={FiClock} 
-          color="orange" 
+        <MetricCard
+          title="Incidencias Pendientes"
+          value="12"
+          icon={FiClock}
+          color="orange"
         />
-        <MetricCard 
-          title="Incidencias Críticas" 
-          value="3" 
-          icon={FiAlertTriangle} 
-          color="red" 
+        <MetricCard
+          title="Incidencias Críticas"
+          value="3"
+          icon={FiAlertTriangle}
+          color="red"
         />
-        <MetricCard 
-          title="Resueltas Hoy" 
-          value="24" 
-          icon={FiCheckCircle} 
-          color="green" 
+        <MetricCard
+          title="Resueltas Hoy"
+          value="24"
+          icon={FiCheckCircle}
+          color="green"
         />
       </div>
 

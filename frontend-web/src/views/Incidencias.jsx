@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
-import { 
-  FiSearch, 
-  FiPlus, 
-  FiTrash2, 
-  FiBox, 
-  FiClock, 
+import {
+  FiSearch,
+  FiPlus,
+  FiTrash2,
+  FiBox,
+  FiClock,
   FiUser,
-  FiInfo 
+  FiInfo,
+  FiUserCheck
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { getIncidencias, clearTempIncidencias } from '../services/incidenciasStorage';
@@ -56,18 +57,18 @@ const Incidencias = () => {
       <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input 
-            type="text" 
+          <input
+            type="text"
             value={terminoBusqueda}
             onChange={(e) => setTerminoBusqueda(e.target.value)}
-            placeholder="Buscar por título, ID o activo..." 
+            placeholder="Buscar por título, ID o activo..."
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm bg-white"
           />
         </div>
 
         <div className="flex items-center gap-2">
           {tieneTemporales && (
-            <button 
+            <button
               onClick={handleLimpiarPruebas}
               title="Borrar las incidencias almacenadas en la cookie temporal"
               className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors bg-white shadow-sm"
@@ -76,6 +77,14 @@ const Incidencias = () => {
               Limpiar Pruebas
             </button>
           )}
+
+          <Link
+            to="/incidencias/asignar"
+            id="btn-abrir-asignar-tecnico"
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium text-sm shadow-sm"
+          >
+            <FiUserCheck className="w-4 h-4" /> Asignar Tecnico
+          </Link>
 
           <Link
             to="/incidencias/nueva"
@@ -158,9 +167,18 @@ const Incidencias = () => {
 
                     <td className="px-6 py-4">
                       <div className="flex flex-col text-xs text-gray-500">
-                        <span className="flex items-center gap-1 text-gray-700 font-medium">
+                        <span className="flex items-center gap-1.5 text-gray-700 font-medium">
                           <FiUser className="w-3 h-3 text-gray-400" />
-                          {inc.asignado || 'Equipo de Soporte'}
+                          <span>{inc.asignado || 'Sin asignar'}</span>
+                          {(!inc.asignado || inc.asignado === 'Sin asignar' || inc.estado === 'Pendiente') && (
+                            <Link
+                              to={`/incidencias/asignar?incidenciaId=${inc.id}`}
+                              className="ml-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-semibold underline"
+                              title="Asignar técnico a esta orden"
+                            >
+                              Asignar
+                            </Link>
+                          )}
                         </span>
                         <span className="flex items-center gap-1 text-gray-400 mt-0.5">
                           <FiClock className="w-3 h-3" />
