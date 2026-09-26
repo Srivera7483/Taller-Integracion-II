@@ -1,81 +1,110 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { verify } from 'argon2';
-import { PrismaService } from '../prisma/prisma.service.js';
 import { AuthService } from './auth.service.js';
+import { UserRepository } from './user.repository.js';
+import { RoleEnum } from './dto/update-role.dto.js';
 
 vi.mock('argon2', () => ({
   verify: vi.fn(),
 }));
 
 describe('AuthService', () => {
-  it('should return a JWT for a valid user and role', async () => {
-    vi.mocked(verify).mockResolvedValue(true);
+  let service: AuthService;
+  let userRepositoryMock: any;
+  let jwtMock: any;
 
-    const prisma: any = {
-      user: {
-        findUnique: vi.fn().mockResolvedValue({
-          id: 'user-123',
-          password: '$argon2id$v=19$m=65536,t=3,p=4$test-hash',
-          role: { name: 'admin' },
-        }),
-      },
+  beforeEach(async () => {
+    userRepositoryMock = {
+      findByEmail: vi.fn(),
+      findById: vi.fn(),
+      updateRole: vi.fn(),
     };
 
-    const jwt: any = {
+    jwtMock = {
       sign: vi.fn().mockReturnValue('signed-token'),
     };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuthService,
-        { provide: PrismaService, useValue: prisma },
-        { provide: JwtService, useValue: jwt },
+        { provide: UserRepository, useValue: userRepositoryMock },
+        { provide: JwtService, useValue: jwtMock },
       ],
     }).compile();
 
-    const service = moduleRef.get(AuthService);
-    const result = await service.login({ email: 'admin@test.com', password: 'pass123' });
-
-    expect(verify).toHaveBeenCalledWith(
-      '$argon2id$v=19$m=65536,t=3,p=4$test-hash',
-      'pass123',
-    );
-    expect(jwt.sign).toHaveBeenCalledWith({ userId: 'user-123', role: 'admin' });
-    expect(result).toEqual({ accessToken: 'signed-token' });
+    service = moduleRef.get(AuthService);
   });
 
-  it('should throw UnauthorizedException when credentials are invalid', async () => {
-    vi.mocked(verify).mockResolvedValue(false);
+  describe('login', () => {
+    it('debe retornar un JWT token cuando las credenciales son válidas', async () => {
+      vi.mocked(verify).mockResolvedValue(true);
+      userRepositoryMock.findByEmail.mockResolvedValue({
+        id: 'user-123',
+        password: '$argon2id$v=19$m=65536,t=3,p=4$test-hash',
+        role: { name: 'ADMINISTRADOR' },
+      });
 
-    const prisma: any = {
-      user: {
-        findUnique: vi.fn().mockResolvedValue({
-          id: 'user-123',
-          password: '$argon2id$v=19$m=65536,t=3,p=4$test-hash',
-          role: { name: 'user' },
-        }),
-      },
-    };
+      const result = await service.login({ email: 'ADMIN@test.com ', password: 'pass123' });
 
-    const jwt: any = {
-      sign: vi.fn(),
-    };
+      expect(userRepositoryMock.findByEmail).toHaveBeenCalledWith('admin@test.com');
+      expect(verify).toHaveBeenCalledWith(
+        '$argon2id$v=19$m=65536,t=3,p=4$test-hash',
+        'pass123',
+      );
+      expect(jwtMock.sign).toHaveBeenCalledWith({ userId: 'user-123', role: 'ADMINISTRADOR' });
+      expect(result).toEqual({ accessToken: 'signed-token' });
+    });
 
-    const moduleRef = await Test.createTestingModule({
-      providers: [
-        AuthService,
-        { provide: PrismaService, useValue: prisma },
-        { provide: JwtService, useValue: jwt },
-      ],
-    }).compile();
+    it('debe lanzar UnauthorizedException si el correo no existe', async () => {
+      userRepositoryMock.findByEmail.mockResolvedValue(null);
 
-    const service = moduleRef.get(AuthService);
+      await expect(
+        service.login({ email: 'noexiste@test.com', password: 'pass123' }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(jwtMock.sign).not.toHaveBeenCalled();
+    });
 
-    await expect(
-      service.login({ email: 'admin@test.com', password: 'wrong-password' }),
-    ).rejects.toThrow(UnauthorizedException);
-    expect(jwt.sign).not.toHaveBeenCalled();
+    it('debe lanzar UnauthorizedException si la contraseña no coincide', async () => {
+      vi.mocked(verify).mockResolvedValue(false);
+      userRepositoryMock.findByEmail.mockResolvedValue({
+        id: 'user-123',
+        password: 'hash',
+        role: { name: 'TECNICO' },
+      });
+
+      await expect(
+        service.login({ email: 'tecnico@test.com', password: 'wrong-password' }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(jwtMock.sign).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateUserRole', () => {
+    it('debe actualizar el rol del usuario si este existe', async () => {
+      const mockUser = { id: 'uuid-123', email: 'user@test.com' };
+      const mockUpdated = { id: 'uuid-123', role: { name: RoleEnum.SUPERVISOR } };
+
+      userRepositoryMock.findById.mockResolvedValue(mockUser);
+      userRepositoryMock.updateRole.mockResolvedValue(mockUpdated);
+
+      const result = await service.updateUserRole('uuid-123', { rol: RoleEnum.SUPERVISOR });
+
+      expect(userRepositoryMock.findById).toHaveBeenCalledWith('uuid-123');
+      expect(userRepositoryMock.updateRole).toHaveBeenCalledWith('uuid-123', RoleEnum.SUPERVISOR);
+      expect(result).toEqual(mockUpdated);
+    });
+
+    it('debe lanzar NotFoundException si el usuario no existe', async () => {
+      userRepositoryMock.findById.mockResolvedValue(null);
+
+      await expect(
+        service.updateUserRole('uuid-inexistente', { rol: RoleEnum.SUPERVISOR }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(userRepositoryMock.updateRole).not.toHaveBeenCalled();
+    });
   });
 });
