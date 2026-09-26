@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   FiChevronRight,
   FiUserCheck,
@@ -7,7 +7,10 @@ import {
   FiClock,
   FiShield,
   FiBox,
-  FiArrowLeft
+  FiArrowLeft,
+  FiCheckCircle,
+  FiSend,
+  FiRefreshCw
 } from 'react-icons/fi';
 import StatusBadge from '../components/StatusBadge';
 import { useToast } from '../context/ToastContext';
@@ -16,16 +19,24 @@ import {
   TECNICOS_EXISTENTES,
   asignarTecnicoIncidencia
 } from '../services/incidenciasStorage';
+import {
+  crearOrdenTrabajoApi,
+  getAsignarOrdenEndpoint
+} from '../services/ordenesService';
 
 const AsignarTecnico = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showToast } = useToast();
 
-  const [incidencias] = useState(() => getIncidencias());
+  const [incidencias, setIncidencias] = useState(() => getIncidencias());
   const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
   const [notasInstrucciones, setNotasInstrucciones] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Estados reactivos para reflejar la orden emitida y el estado de integración
+  const [ordenEmitida, setOrdenEmitida] = useState(null);
+  const [errorApi, setErrorApi] = useState(null);
+  const [historialEmitidas, setHistorialEmitidas] = useState([]);
 
   // Filtrar para excluir incidencias que ya poseen un técnico asignado
   const tieneTecnicoAsignado = (inc) => {
@@ -42,11 +53,14 @@ const AsignarTecnico = () => {
 
   const incidenciasDisponibles = incidencias.filter((inc) => !tieneTecnicoAsignado(inc));
 
-  // Derivación directa y limpia del ID de incidencia seleccionada (URL param > selección de usuario > por defecto)
-  const [overrideIncidenciaId, setOverrideIncidenciaId] = useState('');
-  const queryIncId = searchParams.get('incidenciaId');
-  const fallbackIncId = incidenciasDisponibles[0]?.id || '';
-  const selectedIncidenciaId = overrideIncidenciaId || (queryIncId && incidenciasDisponibles.some((i) => i.id === queryIncId) ? queryIncId : fallbackIncId);
+  // Derivación directa y limpia del ID de incidencia seleccionada (URL param > selección de usuario)
+  const queryIncId = searchParams.get('incidenciaId') || '';
+  const [selectedIncidenciaId, setSelectedIncidenciaId] = useState(() => {
+    if (queryIncId && incidenciasDisponibles.some((i) => i.id === queryIncId)) {
+      return queryIncId;
+    }
+    return '';
+  });
 
   const incidenciaSeleccionada = incidencias.find((item) => item.id === selectedIncidenciaId);
   const tecnicoSeleccionado = TECNICOS_EXISTENTES.find((t) => t.id === selectedTecnicoId);
@@ -54,31 +68,127 @@ const AsignarTecnico = () => {
   // Validación: Se debe tener seleccionada tanto la incidencia como el técnico existente
   const isFormValid = Boolean(selectedIncidenciaId && selectedTecnicoId);
 
-  const handleSubmit = (e) => {
+  /**
+   * Envía el payload al API Gateway de forma asíncrona y procesa la respuesta.
+   */
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isFormValid || isSubmitting) return;
 
     setIsSubmitting(true);
+    setErrorApi(null);
+
+    // Payload formal esperado por el endpoint /api/incidencias/ordenes-trabajo/asignar
+    const payload = {
+      incidencia_id: selectedIncidenciaId,
+      tecnico_id: selectedTecnicoId,
+      instrucciones: notasInstrucciones.trim(),
+    };
 
     try {
-      asignarTecnicoIncidencia(
-        selectedIncidenciaId,
-        tecnicoSeleccionado.nombre,
-        notasInstrucciones
-      );
+      // 1. Envío asíncrono al API Gateway
+      const res = await crearOrdenTrabajoApi(payload);
 
-      showToast(
-        `Orden ${selectedIncidenciaId} asignada exitosamente a ${tecnicoSeleccionado.nombre}`,
-        'success'
-      );
+      // 2. Al recibir un 200 OK o 201 Created:
+      if (res.status === 200 || res.status === 201) {
+        const idOrdenEmitida =
+          res.data?.id_orden ||
+          res.data?.id ||
+          `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
 
-      navigate('/incidencias');
-    } catch (error) {
-      console.error('Error al asignar técnico:', error);
-      showToast('Ocurrió un error al procesar la asignación.', 'error');
+        const datosOrdenEmitida = {
+          id_orden: idOrdenEmitida,
+          incidencia_id: payload.incidencia_id,
+          incidencia_titulo: incidenciaSeleccionada?.titulo || 'Incidencia de infraestructura',
+          id_activo: incidenciaSeleccionada?.id_activo || 'N/A',
+          tecnico_id: payload.tecnico_id,
+          tecnico_nombre: tecnicoSeleccionado?.nombre || 'Técnico asignado',
+          instrucciones: payload.instrucciones,
+          fecha_emision: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          estado: res.data?.estado || 'Emitida',
+          httpStatus: res.status,
+          endpoint: res.endpoint,
+        };
+
+        // A) El formulario se limpia
+        setSelectedIncidenciaId('');
+        setSelectedTecnicoId('');
+        setNotasInstrucciones('');
+        setErrorApi(null);
+
+        // B) La interfaz refleja que la orden fue emitida
+        setOrdenEmitida(datosOrdenEmitida);
+        setHistorialEmitidas((prev) => [datosOrdenEmitida, ...prev]);
+
+        // C) Actualizar estado local para reflejar la incidencia como asignada
+        asignarTecnicoIncidencia(
+          payload.incidencia_id,
+          tecnicoSeleccionado.nombre,
+          payload.instrucciones
+        );
+        setIncidencias(getIncidencias());
+
+        showToast(
+          `¡Orden ${idOrdenEmitida} emitida con éxito (${res.status === 201 ? '201 Created' : '200 OK'})!`,
+          'success'
+        );
+      } else {
+        const detalleError =
+          res.data?.message ||
+          res.data?.error ||
+          `Código HTTP ${res.status}`;
+        console.log(`[API Gateway] Error de respuesta: ${detalleError}`, res);
+        setErrorApi('Fallo en la comunicacion ERROR 502');
+        showToast('Fallo en la comunicacion ERROR 502', 'error');
+      }
+    } catch (networkError) {
+      const endpoint = getAsignarOrdenEndpoint();
+      console.log(`No fue posible conectar con el API Gateway en '${endpoint}'. Verifica que el Gateway esté en ejecución.`, networkError);
+      setErrorApi('Fallo en la comunicacion ERROR 502');
+      showToast('Fallo en la comunicacion ERROR 502', 'error');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  /**
+   * Permite probar el flujo 201 Created para pruebas de interfaz locales.
+   */
+  const handleSimular201 = () => {
+    if (!isFormValid) return;
+    const idOrdenEmitida = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
+    const datosOrdenEmitida = {
+      id_orden: idOrdenEmitida,
+      incidencia_id: selectedIncidenciaId,
+      incidencia_titulo: incidenciaSeleccionada?.titulo || 'Incidencia de infraestructura',
+      id_activo: incidenciaSeleccionada?.id_activo || 'N/A',
+      tecnico_id: selectedTecnicoId,
+      tecnico_nombre: tecnicoSeleccionado?.nombre || 'Técnico asignado',
+      instrucciones: notasInstrucciones.trim(),
+      fecha_emision: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      estado: 'Emitida',
+      httpStatus: 201,
+      endpoint: getAsignarOrdenEndpoint(),
+    };
+
+    // El formulario se limpia
+    setSelectedIncidenciaId('');
+    setSelectedTecnicoId('');
+    setNotasInstrucciones('');
+    setErrorApi(null);
+
+    // La interfaz refleja que la orden fue emitida
+    setOrdenEmitida(datosOrdenEmitida);
+    setHistorialEmitidas((prev) => [datosOrdenEmitida, ...prev]);
+
+    asignarTecnicoIncidencia(
+      datosOrdenEmitida.incidencia_id,
+      datosOrdenEmitida.tecnico_nombre,
+      datosOrdenEmitida.instrucciones
+    );
+    setIncidencias(getIncidencias());
+
+    showToast(`¡Orden ${idOrdenEmitida} emitida con éxito (Simulación 201 Created)!`, 'success');
   };
 
   return (
@@ -115,9 +225,107 @@ const AsignarTecnico = () => {
         {/* Indicador de rol temporal */}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-800 text-xs font-medium rounded-lg border border-amber-200 self-start md:self-auto">
           <FiShield className="w-4 h-4 text-amber-600 flex-shrink-0" />
-          <span>Módulo asignado al rol <strong>Supervisor</strong> (Activo global temporalmente)</span>
+          <span>Módulo asignado al rol <strong>Supervisor</strong></span>
         </div>
       </div>
+
+      {/* BANNER PRINCIPAL: Refleja que la orden fue emitida */}
+      {ordenEmitida && (
+        <div
+          id="banner-orden-emitida"
+          className="bg-emerald-50 border border-emerald-300 rounded-xl p-5 shadow-sm text-emerald-950 transition-all animate-fadeIn"
+        >
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl flex-shrink-0 mt-0.5 shadow-xs">
+                <FiCheckCircle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-base text-emerald-900">
+                    ¡Orden de Trabajo Emitida Exitosamente!
+                  </h3>
+                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-200 text-emerald-800 border border-emerald-300 font-mono">
+                    {ordenEmitida.httpStatus === 201 ? '201 Created' : '200 OK'}
+                  </span>
+                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    Estado: {ordenEmitida.estado || 'Emitida'}
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-800">
+                  La orden de trabajo fue transmitida y registrada a través del API Gateway.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs text-emerald-950 pt-3 border-t border-emerald-200 mt-2.5">
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                    <span className="text-[11px] text-emerald-700 font-medium block">Código Orden</span>
+                    <strong className="font-mono text-sm text-gray-900">{ordenEmitida.id_orden}</strong>
+                  </div>
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                    <span className="text-[11px] text-emerald-700 font-medium block">Incidencia</span>
+                    <strong className="font-mono text-sm text-gray-900">{ordenEmitida.incidencia_id}</strong>
+                    <p className="text-[11px] text-gray-600 truncate">{ordenEmitida.incidencia_titulo}</p>
+                  </div>
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                    <span className="text-[11px] text-emerald-700 font-medium block">Técnico Designado</span>
+                    <strong className="text-sm text-gray-900">{ordenEmitida.tecnico_nombre}</strong>
+                  </div>
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                    <span className="text-[11px] text-emerald-700 font-medium block">Hora de Emisión</span>
+                    <span className="text-sm font-semibold text-gray-900">{ordenEmitida.fecha_emision}</span>
+                  </div>
+                </div>
+                {ordenEmitida.instrucciones && (
+                  <div className="pt-2 text-xs text-emerald-900">
+                    <span className="font-semibold">Instrucciones registradas:</span>{' '}
+                    <span className="italic">"{ordenEmitida.instrucciones}"</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex sm:flex-col items-center sm:items-end gap-2 w-full sm:w-auto flex-shrink-0">
+              <button
+                type="button"
+                id="btn-cerrar-banner-emitida"
+                onClick={() => setOrdenEmitida(null)}
+                className="text-xs px-3.5 py-2 rounded-lg bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-medium transition-colors cursor-pointer w-full sm:w-auto text-center"
+              >
+                Cerrar aviso
+              </button>
+              <Link
+                to="/incidencias"
+                id="btn-ir-a-incidencias"
+                className="text-xs px-3.5 py-2 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-medium transition-colors cursor-pointer shadow-sm w-full sm:w-auto text-center"
+              >
+                Ver en Incidencias
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ALERTA DE ERROR */}
+      {errorApi && (
+        <div
+          id="alerta-error-api"
+          className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-900 text-xs shadow-sm flex items-center justify-between gap-3 transition-all animate-fadeIn"
+        >
+          <div className="flex items-center gap-2.5">
+            <FiAlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <span className="font-bold text-red-800 text-sm">
+              Fallo en la comunicacion. ERROR 502
+            </span>
+          </div>
+          <button
+            type="button"
+            id="btn-simular-201"
+            onClick={handleSimular201}
+            className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg font-semibold text-xs transition-colors cursor-pointer flex-shrink-0"
+            title="Permite simular el comportamiento 201 Created localmente"
+          >
+            Simular respuesta 201 Created
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Formulario Principal de Asignación */}
@@ -135,7 +343,7 @@ const AsignarTecnico = () => {
               <select
                 id="select-incidencia"
                 value={selectedIncidenciaId}
-                onChange={(e) => setOverrideIncidenciaId(e.target.value)}
+                onChange={(e) => setSelectedIncidenciaId(e.target.value)}
                 required
                 className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer"
               >
@@ -198,7 +406,7 @@ const AsignarTecnico = () => {
                 </span>
               </div>
 
-              {/* Selector desplegable (dropdown) preparado */}
+              {/* Selector desplegable de técnicos */}
               <select
                 id="select-tecnico"
                 value={selectedTecnicoId}
@@ -230,8 +438,8 @@ const AsignarTecnico = () => {
                       {tecnicoSeleccionado.nombre}
                     </h4>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${tecnicoSeleccionado.disponibilidad === 'Disponible'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border-amber-200'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-amber-50 text-amber-700 border-amber-200'
                       }`}>
                       {tecnicoSeleccionado.disponibilidad}
                     </span>
@@ -264,7 +472,7 @@ const AsignarTecnico = () => {
               />
             </div>
 
-            {/* Botón de Asignar Orden con Estado Deshabilitado */}
+            {/* Botón de Asignar Orden */}
             <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
               <Link
                 to="/incidencias"
@@ -281,17 +489,28 @@ const AsignarTecnico = () => {
                     ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer hover:shadow-md'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300'
                   }`}
-                title={!isFormValid ? 'Debes seleccionar una incidencia y un técnico existente para continuar' : 'Asignar la orden de trabajo'}
+                title={
+                  !isFormValid
+                    ? 'Debes seleccionar una incidencia y un técnico existente para continuar'
+                    : 'Enviar asignación al API Gateway'
+                }
               >
-                <FiUserCheck className="w-4 h-4" />
-                <span>
-                  {isSubmitting ? 'Asignando...' : 'Asignar Orden'}
-                </span>
+                {isSubmitting ? (
+                  <>
+                    <FiRefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Emitiendo Orden...</span>
+                  </>
+                ) : (
+                  <>
+                    <FiSend className="w-4 h-4" />
+                    <span>Asignar Orden</span>
+                  </>
+                )}
               </button>
             </div>
 
             {/* Aviso auxiliar si el botón está deshabilitado */}
-            {!isFormValid && (
+            {!isFormValid && !ordenEmitida && (
               <p className="text-xs text-amber-600 flex items-center gap-1.5 justify-end">
                 <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                 Por favor selecciona una orden y un técnico para habilitar el botón "Asignar Orden".
@@ -300,8 +519,49 @@ const AsignarTecnico = () => {
           </form>
         </div>
 
-        {/* Panel Lateral: Nómina de Técnicos y Criterios */}
+        {/* Panel Lateral: Nómina de Técnicos y Órdenes Emitidas */}
         <div className="space-y-6">
+          {/* Card: Historial de Órdenes Emitidas en la sesión */}
+          {historialEmitidas.length > 0 && (
+            <div
+              id="seccion-ordenes-emitidas"
+              className="bg-white rounded-xl shadow-sm border border-emerald-200 p-5 space-y-3"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
+                  <FiCheckCircle className="text-emerald-600 w-4 h-4" />
+                  Órdenes Emitidas
+                </h3>
+                <span className="text-[11px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full">
+                  {historialEmitidas.length} emitidas
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                {historialEmitidas.map((ord) => (
+                  <div
+                    key={ord.id_orden}
+                    className="p-3 bg-emerald-50/60 rounded-lg border border-emerald-100 text-xs space-y-1"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold font-mono text-emerald-900">{ord.id_orden}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-800 font-semibold text-[10px]">
+                        {ord.estado}
+                      </span>
+                    </div>
+                    <p className="text-gray-700">
+                      Incidencia: <span className="font-mono font-medium">{ord.incidencia_id}</span>
+                    </p>
+                    <p className="text-gray-600">
+                      Técnico: <span className="font-medium text-gray-900">{ord.tecnico_nombre}</span>
+                    </p>
+                    <p className="text-[10px] text-gray-400">Emitida a las: {ord.fecha_emision}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Card: Lista de Técnicos Existentes en Nómina */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-4">
             <div className="flex items-center justify-between">
@@ -355,3 +615,4 @@ const AsignarTecnico = () => {
 };
 
 export default AsignarTecnico;
+
