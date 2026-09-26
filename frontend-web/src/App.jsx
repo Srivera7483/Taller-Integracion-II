@@ -11,8 +11,7 @@ import Incidencias from './views/Incidencias';
 import ReporteIncidencia from './views/ReporteIncidencia';
 import Inventario from './views/Inventario';
 import Login from './views/Login';
-import ProtectedRoute from './components/ProtectedRoute';
-import PublicRoute from './components/PublicRoute';
+import AsignarTecnico from './views/AsignarTecnico';
 
 function App() {
   return (
@@ -26,18 +25,17 @@ function App() {
           </Route>
 
           {/* Rutas protegidas con Layout */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Layout />}>
-              {/* Redirección por defecto */}
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              
-              {/* Rutas hijas que se renderizan en el <Outlet /> del Layout */}
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="incidencias" element={<Incidencias />} />
-              <Route path="incidencias/nueva" element={<ReporteIncidencia />} />
-              <Route path="incidencias/reportar" element={<ReporteIncidencia />} />
-              <Route path="inventario" element={<Inventario />} />
-            </Route>
+          <Route path="/" element={<Layout />}>
+            {/* Redirección por defecto */}
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            
+            {/* Rutas hijas que se renderizan en el <Outlet /> del Layout */}
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="incidencias" element={<Incidencias />} />
+            <Route path="incidencias/nueva" element={<ReporteIncidencia />} />
+            <Route path="incidencias/reportar" element={<ReporteIncidencia />} />
+            <Route path="incidencias/asignar" element={<AsignarTecnico />} />
+            <Route path="inventario" element={<Inventario />} />
           </Route>
           </Routes>
           

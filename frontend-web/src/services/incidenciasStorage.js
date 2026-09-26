@@ -92,12 +92,80 @@ export function saveIncidencia(nuevaIncidencia) {
     ...nuevaIncidencia,
     esTemporal: true,
     fecha: 'Recién creada',
-    asignado: nuevaIncidencia.asignado || 'Equipo de Guardia NOC',
+    asignado: nuevaIncidencia.asignado || 'Sin asignar',
   };
 
   const listaActualizada = [itemConMetadata, ...guardadasEnCookie];
   setCookie(COOKIE_NAME, listaActualizada);
   return itemConMetadata;
+}
+
+export const TECNICOS_EXISTENTES = [
+  { 
+    id: 'tec-01', 
+    nombre: 'Carlos Ruiz', 
+    especialidad: 'Redes y Conectividad', 
+    turno: 'Mañana (08:00 - 16:00)', 
+    disponibilidad: 'Disponible',
+    avatar: 'CR' 
+  },
+  { 
+    id: 'tec-02', 
+    nombre: 'Ana Gómez', 
+    especialidad: 'Hardware y Servidores', 
+    turno: 'Tarde (14:00 - 22:00)', 
+    disponibilidad: 'Disponible',
+    avatar: 'AG' 
+  },
+  { 
+    id: 'tec-03', 
+    nombre: 'Matías Silva', 
+    especialidad: 'Software y Seguridad', 
+    turno: 'Mañana (08:00 - 16:00)', 
+    disponibilidad: 'En Tarea',
+    avatar: 'MS' 
+  },
+  { 
+    id: 'tec-04', 
+    nombre: 'Valentina Morales', 
+    especialidad: 'Soporte General e Infraestructura', 
+    turno: 'Tarde (14:00 - 22:00)', 
+    disponibilidad: 'Disponible',
+    avatar: 'VM' 
+  },
+  { 
+    id: 'tec-05', 
+    nombre: 'Diego Herrera', 
+    especialidad: 'Telecomunicaciones y Audio/Video', 
+    turno: 'Noche (22:00 - 06:00)', 
+    disponibilidad: 'Disponible',
+    avatar: 'DH' 
+  },
+];
+
+/**
+ * Asigna un técnico a una incidencia existente
+ */
+export function asignarTecnicoIncidencia(incidenciaId, tecnicoNombre, notas = '') {
+  const guardadasEnCookie = getCookie(COOKIE_NAME) || [];
+  const todas = getIncidencias();
+  const encontrada = todas.find((item) => item.id === incidenciaId);
+
+  const incidenciaActualizada = {
+    ...(encontrada || { id: incidenciaId, titulo: 'Incidencia', id_activo: 'N/A' }),
+    asignado: tecnicoNombre,
+    estado: 'Asignada',
+    notasAsignacion: notas,
+    fechaAsignacion: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    esTemporal: true,
+  };
+
+  // Reemplazar o insertar en la lista de cookies
+  const listaSinPrevia = guardadasEnCookie.filter((item) => item.id !== incidenciaId);
+  const nuevaLista = [incidenciaActualizada, ...listaSinPrevia];
+  setCookie(COOKIE_NAME, nuevaLista);
+
+  return incidenciaActualizada;
 }
 
 /**
@@ -106,3 +174,4 @@ export function saveIncidencia(nuevaIncidencia) {
 export function clearTempIncidencias() {
   deleteCookie(COOKIE_NAME);
 }
+

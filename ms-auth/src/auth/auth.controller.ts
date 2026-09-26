@@ -4,6 +4,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  Patch, 
   Post,
   Req,
   UnauthorizedException,
@@ -11,10 +13,13 @@ import {
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
+import { UpdateRoleDto } from './dto/update-role.dto.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
+import { RolesGuard}  from './roles.guard.js';
+import { Roles } from './roles.decorator.js';
 
 @Controller('auth')
 export class AuthController {
@@ -37,7 +42,19 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  getAuthenticatedUser(@Req() request: FastifyRequest) {
+  getAuthenticatedUser(@Req() request: Request & { user: any }) {
     return request.user;
+  }
+
+  @Patch('usuarios/:id/rol')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRADOR')
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  async updateUserRole(
+    @Param('id') id: string,
+    @Body() updateRoleDto: UpdateRoleDto,
+  ) {
+    return await this.authService.updateUserRole(id, updateRoleDto);
   }
 }
