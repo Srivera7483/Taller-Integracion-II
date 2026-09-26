@@ -13,13 +13,6 @@ enum EstadoIncidencia {
   Resuelta
 }
 
-enum EstadoOrdenTrabajo {
-  Pendiente
-  EnProceso
-  Completada
-  Cancelada
-}
-
 model Incidencias {
   id_incidencia String           @id @unique @default(uuid())
   id_activo     String
@@ -29,35 +22,31 @@ model Incidencias {
   estado        EstadoIncidencia @default(Reportada)
   created_at    DateTime         @default(now()) @db.Timestamp()
 
-  historial       HistorialIncidencia[]
-  ordenes_trabajo OrdenTrabajo[]
+  historial HistorialIncidencia[]
+  evidencias Evidencia[]
 }
 
 model HistorialIncidencia {
-  id_historial    String           @id @default(uuid())
-  incidencia_id   String
+  id_historial    String           @id @default(uuid()) @db.Uuid
+  id_incidencia   String           @db.Uuid
   estado_anterior EstadoIncidencia
   estado_nuevo    EstadoIncidencia
-  usuario_id      String
+  usuario_id      String           @db.Uuid
   fecha           DateTime         @default(now()) @db.Timestamp()
 
-  incidencia Incidencias @relation(fields: [incidencia_id], references: [id_incidencia], onDelete: Cascade)
+  incidencia      Incidencias      @relation(fields: [id_incidencia], references: [id_incidencia], onDelete: Cascade)
 
-  @@index([incidencia_id])
+  @@index([id_incidencia])
+  @@map("HISTORIAL_INCIDENCIA")
 }
 
-model OrdenTrabajo {
-  id_orden         String             @id @default(uuid())
-  incidencia_id    String
-  tecnico_id       String
-  estado           EstadoOrdenTrabajo @default(Pendiente)
-  instrucciones    String?            @db.Text
-  fecha_asignacion DateTime           @default(now()) @db.Timestamp()
-  fecha_inicio     DateTime?          @db.Timestamp()
-  fecha_termino    DateTime?          @db.Timestamp()
+model Evidencia {
+  id_evidencia  String      @id @default(uuid())
+  incidencia_id String
+  descripcion   String      @db.Text
+  fecha         DateTime    @default(now()) @db.Timestamp()
 
   incidencia Incidencias @relation(fields: [incidencia_id], references: [id_incidencia], onDelete: Cascade)
 
   @@index([incidencia_id])
-  @@index([tecnico_id])
 }

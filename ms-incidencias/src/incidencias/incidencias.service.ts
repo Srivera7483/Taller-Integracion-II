@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { EstadoIncidencia } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -46,7 +47,7 @@ export class IncidenciasService {
 
       await transaction.historialIncidencia.create({
         data: {
-          incidencia_id: incidencia.id_incidencia,
+          id_incidencia: incidencia.id_incidencia, // Homologado con el último schema
           estado_anterior: incidencia.estado,
           estado_nuevo: estadoNuevo,
           usuario_id: usuarioId,
@@ -54,6 +55,31 @@ export class IncidenciasService {
       });
 
       return incidenciaActualizada;
+    });
+  }
+
+  async actualizarDiagnostico(
+    id_orden: string,
+    diagnostico_tecnico: string,
+    id_tecnico_peticion: string,
+  ) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id_orden },
+    });
+
+    if (!orden) {
+      throw new NotFoundException('Orden de trabajo no encontrada');
+    }
+
+    if (orden.id_tecnico !== id_tecnico_peticion) {
+      throw new ForbiddenException(
+        'Acceso denegado: El ID del técnico no coincide con el asignado a esta orden.',
+      );
+    }
+
+    return this.prisma.ordenTrabajo.update({
+      where: { id_orden },
+      data: { diagnostico_tecnico },
     });
   }
 }
