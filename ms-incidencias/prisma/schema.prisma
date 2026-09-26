@@ -13,51 +13,44 @@ enum EstadoIncidencia {
   Resuelta
 }
 
-enum EstadoOrdenTrabajo {
-  Pendiente
-  EnProceso
-  Completada
-  Cancelada
-}
-
 model Incidencias {
-  id_incidencia String           @id @unique @default(uuid())
-  id_activo     String
-  id_reportante String
-  titulo        String           @db.VarChar(255)
-  descripcion   String           @db.Text
-  estado        EstadoIncidencia @default(Reportada)
-  created_at    DateTime         @default(now()) @db.Timestamp()
+  id_incidencia   String               @id @unique @default(uuid()) @db.Uuid
+  id_activo       String               @db.Uuid
+  id_reportante   String               @db.Uuid
+  titulo          String               @db.VarChar(255)
+  descripcion     String               @db.Text
+  fecha_creacion  DateTime             @default(now()) @db.Timestamp()
 
   historial       HistorialIncidencia[]
   ordenes_trabajo OrdenTrabajo[]
+
+  @@map("INCIDENCIAS")
 }
 
 model HistorialIncidencia {
-  id_historial    String           @id @default(uuid())
-  incidencia_id   String
+  id_historial    String           @id @default(uuid()) @db.Uuid
+  id_incidencia   String           @db.Uuid
   estado_anterior EstadoIncidencia
   estado_nuevo    EstadoIncidencia
-  usuario_id      String
+  usuario_id      String           @db.Uuid
   fecha           DateTime         @default(now()) @db.Timestamp()
 
-  incidencia Incidencias @relation(fields: [incidencia_id], references: [id_incidencia], onDelete: Cascade)
+  incidencia      Incidencias      @relation(fields: [id_incidencia], references: [id_incidencia], onDelete: Cascade)
 
-  @@index([incidencia_id])
+  @@index([id_incidencia])
+  @@map("HISTORIAL_INCIDENCIA")
 }
 
 model OrdenTrabajo {
-  id_orden         String             @id @default(uuid())
-  incidencia_id    String
-  tecnico_id       String
-  estado           EstadoOrdenTrabajo @default(Pendiente)
-  instrucciones    String?            @db.Text
-  fecha_asignacion DateTime           @default(now()) @db.Timestamp()
-  fecha_inicio     DateTime?          @db.Timestamp()
-  fecha_termino    DateTime?          @db.Timestamp()
+  id_orden            String       @id @default(uuid()) @db.Uuid
+  id_incidencia       String       @db.Uuid
+  id_tecnico          String       @db.Uuid 
+  diagnostico_tecnico String?      @db.Text 
+  fecha_creacion      DateTime     @default(now()) @db.Timestamp()
 
-  incidencia Incidencias @relation(fields: [incidencia_id], references: [id_incidencia], onDelete: Cascade)
+  incidencia          Incidencias  @relation(fields: [id_incidencia], references: [id_incidencia], onDelete: Cascade)
 
-  @@index([incidencia_id])
-  @@index([tecnico_id])
+  @@index([id_incidencia])
+  @@index([id_tecnico])
+  @@map("ORDENES_TRABAJO")
 }
