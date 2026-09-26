@@ -4,7 +4,8 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "test": "node --test"
   },
   "dependencies": {
     "@fastify/http-proxy": "^11.6.2",
