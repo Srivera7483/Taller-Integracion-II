@@ -27,16 +27,17 @@ model Incidencias {
 }
 
 model HistorialIncidencia {
-  id_historial    String           @id @default(uuid())
-  incidencia_id   String
+  id_historial    String           @id @default(uuid()) @db.Uuid
+  id_incidencia   String           @db.Uuid
   estado_anterior EstadoIncidencia
   estado_nuevo    EstadoIncidencia
-  usuario_id      String
+  usuario_id      String           @db.Uuid
   fecha           DateTime         @default(now()) @db.Timestamp()
 
-  incidencia Incidencias @relation(fields: [incidencia_id], references: [id_incidencia], onDelete: Cascade)
+  incidencia      Incidencias      @relation(fields: [id_incidencia], references: [id_incidencia], onDelete: Cascade)
 
-  @@index([incidencia_id])
+  @@index([id_incidencia])
+  @@map("HISTORIAL_INCIDENCIA")
 }
 
 model Evidencia {
