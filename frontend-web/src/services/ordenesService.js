@@ -33,16 +33,19 @@ export const getAsignarOrdenEndpoint = () => {
  * @param {string} params.incidencia_id - Identificador único de la incidencia
  * @param {string} params.tecnico_id - Identificador del técnico seleccionado
  * @param {string} [params.instrucciones] - Instrucciones u observaciones del supervisor
+ * @param {string} [params.prioridad='Media'] - Nivel de prioridad asignado (Alta, Media, Baja)
  * @returns {Promise<{ ok: boolean, status: number, data: any, endpoint: string }>}
  */
-export async function crearOrdenTrabajoApi({ incidencia_id, tecnico_id, instrucciones }) {
+export async function crearOrdenTrabajoApi({ incidencia_id, tecnico_id, instrucciones, prioridad = 'Media' }) {
   const endpoint = getAsignarOrdenEndpoint();
 
   const payload = {
     incidencia_id: String(incidencia_id).trim(),
     tecnico_id: String(tecnico_id).trim(),
+    prioridad: typeof prioridad === 'string' ? prioridad.trim() : 'Media',
     instrucciones: typeof instrucciones === 'string' ? instrucciones.trim() : '',
   };
+
 
   const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
   const headers = {

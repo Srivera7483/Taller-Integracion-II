@@ -3,9 +3,23 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EstadoIncidencia, EstadoOrdenTrabajo } from '@prisma/client';
+import { EstadoIncidencia, EstadoOrdenTrabajo, Prioridad } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AsignarOrdenDto } from './dto/asignar-orden.dto';
+
+function normalizarPrioridad(prioridad?: string | Prioridad): Prioridad {
+  if (!prioridad) {
+    return Prioridad.Media;
+  }
+  const valor = String(prioridad).trim().toLowerCase();
+  if (valor === 'alta') return Prioridad.Alta;
+  if (valor === 'media') return Prioridad.Media;
+  if (valor === 'baja') return Prioridad.Baja;
+
+  throw new BadRequestException(
+    'Nivel de prioridad inválido. Los valores permitidos son: Alta, Media, Baja',
+  );
+}
 
 @Injectable()
 export class OrdenesTrabajoService {
@@ -23,6 +37,8 @@ export class OrdenesTrabajoService {
     if (!supervisorId) {
       throw new BadRequestException('El usuario supervisor es obligatorio');
     }
+
+    const prioridad = normalizarPrioridad(dto.prioridad);
 
     return this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
@@ -45,9 +61,11 @@ export class OrdenesTrabajoService {
           incidencia_id: dto.incidencia_id,
           tecnico_id: dto.tecnico_id,
           estado: EstadoOrdenTrabajo.Pendiente,
+          prioridad,
           instrucciones: dto.instrucciones?.trim() || null,
         },
       });
+
 
       if (incidencia.estado !== EstadoIncidencia.Asignada) {
         await transaction.incidencias.update({
