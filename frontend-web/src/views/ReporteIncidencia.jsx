@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  FiChevronRight, 
-  FiHelpCircle, 
-  FiShield, 
-  FiAlertTriangle, 
-  FiPhoneCall 
+import {
+  FiChevronRight,
+  FiHelpCircle,
+  FiShield,
+  FiAlertTriangle,
+  FiPhoneCall
 } from 'react-icons/fi';
 import FormularioReporteIncidencia from '../components/FormularioReporteIncidencia';
 

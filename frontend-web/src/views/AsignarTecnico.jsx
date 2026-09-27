@@ -13,6 +13,7 @@ import {
   FiRefreshCw
 } from 'react-icons/fi';
 import StatusBadge from '../components/StatusBadge';
+import PriorityBadge from '../components/PriorityBadge';
 import { useToast } from '../context/ToastContext';
 import {
   getIncidencias,
@@ -272,16 +273,8 @@ const AsignarTecnico = () => {
                     <strong className="font-mono text-sm text-gray-900">{ordenEmitida.id_orden}</strong>
                   </div>
                   <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
-                    <span className="text-[11px] text-emerald-700 font-medium block">Prioridad</span>
-                    <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-xs font-bold border ${
-                      ordenEmitida.prioridad === 'Alta'
-                        ? 'bg-orange-100 text-orange-800 border-orange-300'
-                        : ordenEmitida.prioridad === 'Baja'
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                        : 'bg-yellow-100 text-yellow-800 border-yellow-300'
-                    }`}>
-                      {ordenEmitida.prioridad}
-                    </span>
+                    <span className="text-[11px] text-emerald-700 font-medium block mb-1">Prioridad</span>
+                    <PriorityBadge priority={ordenEmitida.prioridad} size="sm" />
                   </div>
                   <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
                     <span className="text-[11px] text-emerald-700 font-medium block">Incidencia</span>
@@ -409,7 +402,8 @@ const AsignarTecnico = () => {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <FiShield className="text-gray-400" />
-                    <span>Prioridad actual: <strong className={(!incidenciaSeleccionada.prioridad || incidenciaSeleccionada.prioridad === 'No Asignada') ? 'text-gray-500 font-semibold' : 'text-indigo-600 font-bold'}>{incidenciaSeleccionada.prioridad || 'No Asignada'}</strong></span>
+                    <span>Prioridad actual:</span>
+                    <PriorityBadge priority={incidenciaSeleccionada.prioridad} size="xs" />
                   </div>
                 </div>
 
@@ -527,11 +521,10 @@ const AsignarTecnico = () => {
                       type="button"
                       id={`btn-prioridad-${item.id.toLowerCase()}`}
                       onClick={() => setPrioridad(item.id)}
-                      className={`p-3 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                        isSelected
-                          ? `${item.active} font-semibold`
-                          : `${item.color} opacity-75 hover:opacity-100`
-                      }`}
+                      className={`p-3 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${isSelected
+                        ? `${item.active} font-semibold`
+                        : `${item.color} opacity-75 hover:opacity-100`
+                        }`}
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-bold">{item.label}</span>
@@ -577,8 +570,8 @@ const AsignarTecnico = () => {
                 id="btn-asignar-orden"
                 disabled={!isFormValid || isSubmitting}
                 className={`w-full sm:w-auto px-6 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center justify-center gap-2 ${isFormValid && !isSubmitting
-                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer hover:shadow-md'
-                    : 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300'
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer hover:shadow-md'
+                  : 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300'
                   }`}
                 title={
                   !isFormValid
@@ -637,15 +630,7 @@ const AsignarTecnico = () => {
                     <div className="flex items-center justify-between">
                       <span className="font-bold font-mono text-emerald-900">{ord.id_orden}</span>
                       <div className="flex items-center gap-1.5">
-                        <span className={`px-1.5 py-0.5 rounded font-semibold text-[10px] border ${
-                          ord.prioridad === 'Alta'
-                            ? 'bg-orange-100 text-orange-800 border-orange-200'
-                            : ord.prioridad === 'Baja'
-                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                            : 'bg-yellow-100 text-yellow-800 border-yellow-200'
-                        }`}>
-                          {ord.prioridad || 'Media'}
-                        </span>
+                        <PriorityBadge priority={ord.prioridad || 'Media'} size="xs" />
                         <span className="px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-800 font-semibold text-[10px]">
                           {ord.estado}
                         </span>
@@ -683,8 +668,8 @@ const AsignarTecnico = () => {
                   key={tec.id}
                   onClick={() => setSelectedTecnicoId(tec.id)}
                   className={`py-2.5 px-2 rounded-lg flex items-center justify-between cursor-pointer transition-colors ${selectedTecnicoId === tec.id
-                      ? 'bg-indigo-50 border border-indigo-200'
-                      : 'hover:bg-gray-50'
+                    ? 'bg-indigo-50 border border-indigo-200'
+                    : 'hover:bg-gray-50'
                     }`}
                   title="Haz clic para seleccionarlo en el formulario"
                 >
@@ -702,8 +687,8 @@ const AsignarTecnico = () => {
                     </div>
                   </div>
                   <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${tec.disponibilidad === 'Disponible'
-                      ? 'bg-emerald-50 text-emerald-700'
-                      : 'bg-amber-50 text-amber-700'
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-amber-50 text-amber-700'
                     }`}>
                     {tec.disponibilidad}
                   </span>
