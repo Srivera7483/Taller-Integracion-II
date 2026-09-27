@@ -1,0 +1,1272 @@
+openapi: 3.0.3
+info:
+  title: SCGI API
+  version: 1.1.0
+  description: |
+    Contrato de la API REST del Sistema Centralizado de Gestion de Infraestructura (SCGI),
+    acordado entre Taller de Integracion II (backend y web) y Taller de Integracion IV (app movil).
+
+    Servicios (un microservicio por grupo de rutas):
+    - Autenticacion: usuarios, roles y permisos.
+    - Activos: edificios, ubicaciones, categorias, activos y mantenimientos preventivos.
+    - Incidencias: incidencias, historial de estados, ordenes de trabajo y evidencias.
+
+    Reglas:
+    - Todas las rutas van bajo /api/v1 y se sirven solo por HTTPS (RNF3).
+    - Todas las rutas, salvo el inicio de sesion, exigen el token JWT (RNF4).
+    - Todos los errores responden con el esquema Error.
+    - Los nombres de campos van en espanol, sin tildes ni la letra n con virgulilla.
+      Las excepciones son los campos estandar del JWT y los campos de monitoreo
+      del esquema Error, que TI2 necesita con esos nombres.
+    - El servicio de incidencias guarda solo los identificadores de usuarios y activos,
+      porque viven en otras bases de datos. La app los consulta en su propio servicio.
+
+    Versionado:
+    - Agregar rutas o campos opcionales sube la version menor (1.1.0 a 1.2.0).
+    - Quitar o renombrar rutas o campos, o cambiar su tipo, sube la version mayor (2.0.0)
+      y la ruta base pasa a /api/v2.
+    - Todo cambio se acuerda entre TI2 y TI4 antes de implementarlo.
+
+    Cambios de la version 1.1.0:
+    - Se incorpora el servicio de incidencias completo.
+    - Se adopta el formato de error propuesto por TI2, con metadatos de monitoreo.
+    - Se traducen al espanol los nombres que estaban en ingles.
+    - Se agrega diagnostico_tecnico a las ordenes de trabajo.
+
+servers:
+  - url: /api/v1
+
+security:
+  - autenticacionJwt: []
+
+tags:
+  - name: Autenticacion
+    description: Inicio de sesion, usuario actual y roles (RF1).
+  - name: Activos
+    description: Activos, sus catalogos y mantenimientos preventivos (RF2, RF9).
+  - name: Incidencias
+    description: Incidencias, ciclo de vida, ordenes de trabajo y evidencias (RF3 a RF7).
+
+paths:
+
+  # ----------------------------------------------------------------
+  # Servicio de autenticacion
+  # ----------------------------------------------------------------
+
+  /autenticacion/inicio-sesion:
+    post:
+      tags:
+        - Autenticacion
+      summary: Iniciar sesion con correo y contrasena
+      operationId: iniciarSesion
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredencialesAcceso'
+      responses:
+        '200':
+          description: Credenciales correctas. Devuelve el token y el usuario.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SesionIniciada'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          description: Correo o contrasena incorrectos, o usuario eliminado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /autenticacion/usuario-actual:
+    get:
+      tags:
+        - Autenticacion
+      summary: Obtener el usuario dueno del token
+      description: Se usa al abrir la app para comprobar que el token guardado sigue siendo valido.
+      operationId: obtenerUsuarioActual
+      responses:
+        '200':
+          description: Usuario autenticado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /roles:
+    get:
+      tags:
+        - Autenticacion
+      summary: Listar los roles y sus permisos
+      operationId: listarRoles
+      responses:
+        '200':
+          description: Roles registrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Rol'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  # ----------------------------------------------------------------
+  # Servicio de activos
+  # ----------------------------------------------------------------
+
+  /activos:
+    get:
+      tags:
+        - Activos
+      summary: Buscar activos por texto (busqueda manual)
+      description: |
+        Busca en nombre y codigo_qr. Se usa cuando el codigo QR no se puede leer
+        o no esta registrado.
+      operationId: buscarActivos
+      parameters:
+        - name: busqueda
+          in: query
+          required: true
+          description: Texto a buscar.
+          schema:
+            type: string
+            minLength: 1
+        - name: limite
+          in: query
+          required: false
+          description: Cantidad maxima de resultados.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Activos que coinciden. Lista vacia si no hay coincidencias.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Activo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /activos/codigo-qr/{codigo_qr}:
+    get:
+      tags:
+        - Activos
+      summary: Obtener un activo a partir del contenido de su codigo QR
+      operationId: obtenerActivoPorCodigoQr
+      parameters:
+        - name: codigo_qr
+          in: path
+          required: true
+          description: Contenido leido del codigo QR, codificado para URL.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Activo encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activo'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /activos/{id_activo}:
+    get:
+      tags:
+        - Activos
+      summary: Obtener un activo por su identificador
+      operationId: obtenerActivoPorId
+      parameters:
+        - $ref: '#/components/parameters/IdActivo'
+      responses:
+        '200':
+          description: Activo encontrado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /edificios:
+    get:
+      tags:
+        - Activos
+      summary: Listar los edificios
+      operationId: listarEdificios
+      responses:
+        '200':
+          description: Edificios registrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Edificio'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /ubicaciones:
+    get:
+      tags:
+        - Activos
+      summary: Listar las ubicaciones
+      operationId: listarUbicaciones
+      parameters:
+        - name: id_edificio
+          in: query
+          required: false
+          description: Filtra las ubicaciones de un edificio.
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ubicaciones registradas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Ubicacion'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /categorias:
+    get:
+      tags:
+        - Activos
+      summary: Listar las categorias de activos
+      operationId: listarCategorias
+      responses:
+        '200':
+          description: Categorias registradas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Categoria'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /estados-activo:
+    get:
+      tags:
+        - Activos
+      summary: Listar los estados posibles de un activo
+      operationId: listarEstadosActivo
+      responses:
+        '200':
+          description: Estados registrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EstadoActivo'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /mantenimientos:
+    get:
+      tags:
+        - Activos
+      summary: Listar los mantenimientos preventivos programados
+      operationId: listarMantenimientos
+      parameters:
+        - name: id_activo
+          in: query
+          required: false
+          description: Filtra los mantenimientos de un activo.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Mantenimientos programados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MantenimientoPreventivo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+    post:
+      tags:
+        - Activos
+      summary: Programar un mantenimiento preventivo
+      description: Solo para el rol ADMINISTRADOR.
+      operationId: programarMantenimiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NuevoMantenimiento'
+      responses:
+        '201':
+          description: Mantenimiento programado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MantenimientoPreventivo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  # ----------------------------------------------------------------
+  # Servicio de incidencias
+  # ----------------------------------------------------------------
+
+  /incidencias:
+    get:
+      tags:
+        - Incidencias
+      summary: Listar incidencias
+      operationId: listarIncidencias
+      parameters:
+        - name: id_activo
+          in: query
+          required: false
+          description: Filtra las incidencias de un activo.
+          schema:
+            type: string
+            format: uuid
+        - name: id_estado
+          in: query
+          required: false
+          description: Filtra por el estado actual de la incidencia.
+          schema:
+            type: integer
+        - name: limite
+          in: query
+          required: false
+          description: Cantidad maxima de resultados.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Incidencias que coinciden.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Incidencia'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+    post:
+      tags:
+        - Incidencias
+      summary: Registrar una incidencia sobre un activo
+      description: El reportante es el usuario del token. La incidencia nace en el primer estado del ciclo de vida.
+      operationId: registrarIncidencia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NuevaIncidencia'
+      responses:
+        '201':
+          description: Incidencia registrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incidencia'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /incidencias/{id_incidencia}:
+    get:
+      tags:
+        - Incidencias
+      summary: Obtener una incidencia por su identificador
+      operationId: obtenerIncidencia
+      parameters:
+        - $ref: '#/components/parameters/IdIncidencia'
+      responses:
+        '200':
+          description: Incidencia encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incidencia'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /incidencias/{id_incidencia}/estado:
+    patch:
+      tags:
+        - Incidencias
+      summary: Cambiar el estado de una incidencia
+      description: |
+        Registra el cambio en el historial con el usuario del token.
+        Solo para los roles SUPERVISOR y TECNICO, segun la etapa del ciclo de vida.
+      operationId: cambiarEstadoIncidencia
+      parameters:
+        - $ref: '#/components/parameters/IdIncidencia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CambioEstado'
+      responses:
+        '200':
+          description: Incidencia con su nuevo estado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incidencia'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /incidencias/{id_incidencia}/historial:
+    get:
+      tags:
+        - Incidencias
+      summary: Listar el historial de estados de una incidencia
+      operationId: listarHistorialIncidencia
+      parameters:
+        - $ref: '#/components/parameters/IdIncidencia'
+      responses:
+        '200':
+          description: Cambios de estado, del mas antiguo al mas reciente.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistorialEstado'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /incidencias/{id_incidencia}/evidencias:
+    get:
+      tags:
+        - Incidencias
+      summary: Listar las evidencias de una incidencia
+      operationId: listarEvidencias
+      parameters:
+        - $ref: '#/components/parameters/IdIncidencia'
+      responses:
+        '200':
+          description: Evidencias adjuntas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Evidencia'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+    post:
+      tags:
+        - Incidencias
+      summary: Adjuntar una evidencia a una incidencia
+      description: La app sube el archivo a Cloudinary y envia aqui la direccion resultante.
+      operationId: adjuntarEvidencia
+      parameters:
+        - $ref: '#/components/parameters/IdIncidencia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NuevaEvidencia'
+      responses:
+        '201':
+          description: Evidencia adjuntada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Evidencia'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /ordenes-trabajo:
+    get:
+      tags:
+        - Incidencias
+      summary: Listar ordenes de trabajo
+      operationId: listarOrdenesTrabajo
+      parameters:
+        - name: id_incidencia
+          in: query
+          required: false
+          description: Filtra las ordenes de una incidencia.
+          schema:
+            type: string
+            format: uuid
+        - name: id_tecnico
+          in: query
+          required: false
+          description: Filtra las ordenes asignadas a un tecnico.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ordenes de trabajo que coinciden.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrdenTrabajo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+    post:
+      tags:
+        - Incidencias
+      summary: Crear una orden de trabajo y asignarla a un tecnico
+      description: Solo para el rol SUPERVISOR.
+      operationId: crearOrdenTrabajo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NuevaOrdenTrabajo'
+      responses:
+        '201':
+          description: Orden de trabajo creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdenTrabajo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /ordenes-trabajo/{id_orden}:
+    get:
+      tags:
+        - Incidencias
+      summary: Obtener una orden de trabajo por su identificador
+      operationId: obtenerOrdenTrabajo
+      parameters:
+        - $ref: '#/components/parameters/IdOrden'
+      responses:
+        '200':
+          description: Orden de trabajo encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdenTrabajo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /ordenes-trabajo/{id_orden}/diagnostico:
+    patch:
+      tags:
+        - Incidencias
+      summary: Registrar el diagnostico tecnico de una orden de trabajo
+      description: Solo para el rol TECNICO, y solo el tecnico asignado a la orden.
+      operationId: registrarDiagnosticoTecnico
+      parameters:
+        - $ref: '#/components/parameters/IdOrden'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NuevoDiagnostico'
+      responses:
+        '200':
+          description: Orden de trabajo con su diagnostico.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdenTrabajo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /estados-incidencia:
+    get:
+      tags:
+        - Incidencias
+      summary: Listar los estados del ciclo de vida de una incidencia
+      operationId: listarEstadosIncidencia
+      responses:
+        '200':
+          description: Estados registrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EstadoIncidencia'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /tipos-evidencia:
+    get:
+      tags:
+        - Incidencias
+      summary: Listar los tipos de evidencia
+      operationId: listarTiposEvidencia
+      responses:
+        '200':
+          description: Tipos registrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TipoEvidencia'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+components:
+
+  securitySchemes:
+    autenticacionJwt:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token que devuelve POST /autenticacion/inicio-sesion. Se envia en cada peticion protegida:
+        Authorization: Bearer <token>
+
+        El contenido del token debe incluir:
+        - sub: id_usuario (UUID).
+        - rol: nombre_rol, con los mismos valores del esquema Rol.
+        - exp: fecha de expiracion, en segundos.
+
+        Los nombres sub y exp estan fijados por el estandar del JWT y por eso no se traducen.
+
+  parameters:
+    IdActivo:
+      name: id_activo
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdIncidencia:
+      name: id_incidencia
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdOrden:
+      name: id_orden
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    DatosInvalidos:
+      description: La peticion tiene datos faltantes o con formato incorrecto.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoAutenticado:
+      description: Falta el token, es invalido o expiro. La app debe cerrar la sesion.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    SinPermiso:
+      description: El rol del usuario no permite esta accion.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NoEncontrado:
+      description: El recurso no existe.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ErrorServidor:
+      description: Error interno del servidor.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    Error:
+      type: object
+      description: |
+        Formato unico de todos los errores, generado por el filtro global de TI2.
+        La app muestra mensaje; los demas campos son para monitoreo y registro.
+      required:
+        - statusCode
+        - mensaje
+        - message
+        - timestamp
+        - path
+      properties:
+        statusCode:
+          type: integer
+          description: Codigo HTTP de la respuesta.
+        mensaje:
+          type: string
+          description: Explicacion del error, apta para mostrar al usuario.
+        message:
+          type: string
+          description: Mismo texto de mensaje. Se mantiene por compatibilidad con las herramientas de TI2.
+        timestamp:
+          type: string
+          format: date-time
+          description: Momento en que ocurrio el error.
+        path:
+          type: string
+          description: Ruta que fallo.
+
+    CredencialesAcceso:
+      type: object
+      required:
+        - correo
+        - contrasena
+      properties:
+        correo:
+          type: string
+          format: email
+        contrasena:
+          type: string
+          format: password
+          writeOnly: true
+
+    SesionIniciada:
+      type: object
+      required:
+        - token
+        - usuario
+      properties:
+        token:
+          type: string
+          description: JWT firmado. Su contenido se describe en autenticacionJwt.
+        usuario:
+          $ref: '#/components/schemas/Usuario'
+
+    Permiso:
+      type: object
+      description: Permiso asignable a un rol (tabla PERMISOS).
+      required:
+        - id_permiso
+        - nombre_permiso
+      properties:
+        id_permiso:
+          type: integer
+        nombre_permiso:
+          type: string
+        descripcion:
+          type: string
+          nullable: true
+
+    Rol:
+      type: object
+      description: Rol del usuario (tabla ROLES).
+      required:
+        - id_rol
+        - nombre_rol
+      properties:
+        id_rol:
+          type: integer
+        nombre_rol:
+          type: string
+          enum:
+            - REPORTANTE
+            - SUPERVISOR
+            - TECNICO
+            - ADMINISTRADOR
+        permisos:
+          type: array
+          description: Permisos del rol (tabla ROLES_PERMISOS). Solo se envia en la ruta de roles.
+          items:
+            $ref: '#/components/schemas/Permiso'
+
+    Usuario:
+      type: object
+      description: Usuario del sistema (tabla USUARIOS). No incluye la contrasena.
+      required:
+        - id_usuario
+        - rut_o_id
+        - nombre
+        - apellido
+        - correo
+        - rol
+        - fecha_creacion
+      properties:
+        id_usuario:
+          type: string
+          format: uuid
+        rut_o_id:
+          type: string
+        nombre:
+          type: string
+        apellido:
+          type: string
+        correo:
+          type: string
+          format: email
+        rol:
+          $ref: '#/components/schemas/Rol'
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+
+    Edificio:
+      type: object
+      description: Edificio de la institucion (tabla EDIFICIOS).
+      required:
+        - id_edificio
+        - nombre_edificio
+      properties:
+        id_edificio:
+          type: integer
+        nombre_edificio:
+          type: string
+
+    Ubicacion:
+      type: object
+      description: Espacio dentro de un edificio (tabla UBICACIONES).
+      required:
+        - id_ubicacion
+        - nombre_espacio
+        - edificio
+      properties:
+        id_ubicacion:
+          type: integer
+        nombre_espacio:
+          type: string
+        edificio:
+          $ref: '#/components/schemas/Edificio'
+
+    Categoria:
+      type: object
+      description: Categoria del activo (tabla CATEGORIAS).
+      required:
+        - id_categoria
+        - nombre_categoria
+      properties:
+        id_categoria:
+          type: integer
+        nombre_categoria:
+          type: string
+
+    EstadoActivo:
+      type: object
+      description: Estado del activo (tabla ESTADOS_ACTIVO).
+      required:
+        - id_estado_activo
+        - nombre_estado
+      properties:
+        id_estado_activo:
+          type: integer
+        nombre_estado:
+          type: string
+
+    Activo:
+      type: object
+      description: Activo de infraestructura (tabla ACTIVOS).
+      required:
+        - id_activo
+        - codigo_qr
+        - nombre
+        - estado
+        - categoria
+        - ubicacion
+        - fecha_creacion
+      properties:
+        id_activo:
+          type: string
+          format: uuid
+        codigo_qr:
+          type: string
+        nombre:
+          type: string
+        descripcion:
+          type: string
+          nullable: true
+        marca:
+          type: string
+          nullable: true
+        modelo:
+          type: string
+          nullable: true
+        numero_serie:
+          type: string
+          nullable: true
+        estado:
+          $ref: '#/components/schemas/EstadoActivo'
+        categoria:
+          $ref: '#/components/schemas/Categoria'
+        ubicacion:
+          $ref: '#/components/schemas/Ubicacion'
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+
+    MantenimientoPreventivo:
+      type: object
+      description: Mantenimiento programado para un activo (tabla MANTENIMIENTOS_PREVENTIVOS).
+      required:
+        - id_mantenimiento
+        - id_activo
+        - fecha_programada
+        - fecha_creacion
+      properties:
+        id_mantenimiento:
+          type: string
+          format: uuid
+        id_activo:
+          type: string
+          format: uuid
+        fecha_programada:
+          type: string
+          format: date
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+
+    NuevoMantenimiento:
+      type: object
+      required:
+        - id_activo
+        - fecha_programada
+      properties:
+        id_activo:
+          type: string
+          format: uuid
+        fecha_programada:
+          type: string
+          format: date
+
+    EstadoIncidencia:
+      type: object
+      description: Estado del ciclo de vida de una incidencia (tabla ESTADOS_INCIDENCIA).
+      required:
+        - id_estado
+        - nombre_estado
+      properties:
+        id_estado:
+          type: integer
+        nombre_estado:
+          type: string
+
+    Incidencia:
+      type: object
+      description: |
+        Falla reportada sobre un activo (tabla INCIDENCIAS).
+        id_activo e id_reportante viven en otras bases de datos, por eso solo viaja su identificador.
+        estado es el ultimo registro del historial, no una columna de la tabla.
+      required:
+        - id_incidencia
+        - id_activo
+        - id_reportante
+        - titulo
+        - descripcion
+        - estado
+        - fecha_creacion
+      properties:
+        id_incidencia:
+          type: string
+          format: uuid
+        id_activo:
+          type: string
+          format: uuid
+        id_reportante:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+        descripcion:
+          type: string
+        estado:
+          $ref: '#/components/schemas/EstadoIncidencia'
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+
+    NuevaIncidencia:
+      type: object
+      required:
+        - id_activo
+        - titulo
+        - descripcion
+      properties:
+        id_activo:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+          minLength: 1
+        descripcion:
+          type: string
+          minLength: 1
+
+    CambioEstado:
+      type: object
+      required:
+        - id_estado
+      properties:
+        id_estado:
+          type: integer
+          description: Estado al que pasa la incidencia.
+
+    HistorialEstado:
+      type: object
+      description: Cambio de estado de una incidencia (tabla HISTORIAL_ESTADOS).
+      required:
+        - id_historial
+        - id_incidencia
+        - estado
+        - id_usuario_cambio
+        - fecha_creacion
+      properties:
+        id_historial:
+          type: string
+          format: uuid
+        id_incidencia:
+          type: string
+          format: uuid
+        estado:
+          $ref: '#/components/schemas/EstadoIncidencia'
+        id_usuario_cambio:
+          type: string
+          format: uuid
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+
+    OrdenTrabajo:
+      type: object
+      description: Trabajo asignado a un tecnico para resolver una incidencia (tabla ORDENES_TRABAJO).
+      required:
+        - id_orden
+        - id_incidencia
+        - id_tecnico
+        - fecha_creacion
+      properties:
+        id_orden:
+          type: string
+          format: uuid
+        id_incidencia:
+          type: string
+          format: uuid
+        id_tecnico:
+          type: string
+          format: uuid
+        diagnostico_tecnico:
+          type: string
+          nullable: true
+          description: Diagnostico que escribe el tecnico. Vacio mientras no lo registre.
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+
+    NuevaOrdenTrabajo:
+      type: object
+      required:
+        - id_incidencia
+        - id_tecnico
+      properties:
+        id_incidencia:
+          type: string
+          format: uuid
+        id_tecnico:
+          type: string
+          format: uuid
+
+    NuevoDiagnostico:
+      type: object
+      required:
+        - diagnostico_tecnico
+      properties:
+        diagnostico_tecnico:
+          type: string
+          minLength: 1
+
+    TipoEvidencia:
+      type: object
+      description: Tipo de evidencia adjunta (tabla TIPOS_EVIDENCIA).
+      required:
+        - id_tipo_evidencia
+        - nombre_tipo
+      properties:
+        id_tipo_evidencia:
+          type: integer
+        nombre_tipo:
+          type: string
+
+    Evidencia:
+      type: object
+      description: Archivo adjunto a una incidencia (tabla EVIDENCIAS).
+      required:
+        - id_evidencia
+        - id_incidencia
+        - tipo
+        - url_evidencia
+        - fecha_creacion
+      properties:
+        id_evidencia:
+          type: string
+          format: uuid
+        id_incidencia:
+          type: string
+          format: uuid
+        tipo:
+          $ref: '#/components/schemas/TipoEvidencia'
+        url_evidencia:
+          type: string
+          description: Direccion del archivo en Cloudinary (columna url_cloudinary).
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+
+    NuevaEvidencia:
+      type: object
+      required:
+        - id_tipo_evidencia
+        - url_evidencia
+      properties:
+        id_tipo_evidencia:
+          type: integer
+        url_evidencia:
+          type: string
