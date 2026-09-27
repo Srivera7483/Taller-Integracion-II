@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { EstadoIncidencia, EstadoOrdenTrabajo } from '@prisma/client';
+import { EstadoIncidencia, EstadoOrdenTrabajo, Prioridad } from '@prisma/client';
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 
 describe('OrdenesTrabajoService', () => {
@@ -29,7 +29,7 @@ describe('OrdenesTrabajoService', () => {
     jest.clearAllMocks();
   });
 
-  it('asigna una orden de trabajo, actualiza incidencia a Asignada y crea historial en una transacción', async () => {
+  it('asigna una orden de trabajo, actualiza incidencia a Asignada y crea historial en una transacción con prioridad por defecto Media', async () => {
     findUniqueIncidencia.mockResolvedValue({
       id_incidencia: 'incidencia-1',
       estado: EstadoIncidencia.Reportada,
@@ -40,6 +40,7 @@ describe('OrdenesTrabajoService', () => {
       incidencia_id: 'incidencia-1',
       tecnico_id: 'tecnico-1',
       estado: EstadoOrdenTrabajo.Pendiente,
+      prioridad: Prioridad.Media,
       instrucciones: 'Revisar cable HDMI',
     });
 
@@ -57,9 +58,11 @@ describe('OrdenesTrabajoService', () => {
         incidencia_id: 'incidencia-1',
         tecnico_id: 'tecnico-1',
         estado: EstadoOrdenTrabajo.Pendiente,
+        prioridad: Prioridad.Media,
         instrucciones: 'Revisar cable HDMI',
       },
     });
+
 
     expect(updateIncidencia).toHaveBeenCalledWith({
       where: { id_incidencia: 'incidencia-1' },
@@ -123,5 +126,85 @@ describe('OrdenesTrabajoService', () => {
         'supervisor-1',
       ),
     ).rejects.toThrow(BadRequestException);
+  it('asigna una orden de trabajo guardando el nivel de prioridad Alta', async () => {
+    findUniqueIncidencia.mockResolvedValue({
+      id_incidencia: 'incidencia-1',
+      estado: EstadoIncidencia.Reportada,
+    });
+
+    createOrden.mockResolvedValue({
+      id_orden: 'orden-2',
+      incidencia_id: 'incidencia-1',
+      tecnico_id: 'tecnico-1',
+      estado: EstadoOrdenTrabajo.Pendiente,
+      prioridad: Prioridad.Alta,
+    });
+
+    await service.asignarOrden(
+      {
+        incidencia_id: 'incidencia-1',
+        tecnico_id: 'tecnico-1',
+        prioridad: 'Alta',
+      },
+      'supervisor-1',
+    );
+
+    expect(createOrden).toHaveBeenCalledWith({
+      data: {
+        incidencia_id: 'incidencia-1',
+        tecnico_id: 'tecnico-1',
+        estado: EstadoOrdenTrabajo.Pendiente,
+        prioridad: Prioridad.Alta,
+        instrucciones: null,
+      },
+    });
+  });
+
+  it('asigna una orden de trabajo guardando el nivel de prioridad Baja en minúsculas', async () => {
+    findUniqueIncidencia.mockResolvedValue({
+      id_incidencia: 'incidencia-1',
+      estado: EstadoIncidencia.Reportada,
+    });
+
+    createOrden.mockResolvedValue({
+      id_orden: 'orden-3',
+      incidencia_id: 'incidencia-1',
+      tecnico_id: 'tecnico-1',
+      estado: EstadoOrdenTrabajo.Pendiente,
+      prioridad: Prioridad.Baja,
+    });
+
+    await service.asignarOrden(
+      {
+        incidencia_id: 'incidencia-1',
+        tecnico_id: 'tecnico-1',
+        prioridad: 'baja',
+      },
+      'supervisor-1',
+    );
+
+    expect(createOrden).toHaveBeenCalledWith({
+      data: {
+        incidencia_id: 'incidencia-1',
+        tecnico_id: 'tecnico-1',
+        estado: EstadoOrdenTrabajo.Pendiente,
+        prioridad: Prioridad.Baja,
+        instrucciones: null,
+      },
+    });
+  });
+
+  it('rechaza asignación si el nivel de prioridad es inválido', async () => {
+    await expect(
+      service.asignarOrden(
+        {
+          incidencia_id: 'incidencia-1',
+          tecnico_id: 'tecnico-1',
+          prioridad: 'UrgenteInvalida',
+        },
+        'supervisor-1',
+      ),
+    ).rejects.toThrow(BadRequestException);
   });
 });
+

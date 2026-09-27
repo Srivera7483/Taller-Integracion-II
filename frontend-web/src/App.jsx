@@ -6,12 +6,14 @@ import AxiosInterceptor from './components/AxiosInterceptor';
 
 // Componentes Estructurales y Vistas
 import Layout from './components/Layout';
+import PublicRoute from './components/PublicRoute';
 import Dashboard from './views/Dashboard';
 import Incidencias from './views/Incidencias';
 import ReporteIncidencia from './views/ReporteIncidencia';
 import Inventario from './views/Inventario';
 import Login from './views/Login';
 import AsignarTecnico from './views/AsignarTecnico';
+
 
 function App() {
   return (

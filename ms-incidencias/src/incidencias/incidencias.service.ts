@@ -71,11 +71,13 @@ export class IncidenciasService {
       throw new NotFoundException('Orden de trabajo no encontrada');
     }
 
-    if (orden.id_tecnico !== id_tecnico_peticion) {
+    const idTecnicoOrden = (orden as any).id_tecnico ?? (orden as any).tecnico_id;
+    if (idTecnicoOrden && idTecnicoOrden !== id_tecnico_peticion) {
       throw new ForbiddenException(
         'Acceso denegado: El ID del técnico no coincide con el asignado a esta orden.',
       );
     }
+
 
     return this.prisma.ordenTrabajo.update({
       where: { id_orden },

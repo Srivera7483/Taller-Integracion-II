@@ -30,6 +30,7 @@ const AsignarTecnico = () => {
 
   const [incidencias, setIncidencias] = useState(() => getIncidencias());
   const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
+  const [prioridad, setPrioridad] = useState('Media');
   const [notasInstrucciones, setNotasInstrucciones] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -82,6 +83,7 @@ const AsignarTecnico = () => {
     const payload = {
       incidencia_id: selectedIncidenciaId,
       tecnico_id: selectedTecnicoId,
+      prioridad: prioridad,
       instrucciones: notasInstrucciones.trim(),
     };
 
@@ -103,6 +105,7 @@ const AsignarTecnico = () => {
           id_activo: incidenciaSeleccionada?.id_activo || 'N/A',
           tecnico_id: payload.tecnico_id,
           tecnico_nombre: tecnicoSeleccionado?.nombre || 'Técnico asignado',
+          prioridad: res.data?.prioridad || payload.prioridad || 'Media',
           instrucciones: payload.instrucciones,
           fecha_emision: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           estado: res.data?.estado || 'Emitida',
@@ -113,6 +116,7 @@ const AsignarTecnico = () => {
         // A) El formulario se limpia
         setSelectedIncidenciaId('');
         setSelectedTecnicoId('');
+        setPrioridad('Media');
         setNotasInstrucciones('');
         setErrorApi(null);
 
@@ -164,6 +168,7 @@ const AsignarTecnico = () => {
       id_activo: incidenciaSeleccionada?.id_activo || 'N/A',
       tecnico_id: selectedTecnicoId,
       tecnico_nombre: tecnicoSeleccionado?.nombre || 'Técnico asignado',
+      prioridad: prioridad,
       instrucciones: notasInstrucciones.trim(),
       fecha_emision: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       estado: 'Emitida',
@@ -174,6 +179,7 @@ const AsignarTecnico = () => {
     // El formulario se limpia
     setSelectedIncidenciaId('');
     setSelectedTecnicoId('');
+    setPrioridad('Media');
     setNotasInstrucciones('');
     setErrorApi(null);
 
@@ -190,6 +196,7 @@ const AsignarTecnico = () => {
 
     showToast(`¡Orden ${idOrdenEmitida} emitida con éxito (Simulación 201 Created)!`, 'success');
   };
+
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -255,10 +262,22 @@ const AsignarTecnico = () => {
                 <p className="text-xs text-emerald-800">
                   La orden de trabajo fue transmitida y registrada a través del API Gateway.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs text-emerald-950 pt-3 border-t border-emerald-200 mt-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs text-emerald-950 pt-3 border-t border-emerald-200 mt-2.5">
                   <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
                     <span className="text-[11px] text-emerald-700 font-medium block">Código Orden</span>
                     <strong className="font-mono text-sm text-gray-900">{ordenEmitida.id_orden}</strong>
+                  </div>
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
+                    <span className="text-[11px] text-emerald-700 font-medium block">Prioridad</span>
+                    <span className={`inline-block mt-0.5 px-2 py-0.5 rounded text-xs font-bold border ${
+                      ordenEmitida.prioridad === 'Alta'
+                        ? 'bg-orange-100 text-orange-800 border-orange-300'
+                        : ordenEmitida.prioridad === 'Baja'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-yellow-100 text-yellow-800 border-yellow-300'
+                    }`}>
+                      {ordenEmitida.prioridad}
+                    </span>
                   </div>
                   <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200 shadow-2xs">
                     <span className="text-[11px] text-emerald-700 font-medium block">Incidencia</span>
@@ -274,6 +293,7 @@ const AsignarTecnico = () => {
                     <span className="text-sm font-semibold text-gray-900">{ordenEmitida.fecha_emision}</span>
                   </div>
                 </div>
+
                 {ordenEmitida.instrucciones && (
                   <div className="pt-2 text-xs text-emerald-900">
                     <span className="font-semibold">Instrucciones registradas:</span>{' '}
@@ -454,13 +474,74 @@ const AsignarTecnico = () => {
               </div>
             )}
 
-            {/* 3. Instrucciones o Notas del Supervisor (Opcional) */}
+            {/* 3. Nivel de Prioridad de la Orden */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="selector-prioridad"
+                  className="block text-sm font-semibold text-gray-800"
+                >
+                  3. Nivel de Prioridad <span className="text-red-500">*</span>
+                </label>
+                <span className="text-xs text-gray-500">
+                  (Parámetro de criticidad asignado a la orden)
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-3" id="selector-prioridad">
+                {[
+                  {
+                    id: 'Alta',
+                    label: 'Alta',
+                    desc: 'Atención urgente y prioritaria',
+                    color: 'border-orange-300 text-orange-950 bg-orange-50/70',
+                    active: 'ring-2 ring-orange-500 bg-orange-100 border-orange-500 text-orange-950 shadow-xs',
+                  },
+                  {
+                    id: 'Media',
+                    label: 'Media',
+                    desc: 'Flujo estándar y balanceado',
+                    color: 'border-yellow-300 text-yellow-950 bg-yellow-50/70',
+                    active: 'ring-2 ring-yellow-500 bg-yellow-100 border-yellow-500 text-yellow-950 shadow-xs',
+                  },
+                  {
+                    id: 'Baja',
+                    label: 'Baja',
+                    desc: 'Mantenimiento o menor impacto',
+                    color: 'border-emerald-300 text-emerald-950 bg-emerald-50/70',
+                    active: 'ring-2 ring-emerald-500 bg-emerald-100 border-emerald-500 text-emerald-950 shadow-xs',
+                  },
+                ].map((item) => {
+                  const isSelected = prioridad === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      id={`btn-prioridad-${item.id.toLowerCase()}`}
+                      onClick={() => setPrioridad(item.id)}
+                      className={`p-3 rounded-lg border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                        isSelected
+                          ? `${item.active} font-semibold`
+                          : `${item.color} opacity-75 hover:opacity-100`
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-bold">{item.label}</span>
+                        {isSelected && <span className="text-xs font-bold text-gray-900">✓</span>}
+                      </div>
+                      <span className="text-[11px] opacity-80 mt-1">{item.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 4. Instrucciones o Notas del Supervisor (Opcional) */}
             <div>
               <label
                 htmlFor="notas-asignacion"
                 className="block text-sm font-semibold text-gray-800 mb-1.5"
               >
-                3. Instrucciones para el Técnico <span className="text-xs font-normal text-gray-500">(Opcional)</span>
+                4. Instrucciones para el Técnico <span className="text-xs font-normal text-gray-500">(Opcional)</span>
               </label>
               <textarea
                 id="notas-asignacion"
@@ -471,6 +552,7 @@ const AsignarTecnico = () => {
                 className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400"
               />
             </div>
+
 
             {/* Botón de Asignar Orden */}
             <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -545,10 +627,22 @@ const AsignarTecnico = () => {
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold font-mono text-emerald-900">{ord.id_orden}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-800 font-semibold text-[10px]">
-                        {ord.estado}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`px-1.5 py-0.5 rounded font-semibold text-[10px] border ${
+                          ord.prioridad === 'Alta'
+                            ? 'bg-orange-100 text-orange-800 border-orange-200'
+                            : ord.prioridad === 'Baja'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            : 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                        }`}>
+                          {ord.prioridad || 'Media'}
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-800 font-semibold text-[10px]">
+                          {ord.estado}
+                        </span>
+                      </div>
                     </div>
+
                     <p className="text-gray-700">
                       Incidencia: <span className="font-mono font-medium">{ord.incidencia_id}</span>
                     </p>

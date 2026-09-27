@@ -13,6 +13,19 @@ enum EstadoIncidencia {
   Resuelta
 }
 
+enum EstadoOrdenTrabajo {
+  Pendiente
+  EnProceso
+  Completada
+  Cancelada
+}
+
+enum Prioridad {
+  Alta
+  Media
+  Baja
+}
+
 model Incidencias {
   id_incidencia String           @id @unique @default(uuid())
   id_activo     String
@@ -22,8 +35,9 @@ model Incidencias {
   estado        EstadoIncidencia @default(Reportada)
   created_at    DateTime         @default(now()) @db.Timestamp()
 
-  historial HistorialIncidencia[]
-  evidencias Evidencia[]
+  historial       HistorialIncidencia[]
+  evidencias      Evidencia[]
+  ordenes_trabajo OrdenTrabajo[]
 }
 
 model HistorialIncidencia {
@@ -50,3 +64,22 @@ model Evidencia {
 
   @@index([incidencia_id])
 }
+
+model OrdenTrabajo {
+  id_orden            String             @id @default(uuid())
+  incidencia_id       String
+  tecnico_id          String
+  estado              EstadoOrdenTrabajo @default(Pendiente)
+  prioridad           Prioridad          @default(Media)
+  instrucciones       String?            @db.Text
+  diagnostico_tecnico String?            @db.Text
+  fecha_asignacion    DateTime           @default(now()) @db.Timestamp()
+  fecha_inicio        DateTime?          @db.Timestamp()
+  fecha_termino       DateTime?          @db.Timestamp()
+
+  incidencia          Incidencias        @relation(fields: [incidencia_id], references: [id_incidencia], onDelete: Cascade)
+
+  @@index([incidencia_id])
+  @@index([tecnico_id])
+}
+
