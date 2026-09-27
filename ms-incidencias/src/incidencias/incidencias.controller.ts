@@ -3,57 +3,47 @@ import {
   Controller,
   Param,
   Patch,
-  Req,
-  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import { CurrentUser } from '../auth/current-user.decorator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
+import type { JwtUser } from '../auth/auth.types';
 import { ActualizarEstadoDto } from './dto/actualizar-estado.dto';
 import { ActualizarDiagnosticoDto } from './dto/actualizar-diagnostico.dto';
 import { IncidenciasService } from './incidencias.service';
-
-type RequestWithUser = Request & {
-  user?: { userId?: string; sub?: string };
-};
 
 @Controller('incidencias')
 export class IncidenciasController {
   constructor(private readonly incidenciasService: IncidenciasService) {}
 
   @Patch(':id/estado')
+  @UseGuards(JwtAuthGuard)
   async actualizarEstado(
     @Param('id') incidenciaId: string,
     @Body() body: ActualizarEstadoDto,
-    @Req() request: RequestWithUser,
+    @CurrentUser() user: JwtUser,
   ) {
-    const usuarioId = request.user?.userId ?? request.user?.sub;
-
-    if (!usuarioId) {
-      throw new UnauthorizedException('Usuario autenticado requerido');
-    }
-
     return this.incidenciasService.actualizarEstado(
       incidenciaId,
       body.id_estado,
-      usuarioId,
+      user.userId,
     );
   }
 
   @Patch('ordenes-trabajo/:id_orden/diagnostico')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('TECNICO', 'SUPERVISOR', 'ADMINISTRADOR')
   async actualizarDiagnostico(
     @Param('id_orden') id_orden: string,
     @Body() body: ActualizarDiagnosticoDto,
-    @Req() request: RequestWithUser,
+    @CurrentUser() user: JwtUser,
   ) {
-    const usuarioId = request.user?.userId ?? request.user?.sub;
-
-    if (!usuarioId) {
-      throw new UnauthorizedException('Usuario autenticado requerido');
-    }
-
     return this.incidenciasService.actualizarDiagnostico(
       id_orden,
       body.diagnostico_tecnico,
-      usuarioId,
+      user.userId,
     );
   }
 }
