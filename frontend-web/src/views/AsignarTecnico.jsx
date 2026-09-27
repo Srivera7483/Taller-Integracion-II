@@ -124,13 +124,15 @@ const AsignarTecnico = () => {
         setOrdenEmitida(datosOrdenEmitida);
         setHistorialEmitidas((prev) => [datosOrdenEmitida, ...prev]);
 
-        // C) Actualizar estado local para reflejar la incidencia como asignada
+        // C) Actualizar estado local para reflejar la incidencia como asignada y con su prioridad
         asignarTecnicoIncidencia(
           payload.incidencia_id,
           tecnicoSeleccionado.nombre,
-          payload.instrucciones
+          payload.instrucciones,
+          datosOrdenEmitida.prioridad || payload.prioridad
         );
         setIncidencias(getIncidencias());
+
 
         showToast(
           `¡Orden ${idOrdenEmitida} emitida con éxito (${res.status === 201 ? '201 Created' : '200 OK'})!`,
@@ -190,9 +192,11 @@ const AsignarTecnico = () => {
     asignarTecnicoIncidencia(
       datosOrdenEmitida.incidencia_id,
       datosOrdenEmitida.tecnico_nombre,
-      datosOrdenEmitida.instrucciones
+      datosOrdenEmitida.instrucciones,
+      datosOrdenEmitida.prioridad
     );
     setIncidencias(getIncidencias());
+
 
     showToast(`¡Orden ${idOrdenEmitida} emitida con éxito (Simulación 201 Created)!`, 'success');
   };
@@ -394,16 +398,21 @@ const AsignarTecnico = () => {
                   </div>
                   <StatusBadge status={incidenciaSeleccionada.estado || 'Pendiente'} />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-gray-600 pt-1 border-t border-gray-200">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-gray-600 pt-1 border-t border-gray-200">
                   <div className="flex items-center gap-1.5">
                     <FiBox className="text-gray-400" />
                     <span>Activo: <strong>{incidenciaSeleccionada.id_activo || 'N/A'}</strong></span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <FiClock className="text-gray-400" />
-                    <span>Asignado actual: <strong>{incidenciaSeleccionada.asignado || 'Sin asignar'}</strong></span>
+                    <span>Asignado: <strong>{incidenciaSeleccionada.asignado || 'Sin asignar'}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <FiShield className="text-gray-400" />
+                    <span>Prioridad actual: <strong className={(!incidenciaSeleccionada.prioridad || incidenciaSeleccionada.prioridad === 'No Asignada') ? 'text-gray-500 font-semibold' : 'text-indigo-600 font-bold'}>{incidenciaSeleccionada.prioridad || 'No Asignada'}</strong></span>
                   </div>
                 </div>
+
                 {incidenciaSeleccionada.descripcion && (
                   <p className="text-gray-500 italic pt-1">
                     "{incidenciaSeleccionada.descripcion}"

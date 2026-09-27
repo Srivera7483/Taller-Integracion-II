@@ -197,12 +197,14 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       titulo: titulo.trim(),
       id_activo: idActivo.trim(),
       categoria,
+      prioridad: 'No Asignada',
       descripcion: descripcion.trim(),
       ubicacion: ubicacion.trim() || 'No especificada',
       adjunto: adjuntoNombre || null,
       fecha_creacion: new Date().toISOString(),
       estado: 'Pendiente',
     };
+
 
 
     console.log('[Incidencias] Payload generado para la API:', nuevaIncidencia);

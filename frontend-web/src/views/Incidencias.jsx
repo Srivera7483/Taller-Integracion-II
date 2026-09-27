@@ -48,8 +48,10 @@ const Incidencias = () => {
     if (p === 'critica' || p === 'crítica') return 'text-red-600 bg-red-50 border-red-200';
     if (p === 'alta') return 'text-orange-600 bg-orange-50 border-orange-200';
     if (p === 'media') return 'text-yellow-700 bg-yellow-50 border-yellow-200';
-    return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+    if (p === 'baja') return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+    return 'text-gray-500 bg-gray-50 border-gray-200';
   };
+
 
   return (
     <div className="space-y-6">
@@ -157,9 +159,10 @@ const Incidencias = () => {
 
                     <td className="px-6 py-4">
                       <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border ${getPriorityStyle(inc.prioridad)}`}>
-                        {inc.prioridad ? inc.prioridad.toUpperCase() : 'MEDIA'}
+                        {inc.prioridad ? inc.prioridad.toUpperCase() : 'NO ASIGNADA'}
                       </span>
                     </td>
+
 
                     <td className="px-6 py-4">
                       <StatusBadge status={inc.estado || 'Pendiente'} />

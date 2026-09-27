@@ -25,13 +25,14 @@ const INCIDENCIAS_INICIALES = [
     titulo: 'Actualización y parches de base de datos',
     id_activo: 'SN-RC-1111-042',
     categoria: 'redes',
-    prioridad: 'Media',
+    prioridad: 'No Asignada',
     estado: 'Pendiente',
     asignado: 'Sin asignar',
     fecha: 'Hoy, 08:15',
     descripcion: 'Ventana de mantenimiento programada para el router principal.',
     esTemporal: false,
   },
+
 ];
 
 /**
@@ -144,9 +145,9 @@ export const TECNICOS_EXISTENTES = [
 ];
 
 /**
- * Asigna un técnico a una incidencia existente
+ * Asigna un técnico a una incidencia existente y actualiza su prioridad
  */
-export function asignarTecnicoIncidencia(incidenciaId, tecnicoNombre, notas = '') {
+export function asignarTecnicoIncidencia(incidenciaId, tecnicoNombre, notas = '', prioridad = '') {
   const guardadasEnCookie = getCookie(COOKIE_NAME) || [];
   const todas = getIncidencias();
   const encontrada = todas.find((item) => item.id === incidenciaId);
@@ -155,6 +156,7 @@ export function asignarTecnicoIncidencia(incidenciaId, tecnicoNombre, notas = ''
     ...(encontrada || { id: incidenciaId, titulo: 'Incidencia', id_activo: 'N/A' }),
     asignado: tecnicoNombre,
     estado: 'Asignada',
+    ...(prioridad ? { prioridad } : {}),
     notasAsignacion: notas,
     fechaAsignacion: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     esTemporal: true,
@@ -167,6 +169,7 @@ export function asignarTecnicoIncidencia(incidenciaId, tecnicoNombre, notas = ''
 
   return incidenciaActualizada;
 }
+
 
 /**
  * Restablece las incidencias temporales a las originales
