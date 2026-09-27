@@ -6,11 +6,13 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { AsignarOrdenDto } from './dto/asignar-orden.dto';
+import { FiltrarOrdenesDto } from './dto/filtrar-ordenes.dto';
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 
 type RequestWithUser = Request & {
@@ -27,27 +29,30 @@ export class OrdenesTrabajoController {
     @Body() body: AsignarOrdenDto,
     @Req() request: RequestWithUser,
   ) {
-    const supervisorId = request.user?.userId ?? request.user?.sub;
+    const usuarioId = request.user?.userId ?? request.user?.sub;
 
-    if (!supervisorId) {
-      throw new UnauthorizedException('Usuario supervisor autenticado requerido');
+    if (!usuarioId) {
+      throw new UnauthorizedException('Usuario autenticado requerido');
     }
 
-    return this.ordenesService.asignarOrden(body, supervisorId);
+    return this.ordenesService.asignarOrden(body, usuarioId);
   }
 
-  @Get()
-  async listarTodas() {
-    return this.ordenesService.listarTodas();
-  }
-
-  @Get('tecnico/:tecnicoId')
-  async listarPorTecnico(@Param('tecnicoId') tecnicoId: string) {
-    return this.ordenesService.listarPorTecnico(tecnicoId);
+  @Get('tecnico/:idTecnico')
+  async listarPorTecnico(
+    @Param('idTecnico') idTecnico: string,
+    @Query() filtros: FiltrarOrdenesDto,
+  ) {
+    return this.ordenesService.listarPorTecnico(idTecnico, filtros);
   }
 
   @Get(':id')
   async obtenerPorId(@Param('id') id: string) {
     return this.ordenesService.obtenerPorId(id);
+  }
+
+  @Get()
+  async listarTodas(@Query() filtros: FiltrarOrdenesDto) {
+    return this.ordenesService.listarTodas(filtros);
   }
 }

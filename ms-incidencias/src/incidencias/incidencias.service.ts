@@ -4,10 +4,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { EstadoIncidencia } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-
-const estadosIncidencia = new Set<string>(Object.values(EstadoIncidencia));
 
 @Injectable()
 export class IncidenciasService {
@@ -15,11 +12,13 @@ export class IncidenciasService {
 
   async actualizarEstado(
     incidenciaId: string,
-    estadoNuevo: EstadoIncidencia,
+    idEstadoNuevo: number,
     usuarioId: string,
   ) {
-    if (!estadosIncidencia.has(estadoNuevo)) {
-      throw new BadRequestException('Estado de incidencia inválido');
+    if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
+      throw new BadRequestException(
+        'El ID del estado es obligatorio y debe ser numérico',
+      );
     }
 
     if (!usuarioId) {
@@ -29,32 +28,33 @@ export class IncidenciasService {
     return this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: incidenciaId },
-        select: { id_incidencia: true, estado: true },
+        select: { id_incidencia: true },
       });
 
       if (!incidencia) {
         throw new NotFoundException('Incidencia no encontrada');
       }
 
-      if (incidencia.estado === estadoNuevo) {
-        return incidencia;
-      }
-
-      const incidenciaActualizada = await transaction.incidencias.update({
-        where: { id_incidencia: incidenciaId },
-        data: { estado: estadoNuevo },
+      const estado = await transaction.estadoIncidencia.findUnique({
+        where: { id_estado: idEstadoNuevo },
       });
 
-      await transaction.historialIncidencia.create({
+      if (!estado) {
+        throw new NotFoundException('Estado de incidencia no encontrado');
+      }
+
+      const nuevoHistorial = await transaction.historialEstados.create({
         data: {
-          id_incidencia: incidencia.id_incidencia, // Homologado con el último schema
-          estado_anterior: incidencia.estado,
-          estado_nuevo: estadoNuevo,
-          usuario_id: usuarioId,
+          id_incidencia: incidencia.id_incidencia,
+          id_estado: idEstadoNuevo,
+          id_usuario_cambio: usuarioId,
+        },
+        include: {
+          estado: true,
         },
       });
 
-      return incidenciaActualizada;
+      return nuevoHistorial;
     });
   }
 

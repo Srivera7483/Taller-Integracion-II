@@ -33,7 +33,7 @@ export class IncidenciasController {
 
     return this.incidenciasService.actualizarEstado(
       incidenciaId,
-      body.estado,
+      body.id_estado,
       usuarioId,
     );
   }

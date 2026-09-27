@@ -1,18 +1,24 @@
-import { BadRequestException } from '@nestjs/common';
-import { EstadoIncidencia } from '@prisma/client';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { IncidenciasService } from './incidencias.service';
 
 describe('IncidenciasService', () => {
-  const findUnique = jest.fn();
-  const update = jest.fn();
-  const createHistory = jest.fn();
+  const findUniqueIncidencia = jest.fn();
+  const findUniqueEstado = jest.fn();
+  const createHistorial = jest.fn();
   const transaction = jest.fn((callback) =>
     callback({
-      incidencias: { findUnique, update },
-      historialIncidencia: { create: createHistory },
+      incidencias: { findUnique: findUniqueIncidencia },
+      estadoIncidencia: { findUnique: findUniqueEstado },
+      historialEstados: { create: createHistorial },
     }),
   );
-  const prisma = { $transaction: transaction } as never;
+  const prisma = {
+    $transaction: transaction,
+    ordenTrabajo: {
+      findUnique: jest.fn(),
+      update: jest.fn(),
+    },
+  } as never;
   const service = new IncidenciasService(prisma);
 
   beforeEach(() => {
@@ -20,40 +26,56 @@ describe('IncidenciasService', () => {
   });
 
   it('actualiza el estado y registra el cambio dentro de una transacción', async () => {
-    findUnique.mockResolvedValue({
+    findUniqueIncidencia.mockResolvedValue({
       id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Reportada,
     });
-    update.mockResolvedValue({
+    findUniqueEstado.mockResolvedValue({
+      id_estado: 2,
+      nombre_estado: 'Asignada',
+    });
+    createHistorial.mockResolvedValue({
+      id_historial: 'hist-1',
       id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Asignada,
+      id_estado: 2,
+      id_usuario_cambio: 'usuario-1',
     });
 
-    await service.actualizarEstado(
+    const resultado = await service.actualizarEstado(
       'incidencia-1',
-      EstadoIncidencia.Asignada,
+      2,
       'usuario-1',
     );
 
-    expect(update).toHaveBeenCalledWith({
+    expect(findUniqueIncidencia).toHaveBeenCalledWith({
       where: { id_incidencia: 'incidencia-1' },
-      data: { estado: EstadoIncidencia.Asignada },
+      select: { id_incidencia: true },
     });
-    expect(createHistory).toHaveBeenCalledWith({
+    expect(findUniqueEstado).toHaveBeenCalledWith({
+      where: { id_estado: 2 },
+    });
+    expect(createHistorial).toHaveBeenCalledWith({
       data: {
-        incidencia_id: 'incidencia-1',
-        estado_anterior: EstadoIncidencia.Reportada,
-        estado_nuevo: EstadoIncidencia.Asignada,
-        usuario_id: 'usuario-1',
+        id_incidencia: 'incidencia-1',
+        id_estado: 2,
+        id_usuario_cambio: 'usuario-1',
       },
+      include: {
+        estado: true,
+      },
+    });
+    expect(resultado).toEqual({
+      id_historial: 'hist-1',
+      id_incidencia: 'incidencia-1',
+      id_estado: 2,
+      id_usuario_cambio: 'usuario-1',
     });
   });
 
-  it('rechaza estados que no pertenezcan al enum', async () => {
+  it('rechaza si el id_estado no es numérico o es inválido', async () => {
     await expect(
       service.actualizarEstado(
         'incidencia-1',
-        'Cancelada' as EstadoIncidencia,
+        undefined as never,
         'usuario-1',
       ),
     ).rejects.toThrow(BadRequestException);
@@ -61,37 +83,28 @@ describe('IncidenciasService', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('no crea historial si el estado no cambia', async () => {
-    findUnique.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Reportada,
-    });
-
-    await service.actualizarEstado(
-      'incidencia-1',
-      EstadoIncidencia.Reportada,
-      'usuario-1',
-    );
-
-    expect(update).not.toHaveBeenCalled();
-    expect(createHistory).not.toHaveBeenCalled();
-  });
-
-  it('propaga el fallo del update y no registra historial', async () => {
-    findUnique.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Reportada,
-    });
-    update.mockRejectedValue(new Error('fallo de base de datos'));
+  it('rechaza si la incidencia no existe', async () => {
+    findUniqueIncidencia.mockResolvedValue(null);
 
     await expect(
       service.actualizarEstado(
-        'incidencia-1',
-        EstadoIncidencia.Asignada,
+        'incidencia-inexistente',
+        2,
         'usuario-1',
       ),
-    ).rejects.toThrow('fallo de base de datos');
+    ).rejects.toThrow(NotFoundException);
+  });
 
-    expect(createHistory).not.toHaveBeenCalled();
+  it('rechaza si el estado no existe en la base de datos', async () => {
+    findUniqueIncidencia.mockResolvedValue({ id_incidencia: 'inc-1' });
+    findUniqueEstado.mockResolvedValue(null);
+
+    await expect(
+      service.actualizarEstado(
+        'inc-1',
+        999,
+        'usuario-1',
+      ),
+    ).rejects.toThrow(NotFoundException);
   });
 });
