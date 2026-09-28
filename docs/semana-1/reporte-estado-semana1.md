@@ -21,7 +21,7 @@ A continuación, se detalla el estado exacto de cada módulo y los bloqueos exis
 ## 2. Errores Críticos y Sanación Aplicada (TAL-88)
 Durante el cierre de esta iteración, se detectaron y sanearon múltiples incompatibilidades en la rama `dev` generadas por el trabajo en paralelo del equipo. Las correcciones aplicadas fueron:
 
-* **Crash de Inicialización en MS-Auth:** Se corrigió la falta de inyección del `FastifyAdapter` en el `main.ts` y la evasión de tipos en `auth.service.ts` (`as any`) que rompían la seguridad del tipado de Prisma.
+* **Crash de Inicialización en MS-Auth:** Se corrigió la inicialización del motor HTTP en `main.ts` y la evasión de tipos en `auth.service.ts` (`as any`) que rompían la seguridad del tipado de Prisma.
 * **Conflictos de Prisma Client:** El módulo `ms-incidencias` estaba configurado con una versión incompatible (`6.4.0`) frente al ms-auth (`v5.22.0`). Se estandarizó la versión y se reparó el script roto de `postinstall`.
 * **Caos en Gestores de Paquetes:** El frontend usaba `npm` y `ms-incidencias` usaba `yarn`. Se eliminaron los `package-lock.json` y `yarn.lock`, y se unificó todo el ecosistema bajo **`pnpm`**.
 * **Fallas de Conexión en Frontend:** Se eliminó la URL harcodeada a `localhost:3001` en `Login.jsx` (que causaba errores 404), migrándolo al uso seguro de variables de entorno (`import.meta.env.VITE_API_URL`).
@@ -33,7 +33,7 @@ Durante el cierre de esta iteración, se detectaron y sanearon múltiples incomp
 
 ### 🟢 2.1. Microservicio de Autenticación (`ms-auth`)
 **Estado: Completamente Operativo y Saneado**
-* **Infraestructura:** Corre de manera estable usando **NestJS + Fastify**. Se resolvió el error crítico de inicialización (`FastifyAdapter`) que impedía levantar el proyecto.
+* **Infraestructura:** Corre de manera estable usando **NestJS + Express** (Refactorizado en TAL-92 para cumplir diagrama arquitectónico). Se resolvieron los errores críticos de inicialización que impedían levantar el proyecto.
 * **Base de Datos:** La conexión a PostgreSQL (Puerto 5435) está implementada usando `Prisma ORM` (v5.22.0).
 * **Modelado:** Entidades `User` y `Role` listas con UUIDs y relaciones 1:N probadas y tipeadas fuertemente.
 * **Filtros Globales:** Filtro global de excepciones implementado, devolviendo estructuras JSON 100% predecibles para el frontend.

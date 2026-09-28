@@ -40,6 +40,7 @@ function App() {
             <Route path="incidencias/:idIncidencia" element={<DetalleIncidencia />} />
             <Route path="ordenes/:idOrden" element={<DetalleOrden />} />
             <Route path="inventario" element={<Inventario />} />
+            <Route path="usuarios" element={<Usuarios />} />
           </Route>
           </Routes>
           
