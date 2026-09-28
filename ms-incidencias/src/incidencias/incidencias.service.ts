@@ -2,24 +2,33 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
-import { EstadoIncidencia } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-
-const estadosIncidencia = new Set<string>(Object.values(EstadoIncidencia));
 
 @Injectable()
 export class IncidenciasService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private formatearIncidencia(incidencia: any) {
+    const ultimoHistorial = incidencia.historial_estados[0];
+    return {
+      id_incidencia: incidencia.id_incidencia,
+      id_activo: incidencia.id_activo,
+      id_reportante: incidencia.id_reportante,
+      titulo: incidencia.titulo,
+      descripcion: incidencia.descripcion,
+      estado: ultimoHistorial ? ultimoHistorial.estado : null,
+      fecha_creacion: incidencia.fecha_creacion,
+    };
+  }
+
   async actualizarEstado(
     incidenciaId: string,
-    estadoNuevo: EstadoIncidencia,
+    idEstadoNuevo: number,
     usuarioId: string,
   ) {
-    if (!estadosIncidencia.has(estadoNuevo)) {
-      throw new BadRequestException('Estado de incidencia inválido');
+    if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
+      throw new BadRequestException('El ID del estado es obligatorio y debe ser numérico');
     }
 
     if (!usuarioId) {
@@ -29,57 +38,40 @@ export class IncidenciasService {
     return this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: incidenciaId },
-        select: { id_incidencia: true, estado: true },
       });
 
       if (!incidencia) {
         throw new NotFoundException('Incidencia no encontrada');
       }
 
-      if (incidencia.estado === estadoNuevo) {
-        return incidencia;
-      }
-
-      const incidenciaActualizada = await transaction.incidencias.update({
-        where: { id_incidencia: incidenciaId },
-        data: { estado: estadoNuevo },
+      const estado = await transaction.estadoIncidencia.findUnique({
+        where: { id_estado: idEstadoNuevo },
       });
 
-      await transaction.historialIncidencia.create({
+      if (!estado) {
+        throw new NotFoundException('Estado de incidencia no encontrado');
+      }
+
+      await transaction.historialEstados.create({
         data: {
-          id_incidencia: incidencia.id_incidencia, // Homologado con el último schema
-          estado_anterior: incidencia.estado,
-          estado_nuevo: estadoNuevo,
-          usuario_id: usuarioId,
+          id_incidencia: incidencia.id_incidencia,
+          id_estado: idEstadoNuevo,
+          id_usuario_cambio: usuarioId,
         },
       });
 
-      return incidenciaActualizada;
-    });
-  }
+      const incidenciaActualizada = await transaction.incidencias.findUnique({
+        where: { id_incidencia: incidenciaId },
+        include: {
+          historial_estados: {
+            orderBy: { fecha_creacion: 'desc' },
+            take: 1, // Traemos solo el estado más reciente
+            include: { estado: true },
+          },
+        },
+      });
 
-  async actualizarDiagnostico(
-    id_orden: string,
-    diagnostico_tecnico: string,
-    id_tecnico_peticion: string,
-  ) {
-    const orden = await this.prisma.ordenTrabajo.findUnique({
-      where: { id_orden },
-    });
-
-    if (!orden) {
-      throw new NotFoundException('Orden de trabajo no encontrada');
-    }
-
-    if (orden.id_tecnico !== id_tecnico_peticion) {
-      throw new ForbiddenException(
-        'Acceso denegado: El ID del técnico no coincide con el asignado a esta orden.',
-      );
-    }
-
-    return this.prisma.ordenTrabajo.update({
-      where: { id_orden },
-      data: { diagnostico_tecnico },
+      return this.formatearIncidencia(incidenciaActualizada);
     });
   }
 }

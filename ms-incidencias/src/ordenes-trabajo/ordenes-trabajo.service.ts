@@ -3,76 +3,114 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EstadoIncidencia, EstadoOrdenTrabajo } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AsignarOrdenDto } from './dto/asignar-orden.dto';
+import { FiltrarOrdenesDto } from './dto/filtrar-ordenes.dto';
 
 @Injectable()
 export class OrdenesTrabajoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async asignarOrden(dto: AsignarOrdenDto, supervisorId: string) {
-    if (!dto.incidencia_id || typeof dto.incidencia_id !== 'string') {
+  async asignarOrden(dto: AsignarOrdenDto, usuarioCambioId: string) {
+    if (!dto.id_incidencia || typeof dto.id_incidencia !== 'string') {
       throw new BadRequestException('El ID de la incidencia es obligatorio');
     }
 
-    if (!dto.tecnico_id || typeof dto.tecnico_id !== 'string') {
+    if (!dto.id_tecnico || typeof dto.id_tecnico !== 'string') {
       throw new BadRequestException('El ID del técnico es obligatorio');
     }
 
-    if (!supervisorId) {
-      throw new BadRequestException('El usuario supervisor es obligatorio');
+    if (!usuarioCambioId) {
+      throw new BadRequestException('El usuario que realiza el cambio es obligatorio');
     }
 
     return this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
-        where: { id_incidencia: dto.incidencia_id },
-        select: { id_incidencia: true, estado: true },
+        where: { id_incidencia: dto.id_incidencia },
+        select: { id_incidencia: true },
       });
 
       if (!incidencia) {
         throw new NotFoundException('Incidencia no encontrada');
       }
 
-      if (incidencia.estado === EstadoIncidencia.Resuelta) {
-        throw new BadRequestException(
-          'No se puede asignar una orden de trabajo a una incidencia ya resuelta',
-        );
-      }
-
       const nuevaOrden = await transaction.ordenTrabajo.create({
         data: {
-          incidencia_id: dto.incidencia_id,
-          tecnico_id: dto.tecnico_id,
-          estado: EstadoOrdenTrabajo.Pendiente,
-          instrucciones: dto.instrucciones?.trim() || null,
+          id_incidencia: dto.id_incidencia,
+          id_tecnico: dto.id_tecnico,
+          diagnostico_tecnico: dto.diagnostico_tecnico?.trim() || null,
         },
       });
-
-      if (incidencia.estado !== EstadoIncidencia.Asignada) {
-        await transaction.incidencias.update({
-          where: { id_incidencia: dto.incidencia_id },
-          data: { estado: EstadoIncidencia.Asignada },
-        });
-
-        await transaction.historialIncidencia.create({
-          data: {
-            incidencia_id: dto.incidencia_id,
-            estado_anterior: incidencia.estado,
-            estado_nuevo: EstadoIncidencia.Asignada,
-            usuario_id: supervisorId,
-          },
-        });
-      }
 
       return nuevaOrden;
     });
   }
 
+  async listarPorTecnico(idTecnico: string, filtros?: FiltrarOrdenesDto) {
+    if (!idTecnico || typeof idTecnico !== 'string') {
+      throw new BadRequestException('El ID del técnico es obligatorio');
+    }
+
+    const page = Math.max(1, Number(filtros?.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(filtros?.limit) || 10));
+    const skip = (page - 1) * limit;
+    const orden = filtros?.orden?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+    const where: {
+      id_tecnico: string;
+      fecha_creacion?: { gte?: Date; lte?: Date };
+    } = {
+      id_tecnico: idTecnico,
+    };
+
+    if (filtros?.fechaDesde || filtros?.fechaHasta) {
+      where.fecha_creacion = {};
+      if (filtros.fechaDesde) {
+        where.fecha_creacion.gte = new Date(filtros.fechaDesde);
+      }
+      if (filtros.fechaHasta) {
+        where.fecha_creacion.lte = new Date(filtros.fechaHasta);
+      }
+    }
+
+    const [total, ordenes] = await Promise.all([
+      this.prisma.ordenTrabajo.count({ where }),
+      this.prisma.ordenTrabajo.findMany({
+        where,
+        include: {
+          incidencia: {
+            include: {
+              evidencias: true,
+            },
+          },
+        },
+        orderBy: {
+          fecha_creacion: orden,
+        },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      data: ordenes,
+    };
+  }
+
   async obtenerPorId(idOrden: string) {
     const orden = await this.prisma.ordenTrabajo.findUnique({
       where: { id_orden: idOrden },
-      include: { incidencia: true },
+      include: {
+        incidencia: {
+          include: {
+            evidencias: true,
+          },
+        },
+      },
     });
 
     if (!orden) {
@@ -82,22 +120,36 @@ export class OrdenesTrabajoService {
     return orden;
   }
 
-  async listarPorTecnico(tecnicoId: string) {
-    if (!tecnicoId) {
-      throw new BadRequestException('El ID del técnico es obligatorio');
-    }
+  async listarTodas(filtros?: FiltrarOrdenesDto) {
+    const page = Math.max(1, Number(filtros?.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(filtros?.limit) || 10));
+    const skip = (page - 1) * limit;
+    const orden = filtros?.orden?.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-    return this.prisma.ordenTrabajo.findMany({
-      where: { tecnico_id: tecnicoId },
-      include: { incidencia: true },
-      orderBy: { fecha_asignacion: 'desc' },
-    });
-  }
+    const [total, ordenes] = await Promise.all([
+      this.prisma.ordenTrabajo.count(),
+      this.prisma.ordenTrabajo.findMany({
+        include: {
+          incidencia: {
+            include: {
+              evidencias: true,
+            },
+          },
+        },
+        orderBy: {
+          fecha_creacion: orden,
+        },
+        skip,
+        take: limit,
+      }),
+    ]);
 
-  async listarTodas() {
-    return this.prisma.ordenTrabajo.findMany({
-      include: { incidencia: true },
-      orderBy: { fecha_asignacion: 'desc' },
-    });
+    return {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      data: ordenes,
+    };
   }
 }

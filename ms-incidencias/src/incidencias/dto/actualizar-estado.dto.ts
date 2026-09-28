@@ -1,5 +1,8 @@
-import { EstadoIncidencia } from '@prisma/client';
+import { IsInt, IsNotEmpty, IsPositive } from 'class-validator';
 
 export class ActualizarEstadoDto {
-  estado!: EstadoIncidencia;
+  @IsInt()
+  @IsPositive()
+  @IsNotEmpty()
+  id_estado!: number;
 }
