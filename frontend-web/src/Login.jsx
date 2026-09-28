@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  IoServer, 
-  IoMailOutline, 
-  IoLockClosedOutline, 
-  IoEyeOutline, 
-  IoEyeOffOutline, 
-  IoArrowForwardOutline 
+import {
+  IoServer,
+  IoMailOutline,
+  IoLockClosedOutline,
+  IoEyeOutline,
+  IoEyeOffOutline,
+  IoArrowForwardOutline
 } from 'react-icons/io5';
 import { useToast } from './context/ToastContext';
+import api from './services/api';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -55,43 +56,31 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-      const endpoint = mode === 'login' ? `${baseUrl}/auth/login` : `${baseUrl}/auth/register`;
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      const endpoint = mode === 'login' ? '/auth/login' : '/auth/register';
+      const response = await api.post(endpoint, payload);
 
       if (mode === 'login') {
-        if (response.status === 200) {
-          const data = await response.json();
+        if (response.status === 200 || response.status === 201) {
+          const data = response.data;
           const token = data.token || data.accessToken || data.access_token;
           if (token) {
             localStorage.setItem('token', token);
           }
           showToast('Inicio de sesión exitoso', 'success');
           navigate('/dashboard');
-        } else if (response.status === 401) {
-          showToast('Credenciales inválidas', 'error');
-        } else {
-          showToast('Error al iniciar sesión', 'error');
         }
       } else {
-        if (response.ok) {
+        if (response.status === 200 || response.status === 201) {
           showToast('Registro exitoso', 'success');
           setMode('login');
           setPassword('');
           setShowPassword(false);
-        } else {
-          showToast('Error al registrarse', 'error');
         }
       }
     } catch (error) {
       console.error('Error de red:', error);
-      showToast('Error de conexión con el servidor', 'error');
+      // El Toast ya es disparado automáticamente por el AxiosInterceptor en caso de 4xx/5xx
+      // Solo mostramos toast genérico en caso de que no haya respuesta (ya manejado por interceptor también)
     } finally {
       setIsSubmitting(false);
     }
@@ -111,7 +100,7 @@ const Login = () => {
 
         {/* Tarjeta de autenticación */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-8 w-full max-w-sm fade-in-up transition-all relative z-10">
-          
+
           {/* Encabezado con ícono de servidor */}
           <div className="flex flex-col items-center justify-center gap-2 mb-8">
             <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-2xl mb-2">
@@ -194,16 +183,15 @@ const Login = () => {
               type="submit"
               id="submit-btn"
               disabled={!isFormValid || isSubmitting}
-              className={`w-full mt-2 bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
-                isFormValid && !isSubmitting ? 'hover:shadow-md hover:-translate-y-0.5' : ''
-              }`}
+              className={`w-full mt-2 bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${isFormValid && !isSubmitting ? 'hover:shadow-md hover:-translate-y-0.5' : ''
+                }`}
             >
               <span id="btn-text">
                 {isSubmitting
                   ? 'Procesando...'
                   : mode === 'login'
-                  ? 'Ingresar'
-                  : 'Registrarse'}
+                    ? 'Ingresar'
+                    : 'Registrarse'}
               </span>
               <IoArrowForwardOutline />
             </button>

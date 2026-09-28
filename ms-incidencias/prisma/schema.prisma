@@ -7,33 +7,77 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum EstadoIncidencia {
-  Reportada
-  Asignada
-  Resuelta
+model EstadoIncidencia {
+  id_estado         Int                @id @default(autoincrement())
+  nombre_estado     String             @db.VarChar(100)
+  historial_estados HistorialEstados[]
+
+  @@map("ESTADOS_INCIDENCIA")
 }
 
 model Incidencias {
-  id_incidencia String           @id @unique @default(uuid())
-  id_activo     String
-  id_reportante String
-  titulo        String           @db.VarChar(255)
-  descripcion   String           @db.Text
-  estado        EstadoIncidencia @default(Reportada)
-  created_at    DateTime         @default(now()) @db.Timestamp()
+  id_incidencia  String   @id @default(uuid()) @db.Uuid
+  id_activo      String   @db.Uuid
+  id_reportante  String   @db.Uuid
+  titulo         String   @db.VarChar(255)
+  descripcion    String   @db.Text
+  fecha_creacion DateTime @default(now()) @db.Timestamp()
 
-  historial HistorialIncidencia[]
+  historial_estados HistorialEstados[]
+  ordenes_trabajo   OrdenTrabajo[]
+  evidencias        Evidencia[]
+
+  @@map("INCIDENCIAS")
 }
 
-model HistorialIncidencia {
-  id_historial    String           @id @default(uuid())
-  incidencia_id   String
-  estado_anterior EstadoIncidencia
-  estado_nuevo    EstadoIncidencia
-  usuario_id      String
-  fecha           DateTime         @default(now()) @db.Timestamp()
+model HistorialEstados {
+  id_historial      String           @id @default(uuid()) @db.Uuid
+  id_incidencia     String           @db.Uuid
+  id_estado         Int
+  id_usuario_cambio String           @db.Uuid
+  fecha_creacion    DateTime         @default(now()) @db.Timestamp()
 
-  incidencia Incidencias @relation(fields: [incidencia_id], references: [id_incidencia], onDelete: Cascade)
+  incidencia        Incidencias      @relation(fields: [id_incidencia], references: [id_incidencia], onDelete: Cascade)
+  estado            EstadoIncidencia @relation(fields: [id_estado], references: [id_estado])
 
-  @@index([incidencia_id])
+  @@index([id_incidencia])
+  @@index([id_estado])
+  @@map("HISTORIAL_ESTADOS")
+}
+
+model OrdenTrabajo {
+  id_orden            String      @id @default(uuid()) @db.Uuid
+  id_incidencia       String      @db.Uuid
+  id_tecnico          String      @db.Uuid
+  diagnostico_tecnico String?     @db.Text
+  fecha_creacion      DateTime    @default(now()) @db.Timestamp()
+
+  incidencia          Incidencias @relation(fields: [id_incidencia], references: [id_incidencia], onDelete: Cascade)
+
+  @@index([id_incidencia])
+  @@index([id_tecnico])
+  @@map("ORDENES_TRABAJO")
+}
+
+model TipoEvidencia {
+  id_tipo_evidencia Int         @id @default(autoincrement())
+  nombre_tipo       String      @db.VarChar(100)
+  evidencias        Evidencia[]
+
+  @@map("TIPOS_EVIDENCIA")
+}
+
+model Evidencia {
+  id_evidencia      String        @id @default(uuid()) @db.Uuid
+  id_incidencia     String        @db.Uuid
+  id_tipo_evidencia Int
+  url_cloudinary    String        @db.VarChar(500)
+  fecha_creacion    DateTime      @default(now()) @db.Timestamp()
+
+  incidencia        Incidencias   @relation(fields: [id_incidencia], references: [id_incidencia], onDelete: Cascade)
+  tipo_evidencia    TipoEvidencia @relation(fields: [id_tipo_evidencia], references: [id_tipo_evidencia])
+
+  @@index([id_incidencia])
+  @@index([id_tipo_evidencia])
+  @@map("EVIDENCIAS")
 }
