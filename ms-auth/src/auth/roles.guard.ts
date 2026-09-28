@@ -5,7 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { FastifyRequest } from 'fastify';
+import type { Request } from 'express';
 import { ROLES_KEY } from './roles.decorator.js';
 
 @Injectable()
@@ -22,10 +22,11 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const request = context.switchToHttp().getRequest<Request & { user: any }>();
     const user = request.user;
 
-    if (!user || !user.role || !requiredRoles.includes(user.role)) {
+    const userRole = user?.rol || user?.role;
+    if (!userRole || !requiredRoles.includes(userRole)) {
       throw new ForbiddenException(
         'Acceso denegado: rol insuficiente para acceder a este recurso',
       );

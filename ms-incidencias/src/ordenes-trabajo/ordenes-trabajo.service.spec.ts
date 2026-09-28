@@ -1,26 +1,28 @@
+<<<<<<< HEAD
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { EstadoIncidencia, EstadoOrdenTrabajo, Prioridad } from '@prisma/client';
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 
 describe('OrdenesTrabajoService', () => {
   const findUniqueIncidencia = jest.fn();
-  const updateIncidencia = jest.fn();
   const createOrden = jest.fn();
-  const createHistory = jest.fn();
   const findUniqueOrden = jest.fn();
   const findManyOrdenes = jest.fn();
+  const countOrdenes = jest.fn();
 
   const transaction = jest.fn((callback) =>
     callback({
-      incidencias: { findUnique: findUniqueIncidencia, update: updateIncidencia },
-      ordenTrabajo: { create: createOrden, findUnique: findUniqueOrden, findMany: findManyOrdenes },
-      historialIncidencia: { create: createHistory },
+      incidencias: { findUnique: findUniqueIncidencia },
+      ordenTrabajo: { create: createOrden },
     }),
   );
 
   const prisma = {
     $transaction: transaction,
-    ordenTrabajo: { findUnique: findUniqueOrden, findMany: findManyOrdenes },
+    ordenTrabajo: {
+      findUnique: findUniqueOrden,
+      findMany: findManyOrdenes,
+      count: countOrdenes,
+    },
   } as never;
 
   const service = new OrdenesTrabajoService(prisma);
@@ -29,182 +31,208 @@ describe('OrdenesTrabajoService', () => {
     jest.clearAllMocks();
   });
 
-  it('asigna una orden de trabajo, actualiza incidencia a Asignada y crea historial en una transacción con prioridad por defecto Media', async () => {
-    findUniqueIncidencia.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Reportada,
-    });
-
-    createOrden.mockResolvedValue({
-      id_orden: 'orden-1',
-      incidencia_id: 'incidencia-1',
-      tecnico_id: 'tecnico-1',
-      estado: EstadoOrdenTrabajo.Pendiente,
-      prioridad: Prioridad.Media,
-      instrucciones: 'Revisar cable HDMI',
-    });
-
-    const resultado = await service.asignarOrden(
-      {
-        incidencia_id: 'incidencia-1',
-        tecnico_id: 'tecnico-1',
-        instrucciones: 'Revisar cable HDMI',
-      },
-      'supervisor-1',
-    );
-
-    expect(createOrden).toHaveBeenCalledWith({
-      data: {
-        incidencia_id: 'incidencia-1',
-        tecnico_id: 'tecnico-1',
-        estado: EstadoOrdenTrabajo.Pendiente,
-        prioridad: Prioridad.Media,
-        instrucciones: 'Revisar cable HDMI',
-      },
-    });
-
-
-    expect(updateIncidencia).toHaveBeenCalledWith({
-      where: { id_incidencia: 'incidencia-1' },
-      data: { estado: EstadoIncidencia.Asignada },
-    });
-
-    expect(createHistory).toHaveBeenCalledWith({
-      data: {
-        incidencia_id: 'incidencia-1',
-        estado_anterior: EstadoIncidencia.Reportada,
-        estado_nuevo: EstadoIncidencia.Asignada,
-        usuario_id: 'supervisor-1',
-      },
-    });
-
-    expect(resultado).toEqual(
-      expect.objectContaining({
-        id_orden: 'orden-1',
-        incidencia_id: 'incidencia-1',
-        tecnico_id: 'tecnico-1',
-      }),
-    );
-  });
-
-  it('rechaza asignación si la incidencia no existe', async () => {
-    findUniqueIncidencia.mockResolvedValue(null);
-
-    await expect(
-      service.asignarOrden(
-        { incidencia_id: 'incidencia-inexistente', tecnico_id: 'tecnico-1' },
-        'supervisor-1',
-      ),
-    ).rejects.toThrow(NotFoundException);
-  });
-
-  it('rechaza asignación si la incidencia ya está Resuelta', async () => {
-    findUniqueIncidencia.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Resuelta,
-    });
-
-    await expect(
-      service.asignarOrden(
-        { incidencia_id: 'incidencia-1', tecnico_id: 'tecnico-1' },
-        'supervisor-1',
-      ),
-    ).rejects.toThrow(BadRequestException);
-  });
-
-  it('rechaza si faltan campos obligatorios', async () => {
-    await expect(
-      service.asignarOrden(
-        { incidencia_id: '', tecnico_id: 'tecnico-1' },
-        'supervisor-1',
-      ),
-    ).rejects.toThrow(BadRequestException);
-
-    await expect(
-      service.asignarOrden(
-        { incidencia_id: 'incidencia-1', tecnico_id: '' },
-        'supervisor-1',
-      ),
-    ).rejects.toThrow(BadRequestException);
-  it('asigna una orden de trabajo guardando el nivel de prioridad Alta', async () => {
-    findUniqueIncidencia.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Reportada,
-    });
-
-    createOrden.mockResolvedValue({
-      id_orden: 'orden-2',
-      incidencia_id: 'incidencia-1',
-      tecnico_id: 'tecnico-1',
-      estado: EstadoOrdenTrabajo.Pendiente,
-      prioridad: Prioridad.Alta,
-    });
-
-    await service.asignarOrden(
-      {
-        incidencia_id: 'incidencia-1',
-        tecnico_id: 'tecnico-1',
-        prioridad: 'Alta',
-      },
-      'supervisor-1',
-    );
-
-    expect(createOrden).toHaveBeenCalledWith({
-      data: {
-        incidencia_id: 'incidencia-1',
-        tecnico_id: 'tecnico-1',
-        estado: EstadoOrdenTrabajo.Pendiente,
-        prioridad: Prioridad.Alta,
-        instrucciones: null,
-      },
-    });
-  });
-
-  it('asigna una orden de trabajo guardando el nivel de prioridad Baja en minúsculas', async () => {
-    findUniqueIncidencia.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Reportada,
-    });
-
-    createOrden.mockResolvedValue({
-      id_orden: 'orden-3',
-      incidencia_id: 'incidencia-1',
-      tecnico_id: 'tecnico-1',
-      estado: EstadoOrdenTrabajo.Pendiente,
-      prioridad: Prioridad.Baja,
-    });
-
-    await service.asignarOrden(
-      {
-        incidencia_id: 'incidencia-1',
-        tecnico_id: 'tecnico-1',
-        prioridad: 'baja',
-      },
-      'supervisor-1',
-    );
-
-    expect(createOrden).toHaveBeenCalledWith({
-      data: {
-        incidencia_id: 'incidencia-1',
-        tecnico_id: 'tecnico-1',
-        estado: EstadoOrdenTrabajo.Pendiente,
-        prioridad: Prioridad.Baja,
-        instrucciones: null,
-      },
-    });
-  });
-
-  it('rechaza asignación si el nivel de prioridad es inválido', async () => {
-    await expect(
-      service.asignarOrden(
+  describe('listarPorTecnico', () => {
+    it('retorna la lista paginada de órdenes filtradas por técnico con sus incidencias y evidencias', async () => {
+      const mockOrdenes = [
         {
-          incidencia_id: 'incidencia-1',
-          tecnico_id: 'tecnico-1',
-          prioridad: 'UrgenteInvalida',
+          id_orden: 'orden-1',
+          id_incidencia: 'inc-1',
+          id_tecnico: 'tecnico-uuid-1',
+          diagnostico_tecnico: 'Falla en cable HDMI',
+          fecha_creacion: new Date('2026-09-26T10:00:00Z'),
+          incidencia: {
+            id_incidencia: 'inc-1',
+            titulo: 'Proyector no enciende',
+            descripcion: 'El equipo en sala 402 no da video',
+            evidencias: [
+              { id_evidencia: 'evi-1', url_cloudinary: 'https://res.cloudinary.com/demo.jpg' },
+            ],
+          },
         },
-        'supervisor-1',
-      ),
-    ).rejects.toThrow(BadRequestException);
+      ];
+
+      countOrdenes.mockResolvedValue(1);
+      findManyOrdenes.mockResolvedValue(mockOrdenes);
+
+      const resultado = await service.listarPorTecnico('tecnico-uuid-1', {
+        page: 1,
+        limit: 10,
+        orden: 'desc',
+      });
+
+      expect(countOrdenes).toHaveBeenCalledWith({
+        where: { id_tecnico: 'tecnico-uuid-1' },
+      });
+
+      expect(findManyOrdenes).toHaveBeenCalledWith({
+        where: { id_tecnico: 'tecnico-uuid-1' },
+        include: {
+          incidencia: {
+            include: {
+              evidencias: true,
+            },
+          },
+        },
+        orderBy: { fecha_creacion: 'desc' },
+        skip: 0,
+        take: 10,
+      });
+
+      expect(resultado).toEqual({
+        total: 1,
+        page: 1,
+        limit: 10,
+        totalPages: 1,
+        data: mockOrdenes,
+      });
+    });
+
+    it('aplica filtros por rango de fechas cuando se proporcionan', async () => {
+      countOrdenes.mockResolvedValue(0);
+      findManyOrdenes.mockResolvedValue([]);
+
+      await service.listarPorTecnico('tecnico-uuid-1', {
+        fechaDesde: '2026-09-01',
+        fechaHasta: '2026-09-30',
+      });
+
+      expect(findManyOrdenes).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id_tecnico: 'tecnico-uuid-1',
+            fecha_creacion: {
+              gte: new Date('2026-09-01'),
+              lte: new Date('2026-09-30'),
+            },
+          },
+        }),
+      );
+    });
+
+    it('rechaza la consulta si el id_tecnico es vacío', async () => {
+      await expect(service.listarPorTecnico('')).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('asignarOrden', () => {
+    it('crea una orden de trabajo dentro de una transacción', async () => {
+      findUniqueIncidencia.mockResolvedValue({ id_incidencia: 'inc-1' });
+      createOrden.mockResolvedValue({
+        id_orden: 'orden-1',
+        id_incidencia: 'inc-1',
+        id_tecnico: 'tecnico-1',
+      });
+
+      const resultado = await service.asignarOrden(
+        { id_incidencia: 'inc-1', id_tecnico: 'tecnico-1' },
+        'usuario-admin',
+      );
+
+      expect(resultado).toEqual(
+        expect.objectContaining({
+          id_orden: 'orden-1',
+          id_incidencia: 'inc-1',
+          id_tecnico: 'tecnico-1',
+        }),
+      );
+    });
+
+    it('rechaza asignación si la incidencia no existe', async () => {
+      findUniqueIncidencia.mockResolvedValue(null);
+
+      await expect(
+        service.asignarOrden(
+          { id_incidencia: 'inc-no-existe', id_tecnico: 'tecnico-1' },
+          'usuario-admin',
+        ),
+      ).rejects.toThrow(NotFoundException);
+    });
   });
 });
+=======
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 
+describe('OrdenesTrabajoService', () => {
+  const createService = () => {
+    const findIncidencia = jest.fn();
+    const createOrden = jest.fn();
+    const findOrden = jest.fn();
+    const updateOrden = jest.fn();
+    const prisma = {
+      incidencias: { findUnique: findIncidencia },
+      ordenTrabajo: {
+        create: createOrden,
+        findUnique: findOrden,
+        findMany: jest.fn(),
+        update: updateOrden,
+      },
+    } as unknown as PrismaService;
+    return {
+      service: new OrdenesTrabajoService(prisma),
+      findIncidencia,
+      createOrden,
+      findOrden,
+      updateOrden,
+    };
+  };
+
+  it('crea una orden con los nombres de campo del contrato', async () => {
+    const { service, findIncidencia, createOrden } = createService();
+    findIncidencia.mockResolvedValue({
+      id_incidencia: 'incidencia-1',
+    });
+    createOrden.mockResolvedValue({
+      id_orden: 'orden-1',
+      id_incidencia: 'incidencia-1',
+      id_tecnico: 'tecnico-1',
+      diagnostico_tecnico: null,
+      fecha_creacion: new Date(),
+    } as never);
+
+    await service.crear({
+      id_incidencia: 'incidencia-1',
+      id_tecnico: 'tecnico-1',
+    });
+
+    expect(createOrden).toHaveBeenCalledWith({
+      data: { id_incidencia: 'incidencia-1', id_tecnico: 'tecnico-1' },
+      select: {
+        id_orden: true,
+        id_incidencia: true,
+        id_tecnico: true,
+        diagnostico_tecnico: true,
+        fecha_creacion: true,
+      },
+    });
+  });
+
+  it('rechaza asignar una orden a una incidencia inexistente', async () => {
+    const { service, findIncidencia, createOrden } = createService();
+    findIncidencia.mockResolvedValue(null);
+
+    await expect(
+      service.crear({ id_incidencia: 'missing', id_tecnico: 'tecnico-1' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(createOrden).not.toHaveBeenCalled();
+  });
+
+  it('solo permite diagnóstico al técnico asignado', async () => {
+    const { service, findOrden, updateOrden } = createService();
+    findOrden.mockResolvedValue({
+      id_orden: 'orden-1',
+      id_tecnico: 'tecnico-asignado',
+    });
+
+    await expect(
+      service.actualizarDiagnostico(
+        'orden-1',
+        { diagnostico_tecnico: 'Revisión completada' },
+        { id: 'otro-tecnico', role: 'TECNICO' },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(updateOrden).not.toHaveBeenCalled();
+  });
+});
+>>>>>>> origin/Dev-Sebastian

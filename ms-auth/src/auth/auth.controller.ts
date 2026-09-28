@@ -28,7 +28,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-  async login(@Body() loginDto: LoginDto): Promise<{ accessToken: string }> {
+  async login(@Body() loginDto: LoginDto): Promise<any> {
     try {
       return await this.authService.login(loginDto);
     } catch (error) {
@@ -42,8 +42,9 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  getAuthenticatedUser(@Req() request: Request & { user: any }) {
-    return request.user;
+  async getAuthenticatedUser(@Req() request: Request & { user: any }) {
+    const userId = request.user.sub || request.user.userId;
+    return await this.authService.getAuthenticatedUser(userId);
   }
 
   @Patch('usuarios/:id/rol')

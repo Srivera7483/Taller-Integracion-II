@@ -24,18 +24,23 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const payload = this.jwtService.verify<JwtUser>(token);
 
+      const userId = payload.sub || payload.userId;
+      const role = payload.rol || payload.role;
+
       if (
-        typeof payload.userId !== 'string' ||
-        payload.userId.length === 0 ||
-        typeof payload.role !== 'string' ||
-        payload.role.length === 0
+        typeof userId !== 'string' ||
+        userId.length === 0 ||
+        typeof role !== 'string' ||
+        role.length === 0
       ) {
         throw new Error('Invalid JWT claims');
       }
 
       request.user = {
-        userId: payload.userId,
-        role: payload.role,
+        sub: userId,
+        rol: role,
+        userId: userId,
+        role: role,
       };
       return true;
     } catch {
