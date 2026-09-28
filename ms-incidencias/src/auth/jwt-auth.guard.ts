@@ -14,30 +14,29 @@ export class JwtAuthGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request & { user?: JwtUser }>();
-    const authorization = request.headers.authorization;
-    const token = authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
+    const token = request.headers.authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
 
     if (!token) {
       throw new UnauthorizedException('Token de acceso requerido');
     }
 
     try {
-      const payload = this.jwtService.verify<JwtUser>(token);
+      const payload = this.jwtService.verify(token);
 
-      if (
-        typeof payload.userId !== 'string' ||
-        payload.userId.length === 0 ||
-        typeof payload.role !== 'string' ||
-        payload.role.length === 0
-      ) {
-        throw new Error('Invalid JWT claims');
+      const id = payload.sub || payload.userId;
+      const rol = payload.rol || payload.role;
+
+      if (typeof id !== 'string' || !id || typeof rol !== 'string' || !rol) {
+        throw new Error('JWT claims incompletos o inválidos');
       }
 
       request.user = {
-        userId: payload.userId,
-        role: payload.role,
-        email: payload.email,
+        sub: id,
+        rol: rol,
+        userId: id,
+        role: rol,
       };
+
       return true;
     } catch {
       throw new UnauthorizedException('Token inválido o expirado');

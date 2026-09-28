@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -20,30 +21,24 @@ export class OrdenesTrabajoService {
       throw new BadRequestException('El ID del técnico es obligatorio');
     }
 
-    if (!usuarioCambioId) {
-      throw new BadRequestException('El usuario que realiza el cambio es obligatorio');
+    const incidencia = await this.prisma.incidencias.findUnique({
+      where: { id_incidencia: dto.id_incidencia },
+      select: { id_incidencia: true },
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException('Incidencia no encontrada');
     }
 
-    return this.prisma.$transaction(async (transaction) => {
-      const incidencia = await transaction.incidencias.findUnique({
-        where: { id_incidencia: dto.id_incidencia },
-        select: { id_incidencia: true },
-      });
-
-      if (!incidencia) {
-        throw new NotFoundException('Incidencia no encontrada');
-      }
-
-      const nuevaOrden = await transaction.ordenTrabajo.create({
-        data: {
-          id_incidencia: dto.id_incidencia,
-          id_tecnico: dto.id_tecnico,
-          diagnostico_tecnico: dto.diagnostico_tecnico?.trim() || null,
-        },
-      });
-
-      return nuevaOrden;
+    const nuevaOrden = await this.prisma.ordenTrabajo.create({
+      data: {
+        id_incidencia: dto.id_incidencia,
+        id_tecnico: dto.id_tecnico,
+        diagnostico_tecnico: dto.diagnostico_tecnico?.trim() || null,
+      },
     });
+
+    return nuevaOrden;
   }
 
   async listarPorTecnico(idTecnico: string, filtros?: FiltrarOrdenesDto) {
@@ -56,10 +51,7 @@ export class OrdenesTrabajoService {
     const skip = (page - 1) * limit;
     const orden = filtros?.orden?.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
-    const where: {
-      id_tecnico: string;
-      fecha_creacion?: { gte?: Date; lte?: Date };
-    } = {
+    const where: any = {
       id_tecnico: idTecnico,
     };
 
@@ -79,14 +71,39 @@ export class OrdenesTrabajoService {
         where,
         include: {
           incidencia: {
-            include: {
-              evidencias: true,
-            },
+            include: { evidencias: true },
           },
         },
-        orderBy: {
-          fecha_creacion: orden,
+        orderBy: { fecha_creacion: orden },
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      data: ordenes,
+    };
+  }
+
+  async listarTodas(filtros?: FiltrarOrdenesDto) {
+    const page = Math.max(1, Number(filtros?.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(filtros?.limit) || 10));
+    const skip = (page - 1) * limit;
+    const orden = filtros?.orden?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+
+    const [total, ordenes] = await Promise.all([
+      this.prisma.ordenTrabajo.count(),
+      this.prisma.ordenTrabajo.findMany({
+        include: {
+          incidencia: {
+            include: { evidencias: true },
+          },
         },
+        orderBy: { fecha_creacion: orden },
         skip,
         take: limit,
       }),
@@ -106,50 +123,37 @@ export class OrdenesTrabajoService {
       where: { id_orden: idOrden },
       include: {
         incidencia: {
-          include: {
-            evidencias: true,
-          },
+          include: { evidencias: true },
         },
       },
+    });
+    if (!orden) throw new NotFoundException('Orden de trabajo no encontrada');
+    return orden;
+  }
+
+  async actualizarDiagnostico(
+    idOrden: string,
+    diagnostico_tecnico: string,
+    idTecnicoPeticion: string,
+  ) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id_orden: idOrden },
+      select: { id_orden: true, id_tecnico: true }, // Solo traemos lo necesario
     });
 
     if (!orden) {
       throw new NotFoundException('Orden de trabajo no encontrada');
     }
 
-    return orden;
-  }
+    if (orden.id_tecnico !== idTecnicoPeticion) {
+      throw new ForbiddenException(
+        'Acceso denegado: Solo el técnico asignado puede registrar el diagnóstico.',
+      );
+    }
 
-  async listarTodas(filtros?: FiltrarOrdenesDto) {
-    const page = Math.max(1, Number(filtros?.page) || 1);
-    const limit = Math.max(1, Math.min(100, Number(filtros?.limit) || 10));
-    const skip = (page - 1) * limit;
-    const orden = filtros?.orden?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-
-    const [total, ordenes] = await Promise.all([
-      this.prisma.ordenTrabajo.count(),
-      this.prisma.ordenTrabajo.findMany({
-        include: {
-          incidencia: {
-            include: {
-              evidencias: true,
-            },
-          },
-        },
-        orderBy: {
-          fecha_creacion: orden,
-        },
-        skip,
-        take: limit,
-      }),
-    ]);
-
-    return {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit) || 1,
-      data: ordenes,
-    };
+    return this.prisma.ordenTrabajo.update({
+      where: { id_orden: idOrden },
+      data: { diagnostico_tecnico: diagnostico_tecnico.trim() },
+    });
   }
 }

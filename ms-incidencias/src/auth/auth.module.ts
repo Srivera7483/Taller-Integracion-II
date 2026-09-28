@@ -10,13 +10,18 @@ import { RolesGuard } from './roles.guard';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret:
-          config.get<string>('JWT_SECRET') ||
-          process.env.JWT_SECRET ||
-          'dev-secret-change-me',
-        signOptions: { expiresIn: '1h' },
-      }),
+      useFactory: (config: ConfigService) => {
+        const secret = config.get<string>('JWT_SECRET');
+        if (config.get<string>('NODE_ENV') === 'production' && !secret) {
+          throw new Error('JWT_SECRET es obligatorio en producción');
+        }
+
+        return {
+          secret: secret ?? 'dev-secret-change-me',
+          // ms-incidencias solo verifica tokens, no los crea. Esto es lo correcto.
+          verifyOptions: { algorithms: ['HS256'] },
+        };
+      },
     }),
   ],
   providers: [JwtAuthGuard, RolesGuard],

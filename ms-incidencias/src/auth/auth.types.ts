@@ -1,5 +1,9 @@
+// auth.types.ts
+
 export interface JwtUser {
-  userId: string;
-  role: string;
-  email?: string;
+  sub: string;
+  rol: string;
+  exp?: number;
+  userId?: string;
+  role?: string;
 }

@@ -26,20 +26,21 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request & { user?: JwtUser }>();
     const user = request.user;
 
-    if (!user || !user.role) {
+    const rolUsuario = user?.rol || user?.role;
+
+    if (!user || !rolUsuario) {
       throw new ForbiddenException(
         'Acceso denegado: usuario no autenticado o rol ausente',
       );
     }
 
-    const userRole = user.role.toUpperCase();
     const hasRole = requiredRoles.some(
-      (role) => role.toUpperCase() === userRole,
+      (rolRequerido) => rolRequerido.toUpperCase() === rolUsuario.toUpperCase(),
     );
 
     if (!hasRole) {
       throw new ForbiddenException(
-        'Acceso denegado: rol insuficiente para acceder a este recurso',
+        'El rol no tiene permiso para acceder a este recurso',
       );
     }
 
