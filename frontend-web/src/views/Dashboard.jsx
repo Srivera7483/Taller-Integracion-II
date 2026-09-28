@@ -12,6 +12,8 @@ import {
   FiBox,
   FiLayers
 } from 'react-icons/fi';
+import DataTable from '../components/DataTable';
+import { FiAlertTriangle, FiCheckCircle, FiClock } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { getIncidencias } from '../services/incidenciasStorage';
 import { evaluarPrioridadOrden } from '../services/ordenesService';
@@ -41,6 +43,20 @@ const Dashboard = () => {
 
     return { alta, media, baja, resueltas, pendientes };
   }, [incidencias]);
+
+  const columns = [
+    { header: 'ID', accessorKey: 'id', cell: (row) => <span className="font-mono font-medium text-gray-500">{row.id}</span> },
+    { header: 'Descripción', accessorKey: 'descripcion', cell: (row) => <span className="font-medium text-gray-900">{row.descripcion}</span> },
+    { header: 'Estado', accessorKey: 'estado', cell: (row) => <StatusBadge status={row.estado} /> },
+    { header: 'Fecha', accessorKey: 'fecha' }
+  ];
+
+  const recentIncidents = [
+    { id: '#1042', descripcion: 'Caída de servidor principal', estado: 'Crítica', fecha: 'Hace 2 horas' },
+    { id: '#1041', descripcion: 'Actualización de base de datos', estado: 'Pendiente', fecha: 'Hace 5 horas' },
+    { id: '#1040', descripcion: 'Falla en router principal', estado: 'Resuelta', fecha: 'Hace 1 día' },
+    { id: '#1039', descripcion: 'Mantenimiento preventivo de rack', estado: 'En Progreso', fecha: 'Hace 2 días' }
+  ];
 
   return (
     <div className="space-y-6">
@@ -203,6 +219,13 @@ const Dashboard = () => {
             </tbody>
           </table>
         </div>
+      <div className="mt-8">
+        <DataTable 
+          title="Últimas Incidencias" 
+          description="Listado rápido de los últimos eventos reportados en la red."
+          columns={columns} 
+          data={recentIncidents} 
+        />
       </div>
     </div>
   );

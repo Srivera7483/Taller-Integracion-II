@@ -12,7 +12,7 @@ const unavailableServices = {
 const startTarget = (body) => new Promise((resolve) => {
     const server = http.createServer((request, response) => {
         response.writeHead(200, { 'content-type': 'application/json' });
-        response.end(JSON.stringify(body));
+        response.end(JSON.stringify({ ...body, path: request.url }));
     });
     server.listen(0, '127.0.0.1', () => {
         const { port } = server.address();
@@ -44,21 +44,21 @@ test('redirige activos e incidencias a sus microservicios', async (t) => {
         incidencias.server.close();
     });
 
-    const activosResponse = await app.inject({ method: 'GET', url: '/api/activos' });
-    const incidenciasResponse = await app.inject({ method: 'GET', url: '/api/incidencias' });
+    const activosResponse = await app.inject({ method: 'GET', url: '/api/v1/activos' });
+    const incidenciasResponse = await app.inject({ method: 'GET', url: '/api/v1/incidencias' });
 
     assert.equal(activosResponse.statusCode, 200);
-    assert.deepEqual(activosResponse.json(), { service: 'activos' });
+    assert.deepEqual(activosResponse.json(), { service: 'activos', path: '/api/v1/activos' });
     assert.equal(incidenciasResponse.statusCode, 200);
-    assert.deepEqual(incidenciasResponse.json(), { service: 'incidencias' });
+    assert.deepEqual(incidenciasResponse.json(), { service: 'incidencias', path: '/api/v1/incidencias' });
 });
 
 test('los proxies devuelven 502 y el Gateway sigue disponible', async (t) => {
     const app = buildGateway(unavailableServices);
     t.after(() => app.close());
 
-    const activos = await app.inject({ method: 'GET', url: '/api/activos' });
-    const incidencias = await app.inject({ method: 'GET', url: '/api/incidencias' });
+    const activos = await app.inject({ method: 'GET', url: '/api/v1/activos' });
+    const incidencias = await app.inject({ method: 'GET', url: '/api/v1/incidencias' });
     const health = await app.inject({ method: 'GET', url: '/' });
 
     assert.equal(activos.statusCode, 502);
