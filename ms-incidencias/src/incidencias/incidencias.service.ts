@@ -24,7 +24,6 @@ const incidenciaConEstadoActual = {
 type IncidenciaConEstadoActual = Prisma.IncidenciasGetPayload<
   typeof incidenciaConEstadoActual
 >;
-
 @Injectable()
 export class IncidenciasService {
   constructor(private readonly prisma: PrismaService) {}
@@ -130,6 +129,7 @@ export class IncidenciasService {
     return this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: incidenciaId },
+
       });
 
       if (!incidencia) {

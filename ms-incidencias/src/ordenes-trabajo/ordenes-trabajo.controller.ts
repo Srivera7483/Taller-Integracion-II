@@ -30,6 +30,7 @@ export class OrdenesTrabajoController {
 
   @Post('asignar')
   @HttpCode(HttpStatus.CREATED)
+
   @Roles('SUPERVISOR', 'ADMINISTRADOR')
   async asignarOrden(
     @Body() body: AsignarOrdenDto,

@@ -5,9 +5,7 @@ import { configureHttp } from './configure-http';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
   configureHttp(app);
-
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
