@@ -117,6 +117,7 @@ export class IncidenciasService {
     incidenciaId: string,
     idEstadoNuevo: number,
     usuarioId: string,
+    rolUsuario: string,
   ) {
     if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
       throw new BadRequestException('El ID del estado es obligatorio y debe ser numérico');
@@ -129,7 +130,7 @@ export class IncidenciasService {
     return this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: incidenciaId },
-
+        ...incidenciaConEstadoActual,
       });
 
       if (!incidencia) {
@@ -142,6 +143,19 @@ export class IncidenciasService {
 
       if (!estado) {
         throw new NotFoundException('Estado de incidencia no encontrado');
+      }
+
+      const idEstadoActual = incidencia.historial_estados?.[0]?.estado?.id_estado;
+      const rolUpper = rolUsuario.toUpperCase();
+
+      if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR') {
+        throw new ForbiddenException('Solo un SUPERVISOR puede pasar de Reportada a Asignada');
+      }
+      if (idEstadoActual === 2 && idEstadoNuevo === 3 && rolUpper !== 'TECNICO') {
+        throw new ForbiddenException('Solo un TECNICO puede pasar de Asignada a Resuelta');
+      }
+      if (idEstadoActual === 3 && (idEstadoNuevo === 4 || idEstadoNuevo === 5) && rolUpper !== 'REPORTANTE' && rolUpper !== 'ADMINISTRADOR') {
+        throw new ForbiddenException('Solo el REPORTANTE o ADMINISTRADOR puede Cerrar o Rechazar una incidencia');
       }
 
       await transaction.historialEstados.create({

@@ -45,54 +45,6 @@ export class OrdenesTrabajoService {
     return nuevaOrden;
   }
 
-  async listarPorTecnico(idTecnico: string, filtros?: FiltrarOrdenesDto) {
-    if (!idTecnico || typeof idTecnico !== 'string') {
-      throw new BadRequestException('El ID del t√©cnico es obligatorio');
-    }
-
-    const page = Math.max(1, Number(filtros?.page) || 1);
-    const limit = Math.max(1, Math.min(100, Number(filtros?.limit) || 10));
-    const skip = (page - 1) * limit;
-    const orden = filtros?.orden?.toLowerCase() === 'asc' ? 'asc' : 'desc';
-
-    const where: any = {
-      id_tecnico: idTecnico,
-    };
-
-    if (filtros?.fechaDesde || filtros?.fechaHasta) {
-      where.fecha_creacion = {};
-      if (filtros.fechaDesde) {
-        where.fecha_creacion.gte = new Date(filtros.fechaDesde);
-      }
-      if (filtros.fechaHasta) {
-        where.fecha_creacion.lte = new Date(filtros.fechaHasta);
-      }
-    }
-
-    const [total, ordenes] = await Promise.all([
-      this.prisma.ordenTrabajo.count({ where }),
-      this.prisma.ordenTrabajo.findMany({
-        where,
-        include: {
-          incidencia: {
-            include: { evidencias: true },
-          },
-        },
-        orderBy: { fecha_creacion: orden },
-        skip,
-        take: limit,
-      }),
-    ]);
-
-    return {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit) || 1,
-      data: ordenes,
-    };
-  }
-
   async listarTodas(filtros?: FiltrarOrdenesDto) {
     const page = Math.max(1, Number(filtros?.page) || 1);
     const limit = Math.max(1, Math.min(100, Number(filtros?.limit) || 10));
@@ -191,9 +143,21 @@ export class OrdenesTrabajoService {
       throw new NotFoundException('Orden de trabajo no encontrada');
     }
 
+    return orden;
+  }
+
+  async actualizarDiagnostico(idOrden: string, diagnostico_tecnico: string, idTecnicoPeticion: string) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id_orden: idOrden },
+    });
+
+    if (!orden) {
+      throw new NotFoundException('Orden de trabajo no encontrada');
+    }
+
     if (orden.id_tecnico !== idTecnicoPeticion) {
       throw new ForbiddenException(
-        'Acceso denegado: Solo el t√©cnico asignado puede registrar el diagn√≥stico.',
+        'Acceso denegado: Solo el tÈcnico asignado puede registrar el diagnÛstico.',
       );
     }
 
@@ -202,4 +166,12 @@ export class OrdenesTrabajoService {
       data: { diagnostico_tecnico: diagnostico_tecnico.trim() },
     });
   }
+
+    return this.prisma.ordenTrabajo.update({
+      where: { id_orden: idOrden },
+      data: { diagnostico_tecnico: diagnostico_tecnico.trim() },
+    });
+  }
 }
+
+

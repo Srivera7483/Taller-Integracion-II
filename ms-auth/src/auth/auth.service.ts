@@ -12,7 +12,7 @@ export class AuthService {
     private readonly userRepository: UserRepository,
   ) {}
 
-  async login(loginDto: LoginDto): Promise<{ accessToken: string }> {
+  async login(loginDto: LoginDto): Promise<any> {
     const email = loginDto.email.trim().toLowerCase();
 
     const user = await this.userRepository.findByEmail(email);
@@ -28,12 +28,28 @@ export class AuthService {
     }
 
     const payload = {
-      userId: user.id,
-      role: user.role.name,
+      sub: user.id,
+      rol: user.role.name,
+      userId: user.id, // Fallback retrocompatibilidad
+      role: user.role.name, // Fallback retrocompatibilidad
     };
 
+    const token = this.jwtService.sign(payload);
+
     return {
-      accessToken: this.jwtService.sign(payload),
+      token,
+      usuario: {
+        id_usuario: user.id,
+        rut_o_id: user.rut_o_id,
+        nombre: user.name,
+        apellido: user.apellido,
+        correo: user.email,
+        rol: {
+          id_rol: user.role.id,
+          nombre_rol: user.role.name
+        },
+        created_at: user.createdAt.toISOString()
+      }
     };
   }
 
@@ -45,5 +61,25 @@ export class AuthService {
     }
 
     return await this.userRepository.updateRole(id, updateRoleDto.rol);
+  }
+
+  async getAuthenticatedUser(userId: string) {
+    const user = await this.userRepository.findById(userId);
+    if (!user || !user.isActive || user.deletedAt) {
+      throw new UnauthorizedException('Usuario no válido');
+    }
+    
+    return {
+      id_usuario: user.id,
+      rut_o_id: user.rut_o_id,
+      nombre: user.name,
+      apellido: user.apellido,
+      correo: user.email,
+      rol: {
+        id_rol: user.role.id,
+        nombre_rol: user.role.name
+      },
+      created_at: user.createdAt.toISOString()
+    };
   }
 }

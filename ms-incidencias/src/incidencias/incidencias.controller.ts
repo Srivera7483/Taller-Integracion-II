@@ -45,18 +45,20 @@ export class IncidenciasController {
   }
 
   @Patch(':id_incidencia/estado')
-  @Roles('SUPERVISOR', 'TECNICO') // Regla estricta del contrato
+  @Roles('SUPERVISOR', 'TECNICO', 'REPORTANTE', 'ADMINISTRADOR')
   async actualizarEstado(
     @Param('id_incidencia', ParseUUIDPipe) incidenciaId: string,
     @Body() body: ActualizarEstadoDto,
     @CurrentUser() usuario: JwtUser,
   ) {
     const idUsuario = usuario.sub || usuario.userId;
+    const rolUsuario = usuario.rol || usuario.role;
     
     return this.incidenciasService.actualizarEstado(
       incidenciaId,
       body.id_estado, 
       idUsuario,
+      rolUsuario,
     );
   }
 
