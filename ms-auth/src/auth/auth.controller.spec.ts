@@ -12,6 +12,7 @@ describe('AuthController', () => {
     authServiceMock = {
       login: vi.fn(),
       updateUserRole: vi.fn(),
+      getAuthenticatedUser: vi.fn(),
     } as unknown as AuthService;
 
     authController = new AuthController(authServiceMock);
@@ -20,7 +21,7 @@ describe('AuthController', () => {
   describe('login', () => {
     it('debe retornar el token emitido por AuthService', async () => {
       const dto = { email: 'admin@test.com', password: 'pass' };
-      vi.spyOn(authServiceMock, 'login').mockResolvedValue({ accessToken: 'mock-token' });
+      vi.spyOn(authServiceMock, 'login').mockResolvedValue({ accessToken: 'mock-token' } as any);
 
       const result = await authController.login(dto);
 
@@ -40,10 +41,11 @@ describe('AuthController', () => {
   });
 
   describe('getAuthenticatedUser', () => {
-    it('debe retornar los datos del usuario adjuntos en la request', () => {
+    it('debe retornar los datos del usuario adjuntos en la request', async () => {
       const mockReq = { user: { userId: '123', role: 'ADMINISTRADOR' } } as any;
+      vi.spyOn(authServiceMock, 'getAuthenticatedUser').mockResolvedValue({ userId: '123', role: 'ADMINISTRADOR' } as any);
 
-      const result = authController.getAuthenticatedUser(mockReq);
+      const result = await authController.getAuthenticatedUser(mockReq);
 
       expect(result).toEqual({ userId: '123', role: 'ADMINISTRADOR' });
     });

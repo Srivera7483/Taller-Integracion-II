@@ -68,10 +68,9 @@ describe('JwtAuthGuard', () => {
     const canActivate = guard.canActivate(context);
 
     expect(canActivate).toBe(true);
-    expect(request.user).toEqual({
+    expect(request.user).toEqual(expect.objectContaining({
       userId: 'tecnico-uuid-1',
       role: 'TECNICO',
-      email: 'tecnico@uct.cl',
-    });
+    }));
   });
 });

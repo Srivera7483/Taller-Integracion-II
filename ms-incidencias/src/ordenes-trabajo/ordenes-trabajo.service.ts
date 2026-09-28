@@ -157,7 +157,7 @@ export class OrdenesTrabajoService {
 
     if (orden.id_tecnico !== idTecnicoPeticion) {
       throw new ForbiddenException(
-        'Acceso denegado: Solo el técnico asignado puede registrar el diagnóstico.',
+        'Acceso denegado: Solo el tï¿½cnico asignado puede registrar el diagnï¿½stico.',
       );
     }
 
@@ -166,12 +166,4 @@ export class OrdenesTrabajoService {
       data: { diagnostico_tecnico: diagnostico_tecnico.trim() },
     });
   }
-
-    return this.prisma.ordenTrabajo.update({
-      where: { id_orden: idOrden },
-      data: { diagnostico_tecnico: diagnostico_tecnico.trim() },
-    });
-  }
 }
-
-

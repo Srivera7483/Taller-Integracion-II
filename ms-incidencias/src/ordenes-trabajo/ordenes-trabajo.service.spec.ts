@@ -1,5 +1,4 @@
-<<<<<<< HEAD
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 
 describe('OrdenesTrabajoService', () => {
@@ -8,6 +7,7 @@ describe('OrdenesTrabajoService', () => {
   const findUniqueOrden = jest.fn();
   const findManyOrdenes = jest.fn();
   const countOrdenes = jest.fn();
+  const updateOrden = jest.fn();
 
   const transaction = jest.fn((callback) =>
     callback({
@@ -18,10 +18,13 @@ describe('OrdenesTrabajoService', () => {
 
   const prisma = {
     $transaction: transaction,
+    incidencias: { findUnique: findUniqueIncidencia },
     ordenTrabajo: {
+      create: createOrden,
       findUnique: findUniqueOrden,
       findMany: findManyOrdenes,
       count: countOrdenes,
+      update: updateOrden,
     },
   } as never;
 
@@ -32,7 +35,7 @@ describe('OrdenesTrabajoService', () => {
   });
 
   describe('listarPorTecnico', () => {
-    it('retorna la lista paginada de órdenes filtradas por técnico con sus incidencias y evidencias', async () => {
+    it('retorna la lista paginada de ordenes filtradas por tecnico con sus incidencias y evidencias', async () => {
       const mockOrdenes = [
         {
           id_orden: 'orden-1',
@@ -109,13 +112,13 @@ describe('OrdenesTrabajoService', () => {
       );
     });
 
-    it('rechaza la consulta si el id_tecnico es vacío', async () => {
+    it('rechaza la consulta si el id_tecnico es vacio', async () => {
       await expect(service.listarPorTecnico('')).rejects.toThrow(BadRequestException);
     });
   });
 
   describe('asignarOrden', () => {
-    it('crea una orden de trabajo dentro de una transacción', async () => {
+    it('crea una orden de trabajo dentro de una transaccion', async () => {
       findUniqueIncidencia.mockResolvedValue({ id_incidencia: 'inc-1' });
       createOrden.mockResolvedValue({
         id_orden: 'orden-1',
@@ -137,7 +140,7 @@ describe('OrdenesTrabajoService', () => {
       );
     });
 
-    it('rechaza asignación si la incidencia no existe', async () => {
+    it('rechaza asignacion si la incidencia no existe', async () => {
       findUniqueIncidencia.mockResolvedValue(null);
 
       await expect(
@@ -148,91 +151,45 @@ describe('OrdenesTrabajoService', () => {
       ).rejects.toThrow(NotFoundException);
     });
   });
-});
-=======
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 
-describe('OrdenesTrabajoService', () => {
-  const createService = () => {
-    const findIncidencia = jest.fn();
-    const createOrden = jest.fn();
-    const findOrden = jest.fn();
-    const updateOrden = jest.fn();
-    const prisma = {
-      incidencias: { findUnique: findIncidencia },
-      ordenTrabajo: {
-        create: createOrden,
-        findUnique: findOrden,
-        findMany: jest.fn(),
-        update: updateOrden,
-      },
-    } as unknown as PrismaService;
-    return {
-      service: new OrdenesTrabajoService(prisma),
-      findIncidencia,
-      createOrden,
-      findOrden,
-      updateOrden,
-    };
-  };
+  describe('actualizarDiagnostico', () => {
+    it('solo permite diagnostico al tecnico asignado', async () => {
+      findUniqueOrden.mockResolvedValue({
+        id_orden: 'orden-1',
+        id_tecnico: 'tecnico-asignado',
+      });
 
-  it('crea una orden con los nombres de campo del contrato', async () => {
-    const { service, findIncidencia, createOrden } = createService();
-    findIncidencia.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-    });
-    createOrden.mockResolvedValue({
-      id_orden: 'orden-1',
-      id_incidencia: 'incidencia-1',
-      id_tecnico: 'tecnico-1',
-      diagnostico_tecnico: null,
-      fecha_creacion: new Date(),
-    } as never);
-
-    await service.crear({
-      id_incidencia: 'incidencia-1',
-      id_tecnico: 'tecnico-1',
+      await expect(
+        service.actualizarDiagnostico(
+          'orden-1',
+          'Revision completada',
+          'otro-tecnico',
+        ),
+      ).rejects.toThrow(ForbiddenException);
+      expect(updateOrden).not.toHaveBeenCalled();
     });
 
-    expect(createOrden).toHaveBeenCalledWith({
-      data: { id_incidencia: 'incidencia-1', id_tecnico: 'tecnico-1' },
-      select: {
-        id_orden: true,
-        id_incidencia: true,
-        id_tecnico: true,
-        diagnostico_tecnico: true,
-        fecha_creacion: true,
-      },
-    });
-  });
+    it('actualiza el diagnostico cuando el tecnico coincide', async () => {
+      findUniqueOrden.mockResolvedValue({
+        id_orden: 'orden-1',
+        id_tecnico: 'tecnico-1',
+      });
+      updateOrden.mockResolvedValue({
+        id_orden: 'orden-1',
+        diagnostico_tecnico: 'Revision completada',
+      });
 
-  it('rechaza asignar una orden a una incidencia inexistente', async () => {
-    const { service, findIncidencia, createOrden } = createService();
-    findIncidencia.mockResolvedValue(null);
-
-    await expect(
-      service.crear({ id_incidencia: 'missing', id_tecnico: 'tecnico-1' }),
-    ).rejects.toBeInstanceOf(NotFoundException);
-    expect(createOrden).not.toHaveBeenCalled();
-  });
-
-  it('solo permite diagnóstico al técnico asignado', async () => {
-    const { service, findOrden, updateOrden } = createService();
-    findOrden.mockResolvedValue({
-      id_orden: 'orden-1',
-      id_tecnico: 'tecnico-asignado',
-    });
-
-    await expect(
-      service.actualizarDiagnostico(
+      const res = await service.actualizarDiagnostico(
         'orden-1',
-        { diagnostico_tecnico: 'Revisión completada' },
-        { id: 'otro-tecnico', role: 'TECNICO' },
-      ),
-    ).rejects.toBeInstanceOf(ForbiddenException);
-    expect(updateOrden).not.toHaveBeenCalled();
+        'Revision completada',
+        'tecnico-1',
+      );
+
+      expect(updateOrden).toHaveBeenCalledWith({
+        where: { id_orden: 'orden-1' },
+        data: { diagnostico_tecnico: 'Revision completada' },
+      });
+      expect(res).toBeDefined();
+    });
   });
 });
->>>>>>> origin/Dev-Sebastian

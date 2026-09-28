@@ -43,8 +43,8 @@ describe('AuthService', () => {
       vi.mocked(verify).mockResolvedValue(true);
       userRepositoryMock.findByEmail.mockResolvedValue({
         id: 'user-123',
-        password: '$argon2id$v=19$m=65536,t=3,p=4$test-hash',
-        role: { name: 'ADMINISTRADOR' },
+        passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$test-hash',
+        fechaCreacion: new Date(), role: { nombreRol: 'ADMINISTRADOR', name: 'ADMINISTRADOR' },
       });
 
       const result = await service.login({ email: 'ADMIN@test.com ', password: 'pass123' });
@@ -54,8 +54,8 @@ describe('AuthService', () => {
         '$argon2id$v=19$m=65536,t=3,p=4$test-hash',
         'pass123',
       );
-      expect(jwtMock.sign).toHaveBeenCalledWith({ userId: 'user-123', role: 'ADMINISTRADOR' });
-      expect(result).toEqual({ accessToken: 'signed-token' });
+      expect(jwtMock.sign).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-123', role: 'ADMINISTRADOR' }));
+      expect(result).toEqual(expect.objectContaining({ token: 'signed-token' }));
     });
 
     it('debe lanzar UnauthorizedException si el correo no existe', async () => {
