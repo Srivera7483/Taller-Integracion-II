@@ -1,59 +1,70 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
+  ParseUUIDPipe,
   Patch,
-  Req,
-  UnauthorizedException,
+  Post,
+  Query,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/auth.types';
+import { Roles } from '../auth/roles.decorator';
+import { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
+import { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
 import { ActualizarEstadoDto } from './dto/actualizar-estado.dto';
-import { ActualizarDiagnosticoDto } from './dto/actualizar-diagnostico.dto';
+import { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
 import { IncidenciasService } from './incidencias.service';
-
-type RequestWithUser = Request & {
-  user?: { userId?: string; sub?: string };
-};
 
 @Controller('incidencias')
 export class IncidenciasController {
   constructor(private readonly incidenciasService: IncidenciasService) {}
 
-  @Patch(':id/estado')
+  @Get()
+  listar(@Query() query: ListarIncidenciasQueryDto) {
+    return this.incidenciasService.listar(query);
+  }
+
+  @Post()
+  crear(
+    @Body() body: CrearIncidenciaDto,
+    @CurrentUser() usuario: AuthenticatedUser,
+  ) {
+    return this.incidenciasService.crear(body, usuario);
+  }
+
+  @Get(':id_incidencia')
+  obtener(@Param('id_incidencia', ParseUUIDPipe) id: string) {
+    return this.incidenciasService.obtener(id);
+  }
+
+  @Patch(':id_incidencia/estado')
+  @Roles('SUPERVISOR', 'TECNICO')
   async actualizarEstado(
-    @Param('id') incidenciaId: string,
+    @Param('id_incidencia', ParseUUIDPipe) incidenciaId: string,
     @Body() body: ActualizarEstadoDto,
-    @Req() request: RequestWithUser,
+    @CurrentUser() usuario: AuthenticatedUser,
   ) {
-    const usuarioId = request.user?.userId ?? request.user?.sub;
-
-    if (!usuarioId) {
-      throw new UnauthorizedException('Usuario autenticado requerido');
-    }
-
-    return this.incidenciasService.actualizarEstado(
-      incidenciaId,
-      body.estado,
-      usuarioId,
-    );
+    return this.incidenciasService.actualizarEstado(incidenciaId, body, usuario);
   }
 
-  @Patch('ordenes-trabajo/:id_orden/diagnostico')
-  async actualizarDiagnostico(
-    @Param('id_orden') id_orden: string,
-    @Body() body: ActualizarDiagnosticoDto,
-    @Req() request: RequestWithUser,
-  ) {
-    const usuarioId = request.user?.userId ?? request.user?.sub;
-
-    if (!usuarioId) {
-      throw new UnauthorizedException('Usuario autenticado requerido');
-    }
-
-    return this.incidenciasService.actualizarDiagnostico(
-      id_orden,
-      body.diagnostico_tecnico,
-      usuarioId,
-    );
+  @Get(':id_incidencia/historial')
+  listarHistorial(@Param('id_incidencia', ParseUUIDPipe) id: string) {
+    return this.incidenciasService.listarHistorial(id);
   }
+
+  @Get(':id_incidencia/evidencias')
+  listarEvidencias(@Param('id_incidencia', ParseUUIDPipe) id: string) {
+    return this.incidenciasService.listarEvidencias(id);
+  }
+
+  @Post(':id_incidencia/evidencias')
+  crearEvidencia(
+    @Param('id_incidencia', ParseUUIDPipe) id: string,
+    @Body() body: CrearEvidenciaDto,
+  ) {
+    return this.incidenciasService.crearEvidencia(id, body);
+  }
+
 }

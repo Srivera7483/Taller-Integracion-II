@@ -1,97 +1,88 @@
-import { BadRequestException } from '@nestjs/common';
-import { EstadoIncidencia } from '@prisma/client';
+import { ForbiddenException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { IncidenciasService } from './incidencias.service';
 
 describe('IncidenciasService', () => {
-  const findUnique = jest.fn();
-  const update = jest.fn();
-  const createHistory = jest.fn();
-  const transaction = jest.fn((callback) =>
-    callback({
-      incidencias: { findUnique, update },
-      historialIncidencia: { create: createHistory },
-    }),
-  );
-  const prisma = { $transaction: transaction } as never;
-  const service = new IncidenciasService(prisma);
+  const reportada = { id_estado: 1, nombre_estado: 'Reportada' };
+  const asignada = { id_estado: 2, nombre_estado: 'Asignada' };
+  const usuario = { id: 'reportante-1', role: 'REPORTANTE' };
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+  const createService = () => {
+    const transactionClient = {
+      estadoIncidencia: { findUnique: jest.fn() },
+      incidencias: { create: jest.fn(), findUnique: jest.fn() },
+      historialIncidencia: { create: jest.fn() },
+    };
+    const prisma = {
+      $transaction: jest.fn((callback) => callback(transactionClient)),
+    } as unknown as PrismaService;
+    return { service: new IncidenciasService(prisma), transactionClient };
+  };
 
-  it('actualiza el estado y registra el cambio dentro de una transacción', async () => {
-    findUnique.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Reportada,
+  it('crea incidencia e historial inicial en una transacción', async () => {
+    const { service, transactionClient } = createService();
+    const id = 'incidencia-1';
+    const fecha = new Date('2026-09-27T12:00:00.000Z');
+    transactionClient.estadoIncidencia.findUnique.mockResolvedValue(reportada);
+    transactionClient.incidencias.create.mockResolvedValue({ id_incidencia: id });
+    transactionClient.incidencias.findUnique.mockResolvedValue({
+      id_incidencia: id,
+      id_activo: 'activo-1',
+      id_reportante: usuario.id,
+      titulo: 'Equipo sin energía',
+      descripcion: 'El equipo no enciende.',
+      fecha_creacion: fecha,
+      historial: [{ estado: reportada }],
     });
-    update.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Asignada,
-    });
 
-    await service.actualizarEstado(
-      'incidencia-1',
-      EstadoIncidencia.Asignada,
-      'usuario-1',
+    const result = await service.crear(
+      {
+        id_activo: 'activo-1',
+        titulo: 'Equipo sin energía',
+        descripcion: 'El equipo no enciende.',
+      },
+      usuario,
     );
 
-    expect(update).toHaveBeenCalledWith({
-      where: { id_incidencia: 'incidencia-1' },
-      data: { estado: EstadoIncidencia.Asignada },
-    });
-    expect(createHistory).toHaveBeenCalledWith({
+    expect(transactionClient.incidencias.create).toHaveBeenCalledWith({
       data: {
-        incidencia_id: 'incidencia-1',
-        estado_anterior: EstadoIncidencia.Reportada,
-        estado_nuevo: EstadoIncidencia.Asignada,
-        usuario_id: 'usuario-1',
+        id_activo: 'activo-1',
+        id_reportante: usuario.id,
+        titulo: 'Equipo sin energía',
+        descripcion: 'El equipo no enciende.',
       },
     });
-  });
-
-  it('rechaza estados que no pertenezcan al enum', async () => {
-    await expect(
-      service.actualizarEstado(
-        'incidencia-1',
-        'Cancelada' as EstadoIncidencia,
-        'usuario-1',
-      ),
-    ).rejects.toThrow(BadRequestException);
-
-    expect(transaction).not.toHaveBeenCalled();
-  });
-
-  it('no crea historial si el estado no cambia', async () => {
-    findUnique.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Reportada,
+    expect(transactionClient.historialIncidencia.create).toHaveBeenCalledWith({
+      data: {
+        id_incidencia: id,
+        id_estado: reportada.id_estado,
+        id_usuario_cambio: usuario.id,
+      },
     });
-
-    await service.actualizarEstado(
-      'incidencia-1',
-      EstadoIncidencia.Reportada,
-      'usuario-1',
-    );
-
-    expect(update).not.toHaveBeenCalled();
-    expect(createHistory).not.toHaveBeenCalled();
+    expect(result.estado).toEqual(reportada);
+    expect(result.fecha_creacion).toBe(fecha);
   });
 
-  it('propaga el fallo del update y no registra historial', async () => {
-    findUnique.mockResolvedValue({
+  it('deniega un cambio de estado cuando el rol no corresponde a la etapa', async () => {
+    const { service, transactionClient } = createService();
+    transactionClient.incidencias.findUnique.mockResolvedValue({
       id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Reportada,
+      id_activo: 'activo-1',
+      id_reportante: usuario.id,
+      titulo: 'Equipo sin energía',
+      descripcion: 'El equipo no enciende.',
+      fecha_creacion: new Date(),
+      historial: [{ estado: reportada }],
     });
-    update.mockRejectedValue(new Error('fallo de base de datos'));
+    transactionClient.estadoIncidencia.findUnique.mockResolvedValue(asignada);
 
     await expect(
       service.actualizarEstado(
         'incidencia-1',
-        EstadoIncidencia.Asignada,
-        'usuario-1',
+        { id_estado: asignada.id_estado },
+        { id: 'tecnico-1', role: 'TECNICO' },
       ),
-    ).rejects.toThrow('fallo de base de datos');
-
-    expect(createHistory).not.toHaveBeenCalled();
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(transactionClient.historialIncidencia.create).not.toHaveBeenCalled();
   });
 });

@@ -17,14 +17,16 @@ const buildGateway = (options = {}) => {
     };
 
     fastify.register(proxy, {
-        upstream: options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3001',
-        prefix: '/api/activos',
+        upstream: options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3003',
+        prefix: '/api/v1/activos',
+        rewritePrefix: '/api/v1/activos',
         replyOptions: { onError: handleProxyError }
     });
 
     fastify.register(proxy, {
         upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
-        prefix: '/api/incidencias',
+        prefix: '/api/v1/incidencias',
+        rewritePrefix: '/api/v1/incidencias',
         replyOptions: { onError: handleProxyError }
     });
 

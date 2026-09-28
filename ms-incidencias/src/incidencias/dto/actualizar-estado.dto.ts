@@ -1,5 +1,9 @@
-import { EstadoIncidencia } from '@prisma/client';
+import { Type } from 'class-transformer';
+import { IsInt, Min } from 'class-validator';
 
 export class ActualizarEstadoDto {
-  estado!: EstadoIncidencia;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  id_estado!: number;
 }

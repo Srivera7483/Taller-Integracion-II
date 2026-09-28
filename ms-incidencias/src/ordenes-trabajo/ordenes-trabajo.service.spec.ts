@@ -1,127 +1,85 @@
-import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { EstadoIncidencia, EstadoOrdenTrabajo } from '@prisma/client';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 
 describe('OrdenesTrabajoService', () => {
-  const findUniqueIncidencia = jest.fn();
-  const updateIncidencia = jest.fn();
-  const createOrden = jest.fn();
-  const createHistory = jest.fn();
-  const findUniqueOrden = jest.fn();
-  const findManyOrdenes = jest.fn();
+  const createService = () => {
+    const findIncidencia = jest.fn();
+    const createOrden = jest.fn();
+    const findOrden = jest.fn();
+    const updateOrden = jest.fn();
+    const prisma = {
+      incidencias: { findUnique: findIncidencia },
+      ordenTrabajo: {
+        create: createOrden,
+        findUnique: findOrden,
+        findMany: jest.fn(),
+        update: updateOrden,
+      },
+    } as unknown as PrismaService;
+    return {
+      service: new OrdenesTrabajoService(prisma),
+      findIncidencia,
+      createOrden,
+      findOrden,
+      updateOrden,
+    };
+  };
 
-  const transaction = jest.fn((callback) =>
-    callback({
-      incidencias: { findUnique: findUniqueIncidencia, update: updateIncidencia },
-      ordenTrabajo: { create: createOrden, findUnique: findUniqueOrden, findMany: findManyOrdenes },
-      historialIncidencia: { create: createHistory },
-    }),
-  );
-
-  const prisma = {
-    $transaction: transaction,
-    ordenTrabajo: { findUnique: findUniqueOrden, findMany: findManyOrdenes },
-  } as never;
-
-  const service = new OrdenesTrabajoService(prisma);
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('asigna una orden de trabajo, actualiza incidencia a Asignada y crea historial en una transacción', async () => {
-    findUniqueIncidencia.mockResolvedValue({
+  it('crea una orden con los nombres de campo del contrato', async () => {
+    const { service, findIncidencia, createOrden } = createService();
+    findIncidencia.mockResolvedValue({
       id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Reportada,
     });
-
     createOrden.mockResolvedValue({
       id_orden: 'orden-1',
-      incidencia_id: 'incidencia-1',
-      tecnico_id: 'tecnico-1',
-      estado: EstadoOrdenTrabajo.Pendiente,
-      instrucciones: 'Revisar cable HDMI',
-    });
+      id_incidencia: 'incidencia-1',
+      id_tecnico: 'tecnico-1',
+      diagnostico_tecnico: null,
+      fecha_creacion: new Date(),
+    } as never);
 
-    const resultado = await service.asignarOrden(
-      {
-        incidencia_id: 'incidencia-1',
-        tecnico_id: 'tecnico-1',
-        instrucciones: 'Revisar cable HDMI',
-      },
-      'supervisor-1',
-    );
+    await service.crear({
+      id_incidencia: 'incidencia-1',
+      id_tecnico: 'tecnico-1',
+    });
 
     expect(createOrden).toHaveBeenCalledWith({
-      data: {
-        incidencia_id: 'incidencia-1',
-        tecnico_id: 'tecnico-1',
-        estado: EstadoOrdenTrabajo.Pendiente,
-        instrucciones: 'Revisar cable HDMI',
+      data: { id_incidencia: 'incidencia-1', id_tecnico: 'tecnico-1' },
+      select: {
+        id_orden: true,
+        id_incidencia: true,
+        id_tecnico: true,
+        diagnostico_tecnico: true,
+        fecha_creacion: true,
       },
     });
-
-    expect(updateIncidencia).toHaveBeenCalledWith({
-      where: { id_incidencia: 'incidencia-1' },
-      data: { estado: EstadoIncidencia.Asignada },
-    });
-
-    expect(createHistory).toHaveBeenCalledWith({
-      data: {
-        incidencia_id: 'incidencia-1',
-        estado_anterior: EstadoIncidencia.Reportada,
-        estado_nuevo: EstadoIncidencia.Asignada,
-        usuario_id: 'supervisor-1',
-      },
-    });
-
-    expect(resultado).toEqual(
-      expect.objectContaining({
-        id_orden: 'orden-1',
-        incidencia_id: 'incidencia-1',
-        tecnico_id: 'tecnico-1',
-      }),
-    );
   });
 
-  it('rechaza asignación si la incidencia no existe', async () => {
-    findUniqueIncidencia.mockResolvedValue(null);
+  it('rechaza asignar una orden a una incidencia inexistente', async () => {
+    const { service, findIncidencia, createOrden } = createService();
+    findIncidencia.mockResolvedValue(null);
 
     await expect(
-      service.asignarOrden(
-        { incidencia_id: 'incidencia-inexistente', tecnico_id: 'tecnico-1' },
-        'supervisor-1',
-      ),
-    ).rejects.toThrow(NotFoundException);
+      service.crear({ id_incidencia: 'missing', id_tecnico: 'tecnico-1' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(createOrden).not.toHaveBeenCalled();
   });
 
-  it('rechaza asignación si la incidencia ya está Resuelta', async () => {
-    findUniqueIncidencia.mockResolvedValue({
-      id_incidencia: 'incidencia-1',
-      estado: EstadoIncidencia.Resuelta,
+  it('solo permite diagnóstico al técnico asignado', async () => {
+    const { service, findOrden, updateOrden } = createService();
+    findOrden.mockResolvedValue({
+      id_orden: 'orden-1',
+      id_tecnico: 'tecnico-asignado',
     });
 
     await expect(
-      service.asignarOrden(
-        { incidencia_id: 'incidencia-1', tecnico_id: 'tecnico-1' },
-        'supervisor-1',
+      service.actualizarDiagnostico(
+        'orden-1',
+        { diagnostico_tecnico: 'Revisión completada' },
+        { id: 'otro-tecnico', role: 'TECNICO' },
       ),
-    ).rejects.toThrow(BadRequestException);
-  });
-
-  it('rechaza si faltan campos obligatorios', async () => {
-    await expect(
-      service.asignarOrden(
-        { incidencia_id: '', tecnico_id: 'tecnico-1' },
-        'supervisor-1',
-      ),
-    ).rejects.toThrow(BadRequestException);
-
-    await expect(
-      service.asignarOrden(
-        { incidencia_id: 'incidencia-1', tecnico_id: '' },
-        'supervisor-1',
-      ),
-    ).rejects.toThrow(BadRequestException);
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(updateOrden).not.toHaveBeenCalled();
   });
 });

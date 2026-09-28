@@ -1,103 +1,81 @@
 import {
-  BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { EstadoIncidencia, EstadoOrdenTrabajo } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { AsignarOrdenDto } from './dto/asignar-orden.dto';
+import type { AuthenticatedUser } from '../auth/auth.types';
+import type { ActualizarDiagnosticoDto } from '../incidencias/dto/actualizar-diagnostico.dto';
+import type { CrearOrdenTrabajoDto } from './dto/crear-orden-trabajo.dto';
+import type { ListarOrdenesTrabajoQueryDto } from './dto/listar-ordenes-trabajo-query.dto';
+
+const ordenContratoSelect = {
+  id_orden: true,
+  id_incidencia: true,
+  id_tecnico: true,
+  diagnostico_tecnico: true,
+  fecha_creacion: true,
+} satisfies Prisma.OrdenTrabajoSelect;
 
 @Injectable()
 export class OrdenesTrabajoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async asignarOrden(dto: AsignarOrdenDto, supervisorId: string) {
-    if (!dto.incidencia_id || typeof dto.incidencia_id !== 'string') {
-      throw new BadRequestException('El ID de la incidencia es obligatorio');
-    }
+  async crear(dto: CrearOrdenTrabajoDto) {
+    const incidencia = await this.prisma.incidencias.findUnique({
+      where: { id_incidencia: dto.id_incidencia },
+      select: { id_incidencia: true },
+    });
+    if (!incidencia) throw new NotFoundException('Incidencia no encontrada');
 
-    if (!dto.tecnico_id || typeof dto.tecnico_id !== 'string') {
-      throw new BadRequestException('El ID del técnico es obligatorio');
-    }
-
-    if (!supervisorId) {
-      throw new BadRequestException('El usuario supervisor es obligatorio');
-    }
-
-    return this.prisma.$transaction(async (transaction) => {
-      const incidencia = await transaction.incidencias.findUnique({
-        where: { id_incidencia: dto.incidencia_id },
-        select: { id_incidencia: true, estado: true },
-      });
-
-      if (!incidencia) {
-        throw new NotFoundException('Incidencia no encontrada');
-      }
-
-      if (incidencia.estado === EstadoIncidencia.Resuelta) {
-        throw new BadRequestException(
-          'No se puede asignar una orden de trabajo a una incidencia ya resuelta',
-        );
-      }
-
-      const nuevaOrden = await transaction.ordenTrabajo.create({
-        data: {
-          incidencia_id: dto.incidencia_id,
-          tecnico_id: dto.tecnico_id,
-          estado: EstadoOrdenTrabajo.Pendiente,
-          instrucciones: dto.instrucciones?.trim() || null,
-        },
-      });
-
-      if (incidencia.estado !== EstadoIncidencia.Asignada) {
-        await transaction.incidencias.update({
-          where: { id_incidencia: dto.incidencia_id },
-          data: { estado: EstadoIncidencia.Asignada },
-        });
-
-        await transaction.historialIncidencia.create({
-          data: {
-            incidencia_id: dto.incidencia_id,
-            estado_anterior: incidencia.estado,
-            estado_nuevo: EstadoIncidencia.Asignada,
-            usuario_id: supervisorId,
-          },
-        });
-      }
-
-      return nuevaOrden;
+    return this.prisma.ordenTrabajo.create({
+      data: {
+        id_incidencia: incidencia.id_incidencia,
+        id_tecnico: dto.id_tecnico,
+      },
+      select: ordenContratoSelect,
     });
   }
 
-  async obtenerPorId(idOrden: string) {
+  async obtener(idOrden: string) {
     const orden = await this.prisma.ordenTrabajo.findUnique({
       where: { id_orden: idOrden },
-      include: { incidencia: true },
+      select: ordenContratoSelect,
     });
-
-    if (!orden) {
-      throw new NotFoundException('Orden de trabajo no encontrada');
-    }
-
+    if (!orden) throw new NotFoundException('Orden de trabajo no encontrada');
     return orden;
   }
 
-  async listarPorTecnico(tecnicoId: string) {
-    if (!tecnicoId) {
-      throw new BadRequestException('El ID del técnico es obligatorio');
-    }
-
+  async listar(query: ListarOrdenesTrabajoQueryDto) {
     return this.prisma.ordenTrabajo.findMany({
-      where: { tecnico_id: tecnicoId },
-      include: { incidencia: true },
-      orderBy: { fecha_asignacion: 'desc' },
+      where: {
+        ...(query.id_incidencia ? { id_incidencia: query.id_incidencia } : {}),
+        ...(query.id_tecnico ? { id_tecnico: query.id_tecnico } : {}),
+      },
+      select: ordenContratoSelect,
+      orderBy: [{ fecha_creacion: 'desc' }, { id_orden: 'desc' }],
     });
   }
 
-  async listarTodas() {
-    return this.prisma.ordenTrabajo.findMany({
-      include: { incidencia: true },
-      orderBy: { fecha_asignacion: 'desc' },
+  async actualizarDiagnostico(
+    idOrden: string,
+    dto: ActualizarDiagnosticoDto,
+    usuario: AuthenticatedUser,
+  ) {
+    const orden = await this.prisma.ordenTrabajo.findUnique({
+      where: { id_orden: idOrden },
+      select: { id_orden: true, id_tecnico: true },
+    });
+    if (!orden) throw new NotFoundException('Orden de trabajo no encontrada');
+    if (orden.id_tecnico !== usuario.id) {
+      throw new ForbiddenException('Solo el técnico asignado puede registrar el diagnóstico');
+    }
+
+    return this.prisma.ordenTrabajo.update({
+      where: { id_orden: idOrden },
+      data: { diagnostico_tecnico: dto.diagnostico_tecnico.trim() },
+      select: ordenContratoSelect,
     });
   }
 }

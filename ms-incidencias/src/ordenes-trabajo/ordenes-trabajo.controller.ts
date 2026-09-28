@@ -2,52 +2,47 @@ import {
   Body,
   Controller,
   Get,
-  HttpCode,
-  HttpStatus,
   Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
-  Req,
-  UnauthorizedException,
+  Query,
 } from '@nestjs/common';
-import type { Request } from 'express';
-import { AsignarOrdenDto } from './dto/asignar-orden.dto';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/auth.types';
+import { Roles } from '../auth/roles.decorator';
+import { ActualizarDiagnosticoDto } from '../incidencias/dto/actualizar-diagnostico.dto';
+import { CrearOrdenTrabajoDto } from './dto/crear-orden-trabajo.dto';
+import { ListarOrdenesTrabajoQueryDto } from './dto/listar-ordenes-trabajo-query.dto';
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
-
-type RequestWithUser = Request & {
-  user?: { userId?: string; sub?: string; role?: string };
-};
 
 @Controller('ordenes-trabajo')
 export class OrdenesTrabajoController {
   constructor(private readonly ordenesService: OrdenesTrabajoService) {}
 
-  @Post('asignar')
-  @HttpCode(HttpStatus.CREATED)
-  async asignarOrden(
-    @Body() body: AsignarOrdenDto,
-    @Req() request: RequestWithUser,
-  ) {
-    const supervisorId = request.user?.userId ?? request.user?.sub;
-
-    if (!supervisorId) {
-      throw new UnauthorizedException('Usuario supervisor autenticado requerido');
-    }
-
-    return this.ordenesService.asignarOrden(body, supervisorId);
-  }
-
   @Get()
-  async listarTodas() {
-    return this.ordenesService.listarTodas();
+  listar(@Query() query: ListarOrdenesTrabajoQueryDto) {
+    return this.ordenesService.listar(query);
   }
 
-  @Get('tecnico/:tecnicoId')
-  async listarPorTecnico(@Param('tecnicoId') tecnicoId: string) {
-    return this.ordenesService.listarPorTecnico(tecnicoId);
+  @Post()
+  @Roles('SUPERVISOR')
+  crear(@Body() body: CrearOrdenTrabajoDto) {
+    return this.ordenesService.crear(body);
   }
 
-  @Get(':id')
-  async obtenerPorId(@Param('id') id: string) {
-    return this.ordenesService.obtenerPorId(id);
+  @Get(':id_orden')
+  obtener(@Param('id_orden', ParseUUIDPipe) id: string) {
+    return this.ordenesService.obtener(id);
+  }
+
+  @Patch(':id_orden/diagnostico')
+  @Roles('TECNICO')
+  actualizarDiagnostico(
+    @Param('id_orden', ParseUUIDPipe) id: string,
+    @Body() body: ActualizarDiagnosticoDto,
+    @CurrentUser() usuario: AuthenticatedUser,
+  ) {
+    return this.ordenesService.actualizarDiagnostico(id, body, usuario);
   }
 }
