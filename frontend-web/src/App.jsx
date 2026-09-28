@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
 import Toast from './components/Toast';
+import PublicRoute from './components/PublicRoute';
 import AxiosInterceptor from './components/AxiosInterceptor';
 
 // Componentes Estructurales y Vistas
@@ -14,6 +15,7 @@ import Login from './views/Login';
 import AsignarTecnico from './views/AsignarTecnico';
 import DetalleOrden from './views/DetalleOrden';
 import DetalleIncidencia from './views/DetalleIncidencia';
+import Usuarios from './views/Usuarios';
 
 function App() {
   return (
