@@ -21,7 +21,7 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const passwordMatches = await verify(user.password, loginDto.password);
+    const passwordMatches = await verify(user.passwordHash, loginDto.password);
 
     if (!passwordMatches) {
       throw new UnauthorizedException('Credenciales inválidas');
@@ -29,9 +29,9 @@ export class AuthService {
 
     const payload = {
       sub: user.id,
-      rol: user.role.name,
-      userId: user.id, // Fallback retrocompatibilidad
-      role: user.role.name, // Fallback retrocompatibilidad
+      rol: user.role.nombreRol,
+      userId: user.id,
+      role: user.role.nombreRol,
     };
 
     const token = this.jwtService.sign(payload);
@@ -41,14 +41,14 @@ export class AuthService {
       usuario: {
         id_usuario: user.id,
         rut_o_id: user.rut_o_id,
-        nombre: user.name,
+        nombre: user.nombre,
         apellido: user.apellido,
         correo: user.email,
         rol: {
           id_rol: user.role.id,
-          nombre_rol: user.role.name
+          nombre_rol: user.role.nombreRol
         },
-        created_at: user.createdAt.toISOString()
+        created_at: user.fechaCreacion.toISOString()
       }
     };
   }
@@ -65,21 +65,22 @@ export class AuthService {
 
   async getAuthenticatedUser(userId: string) {
     const user = await this.userRepository.findById(userId);
-    if (!user || !user.isActive || user.deletedAt) {
+    
+    if (!user || user.fechaEliminacion) {
       throw new UnauthorizedException('Usuario no válido');
     }
     
     return {
       id_usuario: user.id,
       rut_o_id: user.rut_o_id,
-      nombre: user.name,
+      nombre: user.nombre,
       apellido: user.apellido,
       correo: user.email,
       rol: {
         id_rol: user.role.id,
-        nombre_rol: user.role.name
+        nombre_rol: user.role.nombreRol
       },
-      created_at: user.createdAt.toISOString()
+      created_at: user.fechaCreacion.toISOString()
     };
   }
 }

@@ -24,7 +24,7 @@ export class UserRepository {
       where: { id },
       data: {
         role: {
-          connect: { name: roleName },
+          connect: { nombreRol: roleName },
         },
       },
       include: { role: true },

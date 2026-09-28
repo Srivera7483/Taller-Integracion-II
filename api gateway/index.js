@@ -2,9 +2,11 @@ require('dotenv').config();
 
 const Fastify = require('fastify');
 const proxy = require('@fastify/http-proxy');
+const fastifyCors = require('@fastify/cors');
 
 const buildGateway = (options = {}) => {
     const fastify = Fastify({ logger: options.logger ?? true });
+    
 
     fastify.get('/', async () => ({ status: 'OK' }));
 
@@ -15,6 +17,11 @@ const buildGateway = (options = {}) => {
             message: 'El microservicio de destino se encuentra apagado o inaccesible en este momento.',
         });
     };
+
+    fastify.register(fastifyCors, {
+        origin: true,
+        credentials: true,
+    });
 
     fastify.register(proxy, {
         upstream: options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3003',
@@ -33,7 +40,7 @@ const buildGateway = (options = {}) => {
     fastify.register(proxy, {
         upstream: options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001',
         prefix: '/api/v1/auth',
-        rewritePrefix: '/api/v1/auth',
+        rewritePrefix: '/auth', // ESTÁNDAR! Los otros deben seguir este
         replyOptions: { onError: handleProxyError }
     });
 

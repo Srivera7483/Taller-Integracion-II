@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,37 +8,51 @@ datasource db {
 }
 
 model Role {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  description String?
+  id        Int           @id @default(autoincrement()) @map("id_rol")
+  nombreRol String        @unique @map("nombre_rol")
   
-  users       User[]
-  permissions Permission[]
+  usuarios  User[]
+  permisos  RolePermiso[] // Relación botada, solo para cumplir el diagrama
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  @@map("ROLES")
 }
 
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  rut_o_id  String   @unique
-  name      String?
-  apellido  String?
-  isActive  Boolean  @default(true)
+  id               String    @id @default(uuid()) @map("id_usuario")
+  rut_o_id         String    @unique
+  nombre           String
+  apellido         String
+  email            String    @unique
+  passwordHash     String    @map("password_hash")
   
-  roleId    Int
-  role      Role     @relation(fields: [roleId], references: [id])
+  roleId           Int       @map("id_rol")
+  role             Role      @relation(fields: [roleId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
+  fechaCreacion    DateTime  @default(now()) @map("fecha_creacion")
+  fechaEliminacion DateTime? @map("fecha_eliminacion")
+
+  @@map("USUARIOS")
 }
 
-model Permission {
-  id          Int      @id @default(autoincrement())
-  name        String   @unique
-  description String?
-  roles       Role[]
+// AÚN NO USAMOS PERMISOS, PERO DEJARLO
+model Permiso {
+  id            Int           @id @default(autoincrement()) @map("id_permiso")
+  nombrePermiso String        @map("nombre_permiso")
+  descripcion   String?       @db.Text
+  
+  roles         RolePermiso[]
+
+  @@map("PERMISOS")
+}
+
+// AÚN NO USAMOS PERMISOS, PERO DEJARLO
+model RolePermiso {
+  roleId    Int      @map("id_rol")
+  permisoId Int      @map("id_permiso")
+  
+  role      Role     @relation(fields: [roleId], references: [id])
+  permiso   Permiso  @relation(fields: [permisoId], references: [id])
+
+  @@id([roleId, permisoId])
+  @@map("ROLES_PERMISOS")
 }
