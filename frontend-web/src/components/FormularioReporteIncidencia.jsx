@@ -25,13 +25,6 @@ const CATEGORIAS_FALLA = [
   { id: 'otro', nombre: 'Otro', desc: 'Cualquier otra anomalía no categorizada' },
 ];
 
-const PRIORIDADES = [
-  { id: 'baja', label: 'Baja', color: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' },
-  { id: 'media', label: 'Media', color: 'border-yellow-200 bg-yellow-50 text-yellow-700 hover:bg-yellow-100' },
-  { id: 'alta', label: 'Alta', color: 'border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100' },
-  { id: 'critica', label: 'Crítica', color: 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100' },
-];
-
 const FormularioReporteIncidencia = ({ onCancel }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -50,9 +43,10 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const [idActivo, setIdActivo] = useState(assetFromUrl);
   const [isUrlPreloaded, setIsUrlPreloaded] = useState(Boolean(assetFromUrl));
   const [categoria, setCategoria] = useState('');
-  const [prioridad, setPrioridad] = useState('media');
   const [descripcion, setDescripcion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
+
+
   
   // Archivo adjunto simulado
   const [adjuntoNombre, setAdjuntoNombre] = useState('');
@@ -165,7 +159,6 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       setIsUrlPreloaded(false);
     }
     setCategoria('');
-    setPrioridad('media');
     setDescripcion('');
     setUbicacion('');
     setAdjuntoNombre('');
@@ -204,13 +197,15 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       titulo: titulo.trim(),
       id_activo: idActivo.trim(),
       categoria,
-      prioridad,
+      prioridad: 'No Asignada',
       descripcion: descripcion.trim(),
       ubicacion: ubicacion.trim() || 'No especificada',
       adjunto: adjuntoNombre || null,
       fecha_creacion: new Date().toISOString(),
       estado: 'Pendiente',
     };
+
+
 
     console.log('[Incidencias] Payload generado para la API:', nuevaIncidencia);
 
@@ -370,19 +365,19 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
         </div>
       </div>
 
-      {/* SECCIÓN 2: CLASIFICACIÓN DE LA FALLA Y PRIORIDAD */}
+      {/* SECCIÓN 2: CLASIFICACIÓN DE LA FALLA */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
         <div className="border-b border-gray-100 pb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <FiLayers className="text-blue-600" />
-            Clasificación y Severidad
+            Clasificación de la Falla
           </h3>
           <p className="text-sm text-gray-500 mt-1">
-            Indica el origen del fallo y su impacto para determinar la atención requerida.
+            Indica el origen del fallo para determinar la atención técnica requerida.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {/* Campo: Categoría de Falla */}
           <div>
             <label htmlFor="incidencia-categoria" className="block text-sm font-medium text-gray-700 mb-1">
@@ -429,37 +424,9 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               </p>
             )}
           </div>
-
-          {/* Campo: Nivel de Prioridad */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Prioridad / Severidad Estimada
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
-              {PRIORIDADES.map((p) => {
-                const isSelected = prioridad === p.id;
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setPrioridad(p.id)}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all text-center ${
-                      isSelected
-                        ? `${p.color} ring-2 ring-blue-500 shadow-sm font-bold scale-[1.02]`
-                        : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Nivel de urgencia para la resolución de la incidencia.
-            </p>
-          </div>
         </div>
       </div>
+
 
       {/* SECCIÓN 3: DESCRIPCIÓN DETALLADA Y EVIDENCIA */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
