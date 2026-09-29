@@ -23,6 +23,11 @@ const Layout = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token'); 
+    navigate('/login');
+  };
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
@@ -96,7 +101,7 @@ const Layout = () => {
           </div>
           <div className="flex items-center gap-3 sm:gap-4">
             <button
-              onClick={() => navigate('/login')}
+              onClick={handleLogout}
               className="flex items-center gap-2 text-gray-500 hover:text-red-600 transition-colors"
               title="Cerrar sesión"
             >
