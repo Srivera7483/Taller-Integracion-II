@@ -1,5 +1,4 @@
 import React from 'react';
-import Layout from '../components/Layout';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 
@@ -68,29 +67,6 @@ const Usuarios = () => {
     }
   ];
 
-  return (
-    <Layout>
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* Header Hero */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-            Gestión de Usuarios
-          </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            Administra los roles, accesos y el catálogo general de los usuarios del sistema.
-          </p>
-        </div>
-
-        {/* Tabla Genérica */}
-        <DataTable 
-          columns={columns} 
-          data={mockUsers} 
-          title="Directorio de Usuarios"
-          description="Un listado de todos los usuarios registrados en tu cuenta."
-        />
-      </div>
-    </Layout>
-  );
 };
 
 export default Usuarios;

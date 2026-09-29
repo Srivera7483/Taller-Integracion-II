@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
+import StatusFilter from '../components/StatusFilter';
 import {
   FiSearch,
   FiPlus,
@@ -54,7 +55,7 @@ const Incidencias = () => {
     return counts;
   }, [incidencias]);
 
-  // Filtrado reactivo en tiempo real combinando término de búsqueda y grado de prioridad
+  // Filtrado reactivo en tiempo real combinando término de búsqueda, estado y grado de prioridad
   const incidenciasFiltradas = useMemo(() => {
     return incidencias.filter((inc) => {
       const prioridadEvaluada = evaluarPrioridadOrden(inc);
@@ -64,7 +65,13 @@ const Incidencias = () => {
         return false;
       }
 
-      // 2. Filtro por Término de búsqueda
+      // 2. Filtro por Estado
+      const incEstado = inc.estado || 'Pendiente';
+      if (filtroEstado !== 'Todas' && incEstado.toLowerCase() !== filtroEstado.toLowerCase()) {
+        return false;
+      }
+
+      // 3. Filtro por Término de búsqueda
       if (!terminoBusqueda.trim()) return true;
       const texto = terminoBusqueda.toLowerCase();
       const coincideTitulo = inc.titulo?.toLowerCase().includes(texto);
@@ -83,7 +90,8 @@ const Incidencias = () => {
         coincideOrden
       );
     });
-  }, [incidencias, terminoBusqueda, filtroPrioridad]);
+  }, [incidencias, terminoBusqueda, filtroPrioridad, filtroEstado]);
+
   // Calcular contadores por estado
   const counts = incidencias.reduce((acc, inc) => {
     const estado = inc.estado || 'Pendiente';
@@ -91,23 +99,6 @@ const Incidencias = () => {
     acc['Todas'] = (acc['Todas'] || 0) + 1;
     return acc;
   }, { 'Todas': 0 });
-
-  // Filtrado reactivo en tiempo real
-  const incidenciasFiltradas = incidencias.filter((inc) => {
-    // Filtro por texto
-    const texto = terminoBusqueda.toLowerCase();
-    const coincideTitulo = inc.titulo?.toLowerCase().includes(texto);
-    const coincideActivo = inc.id_activo?.toLowerCase().includes(texto);
-    const coincideId = inc.id?.toLowerCase().includes(texto);
-    const coincideCategoria = inc.categoria?.toLowerCase().includes(texto);
-    const matchBusqueda = coincideTitulo || coincideActivo || coincideId || coincideCategoria;
-
-    // Filtro por estado
-    const incEstado = inc.estado || 'Pendiente';
-    const matchEstado = filtroEstado === 'Todas' || incEstado.toLowerCase() === filtroEstado.toLowerCase();
-
-    return matchBusqueda && matchEstado;
-  });
 
   const tieneTemporales = incidencias.some((inc) => inc.esTemporal);
 

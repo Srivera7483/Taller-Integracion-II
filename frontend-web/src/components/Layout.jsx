@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers } from 'react-icons/fi';
+import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiActivity } from 'react-icons/fi';
 
 const Layout = () => {
   const location = useLocation();
@@ -13,10 +13,14 @@ const Layout = () => {
     if (location.pathname.startsWith('/incidencias/asignar')) {
       return 'Asignar Técnico';
     }
+    if (location.pathname.includes('/trazabilidad')) {
+      return 'Trazabilidad y Ciclo de Vida del Activo';
+    }
     switch (location.pathname) {
       case '/dashboard': return 'Dashboard';
       case '/incidencias': return 'Incidencias';
       case '/inventario': return 'Inventario';
+      case '/trazabilidad': return 'Trazabilidad de Activos';
       case '/usuarios': return 'Usuarios';
       default: return 'Sistema de Gestión';
     }
@@ -26,6 +30,7 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
     { path: '/inventario', label: 'Inventario', icon: FiBox },
+    { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
     { path: '/usuarios', label: 'Usuarios', icon: FiUsers },
   ];
 
