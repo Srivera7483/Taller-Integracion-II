@@ -71,7 +71,7 @@ const Incidencias = () => {
   return (
     <div className="space-y-6">
       {/* Barra de Búsqueda y Acciones */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
@@ -83,12 +83,12 @@ const Incidencias = () => {
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           {tieneTemporales && (
             <button
               onClick={handleLimpiarPruebas}
               title="Borrar las incidencias almacenadas en la cookie temporal"
-              className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors bg-white shadow-sm"
+              className="flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors bg-white shadow-sm"
             >
               <FiTrash2 className="w-3.5 h-3.5" />
               Limpiar Pruebas
@@ -113,12 +113,14 @@ const Incidencias = () => {
       </div>
 
       {/* Filtros visuales por estado */}
-      <StatusFilter 
-        options={['Todas', 'Pendiente', 'En Progreso', 'Resuelta', 'Cerrada']} 
-        activeFilter={filtroEstado} 
-        onFilterChange={setFiltroEstado} 
-        counts={counts} 
-      />
+      <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <StatusFilter 
+          options={['Todas', 'Pendiente', 'En Progreso', 'Resuelta', 'Cerrada']} 
+          activeFilter={filtroEstado} 
+          onFilterChange={setFiltroEstado} 
+          counts={counts} 
+        />
+      </div>
 
       {/* Banner Informativo sobre Cookies Temporales */}
       {tieneTemporales && (
@@ -133,8 +135,69 @@ const Incidencias = () => {
         </div>
       )}
 
-      {/* Tabla de Incidencias */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      {/* Vista de Tarjetas (Móvil) */}
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {incidenciasFiltradas.length > 0 ? (
+          incidenciasFiltradas.map((inc) => (
+            <div key={inc.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
+              <div className="flex justify-between items-start gap-2">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-semibold text-gray-500">{inc.id}</span>
+                    {inc.esTemporal && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        Temporal
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-medium text-gray-900 mt-1">{inc.titulo}</h3>
+                </div>
+                <StatusBadge status={inc.estado || 'Pendiente'} />
+              </div>
+              
+              {inc.descripcion && (
+                <p className="text-xs text-gray-500 line-clamp-2">{inc.descripcion}</p>
+              )}
+
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
+                <div className="inline-flex items-center gap-1.5 font-mono text-xs px-2 py-1 bg-gray-50 text-gray-600 rounded border border-gray-200">
+                  <FiBox className="w-3 h-3" />
+                  {inc.id_activo || 'Sin activo'}
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getPriorityStyle(inc.prioridad)}`}>
+                  {inc.prioridad ? inc.prioridad.toUpperCase() : 'MEDIA'}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1.5 pt-2 border-t border-gray-100 text-xs text-gray-500">
+                <div className="flex items-center gap-1.5">
+                  <FiUser className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="font-medium text-gray-700">{inc.asignado || 'Sin asignar'}</span>
+                  {(!inc.asignado || inc.asignado === 'Sin asignar' || inc.estado === 'Pendiente') && (
+                    <Link
+                      to={`/incidencias/asignar?incidenciaId=${inc.id}`}
+                      className="ml-auto text-indigo-600 hover:text-indigo-800 font-semibold"
+                    >
+                      Asignar
+                    </Link>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 text-gray-400">
+                  <FiClock className="w-3.5 h-3.5" />
+                  {inc.fecha || 'Reciente'}
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="p-8 text-center bg-white rounded-xl shadow-sm border border-gray-200">
+            <p className="font-medium text-gray-500">No se encontraron incidencias</p>
+          </div>
+        )}
+      </div>
+
+      {/* Tabla de Incidencias (Escritorio) */}
+      <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
