@@ -8,12 +8,11 @@ import {
   FiCheckCircle,
   FiClock,
   FiArrowRight,
-  FiTrendingUp,
   FiBox,
-  FiLayers
+  FiLayers,
+  FiActivity
 } from 'react-icons/fi';
 import DataTable from '../components/DataTable';
-import { FiAlertTriangle, FiCheckCircle, FiClock } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { getIncidencias } from '../services/incidenciasStorage';
 import { evaluarPrioridadOrden } from '../services/ordenesService';
@@ -69,6 +68,13 @@ const Dashboard = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            to="/trazabilidad"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition shadow-2xs"
+          >
+            <FiActivity className="w-3.5 h-3.5" />
+            <span>Trazabilidad Activos</span>
+          </Link>
           <Link
             to="/incidencias"
             className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition shadow-2xs"
@@ -198,10 +204,18 @@ const Dashboard = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 bg-gray-100 text-gray-800 rounded border border-gray-200">
-                        <FiBox className="w-3 h-3 text-gray-400" />
-                        {inc.id_activo || 'N/A'}
-                      </span>
+                      {inc.id_activo ? (
+                        <Link
+                          to={`/trazabilidad/${encodeURIComponent(inc.id_activo)}`}
+                          className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 bg-gray-100 hover:bg-blue-50 text-gray-800 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors shadow-2xs"
+                          title={`Ver trazabilidad y ciclo de vida de ${inc.id_activo}`}
+                        >
+                          <FiBox className="w-3 h-3 text-gray-400" />
+                          {inc.id_activo}
+                        </Link>
+                      ) : (
+                        <span className="font-mono text-xs text-gray-400">N/A</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <PriorityBadge priority={prioridadEvaluada} size="sm" />
@@ -219,6 +233,8 @@ const Dashboard = () => {
             </tbody>
           </table>
         </div>
+      </div>
+
       <div className="mt-8">
         <DataTable 
           title="Últimas Incidencias" 

@@ -7,7 +7,6 @@ import AxiosInterceptor from './components/AxiosInterceptor';
 
 // Componentes Estructurales y Vistas
 import Layout from './components/Layout';
-import PublicRoute from './components/PublicRoute';
 import Dashboard from './views/Dashboard';
 import Incidencias from './views/Incidencias';
 import ReporteIncidencia from './views/ReporteIncidencia';
@@ -17,6 +16,7 @@ import AsignarTecnico from './views/AsignarTecnico';
 import DetalleOrden from './views/DetalleOrden';
 import DetalleIncidencia from './views/DetalleIncidencia';
 import Usuarios from './views/Usuarios';
+import Trazabilidad from './views/Trazabilidad';
 
 
 function App() {
@@ -44,6 +44,9 @@ function App() {
             <Route path="incidencias/:idIncidencia" element={<DetalleIncidencia />} />
             <Route path="ordenes/:idOrden" element={<DetalleOrden />} />
             <Route path="inventario" element={<Inventario />} />
+            <Route path="trazabilidad" element={<Trazabilidad />} />
+            <Route path="trazabilidad/:idActivo" element={<Trazabilidad />} />
+            <Route path="activos/:idActivo/trazabilidad" element={<Trazabilidad />} />
             <Route path="usuarios" element={<Usuarios />} />
           </Route>
           </Routes>
