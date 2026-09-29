@@ -242,6 +242,57 @@ export class IncidenciasService {
     if (!exists) throw new NotFoundException('Incidencia no encontrada');
   }
 
+
+  async resolverIncidencia(idIncidencia: string, idTecnico: string, rolUsuario: string) {
+      const rolUpper = rolUsuario.toUpperCase();
+      if (rolUpper !== 'TÉCNICO' && rolUpper !== 'TECNICO') {
+        throw new ForbiddenException('Acceso denegado: Solo los técnicos pueden resolver incidencias.');
+      }
+
+      return this.prisma.$transaction(async (transaction) => {
+        
+        const ultimoHistorial = await transaction.historialEstados.findFirst({
+          where: { id_incidencia: idIncidencia },
+          orderBy: { fecha_creacion: 'desc' },
+          include: { estado: true } 
+        });
+
+        if (!ultimoHistorial) {
+          throw new BadRequestException('La incidencia no tiene un historial de estados válido.');
+        }
+
+        const nombreEstadoActual = ultimoHistorial.estado.nombre_estado.toUpperCase();
+
+        if (nombreEstadoActual !== 'ASIGNADA') {
+          throw new BadRequestException(`Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`);
+        }
+
+        const estadoDestino = await transaction.estadoIncidencia.findFirst({
+          where: { 
+            nombre_estado: { 
+              equals: 'Resuelta', 
+              mode: 'insensitive'
+            } 
+          }
+        });
+
+        if (!estadoDestino) {
+          throw new InternalServerErrorException('Error de configuración: El estado "Resuelta" no existe en la base de datos.');
+        }
+        
+        const nuevoHistorial = await transaction.historialEstados.create({
+          data: {
+            id_incidencia: idIncidencia,
+            id_estado: estadoDestino.id_estado,
+            id_usuario_cambio: idTecnico,
+          },
+          include: { estado: true }
+        });
+
+        return nuevoHistorial;
+      });
+    }
+
   private toApiIncidencia(incidencia: IncidenciaConEstadoActual) {
     const estado = incidencia.historial_estados[0]?.estado;
     return {

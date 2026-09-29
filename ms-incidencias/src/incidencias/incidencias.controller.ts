@@ -62,6 +62,22 @@ export class IncidenciasController {
     );
   }
 
+  @Patch(':id_incidencia/resolver')
+  @Roles('TECNICO')
+  async resolverIncidencia(
+    @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
+    @CurrentUser() usuario: JwtUser,
+  ) {
+    const idUsuario = usuario.sub || usuario.userId;
+    const rolUsuario = usuario.rol || usuario.role;
+    
+    return this.incidenciasService.resolverIncidencia(
+      idIncidencia,
+      idUsuario,
+      rolUsuario,
+    );
+  }
+
   @Get(':id_incidencia/historial')
   listarHistorial(@Param('id_incidencia', ParseUUIDPipe) id: string) {
     return this.incidenciasService.listarHistorial(id);

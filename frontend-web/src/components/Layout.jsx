@@ -113,8 +113,8 @@ const Layout = () => {
               <FiLogOut className="w-5 h-5" />
               <span className="hidden sm:inline text-sm font-medium">Salir</span>
             </button>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200 text-sm sm:text-base">
-              U
+            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200">
+            U
             </div>
           </div>
         </header>
