@@ -22,6 +22,11 @@ const Layout = () => {
     }
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('token'); 
+    navigate('/login');
+  };
+
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
@@ -74,7 +79,7 @@ const Layout = () => {
           </div>
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/login')}
+              onClick={handleLogout}
               className="flex items-center gap-2 text-gray-500 hover:text-red-600 transition-colors"
               title="Cerrar sesión"
             >
@@ -82,7 +87,6 @@ const Layout = () => {
               <span className="hidden sm:inline text-sm font-medium">Salir</span>
             </button>
             <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200">
-              U
             </div>
           </div>
         </header>
