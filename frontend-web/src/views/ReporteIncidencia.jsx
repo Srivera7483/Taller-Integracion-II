@@ -1,11 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  FiChevronRight, 
-  FiHelpCircle, 
-  FiShield, 
-  FiAlertTriangle, 
-  FiPhoneCall 
+import {
+  FiChevronRight,
+  FiHelpCircle,
+  FiShield,
+  FiAlertTriangle,
+  FiPhoneCall
 } from 'react-icons/fi';
 import FormularioReporteIncidencia from '../components/FormularioReporteIncidencia';
 
@@ -93,8 +93,12 @@ const ReporteIncidencia = () => {
               <div className="p-2.5 rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-100">
                 <span className="font-bold">Media / Baja:</span> Incidencias menores, problemas en terminales individuales o solicitudes no urgentes.
               </div>
+              <p className="text-[11px] text-gray-500 pt-1 italic">
+                * La prioridad operativa final es evaluada y asignada por el Supervisor al derivar la orden de trabajo.
+              </p>
             </div>
           </div>
+
 
           {/* Tarjeta: Contacto de Emergencia */}
           <div className="bg-slate-900 text-slate-100 rounded-xl p-5 shadow-sm space-y-3">
