@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
+import StatusFilter from '../components/StatusFilter';
 import {
   FiSearch,
   FiPlus,
