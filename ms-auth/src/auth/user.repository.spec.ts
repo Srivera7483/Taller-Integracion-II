@@ -49,7 +49,7 @@ describe('UserRepository', () => {
 
   describe('updateRole', () => {
     it('debe actualizar el rol usando la sintaxis connect de Prisma', async () => {
-      const mockUpdatedUser = { id: 'uuid-123', role: { name: 'SUPERVISOR' } };
+      const mockUpdatedUser = { id: 'uuid-123', role: { nombreRol: 'SUPERVISOR' } };
       vi.spyOn(prismaService.user, 'update').mockResolvedValue(mockUpdatedUser as any);
 
       const result = await userRepository.updateRole('uuid-123', 'SUPERVISOR');
@@ -58,7 +58,7 @@ describe('UserRepository', () => {
         where: { id: 'uuid-123' },
         data: {
           role: {
-            connect: { name: 'SUPERVISOR' },
+            connect: { nombreRol: 'SUPERVISOR' },
           },
         },
         include: { role: true },

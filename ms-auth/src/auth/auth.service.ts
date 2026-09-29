@@ -12,7 +12,7 @@ export class AuthService {
     private readonly userRepository: UserRepository,
   ) {}
 
-  async login(loginDto: LoginDto): Promise<{ accessToken: string }> {
+  async login(loginDto: LoginDto): Promise<any> {
     const email = loginDto.email.trim().toLowerCase();
 
     const user = await this.userRepository.findByEmail(email);
@@ -21,19 +21,35 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const passwordMatches = await verify(user.password, loginDto.password);
+    const passwordMatches = await verify(user.passwordHash, loginDto.password);
 
     if (!passwordMatches) {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     const payload = {
+      sub: user.id,
+      rol: user.role.nombreRol,
       userId: user.id,
-      role: user.role.name,
+      role: user.role.nombreRol,
     };
 
+    const token = this.jwtService.sign(payload);
+
     return {
-      accessToken: this.jwtService.sign(payload),
+      token,
+      usuario: {
+        id_usuario: user.id,
+        rut_o_id: user.rut_o_id,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        correo: user.email,
+        rol: {
+          id_rol: user.role.id,
+          nombre_rol: user.role.nombreRol
+        },
+        created_at: user.fechaCreacion.toISOString()
+      }
     };
   }
 
@@ -45,5 +61,26 @@ export class AuthService {
     }
 
     return await this.userRepository.updateRole(id, updateRoleDto.rol);
+  }
+
+  async getAuthenticatedUser(userId: string) {
+    const user = await this.userRepository.findById(userId);
+    
+    if (!user || user.fechaEliminacion) {
+      throw new UnauthorizedException('Usuario no válido');
+    }
+    
+    return {
+      id_usuario: user.id,
+      rut_o_id: user.rut_o_id,
+      nombre: user.nombre,
+      apellido: user.apellido,
+      correo: user.email,
+      rol: {
+        id_rol: user.role.id,
+        nombre_rol: user.role.nombreRol
+      },
+      created_at: user.fechaCreacion.toISOString()
+    };
   }
 }

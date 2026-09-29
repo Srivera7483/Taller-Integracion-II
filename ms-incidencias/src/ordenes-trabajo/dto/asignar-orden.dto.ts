@@ -1,5 +1,15 @@
+import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+
 export class AsignarOrdenDto {
-  incidencia_id!: string;
-  tecnico_id!: string;
-  instrucciones?: string;
+  @IsUUID()
+  @IsNotEmpty()
+  id_incidencia!: string;
+
+  @IsUUID()
+  @IsNotEmpty()
+  id_tecnico!: string;
+
+  @IsString()
+  @IsOptional()
+  diagnostico_tecnico?: string;
 }

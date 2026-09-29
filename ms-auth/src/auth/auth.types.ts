@@ -1,4 +1,6 @@
 export interface JwtUser {
-  userId: string;
-  role: string;
+  sub?: string;
+  rol?: string;
+  userId?: string;
+  role?: string;
 }

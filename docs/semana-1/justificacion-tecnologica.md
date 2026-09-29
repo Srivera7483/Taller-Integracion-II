@@ -23,14 +23,15 @@ Si bien las tecnologías fueron heredadas en primera instancia de conocimientos 
 
 ## 2. Decisiones y Solución Adoptada (El "Por Qué")
 
-El stack seleccionado para el Microservicio de Autenticación (y extendido al resto del ecosistema backend) se compone de: **NestJS, Fastify, Prisma ORM, PostgreSQL y Argon2 + JWT**.
+El stack seleccionado para el Microservicio de Autenticación (y extendido al resto del ecosistema backend) se compone de: **NestJS, Express, Prisma ORM, PostgreSQL y Argon2 + JWT**.
 
 ### 2.1. Framework Principal: NestJS
 * **Decisión:** Utilizar NestJS en lugar de Express.js puro.
 * **Justificación Técnica:** NestJS impone una arquitectura altamente opinada (basada en Módulos, Controladores y Servicios) que aplica patrones de diseño empresariales como la **Inyección de Dependencias (DI)** nativa. Dado que el proyecto escalará a múltiples microservicios, mantener un código estructurado y predecible es vital. Con Express puro, el código tiende a desorganizarse rápidamente ("spaghetti code"), mientras que NestJS fomenta la mantenibilidad a largo plazo.
 
-### 2.2. Adaptador HTTP: Fastify (en vez de Express)
-* **Decisión:** Reemplazar el motor HTTP por defecto de NestJS (Express) por `@nestjs/platform-fastify`.
+### 2.2. Adaptador HTTP: Express (Migración desde Fastify)
+* **Decisión Actual (TAL-92):** Mantener el motor HTTP por defecto de NestJS (Express) para acatar estrictamente el diagrama de arquitectura oficial.
+* **Decisión Original:** Reemplazar el motor por Fastify para mayor rendimiento (Descartada por alineación arquitectónica).
 * **Justificación Técnica:** Fastify es capaz de procesar hasta un **30% más de peticiones por segundo** en comparación con Express gracias a su arquitectura optimizada. Dado que el `ms-auth` será consultado constantemente por los demás microservicios (o el API Gateway) para validar tokens en cada petición, la latencia debe ser mínima.
 
 ### 2.3. Acceso a Datos: Prisma ORM
@@ -66,7 +67,7 @@ El stack seleccionado para el Microservicio de Autenticación (y extendido al re
 
 **Desventajas (Deuda Técnica / Retos):**
 * **Curva de Aprendizaje:** NestJS y Prisma requieren comprender conceptos avanzados (Decoradores, Providers, Generación de Clientes) que en Express.js no existen.
-* **Incompatibilidad inicial:** Fastify requiere usar tipos específicos (como `FastifyRequest`), lo que causó conflictos temporales al mezclarlo con dependencias de Express (corregido en saneamiento de la semana 1).
+* **Incompatibilidad inicial:** Originalmente se usó Fastify y tipos como `FastifyRequest`. Todo esto fue purgado y estandarizado a Express en la TAL-92.
 
 ---
 

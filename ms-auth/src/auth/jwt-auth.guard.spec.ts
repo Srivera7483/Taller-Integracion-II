@@ -46,6 +46,6 @@ describe('JwtAuthGuard', () => {
 
     expect(guard.canActivate(context)).toBe(true);
     expect(verify).toHaveBeenCalledWith('signed-token');
-    expect(request.user).toEqual({ userId: 'user-123', role: 'admin' });
+    expect(request.user).toEqual(expect.objectContaining({ userId: 'user-123', role: 'admin' }));
   });
 });

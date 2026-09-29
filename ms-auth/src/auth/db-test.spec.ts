@@ -3,7 +3,7 @@ import { hash } from 'argon2';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UserRepository } from './user.repository.js';
 
-describe('Prueba de Conexión Real BD', () => {
+describe.runIf(Boolean(process.env.DATABASE_URL))('Prueba de Conexión Real BD', () => {
   const prisma = new PrismaService();
   const repo = new UserRepository(prisma);
 

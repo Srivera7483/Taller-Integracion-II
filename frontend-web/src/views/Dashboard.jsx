@@ -1,11 +1,26 @@
 import React from 'react';
 import MetricCard from '../components/MetricCard';
 import StatusBadge from '../components/StatusBadge';
+import DataTable from '../components/DataTable';
 import { FiAlertTriangle, FiCheckCircle, FiClock } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 
 const Dashboard = () => {
   const { showToast } = useToast();
+
+  const columns = [
+    { header: 'ID', accessorKey: 'id', cell: (row) => <span className="font-mono font-medium text-gray-500">{row.id}</span> },
+    { header: 'Descripción', accessorKey: 'descripcion', cell: (row) => <span className="font-medium text-gray-900">{row.descripcion}</span> },
+    { header: 'Estado', accessorKey: 'estado', cell: (row) => <StatusBadge status={row.estado} /> },
+    { header: 'Fecha', accessorKey: 'fecha' }
+  ];
+
+  const recentIncidents = [
+    { id: '#1042', descripcion: 'Caída de servidor principal', estado: 'Crítica', fecha: 'Hace 2 horas' },
+    { id: '#1041', descripcion: 'Actualización de base de datos', estado: 'Pendiente', fecha: 'Hace 5 horas' },
+    { id: '#1040', descripcion: 'Falla en router principal', estado: 'Resuelta', fecha: 'Hace 1 día' },
+    { id: '#1039', descripcion: 'Mantenimiento preventivo de rack', estado: 'En Progreso', fecha: 'Hace 2 días' }
+  ];
 
   return (
     <div className="space-y-6">
@@ -40,37 +55,13 @@ const Dashboard = () => {
         />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="font-semibold text-gray-800">Últimas Incidencias</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-50 text-gray-500 uppercase">
-              <tr>
-                <th className="px-6 py-3 font-medium">ID</th>
-                <th className="px-6 py-3 font-medium">Descripción</th>
-                <th className="px-6 py-3 font-medium">Estado</th>
-                <th className="px-6 py-3 font-medium">Fecha</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {/* Ejemplo de filas vacías preparadas para el .map() */}
-              <tr className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">#1042</td>
-                <td className="px-6 py-4 font-medium text-gray-900">Caída de servidor principal</td>
-                <td className="px-6 py-4"><StatusBadge status="Crítica" /></td>
-                <td className="px-6 py-4">Hace 2 horas</td>
-              </tr>
-              <tr className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4">#1041</td>
-                <td className="px-6 py-4 font-medium text-gray-900">Actualización de base de datos</td>
-                <td className="px-6 py-4"><StatusBadge status="Pendiente" /></td>
-                <td className="px-6 py-4">Hace 5 horas</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div className="mt-8">
+        <DataTable 
+          title="Últimas Incidencias" 
+          description="Listado rápido de los últimos eventos reportados en la red."
+          columns={columns} 
+          data={recentIncidents} 
+        />
       </div>
     </div>
   );
