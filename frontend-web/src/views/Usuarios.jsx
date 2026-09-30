@@ -1,5 +1,4 @@
 import React from 'react';
-import Layout from '../components/Layout';
 import DataTable from '../components/DataTable';
 import StatusBadge from '../components/StatusBadge';
 
@@ -69,7 +68,6 @@ const Usuarios = () => {
   ];
 
   return (
-    <Layout>
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Header Hero */}
         <div className="mb-8">
@@ -89,7 +87,6 @@ const Usuarios = () => {
           description="Un listado de todos los usuarios registrados en tu cuenta."
         />
       </div>
-    </Layout>
   );
 };
 
