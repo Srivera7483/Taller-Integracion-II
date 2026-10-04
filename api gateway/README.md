@@ -97,8 +97,10 @@ curl -i http://localhost:3000/api/activos
 curl -i http://localhost:3000/api/incidencias
 curl -i -X POST http://localhost:3000/api/v1/notificaciones \
   -H "Content-Type: application/json" \
-  -d '{"destinatario":"usuario-1","mensaje":"Prueba"}'
+  -d '{"email":"usuario@example.com","asunto":"Aviso","cuerpoMensaje":"Mensaje de prueba"}'
 ```
+
+La solicitud válida de notificaciones responde `201 Created`. Si falta un campo requerido, el email no es válido o se envían propiedades adicionales, el microservicio responde `400 Bad Request`; el Gateway reenvía esa respuesta. Para ejemplos completos de validación por esta ruta, consulta [la guía TAL-107](../docs/TAL-107-validacion-payload-notificaciones.md).
 
 ## Resultado de la prueba
 

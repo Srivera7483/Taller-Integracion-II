@@ -28,7 +28,7 @@ Compose publica el puerto del contenedor sólo en `127.0.0.1:3004`. El Gateway e
 Endpoint local:
 
 ```powershell
-$payload = @{ destinatario = "usuario-1"; mensaje = "Prueba local" } | ConvertTo-Json -Compress
+$payload = @{ email = "usuario@example.com"; asunto = "Prueba local"; cuerpoMensaje = "Contenido de prueba" } | ConvertTo-Json -Compress
 $payload | curl.exe -i -X POST http://127.0.0.1:3004/notificar `
   -H "Content-Type: application/json" --data-binary "@-"
 ```
@@ -36,9 +36,11 @@ $payload | curl.exe -i -X POST http://127.0.0.1:3004/notificar `
 Vía API Gateway:
 
 ```powershell
-$payload = @{ destinatario = "usuario-1"; mensaje = "Prueba vía Gateway" } | ConvertTo-Json -Compress
+$payload = @{ email = "usuario@example.com"; asunto = "Prueba vía Gateway"; cuerpoMensaje = "Contenido de prueba" } | ConvertTo-Json -Compress
 $payload | curl.exe -i -X POST http://localhost:3000/api/v1/notificaciones `
   -H "Content-Type: application/json" --data-binary "@-"
 ```
+
+El DTO valida que `email` tenga formato de correo y que `asunto` y `cuerpoMensaje` sean strings no vacíos ni compuestos únicamente por espacios en blanco. El `ValidationPipe` global rechaza propiedades no declaradas. Para ejemplos de éxito y errores 400, consulta [TAL-107](../docs/TAL-107-validacion-payload-notificaciones.md).
 
 La simulación por consola reduce el coste y el tiempo de desarrollo del MVP, pero no ofrece persistencia ni reintentos. El Gateway es la única entrada para clientes remotos; Docker mantiene el puerto 3004 publicado sólo en loopback.
