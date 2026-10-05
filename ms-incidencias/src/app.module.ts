@@ -7,16 +7,22 @@ import { AuthModule } from './auth/auth.module';
 import { IncidenciasModule } from './incidencias/incidencias.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { OrdenesTrabajoModule } from './ordenes-trabajo/ordenes-trabajo.module';
-import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
+import * as Joi from 'joi';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+          isGlobal: true,
+          validationSchema: Joi.object({
+            PORT: Joi.number().default(3002),
+            DATABASE_URL: Joi.string().required(),
+            JWT_SECRET: Joi.string().required(),
+          }),
+        }),
     AuthModule,
     PrismaModule,
-    AuthModule,
     IncidenciasModule,
     OrdenesTrabajoModule,
   ],

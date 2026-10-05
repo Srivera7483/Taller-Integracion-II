@@ -1,5 +1,16 @@
 require('dotenv').config();
 
+// 1. Validación estricta (Graceful Shutdown)
+const REQUIRED_ENVS = ['PORT', 'MS_ACTIVOS_URL', 'MS_INCIDENCIAS_URL', 'MS_AUTH_URL'];
+const missing = REQUIRED_ENVS.filter(key => !process.env[key]);
+
+if (missing.length > 0) {
+    console.error(`[FATAL] El API Gateway no puede arrancar. Faltan variables en el .env: ${missing.join(', ')}`);
+    process.exit(1);
+}
+
+
+
 const Fastify = require('fastify');
 const proxy = require('@fastify/http-proxy');
 const fastifyCors = require('@fastify/cors');
@@ -23,33 +34,34 @@ const buildGateway = (options = {}) => {
         credentials: true,
     });
 
-    fastify.register(proxy, {
-        upstream: options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3003',
-        prefix: '/api/v1/activos',
-        rewritePrefix: '/api/v1/activos',
-        replyOptions: { onError: handleProxyError }
-    });
+
 
     fastify.register(proxy, {
-        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
-        prefix: '/api/v1/incidencias',
-        rewritePrefix: '/api/v1/incidencias',
-        replyOptions: { onError: handleProxyError }
-    });
+            upstream: options.activosUrl || process.env.MS_ACTIVOS_URL,
+            prefix: '/api/v1/activos',
+            rewritePrefix: '/activos',
+            replyOptions: { onError: handleProxyError }
+        });
 
-    fastify.register(proxy, {
-        upstream: options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001',
-        prefix: '/api/v1/auth',
-        rewritePrefix: '/auth', // ESTÁNDAR! Los otros deben seguir este
-        replyOptions: { onError: handleProxyError }
-    });
+        fastify.register(proxy, {
+            upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL,
+            prefix: '/api/v1/incidencias',
+            rewritePrefix: '/incidencias',
+            replyOptions: { onError: handleProxyError }
+        });
 
-    return fastify;
-};
+        fastify.register(proxy, {
+            upstream: options.authUrl || process.env.MS_AUTH_URL,
+            prefix: '/api/v1/auth',
+            rewritePrefix: '/auth', // ESTÁNDAR! Los otros deben seguir este
+            replyOptions: { onError: handleProxyError }
+        });
+        return fastify;
+    };
 
 const start = async () => {
     const fastify = buildGateway();
-    const port = Number(process.env.GATEWAY_PORT ?? process.env.PORT ?? 3000);
+    const port = Number(process.env.PORT);
 
     try {
         await fastify.listen({ port, host: '0.0.0.0' });

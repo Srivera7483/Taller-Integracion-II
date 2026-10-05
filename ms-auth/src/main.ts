@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
-
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -11,11 +11,13 @@ async function bootstrap() {
     new FastifyAdapter(),
   );
 
-  // Registro del Interceptor / Filtro Global de Excepciones
   const httpAdapterHost = app.get(HttpAdapterHost);
   app.useGlobalFilters(new AllExceptionsFilter(httpAdapterHost));
 
-  const port = process.env.AUTH_PORT ?? 3001;
+  const configService = app.get(ConfigService);
+  
+  const port = configService.get<number>('PORT') ?? 3001;
+  
   await app.listen(port, '0.0.0.0');
   
   Logger.log(
