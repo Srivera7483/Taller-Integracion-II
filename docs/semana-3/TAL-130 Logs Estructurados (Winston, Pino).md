@@ -51,3 +51,24 @@ const fastify = Fastify({ logger: logger });
 	- Se apaga el logger temporalmente durante el arranque en la constante `app`.
 	- Se le indica a NestJS que use la configuración de Winston que creamos en app.module (`app.useLogger`)
 	- Se reemplaza el *console.log* final por nuestro logger al final para reportar que MS incidencias empezó a correr.
+
+**Testeo y Fixeos**
+- Se testeó el funcionamiento en API Gateway tratando de iniciarlo con `pnpm run dev` y enviando una petición Activos. Funcionó el logger guardandoo un log en la carpeta logs.
+	- **Commit de fixeo:** Se tuvo que implementar una traducción Pino-Winston, ya que Fastify tenía súper implementado Pino en sí.
+	
+
+**Notas de aviso para pulleos**
+
+- Es necesario agregar a los .gitignore tanto `api gateway/.gitignore` como `ms-incidencias/.gitignore`
+		```
+```
+		# Logs
+		logs/
+		*.log
+		npm-debug.log*
+		pnpm-debug.log*
+```
+
+
+
+>

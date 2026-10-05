@@ -15,10 +15,23 @@ if (missing.length > 0) {
 const Fastify = require('fastify');
 const proxy = require('@fastify/http-proxy');
 const fastifyCors = require('@fastify/cors');
-const logger = require('./logger');
+const winstonLogger = require('./logger');
+// Traductor Winston a Pino, para Fastify
+const fastifyLogger = {
+    level: 'info',
+    info: (msg, ...args) => winstonLogger.info(msg, ...args),
+    error: (msg, ...args) => winstonLogger.error(msg, ...args),
+    warn: (msg, ...args) => winstonLogger.warn(msg, ...args),
+    fatal: (msg, ...args) => winstonLogger.error(msg, ...args),
+    trace: (msg, ...args) => winstonLogger.silly(msg, ...args),
+    debug: (msg, ...args) => winstonLogger.debug(msg, ...args),
+    silent: () => {}, // Fastify usa esto para apagar logs temporalmente
+    child: () => fastifyLogger // Fastify crea "hijos" por cada request, le devolvemos el mismo logger
+};
+
 
 const buildGateway = (options = {}) => {
-    const fastify = Fastify({ logger: logger});
+    const fastify = Fastify({ loggerInstance: fastifyLogger});
     
 
     fastify.get('/', async () => ({ status: 'OK' }));
