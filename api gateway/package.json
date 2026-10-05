@@ -11,6 +11,8 @@
     "@fastify/http-proxy": "^11.6.2",
     "@fastify/cors": "^10.0.0",
     "dotenv": "^17.4.2",
-    "fastify": "^5.12.4"
+    "fastify": "^5.12.4",
+    "winston": "^3.13.0",
+    "winston-daily-rotate-file": "^5.0.0"
   }
 }

@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 
 // 1. Validación estricta (Graceful Shutdown)
@@ -14,9 +15,10 @@ if (missing.length > 0) {
 const Fastify = require('fastify');
 const proxy = require('@fastify/http-proxy');
 const fastifyCors = require('@fastify/cors');
+const logger = require('./logger');
 
 const buildGateway = (options = {}) => {
-    const fastify = Fastify({ logger: options.logger ?? true });
+    const fastify = Fastify({ logger: logger});
     
 
     fastify.get('/', async () => ({ status: 'OK' }));
