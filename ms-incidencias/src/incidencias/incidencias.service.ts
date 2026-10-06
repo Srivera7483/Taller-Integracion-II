@@ -10,6 +10,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
 import type { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
 import type { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
+// @ts-ignore
+import * as sharp from 'sharp';
+import * as path from 'path';
+import * as fs from 'fs/promises';
+import { v4 as uuidv4 } from 'uuid';
 
 const incidenciaConEstadoActual = {
   include: {
@@ -18,6 +23,9 @@ const incidenciaConEstadoActual = {
       take: 1,
       include: { estado: { select: { id_estado: true, nombre_estado: true } } },
     },
+    evidencias: {
+      select: { url_cloudinary: true }
+    }
   },
 } satisfies Prisma.IncidenciasDefaultArgs;
 
@@ -220,6 +228,48 @@ export class IncidenciasService {
     return this.toApiEvidencia(evidencia);
   }
 
+  async procesarYGuardarEvidencia(idIncidencia: string, idTipoEvidencia: number, file: any) {
+    await this.assertIncidenciaExists(idIncidencia);
+    
+    if (!idTipoEvidencia) {
+      throw new BadRequestException('id_tipo_evidencia es requerido');
+    }
+
+    const tipo = await this.prisma.tipoEvidencia.findUnique({
+      where: { id_tipo_evidencia: idTipoEvidencia },
+    });
+    if (!tipo) throw new BadRequestException('id_tipo_evidencia no válido');
+
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    try {
+      await fs.access(uploadsDir);
+    } catch {
+      await fs.mkdir(uploadsDir, { recursive: true });
+    }
+
+    const fileId = uuidv4();
+    const fileName = `${fileId}.webp`;
+    const filePath = path.join(uploadsDir, fileName);
+
+    await sharp(file.buffer)
+      .resize({ width: 1080, withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toFile(filePath);
+
+    const publicUrl = `/uploads/${fileName}`;
+
+    const evidencia = await this.prisma.evidencia.create({
+      data: {
+        id_incidencia: idIncidencia,
+        id_tipo_evidencia: tipo.id_tipo_evidencia,
+        url_cloudinary: publicUrl,
+      },
+      include: { tipo_evidencia: { select: { id_tipo_evidencia: true, nombre_tipo: true } } },
+    });
+
+    return this.toApiEvidencia(evidencia);
+  }
+
   async listarEstados() {
     return this.prisma.estadoIncidencia.findMany({
       select: { id_estado: true, nombre_estado: true },
@@ -302,6 +352,7 @@ export class IncidenciasService {
       titulo: incidencia.titulo,
       descripcion: incidencia.descripcion,
       estado: estado || null,
+      evidencias: incidencia.evidencias?.map(e => e.url_cloudinary) || [],
       fecha_creacion: incidencia.fecha_creacion,
     };
   }

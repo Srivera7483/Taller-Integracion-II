@@ -36,7 +36,7 @@ export class OrdenesTrabajoController {
     @Body() body: AsignarOrdenDto,
     @CurrentUser() user: JwtUser,
   ) {
-    const idUsuario = user.sub || user.userId;
+    const idUsuario = (user.sub || user.userId) as string;
     return this.ordenesService.asignarOrden(body, idUsuario);
   }
 
@@ -46,7 +46,7 @@ export class OrdenesTrabajoController {
     @CurrentUser() user: JwtUser,
     @Query() filtros: FiltrarOrdenesDto,
   ) {
-    const idUsuario = user.sub || user.userId;
+    const idUsuario = (user.sub || user.userId) as string;
     return this.ordenesService.listarPorTecnico(idUsuario, filtros);
   }
 
@@ -58,7 +58,7 @@ export class OrdenesTrabajoController {
     @Query() filtros: FiltrarOrdenesDto,
   ) {
     const rolUsuario = user.rol || user.role;
-    const idUsuario = user.sub || user.userId;
+    const idUsuario = (user.sub || user.userId) as string;
 
     if (rolUsuario?.toUpperCase() === 'TECNICO' && idUsuario !== idTecnico) {
       throw new ForbiddenException(
@@ -87,7 +87,7 @@ export class OrdenesTrabajoController {
     @Body() body: ActualizarDiagnosticoDto,
     @CurrentUser() user: JwtUser,
   ) {
-    const idUsuario = user.sub || user.userId;
+    const idUsuario = (user.sub || user.userId) as string;
     return this.ordenesService.actualizarDiagnostico(
       id_orden,
       body.diagnostico_tecnico,
