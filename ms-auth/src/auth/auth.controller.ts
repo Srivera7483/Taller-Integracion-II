@@ -16,6 +16,7 @@ import {
 import type { Request } from 'express';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
+import { RegisterDto } from './dto/register.dto.js';
 import { UpdateRoleDto } from './dto/update-role.dto.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { RolesGuard}  from './roles.guard.js';
@@ -24,6 +25,13 @@ import { Roles } from './roles.decorator.js';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+  async register(@Body() registerDto: RegisterDto): Promise<any> {
+    return await this.authService.register(registerDto);
+  }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
