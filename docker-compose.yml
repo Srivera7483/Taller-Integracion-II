@@ -1,0 +1,44 @@
+services:
+  auth_db:
+    image: postgres:16
+    container_name: auth_db
+    restart: always
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_DB=auth_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+
+  activos_db:
+    image: postgres:16
+    container_name: activos_db
+    restart: always
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=activos_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - activos_db_data:/var/lib/postgresql/data
+
+  incidencias_db:
+    image: postgres:16
+    container_name: incidencias_db
+    restart: always
+    ports:
+      - "5434:5432"
+    environment:
+      - POSTGRES_DB=incidencias_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - incidencias_db_data:/var/lib/postgresql/data
+
+volumes:
+  auth_db_data:
+  activos_db_data:
+  incidencias_db_data:

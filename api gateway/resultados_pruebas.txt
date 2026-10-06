@@ -1,0 +1,20 @@
+HTTP/1.1 502 Bad Gateway
+content-type: application/json; charset=utf-8
+content-length: 115
+Date: Tue, 15 Sep 2026 02:04:47 GMT
+Connection: keep-alive
+Keep-Alive: timeout=72
+
+{"error":"Bad Gateway","message":"El microservicio de destino se encuentra apagado o inaccesible en este momento."} 
+ 
+--- SEGUNDA PRUEBA --- 
+ 
+ 
+HTTP/1.1 502 Bad Gateway
+content-type: application/json; charset=utf-8
+content-length: 115
+Date: Tue, 15 Sep 2026 02:04:47 GMT
+Connection: keep-alive
+Keep-Alive: timeout=72
+
+{"error":"Bad Gateway","message":"El microservicio de destino se encuentra apagado o inaccesible en este momento."}

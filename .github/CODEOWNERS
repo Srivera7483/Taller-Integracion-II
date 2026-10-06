@@ -1,0 +1,20 @@
+# ==============================================================================
+# GitHub Code Owners configuration for Taller de Integración II
+# Revisores obligatorios: @Srivera7483 @ediuh @BenjaminSoto05
+# ==============================================================================
+
+# 1. Regla Global (Aplica a cualquier archivo del repositorio por defecto)
+* @Srivera7483 @ediuh @BenjaminSoto05
+
+# 2. Reglas Específicas para Carpetas y Archivos Clave del Backend
+# Código fuente del backend (raíz y subdirectorios de microservicios)
+/src/ @Srivera7483 @ediuh @BenjaminSoto05
+**/src/ @Srivera7483 @ediuh @BenjaminSoto05
+
+# Modelos, esquemas y migraciones de base de datos Prisma
+/prisma/ @Srivera7483 @ediuh @BenjaminSoto05
+**/prisma/ @Srivera7483 @ediuh @BenjaminSoto05
+
+# Plantillas de variables de entorno
+/.env.example @Srivera7483 @ediuh @BenjaminSoto05
+**/.env.example @Srivera7483 @ediuh @BenjaminSoto05

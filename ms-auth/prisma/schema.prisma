@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id        Int           @id @default(autoincrement()) @map("id_rol")
+  nombreRol String        @unique @map("nombre_rol")
+  
+  usuarios  User[]
+  permisos  RolePermiso[] // Relación botada, solo para cumplir el diagrama
+
+  @@map("ROLES")
+}
+
+model User {
+  id               String    @id @default(uuid()) @map("id_usuario")
+  rut_o_id         String    @unique
+  nombre           String
+  apellido         String
+  email            String    @unique
+  passwordHash     String    @map("password_hash")
+  
+  roleId           Int       @map("id_rol")
+  role             Role      @relation(fields: [roleId], references: [id])
+
+  fechaCreacion    DateTime  @default(now()) @map("fecha_creacion")
+  fechaEliminacion DateTime? @map("fecha_eliminacion")
+
+  @@map("USUARIOS")
+}
+
+// AÚN NO USAMOS PERMISOS, PERO DEJARLO
+model Permiso {
+  id            Int           @id @default(autoincrement()) @map("id_permiso")
+  nombrePermiso String        @map("nombre_permiso")
+  descripcion   String?       @db.Text
+  
+  roles         RolePermiso[]
+
+  @@map("PERMISOS")
+}
+
+// AÚN NO USAMOS PERMISOS, PERO DEJARLO
+model RolePermiso {
+  roleId    Int      @map("id_rol")
+  permisoId Int      @map("id_permiso")
+  
+  role      Role     @relation(fields: [roleId], references: [id])
+  permiso   Permiso  @relation(fields: [permisoId], references: [id])
+
+  @@id([roleId, permisoId])
+  @@map("ROLES_PERMISOS")
+}

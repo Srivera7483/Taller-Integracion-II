@@ -1,0 +1,16 @@
+### Prueba de enrutamiento al MS Activos 
+GET http://localhost:3000/api/activos
+Content-Type: application/json
+
+### Prueba de enrutamiento al MS Incidencias
+GET http://localhost:3000/api/incidencias
+Content-Type: application/json
+
+### Prueba POST simulando el envío de una nueva incidencia
+POST http://localhost:3000/api/incidencias
+Content-Type: application/json
+
+{
+  "titulo": "Fallo en el equipo",
+  "descripcion": "El equipo no enciende"
+}
