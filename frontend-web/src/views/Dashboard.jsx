@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import StatusBadge from '../components/StatusBadge';
@@ -12,11 +12,27 @@ import {
 } from 'react-icons/fi';
 import DataTable from '../components/DataTable';
 import { useToast } from '../context/ToastContext';
-import { getIncidencias } from '../services/incidenciasStorage';
+import { fetchIncidencias } from '../services/incidenciasService';
 
 const Dashboard = () => {
   const { showToast } = useToast();
-  const incidencias = useMemo(() => getIncidencias(), []);
+  const [incidencias, setIncidencias] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const cargarDatos = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchIncidencias();
+        setIncidencias(data);
+      } catch (error) {
+        showToast('Error de conexión con el servidor API Gateway', 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    cargarDatos();
+  }, [showToast]);
 
   // Métricas reactivas calculadas a partir de las incidencias locales
   const resumenMetricas = useMemo(() => {
@@ -41,12 +57,8 @@ const Dashboard = () => {
     { header: 'Fecha', accessorKey: 'fecha' }
   ];
 
-  const recentIncidents = [
-    { id: '#1042', descripcion: 'Caída de servidor principal', estado: 'Crítica', fecha: 'Hace 2 horas' },
-    { id: '#1041', descripcion: 'Actualización de base de datos', estado: 'Pendiente', fecha: 'Hace 5 horas' },
-    { id: '#1040', descripcion: 'Falla en router principal', estado: 'Resuelta', fecha: 'Hace 1 día' },
-    { id: '#1039', descripcion: 'Mantenimiento preventivo de rack', estado: 'En Progreso', fecha: 'Hace 2 días' }
-  ];
+  // Utilizamos las incidencias reales para llenar la tabla inferior
+  const recentIncidents = incidencias.slice(0, 5);
 
   return (
     <div className="space-y-6">
