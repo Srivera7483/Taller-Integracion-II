@@ -3,7 +3,7 @@
 ## Alcance e implementación
 
 - Se creó `ms-notificaciones/` como microservicio NestJS con módulo, controlador y servicio.
-- `POST /notificar` acepta un payload JSON, registra el contenido con `console.log` como simulación del encolamiento y responde `201 Created` con `{ "status": "encolada" }`.
+- `POST /notificar` registra el payload validado con `console.log` como simulación del encolamiento y responde `201 Created` con `{ "status": "encolada" }`. El contrato obligatorio (`email`, `asunto` y `cuerpoMensaje`) y la validación automática se detallan en [TAL-107](TAL-107-validacion-payload-notificaciones.md).
 - Se añadió un Dockerfile multi-stage y el servicio `ms-notificaciones` al Compose global.
 - El puerto `3004` del contenedor se publica en `127.0.0.1` del host, no en todas las interfaces de red.
 - El API Gateway expone `POST /api/v1/notificaciones`, redirigiéndolo a `/notificar` en `MS_NOTIFICACIONES_URL`.
@@ -32,7 +32,7 @@ docker compose up -d --build ms-notificaciones
 Prueba local del microservicio:
 
 ```powershell
-$payload = @{ destinatario = "usuario-1"; mensaje = "Prueba local" } | ConvertTo-Json -Compress
+$payload = @{ email = "usuario@example.com"; asunto = "Prueba local"; cuerpoMensaje = "Contenido de prueba" } | ConvertTo-Json -Compress
 $payload | curl.exe -i -X POST http://127.0.0.1:3004/notificar `
   -H "Content-Type: application/json" --data-binary "@-"
 ```
@@ -40,7 +40,7 @@ $payload | curl.exe -i -X POST http://127.0.0.1:3004/notificar `
 Prueba a través del Gateway:
 
 ```powershell
-$payload = @{ destinatario = "usuario-1"; mensaje = "Prueba vía Gateway" } | ConvertTo-Json -Compress
+$payload = @{ email = "usuario@example.com"; asunto = "Prueba vía Gateway"; cuerpoMensaje = "Contenido de prueba" } | ConvertTo-Json -Compress
 $payload | curl.exe -i -X POST http://localhost:3000/api/v1/notificaciones `
   -H "Content-Type: application/json" --data-binary "@-"
 ```
