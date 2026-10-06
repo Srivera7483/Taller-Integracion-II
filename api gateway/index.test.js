@@ -30,6 +30,17 @@ test('GET / responde 200 OK', async (t) => {
     assert.deepEqual(response.json(), { status: 'OK' });
 });
 
+test('GET /health responde 200 OK con uptime', async (t) => {
+    const app = buildGateway(unavailableServices);
+    t.after(() => app.close());
+
+    const response = await app.inject({ method: 'GET', url: '/health' });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json().status, 'OK');
+    assert.equal(typeof response.json().uptime, 'number');
+});
+
 test('redirige activos e incidencias a sus microservicios', async (t) => {
     const activos = await startTarget({ service: 'activos' });
     const incidencias = await startTarget({ service: 'incidencias' });
@@ -64,4 +75,45 @@ test('los proxies devuelven 502 y el Gateway sigue disponible', async (t) => {
     assert.equal(activos.statusCode, 502);
     assert.equal(incidencias.statusCode, 502);
     assert.equal(health.statusCode, 200);
+});
+
+test('Rate Limiting: bloquea con 429 Too Many Requests al exceder el maximo configurado', async (t) => {
+    const app = buildGateway({
+        ...unavailableServices,
+        rateLimitMax: 3,
+        rateLimitWindow: '1 minute',
+    });
+    t.after(() => app.close());
+
+    // Primeras 3 solicitudes dentro del límite
+    for (let i = 0; i < 3; i++) {
+        const res = await app.inject({ method: 'GET', url: '/api/v1/activos' });
+        assert.ok(res.statusCode === 502 || res.statusCode === 200);
+        assert.ok(res.headers['x-ratelimit-limit']);
+    }
+
+    // Cuarta solicitud debe ser rechazada por Rate Limit
+    const bloqueada = await app.inject({ method: 'GET', url: '/api/v1/activos' });
+
+    assert.equal(bloqueada.statusCode, 429);
+    assert.equal(bloqueada.json().error, 'Too Many Requests');
+    assert.ok(bloqueada.json().message.includes('excedido el límite'));
+});
+
+test('Rate Limiting: no bloquea rutas excluidas en allowList (/ y /health)', async (t) => {
+    const app = buildGateway({
+        ...unavailableServices,
+        rateLimitMax: 2,
+        rateLimitWindow: '1 minute',
+    });
+    t.after(() => app.close());
+
+    // Hacemos 5 solicitudes a / y /health que deberían ser permitidas sin límite
+    for (let i = 0; i < 5; i++) {
+        const resHealth = await app.inject({ method: 'GET', url: '/health' });
+        assert.equal(resHealth.statusCode, 200);
+
+        const resRoot = await app.inject({ method: 'GET', url: '/' });
+        assert.equal(resRoot.statusCode, 200);
+    }
 });
