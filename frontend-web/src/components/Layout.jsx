@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity } from 'react-icons/fi';
+import SelectorTecnicoSesion from './SelectorTecnicoSesion';
 
 const Layout = () => {
   const location = useLocation();
@@ -104,18 +105,16 @@ const Layout = () => {
             </button>
             <h2 className="text-lg sm:text-xl font-semibold text-gray-800 truncate">{getPageTitle()}</h2>
           </div>
-          <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <SelectorTecnicoSesion />
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 text-gray-500 hover:text-red-600 transition-colors"
+              className="flex items-center gap-1.5 text-gray-500 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"
               title="Cerrar sesión"
             >
               <FiLogOut className="w-5 h-5" />
-              <span className="hidden sm:inline text-sm font-medium">Salir</span>
+              <span className="hidden md:inline text-xs font-medium">Salir</span>
             </button>
-            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200">
-            U
-            </div>
           </div>
         </header>
 

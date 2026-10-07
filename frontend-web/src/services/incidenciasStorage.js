@@ -169,6 +169,92 @@ export function asignarTecnicoIncidencia(incidenciaId, tecnicoNombre, notas = ''
 }
 
 /**
+ * Registra la confirmación y cierre de mantenimiento técnico por el técnico asignado.
+ * Cambia el estado a "Completada" y persiste la resolución, horas invertidas y materiales.
+ */
+export function completarMantenimientoTecnico({
+  incidenciaId,
+  ordenId,
+  resolucion,
+  horasInvertidas,
+  materialesUsados = [],
+  tecnicoNombre,
+  tecnicoId,
+}) {
+  const guardadasEnCookie = getCookie(COOKIE_NAME) || [];
+  const todas = getIncidencias();
+  const encontrada = todas.find((item) => item.id === incidenciaId);
+
+  const fechaCierre = new Date().toLocaleString([], {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+
+  const incidenciaActualizada = {
+    ...(encontrada || { id: incidenciaId, titulo: 'Mantenimiento Técnico', id_activo: 'ACT-01' }),
+    estado: 'Completada',
+    resolucion: resolucion.trim(),
+    horasInvertidas: Number(horasInvertidas),
+    materialesUsados: Array.isArray(materialesUsados) ? materialesUsados : [],
+    fechaCierre,
+    cerradoPor: tecnicoNombre || (encontrada?.asignado) || 'Técnico Responsable',
+    cerradoPorId: tecnicoId || 'tec-01',
+    ordenId: ordenId || `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+    esTemporal: true,
+  };
+
+  const listaSinPrevia = guardadasEnCookie.filter((item) => item.id !== incidenciaId);
+  const nuevaLista = [incidenciaActualizada, ...listaSinPrevia];
+  setCookie(COOKIE_NAME, nuevaLista);
+
+  return incidenciaActualizada;
+}
+
+const TECNICO_STORAGE_KEY = 'tecnico_sesion_activa';
+
+/**
+ * Obtiene el perfil de técnico activo en la sesión.
+ * Prioriza usuario guardado en localStorage o fallback al primer técnico estándar (Carlos Ruiz).
+ */
+export function getTecnicoActual() {
+  try {
+    const sesionManual = localStorage.getItem(TECNICO_STORAGE_KEY);
+    if (sesionManual) {
+      return JSON.parse(sesionManual);
+    }
+
+    const usuarioAuth = localStorage.getItem('usuario');
+    if (usuarioAuth) {
+      const u = JSON.parse(usuarioAuth);
+      return {
+        id: u.id_usuario || u.id || 'tec-01',
+        nombre: `${u.nombre || ''} ${u.apellido || ''}`.trim() || u.email || 'Carlos Ruiz',
+        email: u.correo || u.email || 'carlos.r@empresa.com',
+        especialidad: 'Técnico de Soporte e Infraestructura',
+        avatar: (u.nombre?.[0] || 'T').toUpperCase(),
+      };
+    }
+  } catch (err) {
+    console.warn('Error leyendo técnico actual de localStorage:', err);
+  }
+
+  // Fallback por defecto: Carlos Ruiz (tec-01)
+  return TECNICOS_EXISTENTES[0];
+}
+
+/**
+ * Cambia el técnico activo para pruebas de asignación y ownership
+ */
+export function setTecnicoActual(tecnico) {
+  try {
+    localStorage.setItem(TECNICO_STORAGE_KEY, JSON.stringify(tecnico));
+    window.dispatchEvent(new Event('tecnico-cambiado'));
+  } catch (err) {
+    console.error('Error guardando técnico actual:', err);
+  }
+}
+
+/**
  * Restablece las incidencias temporales a las originales
  */
 export function clearTempIncidencias() {
