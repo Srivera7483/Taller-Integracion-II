@@ -59,7 +59,7 @@ const Usuarios = () => {
     {
       header: 'Acciones',
       accessorKey: 'actions',
-      cell: (row) => (
+      cell: () => (
         <button className="text-indigo-600 hover:text-indigo-900 font-medium transition-colors">
           Editar
         </button>
