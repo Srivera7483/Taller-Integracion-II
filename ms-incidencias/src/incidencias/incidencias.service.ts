@@ -10,8 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
 import type { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
 import type { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
-// @ts-ignore
-import * as sharp from 'sharp';
+import sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
@@ -159,8 +158,8 @@ export class IncidenciasService {
       if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR') {
         throw new ForbiddenException('Solo un SUPERVISOR puede pasar de Reportada a Asignada');
       }
-      if (idEstadoActual === 2 && idEstadoNuevo === 3 && rolUpper !== 'TECNICO') {
-        throw new ForbiddenException('Solo un TECNICO puede pasar de Asignada a Resuelta');
+      if (idEstadoActual === 2 && (idEstadoNuevo === 3 || idEstadoNuevo === 6) && (rolUpper !== 'TECNICO' && rolUpper !== 'TÉCNICO' && rolUpper !== 'ADMINISTRADOR')) {
+        throw new ForbiddenException('Solo un TECNICO puede pasar de Asignada a Resuelta o Completada');
       }
       if (idEstadoActual === 3 && (idEstadoNuevo === 4 || idEstadoNuevo === 5) && rolUpper !== 'REPORTANTE' && rolUpper !== 'ADMINISTRADOR') {
         throw new ForbiddenException('Solo el REPORTANTE o ADMINISTRADOR puede Cerrar o Rechazar una incidencia');

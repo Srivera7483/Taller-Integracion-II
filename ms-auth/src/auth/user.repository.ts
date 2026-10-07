@@ -30,4 +30,11 @@ export class UserRepository {
       include: { role: true },
     });
   }
+
+  async createUser(data: any) {
+    return await this.prisma.user.create({
+      data,
+      include: { role: true },
+    });
+  }
 }

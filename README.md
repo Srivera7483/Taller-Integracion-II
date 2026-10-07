@@ -11,11 +11,14 @@ Cliente
 API Gateway :3000 (Fastify)
 	|-- /api/activos      -> MS Activos
 	|-- /api/incidencias  -> MS Incidencias
+	|-- /api/v1/notificaciones -> MS Notificaciones :3004
 	|
 MS Auth :3001 (NestJS + Fastify)
 	|
 PostgreSQL :5435 (auth_db)
 ```
+
+MS Notificaciones expone `POST /notificar` para simular el encolamiento local. El puerto `3004` se publica sólo en loopback; para acceder desde clientes se utiliza el API Gateway en `/api/v1/notificaciones`.
 
 Actualmente `ms-incidencias`, `frontend-web` y la implementación de MS Activos todavía no están disponibles en este workspace. El gateway puede iniciarse y responder `/`, pero sus rutas proxy requieren que los servicios destino estén ejecutándose.
 
@@ -39,6 +42,7 @@ Actualmente `ms-incidencias`, `frontend-web` y la implementación de MS Activos 
 |---|---|---:|---|
 | API Gateway | Node.js + Fastify | 3000 | `api gateway/` |
 | MS Auth | NestJS + Fastify + Prisma | 3001 | `ms-auth/` |
+| MS Notificaciones | NestJS + Express | 3004 (loopback) | `ms-notificaciones/` |
 | Auth PostgreSQL | PostgreSQL | 5435 | Docker `auth_db` |
 | Activos PostgreSQL | PostgreSQL | 5433 | Docker `activos_db` |
 | Incidencias PostgreSQL | PostgreSQL | 5434 | Docker `incidencias_db` |
@@ -103,7 +107,15 @@ npm.cmd run dev
 
 El gateway quedará disponible en `http://localhost:3000`.
 
-### 5. Verificar los servicios
+### 5. Iniciar MS Notificaciones
+
+Desde la raíz del repositorio:
+
+```powershell
+docker compose up -d --build ms-notificaciones
+```
+
+### 6. Verificar los servicios
 
 Gateway:
 
@@ -112,6 +124,28 @@ curl.exe -i http://localhost:3000/
 ```
 
 Respuesta esperada: `200 OK` con `{ "status": "OK" }`.
+
+Notificaciones directamente desde el host (acceso local):
+
+```powershell
+$payload = @{ destinatario = "usuario-1"; mensaje = "Prueba local" } | ConvertTo-Json -Compress
+$payload | curl.exe -i -X POST http://127.0.0.1:3004/notificar `
+	-H "Content-Type: application/json" --data-binary "@-"
+```
+
+Notificaciones a través del Gateway:
+
+```powershell
+$payload = @{ destinatario = "usuario-1"; mensaje = "Prueba vía Gateway" } | ConvertTo-Json -Compress
+$payload | curl.exe -i -X POST http://localhost:3000/api/v1/notificaciones `
+	-H "Content-Type: application/json" --data-binary "@-"
+```
+
+Ambas solicitudes deben responder `201 Created`; el payload aparece en los logs del contenedor:
+
+```powershell
+docker compose logs -f ms-notificaciones
+```
 
 Login de autenticación:
 
