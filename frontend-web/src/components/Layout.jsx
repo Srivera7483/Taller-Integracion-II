@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX } from 'react-icons/fi';
+import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity } from 'react-icons/fi';
 
 const Layout = () => {
   const location = useLocation();
@@ -14,10 +14,14 @@ const Layout = () => {
     if (location.pathname.startsWith('/incidencias/asignar')) {
       return 'Asignar Técnico';
     }
+    if (location.pathname.includes('/trazabilidad')) {
+      return 'Trazabilidad y Ciclo de Vida del Activo';
+    }
     switch (location.pathname) {
       case '/dashboard': return 'Dashboard';
       case '/incidencias': return 'Incidencias';
       case '/inventario': return 'Inventario';
+      case '/trazabilidad': return 'Trazabilidad de Activos';
       case '/usuarios': return 'Usuarios';
       default: return 'Sistema de Gestión';
     }
@@ -32,6 +36,7 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
     { path: '/inventario', label: 'Inventario', icon: FiBox },
+    { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
     { path: '/usuarios', label: 'Usuarios', icon: FiUsers },
   ];
 
@@ -108,8 +113,8 @@ const Layout = () => {
               <FiLogOut className="w-5 h-5" />
               <span className="hidden sm:inline text-sm font-medium">Salir</span>
             </button>
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200 text-sm sm:text-base">
-              U
+            <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold border border-blue-200">
+            U
             </div>
           </div>
         </header>

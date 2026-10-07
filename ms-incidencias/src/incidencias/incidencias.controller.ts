@@ -2,13 +2,18 @@ import {
   Body,
   Controller,
   Get,
+  HttpStatus,
   Param,
+  ParseFilePipeBuilder,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -35,7 +40,7 @@ export class IncidenciasController {
     @Body() body: CrearIncidenciaDto,
     @CurrentUser() usuario: JwtUser,
   ) {
-    const idUsuario = usuario.sub || usuario.userId;
+    const idUsuario = (usuario.sub || usuario.userId) as string;
     return this.incidenciasService.crear(body, idUsuario);
   }
 
@@ -51,12 +56,28 @@ export class IncidenciasController {
     @Body() body: ActualizarEstadoDto,
     @CurrentUser() usuario: JwtUser,
   ) {
-    const idUsuario = usuario.sub || usuario.userId;
-    const rolUsuario = usuario.rol || usuario.role;
+    const idUsuario = (usuario.sub || usuario.userId) as string;
+    const rolUsuario = (usuario.rol || usuario.role) as string;
     
     return this.incidenciasService.actualizarEstado(
       incidenciaId,
       body.id_estado, 
+      idUsuario,
+      rolUsuario,
+    );
+  }
+
+  @Patch(':id_incidencia/resolver')
+  @Roles('TECNICO')
+  async resolverIncidencia(
+    @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
+    @CurrentUser() usuario: JwtUser,
+  ) {
+    const idUsuario = (usuario.sub || usuario.userId) as string;
+    const rolUsuario = (usuario.rol || usuario.role) as string;
+    
+    return this.incidenciasService.resolverIncidencia(
+      idIncidencia,
       idUsuario,
       rolUsuario,
     );
@@ -78,5 +99,24 @@ export class IncidenciasController {
     @Body() body: CrearEvidenciaDto,
   ) {
     return this.incidenciasService.crearEvidencia(id, body);
+  }
+
+  @Post(':id_incidencia/evidencias/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadEvidencia(
+    @Param('id_incidencia', ParseUUIDPipe) id: string,
+    @Body('id_tipo_evidencia') id_tipo_evidencia: string,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /(jpg|jpeg|png)$/,
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    file: any,
+  ) {
+    return this.incidenciasService.procesarYGuardarEvidencia(id, Number(id_tipo_evidencia), file);
   }
 }

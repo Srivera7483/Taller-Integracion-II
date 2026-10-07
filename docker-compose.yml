@@ -38,6 +38,16 @@ services:
     volumes:
       - incidencias_db_data:/var/lib/postgresql/data
 
+  ms-notificaciones:
+    build:
+      context: ./ms-notificaciones
+    container_name: ms-notificaciones
+    restart: unless-stopped
+    environment:
+      PORT: 3004
+    ports:
+      - "127.0.0.1:${NOTIFICACIONES_PORT:-3004}:3004"
+
 volumes:
   auth_db_data:
   activos_db_data:

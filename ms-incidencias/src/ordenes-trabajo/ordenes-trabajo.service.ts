@@ -41,8 +41,6 @@ export class OrdenesTrabajoService {
 
       return nuevaOrden;
     });
-
-    return nuevaOrden;
   }
 
   async listarTodas(filtros?: FiltrarOrdenesDto) {

@@ -44,6 +44,13 @@ const buildGateway = (options = {}) => {
         replyOptions: { onError: handleProxyError }
     });
 
+    fastify.register(proxy, {
+        upstream: options.notificacionesUrl || process.env.MS_NOTIFICACIONES_URL || 'http://127.0.0.1:3004',
+        prefix: '/api/v1/notificaciones',
+        rewritePrefix: '/notificar',
+        replyOptions: { onError: handleProxyError }
+    });
+
     return fastify;
 };
 
