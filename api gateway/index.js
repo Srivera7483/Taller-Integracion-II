@@ -38,6 +38,27 @@ const buildGateway = (options = {}) => {
     });
 
     fastify.register(proxy, {
+        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
+        prefix: '/api/v1/ordenes-trabajo',
+        rewritePrefix: '/api/v1/ordenes-trabajo',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
+        prefix: '/api/v1/estados-incidencia',
+        rewritePrefix: '/api/v1/estados-incidencia',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
+        prefix: '/api/v1/tipos-evidencia',
+        rewritePrefix: '/api/v1/tipos-evidencia',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
         upstream: options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001',
         prefix: '/api/v1/auth',
         rewritePrefix: '/auth', // ESTÁNDAR! Los otros deben seguir este

@@ -66,6 +66,10 @@ const Login = () => {
           if (token) {
             localStorage.setItem('token', token);
           }
+          if (data.usuario) {
+            localStorage.setItem('usuario', JSON.stringify(data.usuario));
+            window.dispatchEvent(new Event('tecnico-cambiado'));
+          }
           showToast('Inicio de sesión exitoso', 'success');
           navigate('/dashboard');
         }
