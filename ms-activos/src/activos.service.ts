@@ -4,8 +4,12 @@ import {
   CategoriaActivo,
   RespuestaValidacionQR,
   RespuestaRedireccionIncidencia,
+  EstadisticasActivos,
+  FiltroEstadisticasDto,
+  RespuestaEstadisticas,
 } from './interfaces/activo.interface';
 import { ValidarQrDto } from './dto/validar-qr.dto';
+import { ValidarFiltroEstadisticasDto } from './dto/filtrar-estadisticas.dto';
 
 export class ActivosService {
   private activosEnMemoria: Activo[] = [
@@ -41,6 +45,39 @@ export class ActivosService {
       ubicacion: 'Edificio Central - Sala de Profesores',
       estado: EstadoActivo.DADO_DE_BAJA,
       fechaRegistro: '2024-01-15',
+    },
+    {
+      id: 'act-004',
+      codigoQr: 'ACT-2026-0004',
+      nombre: 'Switch Administrable Cisco Catalyst 24 Puertos',
+      modelo: 'Catalyst 2960-X',
+      numeroSerie: 'SN-CSCO-5512',
+      categoria: CategoriaActivo.REDES,
+      ubicacion: 'Edificio B - Rack Principal Piso 2',
+      estado: EstadoActivo.OPERATIVO,
+      fechaRegistro: '2025-08-20',
+    },
+    {
+      id: 'act-005',
+      codigoQr: 'ACT-2026-0005',
+      nombre: 'UPS Online APC Smart-UPS 3000VA',
+      modelo: 'SMT3000RM2U',
+      numeroSerie: 'SN-APC-1190',
+      categoria: CategoriaActivo.ELECTRICO,
+      ubicacion: 'Edificio A - Data Center',
+      estado: EstadoActivo.EN_REVISION,
+      fechaRegistro: '2025-11-12',
+    },
+    {
+      id: 'act-006',
+      codigoQr: 'ACT-2026-0006',
+      nombre: 'Pantalla Interactiva Táctil SmartBoard 75 Pulgadas',
+      modelo: 'SBID-7075R',
+      numeroSerie: 'SN-SMRT-3310',
+      categoria: CategoriaActivo.AUDIOVISUAL,
+      ubicacion: 'Edificio Central - Sala de Innovación',
+      estado: EstadoActivo.OPERATIVO,
+      fechaRegistro: '2026-02-14',
     },
   ];
 
@@ -136,5 +173,99 @@ export class ActivosService {
 
   async obtenerPorId(id: string): Promise<Activo | null> {
     return this.activosEnMemoria.find((item) => item.id === id) || null;
+  }
+
+  async listarTodos(): Promise<Activo[]> {
+    return [...this.activosEnMemoria];
+  }
+
+  async obtenerEstadisticas(filtros?: FiltroEstadisticasDto): Promise<RespuestaEstadisticas> {
+    const filtrosSanitizados = ValidarFiltroEstadisticasDto.sanitizar(filtros);
+
+    let activosFiltrados = this.activosEnMemoria;
+
+    if (filtrosSanitizados.ubicacion) {
+      const termUbicacion = filtrosSanitizados.ubicacion.toLowerCase();
+      activosFiltrados = activosFiltrados.filter((item) =>
+        item.ubicacion.toLowerCase().includes(termUbicacion),
+      );
+    }
+
+    if (filtrosSanitizados.categoria) {
+      activosFiltrados = activosFiltrados.filter(
+        (item) => String(item.categoria).toUpperCase() === filtrosSanitizados.categoria,
+      );
+    }
+
+    const totalActivos = activosFiltrados.length;
+
+    let operativos = 0;
+    let enMantenimiento = 0;
+    let enRevision = 0;
+    let dadosDeBaja = 0;
+
+    const porCategoria: Record<string, number> = {};
+    const porUbicacion: Record<string, number> = {};
+
+    for (const activo of activosFiltrados) {
+      // Conteo por estado
+      switch (activo.estado) {
+        case EstadoActivo.OPERATIVO:
+          operativos++;
+          break;
+        case EstadoActivo.EN_MANTENIMIENTO:
+          enMantenimiento++;
+          break;
+        case EstadoActivo.EN_REVISION:
+          enRevision++;
+          break;
+        case EstadoActivo.DADO_DE_BAJA:
+          dadosDeBaja++;
+          break;
+      }
+
+      // Conteo por categoría
+      const catKey = String(activo.categoria);
+      porCategoria[catKey] = (porCategoria[catKey] || 0) + 1;
+
+      // Conteo por ubicación
+      const ubiKey = activo.ubicacion;
+      porUbicacion[ubiKey] = (porUbicacion[ubiKey] || 0) + 1;
+    }
+
+    const redondear = (valor: number): number => Math.round(valor * 100) / 100;
+
+    const tasaOperatividad = totalActivos > 0 ? redondear((operativos / totalActivos) * 100) : 0;
+    const tasaMantenimiento = totalActivos > 0 ? redondear((enMantenimiento / totalActivos) * 100) : 0;
+    const tasaRevision = totalActivos > 0 ? redondear((enRevision / totalActivos) * 100) : 0;
+    const tasaBaja = totalActivos > 0 ? redondear((dadosDeBaja / totalActivos) * 100) : 0;
+
+    const estadisticas: EstadisticasActivos = {
+      totalActivos,
+      porEstado: {
+        operativos,
+        enMantenimiento,
+        enRevision,
+        dadosDeBaja,
+      },
+      porCategoria,
+      porUbicacion,
+      porcentajes: {
+        tasaOperatividad,
+        tasaMantenimiento,
+        tasaRevision,
+        tasaBaja,
+      },
+      resumen: {
+        disponibles: operativos,
+        noDisponibles: enMantenimiento + enRevision + dadosDeBaja,
+      },
+    };
+
+    return {
+      valido: true,
+      mensaje: 'Estadísticas de activos calculadas exitosamente.',
+      datos: estadisticas,
+    };
   }
 }
