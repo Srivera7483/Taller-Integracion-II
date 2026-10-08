@@ -11,6 +11,7 @@ import {
   FiFileText
 } from 'react-icons/fi';
 import StatusBadge from '../components/StatusBadge';
+import EvidenceGallery from '../components/EvidenceGallery';
 import api from '../services/api';
 import AprobacionReportante from '../components/AprobacionReportante';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
@@ -43,6 +44,20 @@ const DetalleIncidencia = () => {
         const response = await api.get(`/incidencias/${idIncidencia}`);
         if (response.data) {
           const apiData = response.data;
+          let evidenciasList = apiData.evidencias || [];
+
+          // Si el endpoint general no trajo evidencias, consultar el endpoint dedicado
+          if (!evidenciasList || evidenciasList.length === 0) {
+            try {
+              const resEv = await api.get(`/incidencias/${idIncidencia}/evidencias`);
+              if (Array.isArray(resEv.data) && resEv.data.length > 0) {
+                evidenciasList = resEv.data;
+              }
+            } catch {
+              // Silencioso
+            }
+          }
+
           setIncidencia({
             id: apiData.id_incidencia || idIncidencia,
             titulo: apiData.titulo,
@@ -55,6 +70,7 @@ const DetalleIncidencia = () => {
             horasInvertidas: encontradaLocal?.horasInvertidas || null,
             materialesUsados: encontradaLocal?.materialesUsados || [],
             fechaCierre: encontradaLocal?.fechaCierre || null,
+            evidencias: evidenciasList.length > 0 ? evidenciasList : (encontradaLocal?.evidencias || []),
           });
           return;
         }
@@ -63,19 +79,29 @@ const DetalleIncidencia = () => {
       }
 
       setIncidencia(
-        encontradaLocal || {
-          id: idIncidencia,
-          titulo: 'Problemas de conectividad en el piso 3',
-          descripcion: 'Los routers no están asignando IPs correctamente.',
-          id_activo: 'ROUTER-03',
-          prioridad: 'Alta',
-          estado: 'Asignada',
-          fecha_creacion: new Date().toISOString(),
-          asignado: 'Carlos Ruiz',
-          resolucion: null,
-          horasInvertidas: null,
-          materialesUsados: [],
-        }
+        encontradaLocal
+          ? {
+              ...encontradaLocal,
+              evidencias: encontradaLocal.evidencias || [],
+            }
+          : {
+              id: idIncidencia,
+              titulo: 'Problemas de conectividad en el piso 3',
+              descripcion: 'Los routers no están asignando IPs correctamente.',
+              id_activo: 'ROUTER-03',
+              prioridad: 'Alta',
+              estado: 'Asignada',
+              fecha_creacion: new Date().toISOString(),
+              asignado: 'Carlos Ruiz',
+              resolucion: null,
+              horasInvertidas: null,
+              materialesUsados: [],
+              evidencias: [
+                'https://res.cloudinary.com/infra-uct/image/upload/v1728345601/evidencias/falla_panel_proyector.jpg',
+                'https://res.cloudinary.com/infra-uct/image/upload/v1728345602/evidencias/sensor_temperatura_alerta.jpg',
+                'https://res.cloudinary.com/infra-uct/image/upload/v1728345603/evidencias/conector_hdmi_danado.jpg',
+              ],
+            }
       );
     } catch (err) {
       console.error('Error al cargar la incidencia:', err);
@@ -179,6 +205,14 @@ const DetalleIncidencia = () => {
             {incidencia.descripcion}
           </p>
         </div>
+      </div>
+
+      {/* SECCIÓN DE EVIDENCIAS FOTOGRÁFICAS (CLOUDINARY) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6">
+        <EvidenceGallery
+          evidencias={incidencia.evidencias}
+          titulo="Fotos y Evidencias del Fallo"
+        />
       </div>
 
       {/* REPORTE DE MANTENIMIENTO SI YA ESTÁ COMPLETADA */}

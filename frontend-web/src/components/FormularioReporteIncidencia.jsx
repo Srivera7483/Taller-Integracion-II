@@ -11,7 +11,10 @@ import {
   FiX, 
   FiSend, 
   FiArrowLeft,
-  FiUploadCloud
+  FiUploadCloud,
+  FiLoader,
+  FiImage,
+  FiCloud
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { saveIncidencia } from '../services/incidenciasStorage';
@@ -46,10 +49,10 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const [descripcion, setDescripcion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
 
-
-  
-  // Archivo adjunto simulado
+  // Archivo adjunto simulado y preparación de cables para API Cloudinary
   const [adjuntoNombre, setAdjuntoNombre] = useState('');
+  const [subiendoACloudinary, setSubiendoACloudinary] = useState(false);
+  const [urlsCloudinary, setUrlsCloudinary] = useState([]);
 
   // Estados de control y validación
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -148,7 +151,17 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     const file = e.target.files?.[0];
     if (file) {
       setAdjuntoNombre(file.name);
-      showToast(`Archivo "${file.name}" adjuntado al reporte`, 'info');
+      setSubiendoACloudinary(true);
+
+      // Flujo preparado para API Cloudinary:
+      // Cuando Cloudinary responda con su JSON, extraeremos la propiedad url_cloudinary.
+      // Mientras la plataforma no responda o esté en proceso, se deja en espera con símbolo de cargando.
+      setTimeout(() => {
+        const mockCloudinaryUrl = `https://res.cloudinary.com/infra-uct/image/upload/v1728345600/evidencias/${encodeURIComponent(file.name)}`;
+        setUrlsCloudinary([mockCloudinaryUrl]);
+        setSubiendoACloudinary(false);
+        showToast(`Evidencia vinculada. URL Cloudinary preparada para la BD`, 'info');
+      }, 700);
     }
   };
 
@@ -162,6 +175,8 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     setDescripcion('');
     setUbicacion('');
     setAdjuntoNombre('');
+    setUrlsCloudinary([]);
+    setSubiendoACloudinary(false);
     setErrors({});
     setTouched({});
   };
@@ -199,11 +214,14 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       titulo: titulo.trim(),
       id_activo: idActivo.trim(), // Asegurar de que esto sea un UUID válido si la BD lo exige
       descripcion: descripcionCompleta,
+      evidencias: urlsCloudinary.length > 0 ? urlsCloudinary : (
+        adjuntoNombre ? [
+          `https://res.cloudinary.com/infra-uct/image/upload/v1728345600/evidencias/${encodeURIComponent(adjuntoNombre)}`
+        ] : []
+      ),
     };
 
-
-
-    console.log('[Incidencias] Payload generado para la API:', nuevaIncidencia);
+    console.log('[Incidencias] Payload generado para la API con evidencias Cloudinary:', nuevaIncidencia);
 
     // Persistir temporalmente en Cookie para pruebas del frontend
     saveIncidencia(nuevaIncidencia);
@@ -489,19 +507,44 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               accept=".png,.jpg,.jpeg,.log,.txt,.pdf"
             />
             <div className="flex flex-col items-center justify-center space-y-2">
-              <FiUploadCloud className="w-8 h-8 text-blue-500" />
-              <div className="text-sm text-gray-600">
-                {adjuntoNombre ? (
-                  <span className="font-semibold text-blue-600">Archivo seleccionado: {adjuntoNombre}</span>
-                ) : (
-                  <>
-                    <span className="font-semibold text-blue-600 hover:underline">Sube un archivo</span> o arrastra y suelta aquí
-                  </>
-                )}
-              </div>
-              <p className="text-xs text-gray-400">
-                PNG, JPG, LOG o TXT (máximo 10MB)
-              </p>
+              {subiendoACloudinary ? (
+                <>
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                    <FiLoader className="w-6 h-6 animate-spin" />
+                  </div>
+                  <div className="text-sm font-bold text-blue-800">
+                    Procesando imagen en Cloudinary...
+                  </div>
+                  <p className="text-xs text-blue-600">
+                    Esperando respuesta de la API multimedia (cargando)
+                  </p>
+                </>
+              ) : urlsCloudinary.length > 0 ? (
+                <>
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
+                    <FiCloud className="w-6 h-6" />
+                  </div>
+                  <div className="text-sm text-gray-800">
+                    <span className="font-bold text-emerald-700">Evidencia lista:</span> {adjuntoNombre}
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-800 text-[11px] font-mono max-w-sm truncate">
+                    <span className="font-bold text-blue-600">url_cloudinary:</span> {urlsCloudinary[0]}
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Haz clic para cambiar el archivo
+                  </p>
+                </>
+              ) : (
+                <>
+                  <FiUploadCloud className="w-8 h-8 text-blue-500" />
+                  <div className="text-sm text-gray-600">
+                    <span className="font-semibold text-blue-600 hover:underline">Sube una fotografía del fallo</span> o arrastra aquí
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    PNG, JPG o JPEG (se generará la URL de Cloudinary para la BD)
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>

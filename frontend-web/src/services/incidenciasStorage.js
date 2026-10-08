@@ -9,7 +9,26 @@ const COOKIE_EXPIRY_DAYS = 1; // 24 horas de vigencia para pruebas
 
 const INCIDENCIAS_INICIALES = [
   {
+    id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+    ordenId: 'b1c2d3e4-f5a6-7890-abcd-ef1234567890',
+    titulo: 'Proyector con sobrecalentamiento y fallo de imagen',
+    id_activo: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    categoria: 'hardware',
+    prioridad: 'Alta',
+    estado: 'Reportada',
+    asignado: 'Carlos Ruiz',
+    fecha: 'Hoy, 12:00',
+    descripcion: 'El proyector láser del Auditorio Principal se apaga tras 10 minutos de uso y la luz frontal parpadea en rojo indicando alta temperatura.',
+    esTemporal: false,
+    evidencias: [
+      'https://res.cloudinary.com/infra-uct/image/upload/v1728345601/evidencias/falla_panel_proyector.jpg',
+      'https://res.cloudinary.com/infra-uct/image/upload/v1728345602/evidencias/sensor_temperatura_alerta.jpg',
+      'https://res.cloudinary.com/infra-uct/image/upload/v1728345603/evidencias/conector_hdmi_danado.jpg',
+    ],
+  },
+  {
     id: 'INC-1042',
+    ordenId: 'ORD-2026-001',
     titulo: 'Fallo en sistema de correos',
     id_activo: 'SRV-MAIL-01',
     categoria: 'software',
@@ -19,9 +38,15 @@ const INCIDENCIAS_INICIALES = [
     fecha: 'Hoy, 10:30',
     descripcion: 'Errores intermitentes al autenticar por IMAP/SMTP.',
     esTemporal: false,
+    evidencias: [
+      'https://res.cloudinary.com/infra-uct/image/upload/v1728345601/evidencias/falla_panel_proyector.jpg',
+      'https://res.cloudinary.com/infra-uct/image/upload/v1728345602/evidencias/sensor_temperatura_alerta.jpg',
+      'https://res.cloudinary.com/infra-uct/image/upload/v1728345603/evidencias/conector_hdmi_danado.jpg',
+    ],
   },
   {
     id: 'INC-1041',
+    ordenId: 'ORD-2026-002',
     titulo: 'Actualización y parches de base de datos',
     id_activo: 'SN-RC-1111-042',
     categoria: 'redes',
@@ -31,6 +56,7 @@ const INCIDENCIAS_INICIALES = [
     fecha: 'Hoy, 08:15',
     descripcion: 'Ventana de mantenimiento programada para el router principal.',
     esTemporal: false,
+    evidencias: [], // Sin evidencias para validar mensaje "Sin evidencia adjunta"
   },
 ];
 

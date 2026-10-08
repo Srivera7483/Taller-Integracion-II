@@ -13,6 +13,7 @@ import {
   FiAlertTriangle
 } from 'react-icons/fi';
 import StatusBadge from '../components/StatusBadge';
+import EvidenceGallery from '../components/EvidenceGallery';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
 import { getTecnicoActual, getIncidencias } from '../services/incidenciasStorage';
 import api from '../services/api';
@@ -48,6 +49,12 @@ const DetalleOrden = () => {
         const response = await api.get(`/ordenes-trabajo/${idOrden}`);
         if (response.data) {
           const apiOrden = response.data;
+          const evidenciasList =
+            apiOrden.incidencia?.evidencias ||
+            apiOrden.evidencias ||
+            incidenciaMatch?.evidencias ||
+            [];
+
           setOrden({
             ...apiOrden,
             id_orden: apiOrden.id_orden || idOrden,
@@ -62,6 +69,7 @@ const DetalleOrden = () => {
             horasInvertidas: incidenciaMatch?.horasInvertidas || null,
             materialesUsados: incidenciaMatch?.materialesUsados || [],
             fechaCierre: incidenciaMatch?.fechaCierre || null,
+            evidencias: evidenciasList,
           });
           return;
         }
@@ -85,6 +93,11 @@ const DetalleOrden = () => {
         horasInvertidas: incidenciaMatch?.horasInvertidas || null,
         materialesUsados: incidenciaMatch?.materialesUsados || [],
         fechaCierre: incidenciaMatch?.fechaCierre || null,
+        evidencias: incidenciaMatch?.evidencias || [
+          'https://res.cloudinary.com/infra-uct/image/upload/v1728345601/evidencias/falla_panel_proyector.jpg',
+          'https://res.cloudinary.com/infra-uct/image/upload/v1728345602/evidencias/sensor_temperatura_alerta.jpg',
+          'https://res.cloudinary.com/infra-uct/image/upload/v1728345603/evidencias/conector_hdmi_danado.jpg',
+        ],
       });
     } catch (err) {
       console.error('Error general al cargar orden:', err);
@@ -201,6 +214,14 @@ const DetalleOrden = () => {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* SECCIÓN DE EVIDENCIAS FOTOGRÁFICAS (CLOUDINARY) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6">
+        <EvidenceGallery
+          evidencias={orden.evidencias}
+          titulo="Fotos y Evidencias del Fallo (Técnico)"
+        />
       </div>
 
       {/* SECCIÓN FINALIZATIVA: SEGÚN ESTADO Y OWNERSHIP DEL TÉCNICO */}
