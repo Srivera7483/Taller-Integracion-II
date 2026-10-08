@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  UnauthorizedException,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -36,7 +37,8 @@ export class IncidenciasController {
     @CurrentUser() usuario: JwtUser,
   ) {
     const idUsuario = usuario.sub || usuario.userId;
-    return this.incidenciasService.crear(body, idUsuario);
+    if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
+    return this.incidenciasService.crear(body, idUsuario, usuario.email);
   }
 
   @Get(':id_incidencia')
@@ -45,7 +47,7 @@ export class IncidenciasController {
   }
 
   @Patch(':id_incidencia/estado')
-  @Roles('SUPERVISOR', 'TECNICO', 'REPORTANTE', 'ADMINISTRADOR')
+  @Roles('SUPERVISOR', 'TECNICO', 'TÉCNICO', 'REPORTANTE', 'ADMINISTRADOR')
   async actualizarEstado(
     @Param('id_incidencia', ParseUUIDPipe) incidenciaId: string,
     @Body() body: ActualizarEstadoDto,
@@ -53,28 +55,36 @@ export class IncidenciasController {
   ) {
     const idUsuario = usuario.sub || usuario.userId;
     const rolUsuario = usuario.rol || usuario.role;
+    if (!idUsuario || !rolUsuario) {
+      throw new UnauthorizedException('Usuario autenticado inválido');
+    }
     
     return this.incidenciasService.actualizarEstado(
       incidenciaId,
       body.id_estado, 
       idUsuario,
       rolUsuario,
+      usuario.email,
     );
   }
 
   @Patch(':id_incidencia/resolver')
-  @Roles('TECNICO')
+  @Roles('TECNICO', 'TÉCNICO')
   async resolverIncidencia(
     @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
     @CurrentUser() usuario: JwtUser,
   ) {
     const idUsuario = usuario.sub || usuario.userId;
     const rolUsuario = usuario.rol || usuario.role;
+    if (!idUsuario || !rolUsuario) {
+      throw new UnauthorizedException('Usuario autenticado inválido');
+    }
     
     return this.incidenciasService.resolverIncidencia(
       idIncidencia,
       idUsuario,
       rolUsuario,
+      usuario.email,
     );
   }
 

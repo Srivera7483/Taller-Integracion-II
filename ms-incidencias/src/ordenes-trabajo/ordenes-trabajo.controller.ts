@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -37,6 +38,7 @@ export class OrdenesTrabajoController {
     @CurrentUser() user: JwtUser,
   ) {
     const idUsuario = user.sub || user.userId;
+    if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
     return this.ordenesService.asignarOrden(body, idUsuario);
   }
 
@@ -47,6 +49,7 @@ export class OrdenesTrabajoController {
     @Query() filtros: FiltrarOrdenesDto,
   ) {
     const idUsuario = user.sub || user.userId;
+    if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
     return this.ordenesService.listarPorTecnico(idUsuario, filtros);
   }
 
@@ -59,6 +62,7 @@ export class OrdenesTrabajoController {
   ) {
     const rolUsuario = user.rol || user.role;
     const idUsuario = user.sub || user.userId;
+    if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
 
     if (rolUsuario?.toUpperCase() === 'TECNICO' && idUsuario !== idTecnico) {
       throw new ForbiddenException(
@@ -88,6 +92,7 @@ export class OrdenesTrabajoController {
     @CurrentUser() user: JwtUser,
   ) {
     const idUsuario = user.sub || user.userId;
+    if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
     return this.ordenesService.actualizarDiagnostico(
       id_orden,
       body.diagnostico_tecnico,

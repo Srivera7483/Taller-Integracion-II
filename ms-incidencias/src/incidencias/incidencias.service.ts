@@ -1,11 +1,14 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
 import { Prisma } from '@prisma/client';
+import { firstValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
 import type { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
@@ -26,7 +29,15 @@ type IncidenciaConEstadoActual = Prisma.IncidenciasGetPayload<
 >;
 @Injectable()
 export class IncidenciasService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(IncidenciasService.name);
+  private readonly notificacionesUrl =
+    process.env.MS_NOTIFICACIONES_URL ??
+    'http://ms-notificaciones:3004/notificar';
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly httpService: HttpService,
+  ) {}
 
   async listar(query: ListarIncidenciasQueryDto) {
     const limite = query.limite ?? 20;
@@ -67,8 +78,12 @@ export class IncidenciasService {
     });
   }
 
-  async crear(body: CrearIncidenciaDto, usuarioId: string) {
-    return this.prisma.$transaction(async (transaction) => {
+  async crear(
+    body: CrearIncidenciaDto,
+    usuarioId: string,
+    emailUsuario?: string,
+  ) {
+    const creada = await this.prisma.$transaction(async (transaction) => {
       const estadoInicial = await transaction.estadoIncidencia.findFirst({
         where: { nombre_estado: 'Reportada' },
       });
@@ -102,6 +117,13 @@ export class IncidenciasService {
       if (!creada) throw new InternalServerErrorException();
       return this.toApiIncidencia(creada);
     });
+
+    await this.notificarIncidencia(
+      emailUsuario,
+      `Nueva Incidencia Reportada: ${creada.titulo}`,
+      `La incidencia "${creada.titulo}" fue reportada correctamente.`,
+    );
+    return creada;
   }
 
   async obtener(id: string) {
@@ -118,6 +140,7 @@ export class IncidenciasService {
     idEstadoNuevo: number,
     usuarioId: string,
     rolUsuario: string,
+    emailUsuario?: string,
   ) {
     if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
       throw new BadRequestException('El ID del estado es obligatorio y debe ser numérico');
@@ -127,7 +150,7 @@ export class IncidenciasService {
       throw new BadRequestException('El usuario es obligatorio');
     }
 
-    return this.prisma.$transaction(async (transaction) => {
+    const resultado = await this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: incidenciaId },
         ...incidenciaConEstadoActual,
@@ -146,7 +169,7 @@ export class IncidenciasService {
       }
 
       const idEstadoActual = incidencia.historial_estados?.[0]?.estado?.id_estado;
-      const rolUpper = rolUsuario.toUpperCase();
+      const rolUpper = this.normalizarRol(rolUsuario);
 
       if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR') {
         throw new ForbiddenException('Solo un SUPERVISOR puede pasar de Reportada a Asignada');
@@ -172,8 +195,24 @@ export class IncidenciasService {
       });
 
       if (!incidenciaActualizada) throw new InternalServerErrorException();
-      return this.toApiIncidencia(incidenciaActualizada);
+      return {
+        incidencia: this.toApiIncidencia(incidenciaActualizada),
+        notificar:
+          estado.nombre_estado.trim().toLowerCase() === 'resuelta' &&
+          incidencia.historial_estados[0]?.estado?.nombre_estado
+            .trim()
+            .toLowerCase() !== 'resuelta',
+      };
     });
+
+    if (resultado.notificar) {
+      await this.notificarIncidencia(
+        emailUsuario,
+        `Incidencia Resuelta: ${resultado.incidencia.titulo}`,
+        `La incidencia "${resultado.incidencia.titulo}" fue resuelta.`,
+      );
+    }
+    return resultado.incidencia;
   }
 
   async listarHistorial(id: string) {
@@ -243,55 +282,116 @@ export class IncidenciasService {
   }
 
 
-  async resolverIncidencia(idIncidencia: string, idTecnico: string, rolUsuario: string) {
+  async resolverIncidencia(
+    idIncidencia: string,
+    idTecnico: string,
+    rolUsuario: string,
+    emailUsuario?: string,
+  ) {
       const rolUpper = rolUsuario.toUpperCase();
       if (rolUpper !== 'TÉCNICO' && rolUpper !== 'TECNICO') {
-        throw new ForbiddenException('Acceso denegado: Solo los técnicos pueden resolver incidencias.');
+        throw new ForbiddenException(
+          'Acceso denegado: Solo los técnicos pueden resolver incidencias.',
+        );
       }
 
-      return this.prisma.$transaction(async (transaction) => {
-        
+      const resultado = await this.prisma.$transaction(async (transaction) => {
         const ultimoHistorial = await transaction.historialEstados.findFirst({
           where: { id_incidencia: idIncidencia },
           orderBy: { fecha_creacion: 'desc' },
-          include: { estado: true } 
+          include: { estado: true },
         });
 
         if (!ultimoHistorial) {
-          throw new BadRequestException('La incidencia no tiene un historial de estados válido.');
+          throw new BadRequestException(
+            'La incidencia no tiene un historial de estados válido.',
+          );
         }
 
         const nombreEstadoActual = ultimoHistorial.estado.nombre_estado.toUpperCase();
 
         if (nombreEstadoActual !== 'ASIGNADA') {
-          throw new BadRequestException(`Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`);
+          throw new BadRequestException(
+            `Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`,
+          );
         }
 
         const estadoDestino = await transaction.estadoIncidencia.findFirst({
-          where: { 
-            nombre_estado: { 
-              equals: 'Resuelta', 
-              mode: 'insensitive'
-            } 
-          }
+          where: {
+            nombre_estado: {
+              equals: 'Resuelta',
+              mode: 'insensitive',
+            },
+          },
         });
 
         if (!estadoDestino) {
-          throw new InternalServerErrorException('Error de configuración: El estado "Resuelta" no existe en la base de datos.');
+          throw new InternalServerErrorException(
+            'Error de configuración: El estado "Resuelta" no existe en la base de datos.',
+          );
         }
-        
+
+        const incidencia = await transaction.incidencias.findUnique({
+          where: { id_incidencia: idIncidencia },
+          select: { titulo: true },
+        });
+
+        if (!incidencia) {
+          throw new NotFoundException('Incidencia no encontrada');
+        }
+
         const nuevoHistorial = await transaction.historialEstados.create({
           data: {
             id_incidencia: idIncidencia,
             id_estado: estadoDestino.id_estado,
             id_usuario_cambio: idTecnico,
           },
-          include: { estado: true }
+          include: { estado: true },
         });
 
-        return nuevoHistorial;
+        return { historial: nuevoHistorial, titulo: incidencia.titulo };
       });
+
+      await this.notificarIncidencia(
+        emailUsuario,
+        `Incidencia Resuelta: ${resultado.titulo}`,
+        `La incidencia "${resultado.titulo}" fue resuelta.`,
+      );
+      return resultado.historial;
     }
+
+  private async notificarIncidencia(
+    email: string | undefined,
+    asunto: string,
+    cuerpoMensaje: string,
+  ): Promise<void> {
+    if (!email) {
+      this.logger.warn(
+        'No se envió la notificación porque el token no contiene el correo del usuario.',
+      );
+      return;
+    }
+
+    try {
+      await firstValueFrom(
+        this.httpService.post(this.notificacionesUrl, {
+          email,
+          asunto,
+          cuerpoMensaje,
+        }),
+      );
+    } catch (error) {
+      const detalle = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error al notificar al usuario ${email}: ${detalle}`);
+    }
+  }
+
+  private normalizarRol(rol: string): string {
+    return rol
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+  }
 
   private toApiIncidencia(incidencia: IncidenciaConEstadoActual) {
     const estado = incidencia.historial_estados[0]?.estado;

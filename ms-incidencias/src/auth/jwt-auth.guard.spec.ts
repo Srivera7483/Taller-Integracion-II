@@ -71,6 +71,7 @@ describe('JwtAuthGuard', () => {
     expect(request.user).toEqual(expect.objectContaining({
       userId: 'tecnico-uuid-1',
       role: 'TECNICO',
+      email: 'tecnico@uct.cl',
     }));
   });
 });

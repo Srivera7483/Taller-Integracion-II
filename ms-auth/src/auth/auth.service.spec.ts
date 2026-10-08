@@ -43,6 +43,7 @@ describe('AuthService', () => {
       vi.mocked(verify).mockResolvedValue(true);
       userRepositoryMock.findByEmail.mockResolvedValue({
         id: 'user-123',
+        email: 'admin@test.com',
         passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$test-hash',
         fechaCreacion: new Date(), role: { nombreRol: 'ADMINISTRADOR', name: 'ADMINISTRADOR' },
       });
@@ -55,6 +56,9 @@ describe('AuthService', () => {
         'pass123',
       );
       expect(jwtMock.sign).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-123', role: 'ADMINISTRADOR' }));
+      expect(jwtMock.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ email: 'admin@test.com' }),
+      );
       expect(result).toEqual(expect.objectContaining({ token: 'signed-token' }));
     });
 
