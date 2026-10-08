@@ -10,76 +10,42 @@ import {
 } from './interfaces/activo.interface';
 import { ValidarQrDto } from './dto/validar-qr.dto';
 import { ValidarFiltroEstadisticasDto } from './dto/filtrar-estadisticas.dto';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
+import { CrearMantenimientoDto } from './dto/crear-mantenimiento.dto';
 
+
+@Injectable()
 export class ActivosService {
-  private activosEnMemoria: Activo[] = [
-    {
-      id: 'act-001',
-      codigoQr: 'ACT-2026-0001',
-      nombre: 'Proyector Láser Epson PowerLite',
-      modelo: 'PowerLite L520U',
-      numeroSerie: 'SN-EPS-9921',
-      categoria: CategoriaActivo.AUDIOVISUAL,
-      ubicacion: 'Edificio A - Auditorio Principal',
-      estado: EstadoActivo.OPERATIVO,
-      fechaRegistro: '2026-03-01',
-    },
-    {
-      id: 'act-002',
-      codigoQr: 'ACT-2026-0002',
-      nombre: 'Computador Docente All-in-One Dell',
-      modelo: 'OptiPlex 7490',
-      numeroSerie: 'SN-DELL-4412',
-      categoria: CategoriaActivo.COMPUTO,
-      ubicacion: 'Edificio B - Laboratorio 302',
-      estado: EstadoActivo.EN_MANTENIMIENTO,
-      fechaRegistro: '2026-03-10',
-    },
-    {
-      id: 'act-003',
-      codigoQr: 'ACT-2026-0003',
-      nombre: 'Impresora Multifuncional HP LaserJet',
-      modelo: 'LaserJet Pro M428fdw',
-      numeroSerie: 'SN-HP-8831',
-      categoria: CategoriaActivo.COMPUTO,
-      ubicacion: 'Edificio Central - Sala de Profesores',
-      estado: EstadoActivo.DADO_DE_BAJA,
-      fechaRegistro: '2024-01-15',
-    },
-    {
-      id: 'act-004',
-      codigoQr: 'ACT-2026-0004',
-      nombre: 'Switch Administrable Cisco Catalyst 24 Puertos',
-      modelo: 'Catalyst 2960-X',
-      numeroSerie: 'SN-CSCO-5512',
-      categoria: CategoriaActivo.REDES,
-      ubicacion: 'Edificio B - Rack Principal Piso 2',
-      estado: EstadoActivo.OPERATIVO,
-      fechaRegistro: '2025-08-20',
-    },
-    {
-      id: 'act-005',
-      codigoQr: 'ACT-2026-0005',
-      nombre: 'UPS Online APC Smart-UPS 3000VA',
-      modelo: 'SMT3000RM2U',
-      numeroSerie: 'SN-APC-1190',
-      categoria: CategoriaActivo.ELECTRICO,
-      ubicacion: 'Edificio A - Data Center',
-      estado: EstadoActivo.EN_REVISION,
-      fechaRegistro: '2025-11-12',
-    },
-    {
-      id: 'act-006',
-      codigoQr: 'ACT-2026-0006',
-      nombre: 'Pantalla Interactiva Táctil SmartBoard 75 Pulgadas',
-      modelo: 'SBID-7075R',
-      numeroSerie: 'SN-SMRT-3310',
-      categoria: CategoriaActivo.AUDIOVISUAL,
-      ubicacion: 'Edificio Central - Sala de Innovación',
-      estado: EstadoActivo.OPERATIVO,
-      fechaRegistro: '2026-02-14',
-    },
-  ];
+
+async crearMantenimiento(dto: CrearMantenimientoDto) {
+    // Verificar si el activo existe en la BD real antes de enlazarlo
+    const activoExiste = await this.prisma.activo.findUnique({
+      where: { id: dto.id_activo },
+    });
+
+    if (!activoExiste) {
+      throw new NotFoundException(`No existe un activo con el ID ${dto.id_activo} en la base de datos.`);
+    }
+
+    // Crear el registro en PostgreSQL
+    const nuevoMantenimiento = await this.prisma.mantenimiento.create({
+      data: {
+        id_activo: dto.id_activo,
+        fecha_programada: new Date(dto.fecha_programada),
+        descripcion: dto.descripcion,
+        tipo: dto.tipo,
+        estado: dto.estado || 'Pendiente',
+      },
+    });
+
+    return {
+      valido: true,
+      mensaje: 'Mantenimiento agendado exitosamente en base de datos',
+      datos: nuevoMantenimiento,
+    };
+  }
+
 
   private construirEnlacesRedireccion(activo: Activo): { urlWeb: string; deepLinkMovil: string } {
     const params = new URLSearchParams({

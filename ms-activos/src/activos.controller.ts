@@ -1,3 +1,4 @@
+import { Controller, Get, Post, Body, Query, NotFoundException, BadRequestException, UseGuards } from '@nestjs/common';
 import { ActivosService } from './activos.service';
 import {
   RespuestaValidacionQR,
@@ -6,71 +7,71 @@ import {
   FiltroEstadisticasDto,
   Activo,
 } from './interfaces/activo.interface';
+import { CrearMantenimientoDto } from './dto/crear-mantenimiento.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
+
+
+
+
+
+@Controller('activos')
 export class ActivosController {
-  private activosService: ActivosService;
+  constructor(private readonly activosService: ActivosService) {}
 
-  constructor(activosService?: ActivosService) {
-    this.activosService = activosService || new ActivosService();
+  
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('SUPERVISOR', 'ADMINISTRADOR')
+  @Post('mantenimientos')
+  async agendarMantenimiento(@Body() crearMantenimientoDto: CrearMantenimientoDto) {
+    return {
+      valido: true,
+      mensaje: 'Mantenimiento agendado exitosamente (Simulado)',
+      datos: crearMantenimientoDto,
+    };
   }
 
-  async validarCodigoQr(codigoQr: string): Promise<{ statusCode: number; body: RespuestaValidacionQR }> {
+
+  @Get('validar-qr')
+  async validarCodigoQr(@Query('codigoQr') codigoQr: string): Promise<RespuestaValidacionQR> {
     const resultado = await this.activosService.validarCodigoQR(codigoQr);
-
-    if (resultado.valido) {
-      return {
-        statusCode: 200,
-        body: resultado,
-      };
+    if (!resultado.valido) {
+      const esNoEncontrado = resultado.mensaje.includes('No se encontró');
+      if (esNoEncontrado) {
+        throw new NotFoundException(resultado);
+      }
+      throw new BadRequestException(resultado);
     }
-
-    const esNoEncontrado = resultado.mensaje.includes('No se encontró');
-    return {
-      statusCode: esNoEncontrado ? 404 : 400,
-      body: resultado,
-    };
+    return resultado;
   }
 
-  async obtenerRedireccionIncidencia(
-    codigoQr: string,
-  ): Promise<{ statusCode: number; body: RespuestaRedireccionIncidencia }> {
+  @Get('redireccion-incidencia')
+  async obtenerRedireccionIncidencia(@Query('codigoQr') codigoQr: string): Promise<RespuestaRedireccionIncidencia> {
     const resultado = await this.activosService.generarEnlaceIncidencia(codigoQr);
-
-    if (resultado.valido) {
-      return {
-        statusCode: 200,
-        body: resultado,
-      };
+    if (!resultado.valido) {
+      const esNoEncontrado = resultado.mensaje.includes('No se encontró');
+      if (esNoEncontrado) {
+        throw new NotFoundException(resultado);
+      }
+      throw new BadRequestException(resultado);
     }
-
-    const esNoEncontrado = resultado.mensaje.includes('No se encontró');
-    return {
-      statusCode: esNoEncontrado ? 404 : 400,
-      body: resultado,
-    };
+    return resultado;
   }
 
-  async obtenerEstadisticas(
-    filtros?: FiltroEstadisticasDto,
-  ): Promise<{ statusCode: number; body: RespuestaEstadisticas }> {
-    const resultado = await this.activosService.obtenerEstadisticas(filtros);
-
-    return {
-      statusCode: 200,
-      body: resultado,
-    };
+  @Get('estadisticas')
+  async obtenerEstadisticas(@Query() filtros?: FiltroEstadisticasDto): Promise<RespuestaEstadisticas> {
+    return this.activosService.obtenerEstadisticas(filtros);
   }
 
-  async listarActivos(): Promise<{ statusCode: number; body: { valido: boolean; total: number; datos: Activo[] } }> {
+  @Get()
+  async listarActivos(): Promise<{ valido: boolean; total: number; datos: Activo[] }> {
     const activos = await this.activosService.listarTodos();
-
     return {
-      statusCode: 200,
-      body: {
-        valido: true,
-        total: activos.length,
-        datos: activos,
-      },
+      valido: true,
+      total: activos.length,
+      datos: activos,
     };
   }
 }
