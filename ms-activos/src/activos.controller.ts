@@ -8,9 +8,9 @@ import {
   Activo,
 } from './interfaces/activo.interface';
 import { CrearMantenimientoDto } from './dto/crear-mantenimiento.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+//import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+//import { RolesGuard } from '../auth/guards/roles.guard';
+//import { Roles } from '../auth/decorators/roles.decorator';
 
 
 
@@ -20,18 +20,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 @Controller('activos')
 export class ActivosController {
   constructor(private readonly activosService: ActivosService) {}
-
-  
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('SUPERVISOR', 'ADMINISTRADOR')
-  @Post('mantenimientos')
-  async agendarMantenimiento(@Body() crearMantenimientoDto: CrearMantenimientoDto) {
-    return {
-      valido: true,
-      mensaje: 'Mantenimiento agendado exitosamente (Simulado)',
-      datos: crearMantenimientoDto,
-    };
-  }
 
 
   @Get('validar-qr')

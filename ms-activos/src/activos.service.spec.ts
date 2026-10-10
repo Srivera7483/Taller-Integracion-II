@@ -1,11 +1,14 @@
 import { ActivosService } from './activos.service';
+import { PrismaService } from './prisma.service';
 import { EstadoActivo, CategoriaActivo } from './interfaces/activo.interface';
 
 describe('ActivosService - TAL-6: Endpoints de agregación estadística de activos', () => {
   let service: ActivosService;
+  let prismaMock = {} as unknown as PrismaService;
 
   beforeEach(() => {
-    service = new ActivosService();
+    // Inyectamos el prismaMock aquí también
+    service = new ActivosService(prismaMock);
   });
 
   describe('obtenerEstadisticas', () => {

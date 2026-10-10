@@ -5,8 +5,10 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Asignamos el puerto 3003 para ms-activos
-  const port = process.env.PORT ?? 3003;
+  const port = process.env.PORT;
+
+  // Configurar el prefijo global exigido por el contrato (RNF3)
+  app.setGlobalPrefix('api/v1');
 
   app.useGlobalPipes(
     new ValidationPipe({

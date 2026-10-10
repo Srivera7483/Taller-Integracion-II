@@ -10,16 +10,28 @@ import {
 } from './interfaces/activo.interface';
 import { ValidarQrDto } from './dto/validar-qr.dto';
 import { ValidarFiltroEstadisticasDto } from './dto/filtrar-estadisticas.dto';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { CrearMantenimientoDto } from './dto/crear-mantenimiento.dto';
+
 
 
 @Injectable()
 export class ActivosService {
 
-async crearMantenimiento(dto: CrearMantenimientoDto) {
-    // Verificar si el activo existe en la BD real antes de enlazarlo
+  private activosEnMemoria: Activo[] = [];
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async crearMantenimiento(dto: CrearMantenimientoDto) {
+
+    const fechaProgramada = new Date(dto.fecha_programada);
+    const ahora = new Date();
+    
+    if (fechaProgramada < ahora) {
+      throw new BadRequestException('No se puede agendar un mantenimiento con fecha en el pasado.');
+    }
+
     const activoExiste = await this.prisma.activo.findUnique({
       where: { id: dto.id_activo },
     });
@@ -28,7 +40,6 @@ async crearMantenimiento(dto: CrearMantenimientoDto) {
       throw new NotFoundException(`No existe un activo con el ID ${dto.id_activo} en la base de datos.`);
     }
 
-    // Crear el registro en PostgreSQL
     const nuevoMantenimiento = await this.prisma.mantenimiento.create({
       data: {
         id_activo: dto.id_activo,
