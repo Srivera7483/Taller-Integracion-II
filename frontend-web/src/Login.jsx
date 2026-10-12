@@ -6,7 +6,9 @@ import {
   IoLockClosedOutline,
   IoEyeOutline,
   IoEyeOffOutline,
-  IoArrowForwardOutline
+  IoArrowForwardOutline,
+  IoPersonOutline,
+  IoCardOutline
 } from 'react-icons/io5';
 import { useToast } from './context/ToastContext';
 import api from './services/api';
@@ -16,6 +18,9 @@ const Login = () => {
   const { showToast } = useToast();
 
   const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [rutOId, setRutOId] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,14 +36,22 @@ const Login = () => {
   };
 
   const isPasswordValid = isStrongPassword(password);
+  const isUctEmail = (em) => /@uct\.cl$/i.test(em.trim());
 
   const isFormValid =
     mode === 'login'
       ? email.trim() !== '' && password.trim() !== ''
-      : email.trim() !== '' && isPasswordValid;
+      : rutOId.trim() !== '' &&
+        nombre.trim() !== '' &&
+        apellido.trim() !== '' &&
+        isUctEmail(email) &&
+        isPasswordValid;
 
   const handleToggleMode = () => {
     setMode((prevMode) => (prevMode === 'login' ? 'register' : 'login'));
+    setRutOId('');
+    setNombre('');
+    setApellido('');
     setEmail('');
     setPassword('');
     setShowPassword(false);
@@ -48,10 +61,16 @@ const Login = () => {
     e.preventDefault();
     if (!isFormValid || isSubmitting) return;
 
-    const payload = {
-      email,
-      password,
-    };
+    const payload =
+      mode === 'login'
+        ? { email: email.trim().toLowerCase(), password }
+        : {
+            rut_o_id: rutOId.trim(),
+            nombre: nombre.trim(),
+            apellido: apellido.trim(),
+            email: email.trim().toLowerCase(),
+            password,
+          };
 
     setIsSubmitting(true);
 
@@ -117,11 +136,68 @@ const Login = () => {
           </div>
 
           {/* Formulario */}
-          <form id="auth-form" onSubmit={handleSubmit} className="space-y-5">
+          <form id="auth-form" onSubmit={handleSubmit} className="space-y-4">
+            {/* Campos exclusivos de registro */}
+            {mode === 'register' && (
+              <>
+                <div>
+                  <label htmlFor="rut_o_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    RUT / Identificación <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <IoCardOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
+                    <input
+                      type="text"
+                      id="rut_o_id"
+                      value={rutOId}
+                      onChange={(e) => setRutOId(e.target.value)}
+                      placeholder="12.345.678-9"
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <IoPersonOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
+                      <input
+                        type="text"
+                        id="nombre"
+                        value={nombre}
+                        onChange={(e) => setNombre(e.target.value)}
+                        placeholder="Juan"
+                        required
+                        className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="apellido" className="block text-sm font-medium text-gray-700 mb-1">
+                      Apellido <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="apellido"
+                      value={apellido}
+                      onChange={(e) => setApellido(e.target.value)}
+                      placeholder="Pérez"
+                      required
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Input Correo Electrónico */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Correo Electrónico
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Correo Electrónico {mode === 'register' && <span className="text-red-500">*</span>}
               </label>
               <div className="relative">
                 <IoMailOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
@@ -130,11 +206,16 @@ const Login = () => {
                   id="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="usuario@empresa.com"
+                  placeholder={mode === 'register' ? 'usuario@uct.cl' : 'usuario@empresa.com'}
                   required
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
               </div>
+              {mode === 'register' && email.length > 0 && !isUctEmail(email) && (
+                <p className="text-xs text-red-500 mt-1">
+                  Solo se permiten correos institucionales terminados en @uct.cl
+                </p>
+              )}
             </div>
 
             {/* Input Contraseña con Botón de Ojo y Texto de Requisitos */}
