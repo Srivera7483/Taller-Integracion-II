@@ -6,7 +6,7 @@ const fastifyCors = require('@fastify/cors');
 
 const buildGateway = (options = {}) => {
     const fastify = Fastify({ logger: options.logger ?? true });
-    
+
 
     fastify.get('/', async () => ({ status: 'OK' }));
 
@@ -69,6 +69,13 @@ const buildGateway = (options = {}) => {
         upstream: options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001',
         prefix: '/api/v1/auth',
         rewritePrefix: '/auth', // ESTÁNDAR! Los otros deben seguir este
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001',
+        prefix: '/api/v1/usuarios',
+        rewritePrefix: '/auth/usuarios',
         replyOptions: { onError: handleProxyError }
     });
 

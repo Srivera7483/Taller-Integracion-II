@@ -36,7 +36,9 @@ export class IncidenciasService {
   constructor(private readonly prisma: PrismaService) {}
 
   async listar(query: ListarIncidenciasQueryDto) {
-    const limite = query.limite ?? 20;
+    const limite = query.limit ?? query.limite ?? 15;
+    const pagina = query.page ?? query.pagina ?? 1;
+    const offset = (pagina - 1) * limite;
     const idActivo = query.id_activo ?? null;
     const idEstado = query.id_estado ?? null;
 
@@ -54,7 +56,7 @@ export class IncidenciasService {
         WHERE (${idActivo}::uuid IS NULL OR i."id_activo" = ${idActivo}::uuid)
           AND (${idEstado}::integer IS NULL OR estado_actual."id_estado" = ${idEstado}::integer)
         ORDER BY i."fecha_creacion" DESC
-        LIMIT ${limite}
+        LIMIT ${limite} OFFSET ${offset}
       `,
     );
     if (ids.length === 0) return [];
