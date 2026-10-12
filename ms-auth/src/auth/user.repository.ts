@@ -37,4 +37,26 @@ export class UserRepository {
       include: { role: true },
     });
   }
+
+  async findMany(page: number = 1, limit: number = 15) {
+    const take = limit;
+    const skip = (page - 1) * limit;
+    const [usuarios, total] = await Promise.all([
+      this.prisma.user.findMany({
+        skip,
+        take,
+        where: { fechaEliminacion: null },
+        include: { role: true },
+        orderBy: { fechaCreacion: 'desc' },
+      }),
+      this.prisma.user.count({
+        where: { fechaEliminacion: null },
+      }),
+    ]);
+    return {
+      usuarios,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
 }

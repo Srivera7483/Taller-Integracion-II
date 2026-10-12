@@ -122,4 +122,30 @@ export class AuthService {
       created_at: user.fechaCreacion.toISOString()
     };
   }
+
+  async listUsers(page: number = 1, limit: number = 15) {
+    const { usuarios, total, totalPages } = await this.userRepository.findMany(page, limit);
+    return {
+      datos: usuarios.map((user) => ({
+        id_usuario: user.id,
+        rut_o_id: user.rut_o_id,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        correo: user.email,
+        email: user.email,
+        rol: user.role.nombreRol,
+        rol_info: {
+          id_rol: user.role.id,
+          nombre_rol: user.role.nombreRol,
+        },
+        fecha_creacion: user.fechaCreacion.toISOString(),
+        fecha_eliminacion: user.fechaEliminacion ? user.fechaEliminacion.toISOString() : null,
+        estado: user.fechaEliminacion ? 'inactivo' : 'activo',
+      })),
+      total,
+      pagina: page,
+      limite: limit,
+      totalPaginas: totalPages,
+    };
+  }
 }
