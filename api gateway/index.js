@@ -31,6 +31,13 @@ const buildGateway = (options = {}) => {
     });
 
     fastify.register(proxy, {
+        upstream: options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3003',
+        prefix: '/api/v1/mantenimientos',
+        rewritePrefix: '/api/v1/mantenimientos',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
         upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
         prefix: '/api/v1/incidencias',
         rewritePrefix: '/api/v1/incidencias',

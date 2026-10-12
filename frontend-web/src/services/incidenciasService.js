@@ -29,3 +29,17 @@ export const fetchIncidenciasRecientes = async () => {
     return [];
   }
 };
+
+/**
+ * Crea una nueva incidencia en el backend a través del API Gateway.
+ */
+export const createIncidencia = async (payload) => {
+  try {
+    const response = await api.post('/incidencias', payload);
+    return response.data;
+  } catch (error) {
+    console.error('[incidenciasService] Error al crear incidencia:', error);
+    throw error;
+  }
+};
+

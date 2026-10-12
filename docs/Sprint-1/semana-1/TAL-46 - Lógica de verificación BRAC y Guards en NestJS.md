@@ -1,5 +1,19 @@
 #nodejs #nestjs
 
+## Tarea en Jira
+---
+**Objetivo:** Crear la entidad principal que alojará los reportes y generar su respectiva migración SQL.
+
+**Criterios de Aceptación:**
+- Entidad Incidencia estructurada con campos clave: ID, título, descripción, asset_id (activo), estado, y reporter_id (usuario).
+- Migración generada y ejecutada exitosamente en la base de datos local.
+
+**Notas / Dependencias:** Requiere "Inicialización del proyecto MS Incidencias".
+
+
+## Estudio
+---
+
 El<span style="color:rgb(192, 0, 0)"><span style="color:rgb(192, 0, 0)"> <span style="color:rgb(192, 0, 0)"><i><span style="color:red"><b>Controller</b></span></i> </span></span></span>es el gateway de la API a los proyectos NestJS: define los endpoints HTTP y recibe las peticiones.
 
 Cuando una petición HTTP llega al servidor, se pone a un <span style="color:rgb(193, 1, 1)"><b>guardia</b></span> para filtrar, antes de que la petición llegue al *Controller* :
@@ -28,7 +42,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { Request } from 'express';
+import type { FastifyRequest } from 'fastify';
 import { ROLES_KEY } from './roles.decorator.js';
 
 @Injectable()
@@ -48,7 +62,7 @@ export class RolesGuard implements CanActivate {
     }
 
     // 2. Extraer el usuario que inyectó JwtAuthGuard en la petición
-    const request = context.switchToHttp().getRequest<Request & { user: any }>();
+    const request = context.switchToHttp().getRequest<FastifyRequest>();
     const user = request.user;
 
     // 3. Validar si el usuario existe y si su rol coincide con los requeridos
@@ -107,7 +121,8 @@ async softDelete(id: string) {
 ```
 
 
-**Commit TAL-46**
+## Commit bc7ea3e
+---
 
 • Se creó el decorador @Role en `src/auth/roles.decorator.ts` para marcar roles.
 • Se creó propiamente tal el `RolesGuard` en `src/auth/roles.guard.ts` que validará los roles necesarios de la función.

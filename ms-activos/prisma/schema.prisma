@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EstadoActivo {
+  OPERATIVO
+  EN_MANTENIMIENTO
+  EN_REVISION
+  DADO_DE_BAJA
+}
+
+enum CategoriaActivo {
+  AUDIOVISUAL
+  COMPUTO
+  REDES
+  ELECTRICO
+  MOBILIARIO
+  OTRO
+}
+
+model Activo {
+  id            String          @id @default(uuid())
+  codigoQr      String          @unique @map("codigo_qr")
+  nombre        String
+  categoria     CategoriaActivo
+  modelo        String?
+  numeroSerie   String?         @map("numero_serie")
+  ubicacion     String
+  estado        EstadoActivo    @default(OPERATIVO)
+  fechaRegistro DateTime        @default(now()) @map("fecha_registro")
+
+  mantenimientos Mantenimiento[]
+
+  @@map("activos")
+}
+
+model Mantenimiento {
+  id               String   @id @default(uuid())
+  id_activo        String
+  fecha_programada DateTime
+  descripcion      String
+  tipo             String
+  estado           String   @default("Pendiente")
+
+  activo           Activo   @relation(fields: [id_activo], references: [id], onDelete: Cascade)
+
+  @@map("mantenimientos")
+}
