@@ -74,3 +74,59 @@ Resolver las desconexiones arquitectónicas y cabos sueltos existentes entre el 
     * Inclusión de estados de carga, botón de actualización en tiempo real y fallback resiliente para garantizar operatividad continua.
     * Vinculación de botones de acción hacia Trazabilidad (`/trazabilidad/:id`) y Reporte de Falla (`/incidencias/nueva?id_activo=...`) con los identificadores reales.
 
+---
+
+## 4. Implementación Paso 3 (Nivel 3: Flujo Real de Incidencias y Verificación End-to-End)
+* **Tiempo imputado:** 1 hora (`#time 1h`)
+
+### 4.1. Servicio y Reporte de Incidencias Conectado a la API Real
+* **Problema resuelto:** El formulario de creación de incidencias (`FormularioReporteIncidencia.jsx`) persistía datos únicamente en un mock local de cookies (`saveIncidencia`) y utilizaba un `setTimeout` simulado, impidiendo que los reportes llegaran al microservicio `ms-incidencias` ni detonaran el historial de estados inicial (`Reportada`). Además, `incidenciasService.js` carecía del método para enviar `POST /incidencias`.
+* **Archivos modificados:**
+  * `frontend-web/src/services/incidenciasService.js`:
+    * Implementación y exportación de `createIncidencia(payload)` que ejecuta `api.post('/incidencias', payload)` a través del API Gateway.
+  * `frontend-web/src/components/FormularioReporteIncidencia.jsx`:
+    * Conversión de `handleSubmit` en función asíncrona conectada a `createIncidencia`.
+    * Resolución automática de identificadores de activos: si el usuario ingresa un código QR o identificador amigable (e.g., `ACT-2026-0001`), el componente resuelve su UUID real consultando `/api/v1/activos/validar-qr` o el catálogo correspondiente, garantizando el cumplimiento estricto de `@IsUUID()` requerido por el backend.
+    * Sincronización transparente con el almacenamiento local para preservar retrocompatibilidad con vistas dependientes.
+    * Prevención de bloqueos con retroalimentación inmediata mediante `useToast`.
+  * `frontend-web/src/views/Dashboard.jsx`:
+    * Manejo visual refinado de estado de carga (`loading`) y estados vacíos en la tabla de incidencias recientes, eliminando advertencias de linting y proveyendo feedback fluido al usuario.
+
+### 4.2. Validación End-to-End y Pruebas del Sistema
+* **Flujos Verificados:**
+  1. **Enrutamiento del API Gateway:** Pruebas unitarias automatizadas (`api gateway/index.test.js`) ejecutadas con 100% de éxito (4/4 tests pasando), confirmando la resolución de rutas para `/activos`, `/mantenimientos`, `/incidencias`, `/ordenes-trabajo` y `/estados-incidencia`.
+  2. **Compilación y Empaquetado del Frontend:** Ejecución de `pnpm install` y compilación de producción con Vite (`npm run build`), completada exitosamente sin errores de resolución ni dependencias faltantes.
+  3. **Control de Calidad de Código:** Análisis estático con Oxlint en `frontend-web` con 0 errores reportados.
+  4. **Seguridad y Tokenización:** Pruebas unitarias de `ms-auth` verificando el comportamiento asíncrono reactivo de `JwtModule.registerAsync` con `ConfigService`.
+
+---
+
+## 5. Resumen de Imputación de Horas (Jira Smart Commits)
+
+| Paso | Nivel | Descripción Resumida | Tiempo Imputado | Hash / Commit |
+| :--- | :--- | :--- | :---: | :--- |
+| **Paso 1** | Nivel 1 | Enrutamiento Gateway `/mantenimientos`, DTO asignación órdenes, métricas Dashboard y configuración asíncrona de JWT | 40 min (`#time 40m`) | `6adb0c8` |
+| **Paso 2** | Nivel 2 | Persistencia Prisma en consultas de `ms-activos`, formulario de registro completo y consumo dinámico de Inventario | 1h 20 min (`#time 1h 20m`) | `c05fc8d` |
+| **Paso 3** | Nivel 3 | Flujo real de reporte de incidencias (`createIncidencia`), resolución UUID de activos y verificación E2E | 1h 00 min (`#time 1h`) | *(Commit actual)* |
+| **Total** | - | **Saneamiento Técnico Completo de Integración** | **3h 00 min** | **TAL-175** |
+
+---
+
+## 6. Matriz de Conectividad y Estado de Integración Post-Saneamiento
+
+| Origen | Destino | Protocolo / Endpoint | Estado Previo | Estado Post-Saneamiento |
+| :--- | :--- | :--- | :---: | :---: |
+| **Web / Móvil** | API Gateway | `/api/v1/mantenimientos/planificar` | ❌ 404 Not Found (Sin ruta) | ✅ 200 OK (Proxy activo a MS Activos:3003) |
+| **Frontend Web** | MS Incidencias | `/api/v1/ordenes-trabajo/asignar` | ❌ 400 Bad Request (DTO desalineado) | ✅ 201 Created (Campos normalizados) |
+| **Frontend Web** | MS Incidencias | `/api/v1/incidencias` (Crear reporte) | ❌ Mock aislado en cookies | ✅ 201 Created (Resolución UUID y API real) |
+| **Frontend Web** | MS Activos | `/api/v1/activos` (Listado de inventario) | ❌ Mocks estáticos en memoria | ✅ 200 OK (Lectura directa de Prisma DB) |
+| **Frontend Web** | MS Auth | `/api/v1/auth/register` | ❌ 400 Bad Request (Faltaban datos) | ✅ 201 Created (RUT, nombre, correo institucional) |
+| **MS Auth** | JWT Service | `JwtModule.registerAsync` | ⚠️ Secreto hardcodeado por carrera | ✅ 100% ConfigService asíncrono desde `.env` |
+| **Dashboard** | Métricas | `resumenMetricas` & `historial_estados` | ❌ Métricas en 0 y columnas rotas | ✅ Conteo reactivo y extracción relacional |
+
+---
+
+## 7. Conclusión y Habilitación para Tareas Subsiguientes
+Con la culminación de **TAL-175**, el ecosistema de microservicios y frontend web cuenta con una arquitectura de comunicación limpia, tipada y resiliente. Se eliminaron los puntos ciegos que causaban falsos negativos y pantallas vacías, garantizando una base sólida y confiable para abordar el desarrollo de la tarea de cierre y mantenimiento correctivo (**TAL-7**) sin riesgo de bloqueos de integración.
+
+

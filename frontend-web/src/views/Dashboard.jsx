@@ -25,7 +25,7 @@ const Dashboard = () => {
         setLoading(true);
         const data = await fetchIncidencias();
         setIncidencias(data);
-      } catch (error) {
+      } catch {
         showToast('Error de conexión con el servidor API Gateway', 'error');
       } finally {
         setLoading(false);
@@ -178,7 +178,20 @@ const Dashboard = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {incidencias.slice(0, 5).map((inc) => (
+              {loading ? (
+                <tr>
+                  <td colSpan="4" className="px-6 py-6 text-center text-gray-500 text-sm">
+                    Cargando incidencias recientes desde el API Gateway...
+                  </td>
+                </tr>
+              ) : incidencias.length === 0 ? (
+                <tr>
+                  <td colSpan="4" className="px-6 py-6 text-center text-gray-500 text-sm">
+                    No se registran incidencias activas en este momento.
+                  </td>
+                </tr>
+              ) : (
+                incidencias.slice(0, 5).map((inc) => (
                 <tr key={inc.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
@@ -208,7 +221,7 @@ const Dashboard = () => {
                     <div className="text-[11px] text-gray-400 font-medium">{inc.asignado || 'Sin asignar'}</div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
