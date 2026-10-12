@@ -16,7 +16,6 @@ import { CrearMantenimientoDto } from './dto/crear-mantenimiento.dto';
 
 
 
-
 @Controller('activos')
 export class ActivosController {
   constructor(private readonly activosService: ActivosService) {}

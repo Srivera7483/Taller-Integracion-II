@@ -1,24 +1,9 @@
-import { IsUUID, IsDateString, IsNotEmpty, IsString, IsOptional, IsIn } from 'class-validator';
+import { IsDateString, IsUUID } from 'class-validator';
 
 export class CrearMantenimientoDto {
-  @IsUUID('4', { message: 'El id_activo debe ser un UUID válido.' })
-  @IsNotEmpty()
+  @IsUUID()
   id_activo: string;
 
-  @IsDateString({}, { message: 'La fecha_programada debe ser una cadena de fecha válida (ISO 8601).' })
-  @IsNotEmpty()
+  @IsDateString()
   fecha_programada: string;
-
-  @IsString()
-  @IsNotEmpty()
-  descripcion: string;
-
-  @IsString()
-  @IsNotEmpty()
-  tipo: string;
-
-  @IsString()
-  @IsOptional()
-  @IsIn(['Pendiente', 'En Progreso', 'Completado'])
-  estado?: string;
 }

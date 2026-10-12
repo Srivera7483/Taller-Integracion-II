@@ -40,14 +40,12 @@ model Activo {
 }
 
 model Mantenimiento {
-  id               String   @id @default(uuid())
+  id_mantenimiento String   @id @default(uuid())
   id_activo        String
   fecha_programada DateTime
-  descripcion      String
-  tipo             String
-  estado           String   @default("Pendiente")
+  fecha_creacion   DateTime @default(now())
 
   activo           Activo   @relation(fields: [id_activo], references: [id], onDelete: Cascade)
 
-  @@map("mantenimientos")
+  @@map("mantenimientos_preventivos")
 }
