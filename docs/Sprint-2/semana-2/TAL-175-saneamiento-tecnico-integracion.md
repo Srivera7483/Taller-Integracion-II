@@ -42,3 +42,35 @@ Resolver las desconexiones arquitectónicas y cabos sueltos existentes entre el 
 * **Archivos modificados:**
   * `ms-auth/src/auth/auth.module.ts`: Migración a `JwtModule.registerAsync` inyectando `ConfigService` de forma asíncrona reactiva.
 * **Verificación:** Ejecución de pruebas unitarias en `ms-auth` con Vitest pasando exitosamente.
+
+---
+
+## 3. Implementación Paso 2 (Nivel 2: Persistencia Real en Activos, Registro Web e Inventario Dinámico)
+* **Tiempo imputado:** 1 hora 20 minutos (`#time 1h 20m`)
+
+### 3.1. Conexión de Lectura y Validación a Base de Datos Prisma en `ms-activos`
+* **Problema resuelto:** En el Sprint 2 (PR #99), se incorporó persistencia Prisma en PostgreSQL para `crearMantenimiento`, pero todos los métodos de consulta (`validarCodigoQR`, `obtenerPorId`, `listarTodos`, `obtenerEstadisticas`) seguían consumiendo un array en memoria estático (`activosEnMemoria = []`). Esto causaba que los activos creados o sembrados en base de datos nunca aparecieran en listados ni pudieran ser validados por QR o escáner móvil.
+* **Archivos modificados:**
+  * `ms-activos/src/activos.service.ts`:
+    * `validarCodigoQR`: Consulta a `this.prisma.activo.findFirst` coincidiendo por `codigoQr` o `id`, manteniendo fallback seguro a memoria si la base de datos está offline.
+    * `obtenerPorId`: Vinculación a `this.prisma.activo.findUnique({ where: { id } })`.
+    * `listarTodos`: Vinculación a `this.prisma.activo.findMany({ orderBy: { fechaRegistro: 'desc' } })`.
+    * `obtenerEstadisticas`: Cálculo dinámico de totales y agrupaciones por estado/categoría directamente contra Prisma.
+
+### 3.2. Formulario de Registro Integral y Alineado en Frontend Web (`Login.jsx`)
+* **Problema resuelto:** El microservicio de autenticación (`ms-auth` - TAL-109) define reglas de validación DTO estrictas para `POST /auth/register`, requiriendo obligatoriamente: `rut_o_id`, `nombre`, `apellido`, `email` institucional (`@uct.cl`) y `password`. El formulario en `Login.jsx` únicamente renderizaba los campos de correo y contraseña, enviando un payload incompleto que fallaba invariablemente con `400 Bad Request`.
+* **Archivos modificados:**
+  * `frontend-web/src/Login.jsx`:
+    * Adición de campos para RUT/Identificador institucional, Nombre y Apellido en el modo de registro.
+    * Validación proactiva en frontend de correo institucional `@uct.cl`.
+    * Envío de payload completo y adaptado a `authService.register`.
+
+### 3.3. Inventario Conectado a Datos Reales (`Inventario.jsx`)
+* **Problema resuelto:** La vista de Inventario en el cliente web mostraba una constante estática fija (`EQUIPOS_BASE`), ignorando completamente la información proveniente del API Gateway (`/api/v1/activos`) y del microservicio de activos.
+* **Archivos modificados:**
+  * `frontend-web/src/views/Inventario.jsx`:
+    * Implementación de consumo asíncrono con `api.get('/activos')`.
+    * Normalización de estados enum (`OPERATIVO`, `EN_MANTENIMIENTO`, `EN_REVISION`, `DADO_DE_BAJA`) hacia etiquetas legibles.
+    * Inclusión de estados de carga, botón de actualización en tiempo real y fallback resiliente para garantizar operatividad continua.
+    * Vinculación de botones de acción hacia Trazabilidad (`/trazabilidad/:id`) y Reporte de Falla (`/incidencias/nueva?id_activo=...`) con los identificadores reales.
+
