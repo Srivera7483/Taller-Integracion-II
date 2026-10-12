@@ -34,27 +34,60 @@ const Dashboard = () => {
     cargarDatos();
   }, [showToast]);
 
-  // Métricas reactivas calculadas a partir de las incidencias locales
+  // Métricas reactivas calculadas a partir de las incidencias reales o locales
   const resumenMetricas = useMemo(() => {
     let resueltas = 0;
     let pendientes = 0;
     let criticas = 0;
 
     incidencias.forEach((item) => {
-      const est = (item.estado || '').toLowerCase();
-      if (est === 'resuelta' || est === 'completado') resueltas++;
-      if (est === 'pendiente' || est === 'reportada') pendientes++;
-      if (est === 'crítica' || est === 'alta') criticas++;
+      const estadoStr =
+        typeof item.estado === 'object' && item.estado !== null
+          ? item.estado.nombre_estado || ''
+          : String(item.estado || '');
+      const est = estadoStr.toLowerCase().trim();
+
+      if (est === 'resuelta' || est === 'completado' || est === 'completada' || est === 'cerrada') resueltas++;
+      if (est === 'pendiente' || est === 'reportada' || est === 'asignada') pendientes++;
+      if (est === 'crítica' || est === 'alta' || String(item.prioridad || '').toLowerCase() === 'alta') criticas++;
     });
 
     return { resueltas, pendientes, criticas };
   }, [incidencias]);
 
   const columns = [
-    { header: 'ID', accessorKey: 'id', cell: (row) => <span className="font-mono font-medium text-gray-500">{row.id}</span> },
-    { header: 'Descripción', accessorKey: 'descripcion', cell: (row) => <span className="font-medium text-gray-900">{row.descripcion}</span> },
-    { header: 'Estado', accessorKey: 'estado', cell: (row) => <StatusBadge status={row.estado} /> },
-    { header: 'Fecha', accessorKey: 'fecha' }
+    {
+      header: 'ID',
+      accessorKey: 'id',
+      cell: (row) => {
+        const idMostrar = row.id_incidencia || row.id || 'N/A';
+        const corto = typeof idMostrar === 'string' && idMostrar.length > 8 ? idMostrar.substring(0, 8) + '...' : idMostrar;
+        return <span className="font-mono font-medium text-gray-500" title={idMostrar}>{corto}</span>;
+      },
+    },
+    {
+      header: 'Descripción',
+      accessorKey: 'descripcion',
+      cell: (row) => <span className="font-medium text-gray-900">{row.descripcion || row.titulo || 'Sin descripción'}</span>,
+    },
+    {
+      header: 'Estado',
+      accessorKey: 'estado',
+      cell: (row) => {
+        const estadoNombre = typeof row.estado === 'object' && row.estado !== null ? row.estado.nombre_estado : row.estado;
+        return <StatusBadge status={estadoNombre || 'Reportada'} />;
+      },
+    },
+    {
+      header: 'Fecha',
+      accessorKey: 'fecha',
+      cell: (row) => {
+        const f = row.fecha_creacion || row.fecha;
+        if (!f) return <span className="text-gray-400">Reciente</span>;
+        const d = new Date(f);
+        return <span>{isNaN(d.getTime()) ? f : d.toLocaleDateString()}</span>;
+      },
+    },
   ];
 
   // Utilizamos las incidencias reales para llenar la tabla inferior

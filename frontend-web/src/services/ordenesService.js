@@ -10,38 +10,54 @@ export const getApiGatewayBaseUrl = () => {
   const envUrl =
     import.meta.env.VITE_API_GATEWAY_URL ||
     import.meta.env.VITE_API_URL ||
-    'http://localhost:3000/api';
+    'http://localhost:3000/api/v1';
   return envUrl.replace(/\/+$/, '');
 };
 
 /**
  * Construye la URL completa del endpoint de asignación de órdenes en el API Gateway.
- * Ruta esperada: /api/incidencias/ordenes-trabajo/asignar
+ * Ruta esperada en API Gateway: /api/v1/ordenes-trabajo/asignar
  */
 export const getAsignarOrdenEndpoint = () => {
   const baseUrl = getApiGatewayBaseUrl();
-  if (baseUrl.endsWith('/api')) {
-    return `${baseUrl}/incidencias/ordenes-trabajo/asignar`;
+  if (baseUrl.endsWith('/v1')) {
+    return `${baseUrl}/ordenes-trabajo/asignar`;
   }
-  return `${baseUrl}/api/incidencias/ordenes-trabajo/asignar`;
+  if (baseUrl.endsWith('/api')) {
+    return `${baseUrl}/v1/ordenes-trabajo/asignar`;
+  }
+  return `${baseUrl}/api/v1/ordenes-trabajo/asignar`;
 };
 
 /**
  * Consume de forma asíncrona el endpoint de creación/asignación de órdenes en el API Gateway.
  *
  * @param {Object} params
- * @param {string} params.incidencia_id - Identificador único de la incidencia
- * @param {string} params.tecnico_id - Identificador del técnico seleccionado
- * @param {string} [params.instrucciones] - Instrucciones u observaciones del supervisor
+ * @param {string} [params.id_incidencia] - Identificador único de la incidencia (UUID)
+ * @param {string} [params.incidencia_id] - Fallback de ID de incidencia
+ * @param {string} [params.id_tecnico] - Identificador del técnico seleccionado (UUID)
+ * @param {string} [params.tecnico_id] - Fallback de ID del técnico
+ * @param {string} [params.diagnostico_tecnico] - Diagnóstico o instrucciones técnicas
+ * @param {string} [params.instrucciones] - Fallback de instrucciones del supervisor
  * @returns {Promise<{ ok: boolean, status: number, data: any, endpoint: string }>}
  */
-export async function crearOrdenTrabajoApi({ incidencia_id, tecnico_id, instrucciones }) {
+export async function crearOrdenTrabajoApi(params = {}) {
   const endpoint = getAsignarOrdenEndpoint();
 
+  const idIncidencia = String(params.id_incidencia || params.incidencia_id || '').trim();
+  const idTecnico = String(params.id_tecnico || params.tecnico_id || '').trim();
+  const diagnostico = typeof params.diagnostico_tecnico === 'string'
+    ? params.diagnostico_tecnico.trim()
+    : (typeof params.instrucciones === 'string' ? params.instrucciones.trim() : '');
+
   const payload = {
-    incidencia_id: String(incidencia_id).trim(),
-    tecnico_id: String(tecnico_id).trim(),
-    instrucciones: typeof instrucciones === 'string' ? instrucciones.trim() : '',
+    id_incidencia: idIncidencia,
+    id_tecnico: idTecnico,
+    diagnostico_tecnico: diagnostico,
+    // Compatibilidad retroactiva para vistas anteriores:
+    incidencia_id: idIncidencia,
+    tecnico_id: idTecnico,
+    instrucciones: diagnostico,
   };
 
   const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
