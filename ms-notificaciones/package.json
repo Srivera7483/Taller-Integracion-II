@@ -4,22 +4,21 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
-    "start": "node dist/main.js",
-    "start:dev": "nest start --watch"
+    "build": "node --check src/main.js && node --check src/app.module.js && node --check src/notificaciones/notificaciones.module.js && node --check src/notificaciones/notificaciones.controller.js && node --check src/notificaciones/notificaciones.service.js && node --check src/notificaciones/dto/create-notificacion.dto.js",
+    "start": "node src/main.js",
+    "start:dev": "node --watch src/main.js"
   },
   "dependencies": {
+    "@nestjs-modules/mailer": "^3.0.2",
     "@nestjs/common": "^12.0.1",
+    "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^12.0.1",
     "@nestjs/platform-express": "^12.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "handlebars": "^4.7.10",
+    "nodemailer": "^10.0.16",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
-  },
-  "devDependencies": {
-    "@nestjs/cli": "^12.0.0",
-    "@types/node": "^24.0.0",
-    "typescript": "^6.0.2"
   }
 }
