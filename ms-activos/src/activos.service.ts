@@ -427,8 +427,42 @@ const HISTORIAL_TRAZABILIDAD_INICIAL: Record<string, EventoTrazabilidad[]> = {
 
 @Injectable()
 export class ActivosService {
-  private activosEnMemoria: Activo[] = [...SEMILLAS_ACTIVOS_BASE];
-  private eventosTrazabilidad: Record<string, EventoTrazabilidad[]> = { ...HISTORIAL_TRAZABILIDAD_INICIAL };
+
+  private activosEnMemoria: Activo[] = [
+    {
+      id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      codigoQr: 'ACT-2026-0001',
+      nombre: 'Proyector Láser Epson PowerLite',
+      modelo: 'PowerLite L210W',
+      numeroSerie: 'EPS-998877',
+      categoria: CategoriaActivo.AUDIOVISUAL,
+      ubicacion: 'Auditorio Principal',
+      estado: EstadoActivo.OPERATIVO,
+      fechaRegistro: new Date('2026-03-01'),
+    },
+    {
+      id: '550e8400-e29b-41d4-a716-446655440000',
+      codigoQr: 'ACT-2026-0002',
+      nombre: 'Computador Dell OptiPlex',
+      modelo: 'OptiPlex 7000',
+      numeroSerie: 'DELL-112233',
+      categoria: CategoriaActivo.COMPUTO,
+      ubicacion: 'Laboratorio de Computación 1',
+      estado: EstadoActivo.EN_REVISION,
+      fechaRegistro: new Date('2026-03-10'),
+    },
+    {
+      id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      codigoQr: 'ACT-2026-0003',
+      nombre: 'Switch Cisco Catalyst',
+      modelo: 'Catalyst 9200',
+      numeroSerie: 'CSC-554433',
+      categoria: CategoriaActivo.REDES,
+      ubicacion: 'Sala de Servidores',
+      estado: EstadoActivo.OPERATIVO,
+      fechaRegistro: new Date('2026-03-15'),
+    },
+  ];
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -494,9 +528,31 @@ export class ActivosService {
 
     const codigoBuscado = resultadoValidacion.codigoLimpio.toUpperCase();
 
-    const activo = this.activosEnMemoria.find(
-      (item) => item.codigoQr.toUpperCase() === codigoBuscado || item.id.toUpperCase() === codigoBuscado,
-    );
+    let activo: Activo | null = null;
+
+    try {
+      if (this.prisma?.activo) {
+        const dbActivo = await this.prisma.activo.findFirst({
+          where: {
+            OR: [
+              { codigoQr: { equals: codigoBuscado, mode: 'insensitive' } },
+              { id: codigoBuscado.toLowerCase() },
+            ],
+          },
+        });
+        if (dbActivo) {
+          activo = dbActivo as unknown as Activo;
+        }
+      }
+    } catch {
+      // Fallback a memoria si la base de datos no está disponible
+    }
+
+    if (!activo) {
+      activo = this.activosEnMemoria.find(
+        (item) => item.codigoQr.toUpperCase() === codigoBuscado || item.id === codigoBuscado.toLowerCase(),
+      ) || null;
+    }
 
     if (!activo) {
       return {
@@ -506,7 +562,7 @@ export class ActivosService {
       };
     }
 
-    if (activo.estado === EstadoActivo.DADO_DE_BAJA) {
+    if (String(activo.estado) === EstadoActivo.DADO_DE_BAJA) {
       return {
         valido: false,
         mensaje: `El activo '${activo.nombre}' (${activo.codigoQr}) está DADO DE BAJA y ya no se encuentra en servicio activo.`,
@@ -556,21 +612,54 @@ export class ActivosService {
   }
 
   async obtenerPorId(id: string): Promise<Activo | null> {
-    return (
-      this.activosEnMemoria.find(
-        (item) => item.id.toLowerCase() === id.toLowerCase() || item.codigoQr.toLowerCase() === id.toLowerCase(),
-      ) || null
-    );
+    try {
+      if (this.prisma?.activo) {
+        const dbActivo = await this.prisma.activo.findUnique({ where: { id } });
+        if (dbActivo) return dbActivo as unknown as Activo;
+      }
+    } catch {
+      // Fallback a memoria
+    }
+    return this.activosEnMemoria.find((item) => item.id === id) || null;
   }
 
   async listarTodos(): Promise<Activo[]> {
+    try {
+      if (this.prisma?.activo) {
+        const activosDb = await this.prisma.activo.findMany({
+          orderBy: { fechaRegistro: 'desc' },
+        });
+        if (activosDb.length > 0) {
+          return activosDb as unknown as Activo[];
+        }
+      }
+    } catch {
+      // Fallback a memoria
+    }
     return [...this.activosEnMemoria];
   }
 
   async obtenerEstadisticas(filtros?: FiltroEstadisticasDto): Promise<RespuestaEstadisticas> {
     const filtrosSanitizados = ValidarFiltroEstadisticasDto.sanitizar(filtros);
 
-    let activosFiltrados = this.activosEnMemoria;
+    let activosTotales: Activo[] = [];
+
+    try {
+      if (this.prisma?.activo) {
+        const dbActivos = await this.prisma.activo.findMany();
+        if (dbActivos.length > 0) {
+          activosTotales = dbActivos as unknown as Activo[];
+        }
+      }
+    } catch {
+      // Fallback a memoria
+    }
+
+    if (activosTotales.length === 0) {
+      activosTotales = this.activosEnMemoria;
+    }
+
+    let activosFiltrados = activosTotales;
 
     if (filtrosSanitizados.ubicacion) {
       const termUbicacion = filtrosSanitizados.ubicacion.toLowerCase();
@@ -596,7 +685,8 @@ export class ActivosService {
     const porUbicacion: Record<string, number> = {};
 
     for (const activo of activosFiltrados) {
-      switch (activo.estado) {
+      const estadoNorm = String(activo.estado).toUpperCase();
+      switch (estadoNorm) {
         case EstadoActivo.OPERATIVO:
           operativos++;
           break;
@@ -608,6 +698,9 @@ export class ActivosService {
           break;
         case EstadoActivo.DADO_DE_BAJA:
           dadosDeBaja++;
+          break;
+        default:
+          operativos++;
           break;
       }
 

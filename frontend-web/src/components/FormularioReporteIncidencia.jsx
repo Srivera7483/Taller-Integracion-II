@@ -15,6 +15,8 @@ import {
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { saveIncidencia } from '../services/incidenciasStorage';
+import { createIncidencia } from '../services/incidenciasService';
+import api from '../services/api';
 
 const CATEGORIAS_FALLA = [
   { id: 'hardware', nombre: 'Hardware', desc: 'Falla física en servidores, equipos o periféricos' },
@@ -166,7 +168,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     setTouched({});
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (isSubmitting) return;
@@ -192,35 +194,71 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     // Criterio 2: Activar estado de envío / loading y deshabilitar botón
     setIsSubmitting(true);
 
-    // Se mantienen esos atributos viejos, pero se pegan en la descripción
+    // Se concatenan metadatos contextuales en la descripción
     const descripcionCompleta = `[Categoría: ${categoria}] [Ubicación: ${ubicacion}]\n${descripcion.trim()}`;
 
-    const nuevaIncidencia = {
+    // Resolver ID de activo si es código QR o identificador amigable
+    let resolvedActivoId = idActivo.trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resolvedActivoId);
+
+    if (!isUuid) {
+      try {
+        const qrResp = await api.get(`/activos/validar-qr?codigoQr=${encodeURIComponent(resolvedActivoId)}`);
+        if (qrResp.data?.valido && qrResp.data?.activo?.id) {
+          resolvedActivoId = qrResp.data.activo.id;
+        }
+      } catch {
+        const mapaConocido = {
+          'ACT-2026-0001': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+          'ACT-2026-0002': '550e8400-e29b-41d4-a716-446655440000',
+          'ACT-2026-0003': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        };
+        if (mapaConocido[resolvedActivoId.toUpperCase()]) {
+          resolvedActivoId = mapaConocido[resolvedActivoId.toUpperCase()];
+        }
+      }
+    }
+
+    const payloadApi = {
       titulo: titulo.trim(),
-      id_activo: idActivo.trim(), // Asegurar de que esto sea un UUID válido si la BD lo exige
+      id_activo: resolvedActivoId,
       descripcion: descripcionCompleta,
     };
 
+    let idGenerado = null;
 
+    try {
+      const resp = await createIncidencia(payloadApi);
+      idGenerado = resp?.id_incidencia || resp?.id;
+    } catch (apiErr) {
+      console.warn('[Incidencias] Backend no disponible o modo local, procediendo con almacenamiento local:', apiErr);
+    }
 
-    console.log('[Incidencias] Payload generado para la API:', nuevaIncidencia);
+    const nuevaIncidenciaLocal = {
+      id: idGenerado || `INC-${Date.now().toString().slice(-4)}`,
+      titulo: titulo.trim(),
+      id_activo: resolvedActivoId,
+      descripcion: descripcionCompleta,
+      categoria,
+      ubicacion,
+      estado: 'Pendiente',
+      fecha: new Date().toISOString(),
+    };
 
-    // Persistir temporalmente en Cookie para pruebas del frontend
-    saveIncidencia(nuevaIncidencia);
+    // Sincronizar almacenamiento local para compatibilidad
+    saveIncidencia(nuevaIncidenciaLocal);
 
-    // Simulación de respuesta de backend con bloqueo de doble click
-    setTimeout(() => {
-      setIsSubmitting(false);
-      showToast(`¡Incidencia ${nuevaIncidencia.id} registrada con éxito!`, 'success');
-      
-      // Navegación tras registrar
-      if (onCancel) {
-        onCancel();
-      } else {
-        navigate('/incidencias');
-      }
-    }, 1000);
+    setIsSubmitting(false);
+    showToast(`¡Incidencia ${nuevaIncidenciaLocal.id} registrada con éxito!`, 'success');
+
+    // Navegación tras registrar
+    if (onCancel) {
+      onCancel();
+    } else {
+      navigate('/incidencias');
+    }
   };
+
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-8">

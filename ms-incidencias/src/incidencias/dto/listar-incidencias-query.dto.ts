@@ -16,6 +16,25 @@ export class ListarIncidenciasQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(50)
+  @Max(100)
   limite?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  pagina?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
 }
