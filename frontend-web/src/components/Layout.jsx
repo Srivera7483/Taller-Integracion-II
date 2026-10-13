@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity } from 'react-icons/fi';
 import SelectorTecnicoSesion from './SelectorTecnicoSesion';
+import NotificacionesDropdown from './NotificacionesDropdown';
 
 const Layout = () => {
   const location = useLocation();
@@ -106,6 +107,7 @@ const Layout = () => {
             <h2 className="text-lg sm:text-xl font-semibold text-gray-800 truncate">{getPageTitle()}</h2>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <NotificacionesDropdown />
             <SelectorTecnicoSesion />
             <button
               onClick={handleLogout}
