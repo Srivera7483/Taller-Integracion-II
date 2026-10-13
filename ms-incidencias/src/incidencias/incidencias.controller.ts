@@ -2,11 +2,8 @@ import {
   Body,
   Controller,
   Get,
-<<<<<<< HEAD
   HttpStatus,
-=======
   UnauthorizedException,
->>>>>>> origin/TAL-113
   Param,
   ParseFilePipeBuilder,
   ParseUUIDPipe,
@@ -32,7 +29,7 @@ import { IncidenciasService } from './incidencias.service';
 @Controller('incidencias')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class IncidenciasController {
-  constructor(private readonly incidenciasService: IncidenciasService) {}
+  constructor(private readonly incidenciasService: IncidenciasService) { }
 
   @Get()
   listar(@Query() query: ListarIncidenciasQueryDto) {
@@ -44,14 +41,9 @@ export class IncidenciasController {
     @Body() body: CrearIncidenciaDto,
     @CurrentUser() usuario: JwtUser,
   ) {
-<<<<<<< HEAD
-    const idUsuario = (usuario.sub || usuario.userId) as string;
-    return this.incidenciasService.crear(body, idUsuario);
-=======
     const idUsuario = usuario.sub || usuario.userId;
     if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
     return this.incidenciasService.crear(body, idUsuario, usuario.email);
->>>>>>> origin/TAL-113
   }
 
   @Get(':id_incidencia')
@@ -66,20 +58,15 @@ export class IncidenciasController {
     @Body() body: ActualizarEstadoDto,
     @CurrentUser() usuario: JwtUser,
   ) {
-<<<<<<< HEAD
-    const idUsuario = (usuario.sub || usuario.userId) as string;
-    const rolUsuario = (usuario.rol || usuario.role) as string;
-=======
     const idUsuario = usuario.sub || usuario.userId;
     const rolUsuario = usuario.rol || usuario.role;
     if (!idUsuario || !rolUsuario) {
       throw new UnauthorizedException('Usuario autenticado inválido');
     }
->>>>>>> origin/TAL-113
-    
+
     return this.incidenciasService.actualizarEstado(
       incidenciaId,
-      body.id_estado, 
+      body.id_estado,
       idUsuario,
       rolUsuario,
       usuario.email,
@@ -92,17 +79,12 @@ export class IncidenciasController {
     @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
     @CurrentUser() usuario: JwtUser,
   ) {
-<<<<<<< HEAD
-    const idUsuario = (usuario.sub || usuario.userId) as string;
-    const rolUsuario = (usuario.rol || usuario.role) as string;
-=======
     const idUsuario = usuario.sub || usuario.userId;
     const rolUsuario = usuario.rol || usuario.role;
     if (!idUsuario || !rolUsuario) {
       throw new UnauthorizedException('Usuario autenticado inválido');
     }
->>>>>>> origin/TAL-113
-    
+
     return this.incidenciasService.resolverIncidencia(
       idIncidencia,
       idUsuario,

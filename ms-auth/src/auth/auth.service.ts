@@ -127,7 +127,7 @@ export class AuthService {
   async listUsers(page: number = 1, limit: number = 15) {
     const { usuarios, total, totalPages } = await this.userRepository.findMany(page, limit);
     return {
-      datos: usuarios.map((user) => ({
+      datos: usuarios.map((user: any) => ({
         id_usuario: user.id,
         rut_o_id: user.rut_o_id,
         nombre: user.nombre,
