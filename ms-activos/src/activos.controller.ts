@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Query, NotFoundException, BadRequestException, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { ActivosService } from './activos.service';
 import {
   RespuestaValidacionQR,
@@ -7,20 +16,12 @@ import {
   FiltroEstadisticasDto,
   Activo,
 } from './interfaces/activo.interface';
-import { CrearMantenimientoDto } from './dto/crear-mantenimiento.dto';
-//import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-//import { RolesGuard } from '../auth/guards/roles.guard';
-//import { Roles } from '../auth/decorators/roles.decorator';
-
-
-
-
-
+import { RespuestaTrazabilidadActivo } from './interfaces/trazabilidad.interface';
+import { TrazabilidadQueryDto } from './dto/trazabilidad-query.dto';
 
 @Controller('activos')
 export class ActivosController {
   constructor(private readonly activosService: ActivosService) {}
-
 
   @Get('validar-qr')
   async validarCodigoQr(@Query('codigoQr') codigoQr: string): Promise<RespuestaValidacionQR> {
@@ -51,6 +52,14 @@ export class ActivosController {
   @Get('estadisticas')
   async obtenerEstadisticas(@Query() filtros?: FiltroEstadisticasDto): Promise<RespuestaEstadisticas> {
     return this.activosService.obtenerEstadisticas(filtros);
+  }
+
+  @Get(':id/trazabilidad')
+  async obtenerTrazabilidad(
+    @Param('id') id: string,
+    @Query() query?: TrazabilidadQueryDto,
+  ): Promise<RespuestaTrazabilidadActivo> {
+    return this.activosService.obtenerTrazabilidad(id, query);
   }
 
   @Get()
