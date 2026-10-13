@@ -15,6 +15,9 @@ const Layout = () => {
     if (location.pathname.startsWith('/incidencias/asignar')) {
       return 'Asignar Técnico';
     }
+    if (location.pathname.startsWith('/mantenimientos')) {
+      return 'Planificación de Mantenimiento Preventivo';
+    }
     if (location.pathname.includes('/trazabilidad')) {
       return 'Trazabilidad y Ciclo de Vida del Activo';
     }
