@@ -17,6 +17,10 @@ import sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
+import { PrioridadDinamicaService } from './prioridad-dinamica.service';
+import type { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
+import { ExportarIncidenciasService } from './exportar-incidencias.service';
+import type { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 
 const incidenciaConEstadoActual = {
   include: {
@@ -27,7 +31,11 @@ const incidenciaConEstadoActual = {
     },
     evidencias: {
       select: { url_cloudinary: true }
-    }
+    },
+    ordenes_trabajo: {
+      take: 1,
+      orderBy: { fecha_creacion: 'desc' as const },
+    },
   },
 } satisfies Prisma.IncidenciasDefaultArgs;
 
@@ -40,10 +48,16 @@ export class IncidenciasService {
   private readonly notificacionesUrl =
     process.env.MS_NOTIFICACIONES_URL ??
     'http://ms-notificaciones:3004/notificar';
+  private readonly activosUrl =
+    process.env.MS_ACTIVOS_URL ?? 'http://localhost:3003';
+  private readonly authUrl =
+    process.env.MS_AUTH_URL ?? 'http://localhost:3001';
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
+    private readonly prioridadDinamicaService: PrioridadDinamicaService = new PrioridadDinamicaService(),
+    private readonly exportarIncidenciasService: ExportarIncidenciasService = new ExportarIncidenciasService(),
   ) {}
 
   async listar(query: ListarIncidenciasQueryDto) {
@@ -445,7 +459,9 @@ export class IncidenciasService {
   }
 
   private toApiIncidencia(incidencia: IncidenciaConEstadoActual) {
-    const estado = incidencia.historial_estados[0]?.estado;
+    const estado = incidencia.historial_estados?.[0]?.estado;
+    const calculo = this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia);
+
     return {
       id_incidencia: incidencia.id_incidencia,
       id_activo: incidencia.id_activo,
@@ -455,7 +471,162 @@ export class IncidenciasService {
       estado: estado || null,
       evidencias: incidencia.evidencias?.map(e => e.url_cloudinary) || [],
       fecha_creacion: incidencia.fecha_creacion,
+      // Prioridad Dinámica por Antigüedad (TAL-115)
+      prioridad: calculo.prioridad_relativa,
+      prioridad_original: calculo.prioridad_original,
+      prioridad_relativa: calculo.prioridad_relativa,
+      escalada: calculo.escalada,
+      tiempo_inactividad_horas: calculo.tiempo_inactividad_horas,
+      antiguedad_dias: calculo.antiguedad_dias,
+      motivo_escalamiento: calculo.motivo_escalamiento,
     };
+  }
+
+  /**
+   * TAL-115: Reporte consolidado de prioridades dinámicas y escalamiento
+   */
+  async obtenerReportePrioridades(query?: PrioridadDinamicaQueryDto) {
+    const incidencias = await this.prisma.incidencias.findMany({
+      ...incidenciaConEstadoActual,
+      orderBy: { fecha_creacion: 'asc' },
+    });
+
+    return this.prioridadDinamicaService.generarReporte(incidencias, query);
+  }
+
+  /**
+   * TAL-115: Obtiene el cálculo detallado de prioridad dinámica para una incidencia puntual
+   */
+  async obtenerPrioridadDinamica(id: string, query?: PrioridadDinamicaQueryDto) {
+    const incidencia = await this.prisma.incidencias.findUnique({
+      where: { id_incidencia: id },
+      ...incidenciaConEstadoActual,
+    });
+
+    if (!incidencia) throw new NotFoundException('Incidencia no encontrada');
+
+    const calculo = this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia, {
+      excluirFinesDeSemana: Boolean(query?.excluir_fines_de_semana),
+    });
+
+    return {
+      valido: true,
+      id_incidencia: incidencia.id_incidencia,
+      titulo: incidencia.titulo,
+      id_activo: incidencia.id_activo,
+      fecha_creacion: incidencia.fecha_creacion,
+      ...calculo,
+    };
+  }
+
+  /**
+   * TAL-117: Exporta el historial de incidencias a formato Excel (.xlsx) o CSV (.csv) con cruce de datos
+   */
+  async exportarIncidencias(query?: ExportarIncidenciasQueryDto) {
+    const where: Prisma.IncidenciasWhereInput = {};
+
+    if (query?.id_activo) {
+      where.id_activo = query.id_activo;
+    }
+
+    if (query?.fecha_inicio || query?.fecha_fin) {
+      where.fecha_creacion = {};
+      if (query.fecha_inicio) {
+        where.fecha_creacion.gte = new Date(query.fecha_inicio);
+      }
+      if (query.fecha_fin) {
+        where.fecha_creacion.lte = new Date(query.fecha_fin);
+      }
+    }
+
+    const incidencias = await this.prisma.incidencias.findMany({
+      where,
+      ...incidenciaConEstadoActual,
+      orderBy: { fecha_creacion: 'desc' },
+    });
+
+    // Si se especificó filtro de estado, filtrar por el estado actual de la incidencia
+    const filtradas =
+      query?.id_estado !== undefined && query?.id_estado !== null
+        ? incidencias.filter(
+            (inc) =>
+              inc.historial_estados?.[0]?.estado?.id_estado ===
+              Number(query.id_estado),
+          )
+        : incidencias;
+
+    // Obtener mapas para cruce de datos (Activo, Reportante, Técnico)
+    const activosPorId = await this.resolverActivos();
+    const usuariosPorId = await this.resolverUsuarios();
+
+    const filas = this.exportarIncidenciasService.construirFilas(filtradas, {
+      activosPorId,
+      usuariosPorId,
+    });
+
+    return this.exportarIncidenciasService.generarArchivo(
+      filas,
+      query?.formato ?? 'xlsx',
+    );
+  }
+
+  private async resolverActivos(): Promise<
+    Map<string, { nombre: string; codigoQr?: string }>
+  > {
+    const mapa = new Map<string, { nombre: string; codigoQr?: string }>();
+    try {
+      const resp = await firstValueFrom(
+        this.httpService.get(`${this.activosUrl}/api/v1/activos`, {
+          timeout: 1500,
+        }),
+      );
+      const items = resp.data?.datos || resp.data;
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (item?.id) {
+            mapa.set(item.id, {
+              nombre: item.nombre || 'Activo sin nombre',
+              codigoQr: item.codigoQr,
+            });
+          }
+        }
+      }
+    } catch {
+      // Fallback a semillas locales y UUID si ms-activos no está disponible
+    }
+    return mapa;
+  }
+
+  private async resolverUsuarios(): Promise<
+    Map<string, { nombre: string; apellido?: string; email?: string }>
+  > {
+    const mapa = new Map<
+      string,
+      { nombre: string; apellido?: string; email?: string }
+    >();
+    try {
+      const resp = await firstValueFrom(
+        this.httpService.get(`${this.authUrl}/auth/usuarios`, {
+          timeout: 1500,
+        }),
+      );
+      const items = resp.data?.datos || resp.data;
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          const id = item?.id || item?.userId;
+          if (id) {
+            mapa.set(id, {
+              nombre: item.nombre || 'Usuario',
+              apellido: item.apellido,
+              email: item.email,
+            });
+          }
+        }
+      }
+    } catch {
+      // Fallback a semillas locales y UUID si ms-auth no está disponible
+    }
+    return mapa;
   }
 
   private toApiEvidencia(evidencia: any) {

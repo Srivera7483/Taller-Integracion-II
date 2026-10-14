@@ -10,10 +10,13 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -24,6 +27,8 @@ import { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
 import { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
 import { ActualizarEstadoDto } from './dto/actualizar-estado.dto';
 import { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
+import { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
+import { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { IncidenciasService } from './incidencias.service';
 
 @Controller('incidencias')
@@ -36,6 +41,27 @@ export class IncidenciasController {
     return this.incidenciasService.listar(query);
   }
 
+  @Get('prioridades-dinamicas')
+  obtenerReportePrioridades(@Query() query: PrioridadDinamicaQueryDto) {
+    return this.incidenciasService.obtenerReportePrioridades(query);
+  }
+
+  @Get('exportar')
+  async exportar(
+    @Query() query: ExportarIncidenciasQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const resultado = await this.incidenciasService.exportarIncidencias(query);
+
+    res.setHeader('Content-Type', resultado.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${resultado.filename}"`,
+    );
+
+    return new StreamableFile(resultado.buffer);
+  }
+
   @Post()
   crear(
     @Body() body: CrearIncidenciaDto,
@@ -44,6 +70,14 @@ export class IncidenciasController {
     const idUsuario = usuario.sub || usuario.userId;
     if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
     return this.incidenciasService.crear(body, idUsuario, usuario.email);
+  }
+
+  @Get(':id_incidencia/prioridad-dinamica')
+  obtenerPrioridadDinamica(
+    @Param('id_incidencia', ParseUUIDPipe) id: string,
+    @Query() query: PrioridadDinamicaQueryDto,
+  ) {
+    return this.incidenciasService.obtenerPrioridadDinamica(id, query);
   }
 
   @Get(':id_incidencia')
