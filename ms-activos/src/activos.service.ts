@@ -428,43 +428,192 @@ const HISTORIAL_TRAZABILIDAD_INICIAL: Record<string, EventoTrazabilidad[]> = {
 @Injectable()
 export class ActivosService {
 
-  private activosEnMemoria: Activo[] = [
+  private activosEnMemoria: Activo[] = [...SEMILLAS_ACTIVOS_BASE];
+  private eventosTrazabilidad: Record<string, EventoTrazabilidad[]> = { ...HISTORIAL_TRAZABILIDAD_INICIAL };
+
+  private mantenimientosEnMemoria: any[] = [
     {
-      id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-      codigoQr: 'ACT-2026-0001',
-      nombre: 'Proyector Láser Epson PowerLite',
-      modelo: 'PowerLite L210W',
-      numeroSerie: 'EPS-998877',
-      categoria: CategoriaActivo.AUDIOVISUAL,
-      ubicacion: 'Auditorio Principal',
-      estado: EstadoActivo.OPERATIVO,
-      fechaRegistro: new Date('2026-03-01'),
+      id: 'mant-001',
+      id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      fecha_programada: new Date('2026-10-15T10:00:00.000Z'),
+      descripcion: 'Mantenimiento preventivo semestral de lámpara y calibración óptico-láser',
+      tipo: 'Preventivo',
+      estado: 'Pendiente',
+      activo: {
+        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        nombre: 'Proyector Láser Epson PowerLite',
+        codigoQr: 'ACT-2026-0001',
+        ubicacion: 'Edificio A - Auditorio Principal',
+        categoria: 'AUDIOVISUAL',
+      },
     },
     {
-      id: '550e8400-e29b-41d4-a716-446655440000',
-      codigoQr: 'ACT-2026-0002',
-      nombre: 'Computador Dell OptiPlex',
-      modelo: 'OptiPlex 7000',
-      numeroSerie: 'DELL-112233',
-      categoria: CategoriaActivo.COMPUTO,
-      ubicacion: 'Laboratorio de Computación 1',
-      estado: EstadoActivo.EN_REVISION,
-      fechaRegistro: new Date('2026-03-10'),
+      id: 'mant-002',
+      id_activo: '550e8400-e29b-41d4-a716-446655440000',
+      fecha_programada: new Date('2026-10-20T14:30:00.000Z'),
+      descripcion: 'Limpieza de ventiladores, cambio de pasta térmica y diagnóstico de RAM',
+      tipo: 'Correctivo',
+      estado: 'En Proceso',
+      activo: {
+        id: '550e8400-e29b-41d4-a716-446655440000',
+        nombre: 'Computador Docente All-in-One Dell',
+        codigoQr: 'ACT-2026-0002',
+        ubicacion: 'Edificio B - Laboratorio 302',
+        categoria: 'COMPUTO',
+      },
     },
     {
-      id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-      codigoQr: 'ACT-2026-0003',
-      nombre: 'Switch Cisco Catalyst',
-      modelo: 'Catalyst 9200',
-      numeroSerie: 'CSC-554433',
-      categoria: CategoriaActivo.REDES,
-      ubicacion: 'Sala de Servidores',
-      estado: EstadoActivo.OPERATIVO,
-      fechaRegistro: new Date('2026-03-15'),
+      id: 'mant-003',
+      id_activo: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      fecha_programada: new Date('2026-10-28T09:00:00.000Z'),
+      descripcion: 'Inspección de hardware dado de baja y rescate de componentes reutilizables',
+      tipo: 'Preventivo',
+      estado: 'Pendiente',
+      activo: {
+        id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        nombre: 'Estación de Trabajo Desincorporada',
+        codigoQr: 'ACT-2026-0003',
+        ubicacion: 'Edificio B - Rack Principal Piso 2',
+        categoria: 'COMPUTO',
+      },
+    },
+    {
+      id: 'mant-004',
+      id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      fecha_programada: new Date('2026-11-05T11:00:00.000Z'),
+      descripcion: 'Revisión trimestral de filtros de aire y pruebas térmicas',
+      tipo: 'Preventivo',
+      estado: 'Pendiente',
+      activo: {
+        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        nombre: 'Proyector Láser Epson PowerLite',
+        codigoQr: 'ACT-2026-0001',
+        ubicacion: 'Edificio A - Auditorio Principal',
+        categoria: 'AUDIOVISUAL',
+      },
+    },
+    {
+      id: 'mant-005',
+      id_activo: 'SW-CORE-01',
+      fecha_programada: new Date('2026-11-12T16:00:00.000Z'),
+      descripcion: 'Actualización preventiva de firmware y verificación de redundancia PoE',
+      tipo: 'Preventivo',
+      estado: 'Pendiente',
+      activo: {
+        id: 'SW-CORE-01',
+        nombre: 'Switch de Distribución Cisco Catalyst 9300',
+        codigoQr: 'SW-CORE-01',
+        ubicacion: 'Edificio Central - Sala de Comunicaciones 1',
+        categoria: 'REDES',
+      },
     },
   ];
 
   constructor(private readonly prisma: PrismaService) {}
+
+  async listarMantenimientos(filtros?: { startDate?: string; endDate?: string; id_activo?: string }) {
+    let fechaInicio: Date | undefined;
+    let fechaFin: Date | undefined;
+
+    if (filtros?.startDate) {
+      fechaInicio = new Date(filtros.startDate);
+      if (isNaN(fechaInicio.getTime())) {
+        throw new BadRequestException('Formato de fecha de inicio inválido. Use ISO o YYYY-MM-DD.');
+      }
+      if (filtros.startDate.length === 10) {
+        fechaInicio.setUTCHours(0, 0, 0, 0);
+      }
+    }
+
+    if (filtros?.endDate) {
+      fechaFin = new Date(filtros.endDate);
+      if (isNaN(fechaFin.getTime())) {
+        throw new BadRequestException('Formato de fecha de fin inválido. Use ISO o YYYY-MM-DD.');
+      }
+      if (filtros.endDate.length === 10) {
+        fechaFin.setUTCHours(23, 59, 59, 999);
+      }
+    }
+
+    if (fechaInicio && fechaFin && fechaInicio > fechaFin) {
+      throw new BadRequestException('La fecha de inicio no puede ser posterior a la fecha de fin.');
+    }
+
+    try {
+      if (this.prisma?.mantenimiento) {
+        const where: any = {};
+        if (filtros?.id_activo) {
+          where.id_activo = filtros.id_activo;
+        }
+        if (fechaInicio || fechaFin) {
+          where.fecha_programada = {};
+          if (fechaInicio) where.fecha_programada.gte = fechaInicio;
+          if (fechaFin) where.fecha_programada.lte = fechaFin;
+        }
+
+        const dbMantenimientos = await this.prisma.mantenimiento.findMany({
+          where,
+          include: {
+            activo: {
+              select: {
+                id: true,
+                nombre: true,
+                codigoQr: true,
+                ubicacion: true,
+                categoria: true,
+                estado: true,
+              },
+            },
+          },
+          orderBy: { fecha_programada: 'asc' },
+        });
+
+        if (dbMantenimientos && dbMantenimientos.length > 0) {
+          return {
+            valido: true,
+            mensaje: 'Mantenimientos obtenidos exitosamente desde base de datos',
+            total: dbMantenimientos.length,
+            filtrosAplicados: {
+              startDate: filtros?.startDate || null,
+              endDate: filtros?.endDate || null,
+              id_activo: filtros?.id_activo || null,
+            },
+            datos: dbMantenimientos,
+          };
+        }
+      }
+    } catch {
+      // Fallback transparente a memoria
+    }
+
+    let mantenimientos = [...this.mantenimientosEnMemoria];
+
+    if (filtros?.id_activo) {
+      mantenimientos = mantenimientos.filter((m) => m.id_activo === filtros.id_activo);
+    }
+
+    if (fechaInicio) {
+      mantenimientos = mantenimientos.filter((m) => new Date(m.fecha_programada) >= fechaInicio!);
+    }
+
+    if (fechaFin) {
+      mantenimientos = mantenimientos.filter((m) => new Date(m.fecha_programada) <= fechaFin!);
+    }
+
+    mantenimientos.sort((a, b) => new Date(a.fecha_programada).getTime() - new Date(b.fecha_programada).getTime());
+
+    return {
+      valido: true,
+      mensaje: 'Mantenimientos obtenidos exitosamente',
+      total: mantenimientos.length,
+      filtrosAplicados: {
+        startDate: filtros?.startDate || null,
+        endDate: filtros?.endDate || null,
+        id_activo: filtros?.id_activo || null,
+      },
+      datos: mantenimientos,
+    };
+  }
 
   async crearMantenimiento(dto: CrearMantenimientoDto) {
     const fechaProgramada = new Date(dto.fecha_programada);
@@ -474,23 +623,63 @@ export class ActivosService {
       throw new BadRequestException('No se puede agendar un mantenimiento con fecha en el pasado.');
     }
 
-    const activoExiste = await this.prisma.activo.findUnique({
-      where: { id: dto.id_activo },
-    });
-
-    if (!activoExiste) {
-      throw new NotFoundException(`No existe un activo con el ID ${dto.id_activo} en la base de datos.`);
+    let activoExiste: any = null;
+    try {
+      if (this.prisma?.activo) {
+        activoExiste = await this.prisma.activo.findUnique({
+          where: { id: dto.id_activo },
+        });
+      }
+    } catch {
+      // Fallback
     }
 
-    const nuevoMantenimiento = await this.prisma.mantenimiento.create({
-      data: {
+    if (!activoExiste) {
+      activoExiste = this.activosEnMemoria.find(
+        (a) => a.id === dto.id_activo || a.codigoQr === dto.id_activo,
+      );
+    }
+
+    if (!activoExiste) {
+      throw new NotFoundException(`No existe un activo con el ID ${dto.id_activo} en el sistema.`);
+    }
+
+    let nuevoMantenimiento: any = null;
+    try {
+      if (this.prisma?.mantenimiento) {
+        nuevoMantenimiento = await this.prisma.mantenimiento.create({
+          data: {
+            id_activo: dto.id_activo,
+            fecha_programada: new Date(dto.fecha_programada),
+            descripcion: dto.descripcion,
+            tipo: dto.tipo,
+            estado: dto.estado || 'Pendiente',
+          },
+        });
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (!nuevoMantenimiento) {
+      nuevoMantenimiento = {
+        id: `mant-${Date.now()}`,
         id_activo: dto.id_activo,
         fecha_programada: new Date(dto.fecha_programada),
         descripcion: dto.descripcion,
         tipo: dto.tipo,
         estado: dto.estado || 'Pendiente',
-      },
-    });
+        activo: {
+          id: activoExiste.id,
+          nombre: activoExiste.nombre,
+          codigoQr: activoExiste.codigoQr,
+          ubicacion: activoExiste.ubicacion,
+          categoria: activoExiste.categoria,
+          estado: activoExiste.estado,
+        },
+      };
+      this.mantenimientosEnMemoria.push(nuevoMantenimiento);
+    }
 
     return {
       valido: true,

@@ -159,4 +159,79 @@ describe('ActivosService - TAL-6 y TAL-13', () => {
       );
     });
   });
+
+  describe('TAL-121: Filtros dinámicos de rango de fechas para mantenimientos', () => {
+    it('retorna el listado completo original cuando no se proporcionan filtros de fecha', async () => {
+      const resultado = await service.listarMantenimientos();
+
+      expect(resultado.valido).toBe(true);
+      expect(resultado.total).toBe(5);
+      expect(resultado.datos.length).toBe(5);
+      expect(resultado.filtrosAplicados.startDate).toBeNull();
+      expect(resultado.filtrosAplicados.endDate).toBeNull();
+    });
+
+    it('filtra mantenimientos correctamente dentro de un rango YYYY-MM-DD', async () => {
+      const resultado = await service.listarMantenimientos({
+        startDate: '2026-10-01',
+        endDate: '2026-10-25',
+      });
+
+      expect(resultado.valido).toBe(true);
+      expect(resultado.total).toBe(2);
+      expect(resultado.datos.map((m: any) => m.id)).toEqual(['mant-001', 'mant-002']);
+    });
+
+    it('filtra mantenimientos en formato ISO 8601', async () => {
+      const resultado = await service.listarMantenimientos({
+        startDate: '2026-10-20T00:00:00.000Z',
+        endDate: '2026-10-31T23:59:59.999Z',
+      });
+
+      expect(resultado.valido).toBe(true);
+      expect(resultado.total).toBe(2);
+      expect(resultado.datos.map((m: any) => m.id)).toEqual(['mant-002', 'mant-003']);
+    });
+
+    it('retorna listado vacío cuando no hay mantenimientos en el rango seleccionado', async () => {
+      const resultado = await service.listarMantenimientos({
+        startDate: '2026-12-01',
+        endDate: '2026-12-31',
+      });
+
+      expect(resultado.valido).toBe(true);
+      expect(resultado.total).toBe(0);
+      expect(resultado.datos).toEqual([]);
+    });
+
+    it('lanza BadRequestException si fecha inicio es posterior a fecha fin', async () => {
+      await expect(
+        service.listarMantenimientos({
+          startDate: '2026-10-31',
+          endDate: '2026-10-01',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('lanza BadRequestException con fechas de formato inválido', async () => {
+      await expect(
+        service.listarMantenimientos({
+          startDate: 'fecha-invalida',
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('recupera el listado completo al limpiar las fechas (Criterio de Aceptación 1)', async () => {
+      // 1. Filtrar con rango acotado
+      const filtrado = await service.listarMantenimientos({
+        startDate: '2026-10-10',
+        endDate: '2026-10-18',
+      });
+      expect(filtrado.total).toBe(1);
+
+      // 2. Limpiar fechas (enviando vacío o indefinido)
+      const restablecido = await service.listarMantenimientos({});
+      expect(restablecido.total).toBe(5);
+    });
+  });
 });

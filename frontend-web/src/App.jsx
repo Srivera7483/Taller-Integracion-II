@@ -19,6 +19,7 @@ import DetalleIncidencia from './views/DetalleIncidencia';
 import Usuarios from './views/Usuarios';
 import Trazabilidad from './views/Trazabilidad';
 import PlanificarMantenimiento from './views/PlanificarMantenimiento';
+import Mantenimientos from './views/Mantenimientos';
 
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
               <Route path="incidencias/:idIncidencia" element={<DetalleIncidencia />} />
               <Route path="ordenes/:idOrden" element={<DetalleOrden />} />
               <Route path="inventario" element={<Inventario />} />
+              <Route path="mantenimientos" element={<Mantenimientos />} />
               <Route path="mantenimientos/planificar" element={<PlanificarMantenimiento />} />
               <Route path="mantenimientos/nuevo" element={<PlanificarMantenimiento />} />
               <Route path="trazabilidad" element={<Trazabilidad />} />
