@@ -171,5 +171,59 @@ describe('IncidenciasService notifications', () => {
       expect(resultado.motivo_escalamiento).toContain('Inactividad superior a 48h');
     });
   });
+
+  describe('TAL-117: Exportación de Incidencias a Excel y CSV', () => {
+    it('exporta el listado completo a Excel (.xlsx) por defecto', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.incidencias = {
+        findMany: jest.fn().mockResolvedValue([incidenciaCreada]),
+      };
+
+      const resultado = await service.exportarIncidencias();
+
+      expect(resultado).toBeDefined();
+      expect(resultado.contentType).toBe(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      expect(resultado.filename).toContain('.xlsx');
+      expect(resultado.totalFilas).toBe(1);
+      expect(resultado.buffer).toBeInstanceOf(Buffer);
+      expect(resultado.buffer.length).toBeGreaterThan(0);
+    });
+
+    it('exporta a CSV cuando se especifica el formato csv', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.incidencias = {
+        findMany: jest.fn().mockResolvedValue([incidenciaCreada]),
+      };
+
+      const resultado = await service.exportarIncidencias({ formato: 'csv' });
+
+      expect(resultado).toBeDefined();
+      expect(resultado.contentType).toBe('text/csv; charset=utf-8');
+      expect(resultado.filename).toContain('.csv');
+      expect(resultado.totalFilas).toBe(1);
+      expect(resultado.buffer).toBeInstanceOf(Buffer);
+      expect(resultado.buffer.toString('utf-8')).toContain('Falla de proyector');
+    });
+
+    it('aplica filtros de activo y estado al exportar', async () => {
+      const mockPrisma = prisma as any;
+      const findManyMock = jest.fn().mockResolvedValue([incidenciaCreada]);
+      mockPrisma.incidencias = { findMany: findManyMock };
+
+      await service.exportarIncidencias({
+        id_activo: 'activo-1',
+        id_estado: 1,
+      });
+
+      expect(findManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id_activo: 'activo-1' }),
+        }),
+      );
+    });
+  });
 });
+
 

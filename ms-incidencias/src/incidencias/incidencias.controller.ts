@@ -10,10 +10,13 @@ import {
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -25,6 +28,7 @@ import { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
 import { ActualizarEstadoDto } from './dto/actualizar-estado.dto';
 import { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
 import { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
+import { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { IncidenciasService } from './incidencias.service';
 
 @Controller('incidencias')
@@ -40,6 +44,22 @@ export class IncidenciasController {
   @Get('prioridades-dinamicas')
   obtenerReportePrioridades(@Query() query: PrioridadDinamicaQueryDto) {
     return this.incidenciasService.obtenerReportePrioridades(query);
+  }
+
+  @Get('exportar')
+  async exportar(
+    @Query() query: ExportarIncidenciasQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const resultado = await this.incidenciasService.exportarIncidencias(query);
+
+    res.setHeader('Content-Type', resultado.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${resultado.filename}"`,
+    );
+
+    return new StreamableFile(resultado.buffer);
   }
 
   @Post()
