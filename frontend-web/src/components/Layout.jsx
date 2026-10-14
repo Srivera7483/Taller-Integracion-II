@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity } from 'react-icons/fi';
+import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar } from 'react-icons/fi';
 import SelectorTecnicoSesion from './SelectorTecnicoSesion';
 import NotificacionesDropdown from './NotificacionesDropdown';
 
@@ -16,6 +16,9 @@ const Layout = () => {
     if (location.pathname.startsWith('/incidencias/asignar')) {
       return 'Asignar Técnico';
     }
+    if (location.pathname === '/mantenimientos') {
+      return 'Agenda de Mantenimientos';
+    }
     if (location.pathname.startsWith('/mantenimientos')) {
       return 'Planificación de Mantenimiento Preventivo';
     }
@@ -26,6 +29,7 @@ const Layout = () => {
       case '/dashboard': return 'Dashboard';
       case '/incidencias': return 'Incidencias';
       case '/inventario': return 'Inventario';
+      case '/mantenimientos': return 'Agenda de Mantenimientos';
       case '/trazabilidad': return 'Trazabilidad de Activos';
       case '/usuarios': return 'Usuarios';
       default: return 'Sistema de Gestión';
@@ -41,6 +45,7 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
     { path: '/inventario', label: 'Inventario', icon: FiBox },
+    { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar },
     { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
     { path: '/usuarios', label: 'Usuarios', icon: FiUsers },
   ];
