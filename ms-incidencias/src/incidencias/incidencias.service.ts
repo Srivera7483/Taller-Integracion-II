@@ -17,6 +17,8 @@ import sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
+import { PrioridadDinamicaService } from './prioridad-dinamica.service';
+import type { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 
 const incidenciaConEstadoActual = {
   include: {
@@ -27,7 +29,11 @@ const incidenciaConEstadoActual = {
     },
     evidencias: {
       select: { url_cloudinary: true }
-    }
+    },
+    ordenes_trabajo: {
+      take: 1,
+      orderBy: { fecha_creacion: 'desc' as const },
+    },
   },
 } satisfies Prisma.IncidenciasDefaultArgs;
 
@@ -44,6 +50,7 @@ export class IncidenciasService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
+    private readonly prioridadDinamicaService: PrioridadDinamicaService = new PrioridadDinamicaService(),
   ) {}
 
   async listar(query: ListarIncidenciasQueryDto) {
@@ -445,7 +452,9 @@ export class IncidenciasService {
   }
 
   private toApiIncidencia(incidencia: IncidenciaConEstadoActual) {
-    const estado = incidencia.historial_estados[0]?.estado;
+    const estado = incidencia.historial_estados?.[0]?.estado;
+    const calculo = this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia);
+
     return {
       id_incidencia: incidencia.id_incidencia,
       id_activo: incidencia.id_activo,
@@ -455,6 +464,51 @@ export class IncidenciasService {
       estado: estado || null,
       evidencias: incidencia.evidencias?.map(e => e.url_cloudinary) || [],
       fecha_creacion: incidencia.fecha_creacion,
+      // Prioridad Dinámica por Antigüedad (TAL-115)
+      prioridad: calculo.prioridad_relativa,
+      prioridad_original: calculo.prioridad_original,
+      prioridad_relativa: calculo.prioridad_relativa,
+      escalada: calculo.escalada,
+      tiempo_inactividad_horas: calculo.tiempo_inactividad_horas,
+      antiguedad_dias: calculo.antiguedad_dias,
+      motivo_escalamiento: calculo.motivo_escalamiento,
+    };
+  }
+
+  /**
+   * TAL-115: Reporte consolidado de prioridades dinámicas y escalamiento
+   */
+  async obtenerReportePrioridades(query?: PrioridadDinamicaQueryDto) {
+    const incidencias = await this.prisma.incidencias.findMany({
+      ...incidenciaConEstadoActual,
+      orderBy: { fecha_creacion: 'asc' },
+    });
+
+    return this.prioridadDinamicaService.generarReporte(incidencias, query);
+  }
+
+  /**
+   * TAL-115: Obtiene el cálculo detallado de prioridad dinámica para una incidencia puntual
+   */
+  async obtenerPrioridadDinamica(id: string, query?: PrioridadDinamicaQueryDto) {
+    const incidencia = await this.prisma.incidencias.findUnique({
+      where: { id_incidencia: id },
+      ...incidenciaConEstadoActual,
+    });
+
+    if (!incidencia) throw new NotFoundException('Incidencia no encontrada');
+
+    const calculo = this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia, {
+      excluirFinesDeSemana: Boolean(query?.excluir_fines_de_semana),
+    });
+
+    return {
+      valido: true,
+      id_incidencia: incidencia.id_incidencia,
+      titulo: incidencia.titulo,
+      id_activo: incidencia.id_activo,
+      fecha_creacion: incidencia.fecha_creacion,
+      ...calculo,
     };
   }
 

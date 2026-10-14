@@ -133,4 +133,43 @@ describe('IncidenciasService notifications', () => {
       },
     );
   });
+
+  describe('TAL-115: Prioridad Dinámica en IncidenciasService', () => {
+    it('incluye campos de prioridad relativa y escalamiento al consultar o crear incidencia', async () => {
+      const resultado = await service.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: 'Falla de proyector',
+          descripcion: 'No enciende',
+        },
+        'reportante-1',
+        'reportante@example.com',
+      );
+
+      expect(resultado).toHaveProperty('prioridad');
+      expect(resultado).toHaveProperty('prioridad_original');
+      expect(resultado).toHaveProperty('prioridad_relativa');
+      expect(resultado).toHaveProperty('escalada');
+      expect(resultado).toHaveProperty('tiempo_inactividad_horas');
+    });
+
+    it('retorna el calculo individual de prioridad dinamica con obtenerPrioridadDinamica', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.incidencias = {
+        findUnique: jest.fn().mockResolvedValue({
+          ...incidenciaCreada,
+          fecha_creacion: new Date(Date.now() - 72 * 3600 * 1000), // 72 horas (> 48h)
+        }),
+      };
+
+      const resultado = await service.obtenerPrioridadDinamica('incidencia-1');
+
+      expect(resultado.valido).toBe(true);
+      expect(resultado.escalada).toBe(true);
+      expect(resultado.tiempo_inactividad_horas).toBeGreaterThanOrEqual(72);
+      expect(resultado.prioridad_relativa).toBe('Alta'); // Base Media -> Alta
+      expect(resultado.motivo_escalamiento).toContain('Inactividad superior a 48h');
+    });
+  });
 });
+
