@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
-import { FiSearch, FiPlus, FiAlertCircle, FiActivity, FiRefreshCw } from 'react-icons/fi';
+import { FiSearch, FiPlus, FiAlertCircle, FiActivity, FiRefreshCw, FiCalendar } from 'react-icons/fi';
 import api from '../services/api';
 
 const EQUIPOS_BASE = [
@@ -148,6 +148,14 @@ const Inventario = () => {
             <span>{cargando ? 'Cargando...' : 'Actualizar'}</span>
           </button>
           <Link
+            to="/mantenimientos/planificar"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold text-xs shadow-2xs"
+            title="Agendar nuevo mantenimiento preventivo"
+          >
+            <FiCalendar className="w-3.5 h-3.5" />
+            <span>Planificar Mantenimiento</span>
+          </Link>
+          <Link
             to="/trazabilidad"
             className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors font-semibold text-xs shadow-2xs"
           >
@@ -230,6 +238,16 @@ const Inventario = () => {
                           >
                             <FiActivity className="w-3.5 h-3.5 text-indigo-600" />
                             <span>Trazabilidad</span>
+                          </Link>
+
+                          {/* Botón para Planificar Mantenimiento */}
+                          <Link
+                            to={`/mantenimientos/planificar?id_activo=${encodeURIComponent(item.id || idPrincipal)}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors shadow-2xs"
+                            title="Planificar mantenimiento preventivo para este equipo"
+                          >
+                            <FiCalendar className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Mantenimiento</span>
                           </Link>
 
                           {/* Botón para Reportar Falla */}
