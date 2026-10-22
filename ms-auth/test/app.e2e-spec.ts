@@ -11,9 +11,21 @@ import { PrismaService } from './../src/prisma/prisma.service.js';
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
   let passwordHash: string;
+  const testUser = {
+    id: 'user-123',
+    email: 'admin@test.com',
+    rut_o_id: 'TEST-001',
+    nombre: 'Admin',
+    apellido: 'Pruebas',
+    fechaCreacion: new Date('2026-01-01T00:00:00.000Z'),
+    fechaEliminacion: null,
+    role: { id: 1, nombreRol: 'Administrador' },
+  };
 
   beforeAll(async () => {
     passwordHash = await hash('pass123', { timeCost: 1, memoryCost: 4096 });
+    process.env.JWT_SECRET = 'e2e-access-secret';
+    process.env.JWT_REFRESH_SECRET = 'e2e-refresh-secret';
   });
 
   beforeEach(async () => {
@@ -25,11 +37,10 @@ describe('AppController (e2e)', () => {
         $connect: vi.fn(),
         $disconnect: vi.fn(),
         user: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: 'user-123',
-            password: passwordHash,
-            role: { name: 'admin' },
-          }),
+          findUnique: vi.fn().mockImplementation(async () => ({
+            ...testUser,
+            passwordHash,
+          })),
         },
       })
       .compile();
@@ -46,16 +57,25 @@ describe('AppController (e2e)', () => {
       .expect('Hello World!');
   });
 
-  it('POST /auth/login responde 200 y devuelve un JWT con userId y role', async () => {
+  it('POST /auth/login devuelve access token y establece refresh cookie', async () => {
     const response = await request(app.getHttpServer())
       .post('/auth/login')
       .send({ email: 'admin@test.com', password: 'pass123' })
       .expect(200);
 
-    expect(response.body).toEqual({ accessToken: expect.any(String) });
+    expect(response.body).toMatchObject({
+      token: expect.any(String),
+      usuario: { id_usuario: 'user-123' },
+    });
+    expect(response.body).not.toHaveProperty('refreshToken');
+    expect(response.headers['set-cookie'][0]).toContain('HttpOnly');
 
-    const payload = app.get(JwtService).verify(response.body.accessToken);
-    expect(payload).toMatchObject({ userId: 'user-123', role: 'admin' });
+    const payload = app.get(JwtService).verify(response.body.token);
+    expect(payload).toMatchObject({
+      userId: 'user-123',
+      role: 'Administrador',
+      tokenUse: 'access',
+    });
     expect(payload).not.toHaveProperty('password');
   });
 
@@ -85,7 +105,15 @@ describe('AppController (e2e)', () => {
       .get('/auth/me')
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
-      .expect({ userId: 'user-123', role: 'admin' });
+      .expect({
+        id_usuario: 'user-123',
+        rut_o_id: 'TEST-001',
+        nombre: 'Admin',
+        apellido: 'Pruebas',
+        correo: 'admin@test.com',
+        rol: { id_rol: 1, nombre_rol: 'Administrador' },
+        created_at: '2026-01-01T00:00:00.000Z',
+      });
   });
 
   afterEach(async () => {

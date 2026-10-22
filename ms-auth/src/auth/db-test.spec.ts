@@ -6,48 +6,45 @@ import { UserRepository } from './user.repository.js';
 describe.runIf(Boolean(process.env.DATABASE_URL))('Prueba de Conexión Real BD', () => {
   const prisma = new PrismaService();
   const repo = new UserRepository(prisma);
+  const testEmail = 'tal-125-integration@empresa.com';
+  const testRoleName = 'TAL-125-INTEGRATION';
 
   it('debe crear un usuario con su rol y leerlo mediante UserRepository', async () => {
-    const testEmail = 'admin-test@empresa.com';
     const hashedPassword = await hash('admin123');
 
-    // 1. Asegurar que exista el Rol ADMINISTRADOR
     const role = await prisma.role.upsert({
-      where: { name: 'ADMINISTRADOR' },
+      where: { nombreRol: testRoleName },
       update: {},
-      create: {
-        name: 'ADMINISTRADOR',
-        description: 'Rol de prueba para integración',
-      },
+      create: { nombreRol: testRoleName },
     });
 
-    // 2. Crear o actualizar el Usuario de prueba
     const createdUser = await prisma.user.upsert({
       where: { email: testEmail },
       update: {
-        password: hashedPassword,
+        passwordHash: hashedPassword,
         roleId: role.id,
       },
       create: {
+        rut_o_id: 'TAL-125-INTEGRATION',
+        nombre: 'Usuario',
+        apellido: 'Integración',
         email: testEmail,
-        password: hashedPassword,
-        name: 'Admin Pruebas',
+        passwordHash: hashedPassword,
         roleId: role.id,
       },
     });
 
-    console.log('Usuario insertado/existente en BD:', createdUser);
-
-    // 3. Probar la lectura real usando el UserRepository
     const foundUser = await repo.findByEmail(testEmail);
-    console.log('Usuario leído mediante UserRepository:', foundUser);
 
     expect(foundUser).not.toBeNull();
     expect(foundUser?.email).toBe(testEmail);
-    expect(foundUser?.role.name).toBe('ADMINISTRADOR');
+    expect(foundUser?.role.nombreRol).toBe(testRoleName);
+    expect(createdUser.id).toBe(foundUser?.id);
   });
 
   afterAll(async () => {
+    await prisma.user.deleteMany({ where: { email: testEmail } });
+    await prisma.role.deleteMany({ where: { nombreRol: testRoleName } });
     await prisma.$disconnect();
   });
 });
