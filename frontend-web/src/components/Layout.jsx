@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar } from 'react-icons/fi';
 import SelectorTecnicoSesion from './SelectorTecnicoSesion';
 import NotificacionesDropdown from './NotificacionesDropdown';
+import CriticalAlertBanner from './CriticalAlertBanner';
 
 const Layout = () => {
   const location = useLocation();
@@ -127,6 +128,9 @@ const Layout = () => {
             </button>
           </div>
         </header>
+
+        {/* TAL-122: Alertas Visuales (Mantenimientos Próximos) */}
+        <CriticalAlertBanner />
 
         {/* Dynamic Outlet */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
