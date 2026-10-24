@@ -87,10 +87,13 @@ foreach ($srv in $serviciosPrisma) {
 
 # sixseven xddxdxd
 Write-Host "`n[6/7] Agregando datos de prueba..." -ForegroundColor Yellow
+
+
+Push-Location "ms-auth"
 try {
-    Push-Location "ms-auth"
-    node create-user.js | Out-Null
-    Write-Host "  -> Usuarios base asegurados en MS Auth (Admin, Tecnico, Usuario)." -ForegroundColor Green
+    Write-Host "Ingreso a ms-auth" -ForegroundColor Cyan
+    node create-user.js | Out-Null 
+   Write-Host "  -> Usuarios base asegurados en MS Auth (Admin, Tecnico, Usuario)." -ForegroundColor Green
     Write-Host "  -> La contrasena para ingresar a estos es: password123" -ForegroundColor Green
 } catch {
     Write-Host "  [AVISO] No se pudo ejecutar create-user.js: $_" -ForegroundColor Yellow
@@ -98,11 +101,38 @@ try {
     Pop-Location
 }
 
+
+Push-Location "ms-activos"
 try {
-    node seed-rapido.cjs | Out-Null
-    Write-Host "  -> Datos semilla aplicados (seed-rapido: 40 usuarios e incidencias)." -ForegroundColor Green
+    Write-Host "Ingreso a ms-activos" -ForegroundColor Cyan
+    pnpm.cmd exec prisma db seed | Out-Null
+    Write-Host " -> Activos de prueba ingresados correctamente." -ForegroundColor Green
 } catch {
-    Write-Host "  [AVISO] No se pudo ejecutar seed-rapido.cjs: $_" -ForegroundColor Yellow
+    Write-Host "  [AVISO] No se pudo ejecutar prisma db seed en ms-activos: $_" -ForegroundColor Yellow
+} finally {
+    Pop-Location
+}
+
+
+Push-Location "ms-incidencias"
+try {
+    Write-Host "Ingreso a ms-incidencias" -ForegroundColor Cyan
+    pnpm.cmd exec prisma db seed | Out-Null
+    Write-Host "  -> Estados de incidencia ingresados correctamente." -ForegroundColor Green
+} catch {
+    Write-Host "  [AVISO] No se pudo ejecutar prisma db seed en ms-incidencias: $_" -ForegroundColor Yellow
+} finally {
+    Pop-Location
+}
+
+
+if (Test-Path "seed-rapido.cjs") {
+    try {
+        node seed-rapido.cjs | Out-Null
+        Write-Host "  -> 40 incidencias de pruebas ingresadas a la DB (seed-rapido.cjs)." -ForegroundColor Green
+    } catch {
+        Write-Host "  [AVISO] No se pudo ejecutar seed-rapido.cjs: $_" -ForegroundColor Yellow
+    }
 }
 
 Write-Host "`n[7/7] Levantando microservicios en ventanas de Powershell..." -ForegroundColor Yellow
