@@ -52,11 +52,19 @@ El gateway usa `MS_ACTIVOS_URL` y `MS_INCIDENCIAS_URL` para resolver sus destino
 ## Requisitos
 
 - Node.js 20 o superior.
-- npm para el gateway.
-- Corepack/pnpm para `ms-auth`.
+- Corepack/pnpm para el API Gateway y microservicios.
 - Docker Desktop y Docker Compose para PostgreSQL.
 
 ## Arranque completo
+
+> **Tip de automatización:** Puedes inicializar todo el proyecto (PostgreSQL, migraciones, .env y todos los microservicios) ejecutando un solo comando desde PowerShell:
+> ```powershell
+> .\start.ps1
+> ```
+> Para detener todo limpiamente y liberar puertos:
+> ```powershell
+> .\stop.ps1
+> ```
 
 ### 1. Preparar variables de entorno
 
@@ -101,8 +109,8 @@ En otra terminal:
 
 ```powershell
 Set-Location "api gateway"
-npm.cmd install
-npm.cmd run dev
+pnpm.cmd install
+pnpm.cmd run dev
 ```
 
 El gateway quedará disponible en `http://localhost:3000`.
