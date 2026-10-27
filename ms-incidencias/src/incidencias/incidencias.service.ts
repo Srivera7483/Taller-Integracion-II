@@ -1,11 +1,14 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
 import { Prisma } from '@prisma/client';
+import { firstValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
 import type { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
@@ -14,6 +17,10 @@ import sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
+import { PrioridadDinamicaService } from './prioridad-dinamica.service';
+import type { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
+import { ExportarIncidenciasService } from './exportar-incidencias.service';
+import type { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 
 const incidenciaConEstadoActual = {
   include: {
@@ -24,7 +31,11 @@ const incidenciaConEstadoActual = {
     },
     evidencias: {
       select: { url_cloudinary: true }
-    }
+    },
+    ordenes_trabajo: {
+      take: 1,
+      orderBy: { fecha_creacion: 'desc' as const },
+    },
   },
 } satisfies Prisma.IncidenciasDefaultArgs;
 
@@ -33,10 +44,26 @@ type IncidenciaConEstadoActual = Prisma.IncidenciasGetPayload<
 >;
 @Injectable()
 export class IncidenciasService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(IncidenciasService.name);
+  private readonly notificacionesUrl =
+    process.env.MS_NOTIFICACIONES_URL ??
+    'http://ms-notificaciones:3004/notificar';
+  private readonly activosUrl =
+    process.env.MS_ACTIVOS_URL ?? 'http://localhost:3003';
+  private readonly authUrl =
+    process.env.MS_AUTH_URL ?? 'http://localhost:3001';
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly httpService: HttpService,
+    private readonly prioridadDinamicaService: PrioridadDinamicaService = new PrioridadDinamicaService(),
+    private readonly exportarIncidenciasService: ExportarIncidenciasService = new ExportarIncidenciasService(),
+  ) {}
 
   async listar(query: ListarIncidenciasQueryDto) {
-    const limite = query.limite ?? 20;
+    const limite = query.limit ?? query.limite ?? 15;
+    const pagina = query.page ?? query.pagina ?? 1;
+    const offset = (pagina - 1) * limite;
     const idActivo = query.id_activo ?? null;
     const idEstado = query.id_estado ?? null;
 
@@ -54,7 +81,7 @@ export class IncidenciasService {
         WHERE (${idActivo}::uuid IS NULL OR i."id_activo" = ${idActivo}::uuid)
           AND (${idEstado}::integer IS NULL OR estado_actual."id_estado" = ${idEstado}::integer)
         ORDER BY i."fecha_creacion" DESC
-        LIMIT ${limite}
+        LIMIT ${limite} OFFSET ${offset}
       `,
     );
     if (ids.length === 0) return [];
@@ -74,8 +101,12 @@ export class IncidenciasService {
     });
   }
 
-  async crear(body: CrearIncidenciaDto, usuarioId: string) {
-    return this.prisma.$transaction(async (transaction) => {
+  async crear(
+    body: CrearIncidenciaDto,
+    usuarioId: string,
+    emailUsuario?: string,
+  ) {
+    const creada = await this.prisma.$transaction(async (transaction) => {
       const estadoInicial = await transaction.estadoIncidencia.findFirst({
         where: { nombre_estado: 'Reportada' },
       });
@@ -109,6 +140,13 @@ export class IncidenciasService {
       if (!creada) throw new InternalServerErrorException();
       return this.toApiIncidencia(creada);
     });
+
+    await this.notificarIncidencia(
+      emailUsuario,
+      `Nueva Incidencia Reportada: ${creada.titulo}`,
+      `La incidencia "${creada.titulo}" fue reportada correctamente.`,
+    );
+    return creada;
   }
 
   async obtener(id: string) {
@@ -125,6 +163,7 @@ export class IncidenciasService {
     idEstadoNuevo: number,
     usuarioId: string,
     rolUsuario: string,
+    emailUsuario?: string,
   ) {
     if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
       throw new BadRequestException('El ID del estado es obligatorio y debe ser numérico');
@@ -134,7 +173,7 @@ export class IncidenciasService {
       throw new BadRequestException('El usuario es obligatorio');
     }
 
-    return this.prisma.$transaction(async (transaction) => {
+    const resultado = await this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: incidenciaId },
         ...incidenciaConEstadoActual,
@@ -153,7 +192,7 @@ export class IncidenciasService {
       }
 
       const idEstadoActual = incidencia.historial_estados?.[0]?.estado?.id_estado;
-      const rolUpper = rolUsuario.toUpperCase();
+      const rolUpper = this.normalizarRol(rolUsuario);
 
       if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR') {
         throw new ForbiddenException('Solo un SUPERVISOR puede pasar de Reportada a Asignada');
@@ -179,8 +218,24 @@ export class IncidenciasService {
       });
 
       if (!incidenciaActualizada) throw new InternalServerErrorException();
-      return this.toApiIncidencia(incidenciaActualizada);
+      return {
+        incidencia: this.toApiIncidencia(incidenciaActualizada),
+        notificar:
+          estado.nombre_estado.trim().toLowerCase() === 'resuelta' &&
+          incidencia.historial_estados[0]?.estado?.nombre_estado
+            .trim()
+            .toLowerCase() !== 'resuelta',
+      };
     });
+
+    if (resultado.notificar) {
+      await this.notificarIncidencia(
+        emailUsuario,
+        `Incidencia Resuelta: ${resultado.incidencia.titulo}`,
+        `La incidencia "${resultado.incidencia.titulo}" fue resuelta.`,
+      );
+    }
+    return resultado.incidencia;
   }
 
   async listarHistorial(id: string) {
@@ -292,58 +347,121 @@ export class IncidenciasService {
   }
 
 
-  async resolverIncidencia(idIncidencia: string, idTecnico: string, rolUsuario: string) {
+  async resolverIncidencia(
+    idIncidencia: string,
+    idTecnico: string,
+    rolUsuario: string,
+    emailUsuario?: string,
+  ) {
       const rolUpper = rolUsuario.toUpperCase();
       if (rolUpper !== 'TÉCNICO' && rolUpper !== 'TECNICO') {
-        throw new ForbiddenException('Acceso denegado: Solo los técnicos pueden resolver incidencias.');
+        throw new ForbiddenException(
+          'Acceso denegado: Solo los técnicos pueden resolver incidencias.',
+        );
       }
 
-      return this.prisma.$transaction(async (transaction) => {
-        
+      const resultado = await this.prisma.$transaction(async (transaction) => {
         const ultimoHistorial = await transaction.historialEstados.findFirst({
           where: { id_incidencia: idIncidencia },
           orderBy: { fecha_creacion: 'desc' },
-          include: { estado: true } 
+          include: { estado: true },
         });
 
         if (!ultimoHistorial) {
-          throw new BadRequestException('La incidencia no tiene un historial de estados válido.');
+          throw new BadRequestException(
+            'La incidencia no tiene un historial de estados válido.',
+          );
         }
 
         const nombreEstadoActual = ultimoHistorial.estado.nombre_estado.toUpperCase();
 
         if (nombreEstadoActual !== 'ASIGNADA') {
-          throw new BadRequestException(`Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`);
+          throw new BadRequestException(
+            `Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`,
+          );
         }
 
         const estadoDestino = await transaction.estadoIncidencia.findFirst({
-          where: { 
-            nombre_estado: { 
-              equals: 'Resuelta', 
-              mode: 'insensitive'
-            } 
-          }
+          where: {
+            nombre_estado: {
+              equals: 'Resuelta',
+              mode: 'insensitive',
+            },
+          },
         });
 
         if (!estadoDestino) {
-          throw new InternalServerErrorException('Error de configuración: El estado "Resuelta" no existe en la base de datos.');
+          throw new InternalServerErrorException(
+            'Error de configuración: El estado "Resuelta" no existe en la base de datos.',
+          );
         }
-        
+
+        const incidencia = await transaction.incidencias.findUnique({
+          where: { id_incidencia: idIncidencia },
+          select: { titulo: true },
+        });
+
+        if (!incidencia) {
+          throw new NotFoundException('Incidencia no encontrada');
+        }
+
         const nuevoHistorial = await transaction.historialEstados.create({
           data: {
             id_incidencia: idIncidencia,
             id_estado: estadoDestino.id_estado,
             id_usuario_cambio: idTecnico,
           },
-          include: { estado: true }
+          include: { estado: true },
         });
 
-        return nuevoHistorial;
+        return { historial: nuevoHistorial, titulo: incidencia.titulo };
       });
+
+      await this.notificarIncidencia(
+        emailUsuario,
+        `Incidencia Resuelta: ${resultado.titulo}`,
+        `La incidencia "${resultado.titulo}" fue resuelta.`,
+      );
+      return resultado.historial;
     }
 
+  private async notificarIncidencia(
+    email: string | undefined,
+    asunto: string,
+    cuerpoMensaje: string,
+  ): Promise<void> {
+    if (!email) {
+      this.logger.warn(
+        'No se envió la notificación porque el token no contiene el correo del usuario.',
+      );
+      return;
+    }
+
+    try {
+      await firstValueFrom(
+        this.httpService.post(this.notificacionesUrl, {
+          email,
+          asunto,
+          cuerpoMensaje,
+        }),
+      );
+    } catch (error) {
+      const detalle = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error al notificar al usuario ${email}: ${detalle}`);
+    }
+  }
+
+  private normalizarRol(rol: string): string {
+    return rol
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+  }
+
   private toApiIncidencia(incidencia: IncidenciaConEstadoActual) {
-    const estado = incidencia.historial_estados[0]?.estado;
+    const estado = incidencia.historial_estados?.[0]?.estado;
+    const calculo = this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia);
+
     return {
       id_incidencia: incidencia.id_incidencia,
       id_activo: incidencia.id_activo,
@@ -353,7 +471,162 @@ export class IncidenciasService {
       estado: estado || null,
       evidencias: incidencia.evidencias?.map(e => e.url_cloudinary) || [],
       fecha_creacion: incidencia.fecha_creacion,
+      // Prioridad Dinámica por Antigüedad (TAL-115)
+      prioridad: calculo.prioridad_relativa,
+      prioridad_original: calculo.prioridad_original,
+      prioridad_relativa: calculo.prioridad_relativa,
+      escalada: calculo.escalada,
+      tiempo_inactividad_horas: calculo.tiempo_inactividad_horas,
+      antiguedad_dias: calculo.antiguedad_dias,
+      motivo_escalamiento: calculo.motivo_escalamiento,
     };
+  }
+
+  /**
+   * TAL-115: Reporte consolidado de prioridades dinámicas y escalamiento
+   */
+  async obtenerReportePrioridades(query?: PrioridadDinamicaQueryDto) {
+    const incidencias = await this.prisma.incidencias.findMany({
+      ...incidenciaConEstadoActual,
+      orderBy: { fecha_creacion: 'asc' },
+    });
+
+    return this.prioridadDinamicaService.generarReporte(incidencias, query);
+  }
+
+  /**
+   * TAL-115: Obtiene el cálculo detallado de prioridad dinámica para una incidencia puntual
+   */
+  async obtenerPrioridadDinamica(id: string, query?: PrioridadDinamicaQueryDto) {
+    const incidencia = await this.prisma.incidencias.findUnique({
+      where: { id_incidencia: id },
+      ...incidenciaConEstadoActual,
+    });
+
+    if (!incidencia) throw new NotFoundException('Incidencia no encontrada');
+
+    const calculo = this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia, {
+      excluirFinesDeSemana: Boolean(query?.excluir_fines_de_semana),
+    });
+
+    return {
+      valido: true,
+      id_incidencia: incidencia.id_incidencia,
+      titulo: incidencia.titulo,
+      id_activo: incidencia.id_activo,
+      fecha_creacion: incidencia.fecha_creacion,
+      ...calculo,
+    };
+  }
+
+  /**
+   * TAL-117: Exporta el historial de incidencias a formato Excel (.xlsx) o CSV (.csv) con cruce de datos
+   */
+  async exportarIncidencias(query?: ExportarIncidenciasQueryDto) {
+    const where: Prisma.IncidenciasWhereInput = {};
+
+    if (query?.id_activo) {
+      where.id_activo = query.id_activo;
+    }
+
+    if (query?.fecha_inicio || query?.fecha_fin) {
+      where.fecha_creacion = {};
+      if (query.fecha_inicio) {
+        where.fecha_creacion.gte = new Date(query.fecha_inicio);
+      }
+      if (query.fecha_fin) {
+        where.fecha_creacion.lte = new Date(query.fecha_fin);
+      }
+    }
+
+    const incidencias = await this.prisma.incidencias.findMany({
+      where,
+      ...incidenciaConEstadoActual,
+      orderBy: { fecha_creacion: 'desc' },
+    });
+
+    // Si se especificó filtro de estado, filtrar por el estado actual de la incidencia
+    const filtradas =
+      query?.id_estado !== undefined && query?.id_estado !== null
+        ? incidencias.filter(
+            (inc) =>
+              inc.historial_estados?.[0]?.estado?.id_estado ===
+              Number(query.id_estado),
+          )
+        : incidencias;
+
+    // Obtener mapas para cruce de datos (Activo, Reportante, Técnico)
+    const activosPorId = await this.resolverActivos();
+    const usuariosPorId = await this.resolverUsuarios();
+
+    const filas = this.exportarIncidenciasService.construirFilas(filtradas, {
+      activosPorId,
+      usuariosPorId,
+    });
+
+    return this.exportarIncidenciasService.generarArchivo(
+      filas,
+      query?.formato ?? 'xlsx',
+    );
+  }
+
+  private async resolverActivos(): Promise<
+    Map<string, { nombre: string; codigoQr?: string }>
+  > {
+    const mapa = new Map<string, { nombre: string; codigoQr?: string }>();
+    try {
+      const resp = await firstValueFrom(
+        this.httpService.get(`${this.activosUrl}/api/v1/activos`, {
+          timeout: 1500,
+        }),
+      );
+      const items = resp.data?.datos || resp.data;
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (item?.id) {
+            mapa.set(item.id, {
+              nombre: item.nombre || 'Activo sin nombre',
+              codigoQr: item.codigoQr,
+            });
+          }
+        }
+      }
+    } catch {
+      // Fallback a semillas locales y UUID si ms-activos no está disponible
+    }
+    return mapa;
+  }
+
+  private async resolverUsuarios(): Promise<
+    Map<string, { nombre: string; apellido?: string; email?: string }>
+  > {
+    const mapa = new Map<
+      string,
+      { nombre: string; apellido?: string; email?: string }
+    >();
+    try {
+      const resp = await firstValueFrom(
+        this.httpService.get(`${this.authUrl}/auth/usuarios`, {
+          timeout: 1500,
+        }),
+      );
+      const items = resp.data?.datos || resp.data;
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          const id = item?.id || item?.userId;
+          if (id) {
+            mapa.set(id, {
+              nombre: item.nombre || 'Usuario',
+              apellido: item.apellido,
+              email: item.email,
+            });
+          }
+        }
+      }
+    } catch {
+      // Fallback a semillas locales y UUID si ms-auth no está disponible
+    }
+    return mapa;
   }
 
   private toApiEvidencia(evidencia: any) {

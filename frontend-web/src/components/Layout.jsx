@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity } from 'react-icons/fi';
+import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar } from 'react-icons/fi';
 import SelectorTecnicoSesion from './SelectorTecnicoSesion';
+import NotificacionesDropdown from './NotificacionesDropdown';
+import CriticalAlertBanner from './CriticalAlertBanner';
 
 const Layout = () => {
   const location = useLocation();
@@ -15,6 +17,12 @@ const Layout = () => {
     if (location.pathname.startsWith('/incidencias/asignar')) {
       return 'Asignar Técnico';
     }
+    if (location.pathname === '/mantenimientos') {
+      return 'Agenda de Mantenimientos';
+    }
+    if (location.pathname.startsWith('/mantenimientos')) {
+      return 'Planificación de Mantenimiento Preventivo';
+    }
     if (location.pathname.includes('/trazabilidad')) {
       return 'Trazabilidad y Ciclo de Vida del Activo';
     }
@@ -22,6 +30,7 @@ const Layout = () => {
       case '/dashboard': return 'Dashboard';
       case '/incidencias': return 'Incidencias';
       case '/inventario': return 'Inventario';
+      case '/mantenimientos': return 'Agenda de Mantenimientos';
       case '/trazabilidad': return 'Trazabilidad de Activos';
       case '/usuarios': return 'Usuarios';
       default: return 'Sistema de Gestión';
@@ -37,6 +46,7 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
     { path: '/inventario', label: 'Inventario', icon: FiBox },
+    { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar },
     { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
     { path: '/usuarios', label: 'Usuarios', icon: FiUsers },
   ];
@@ -106,6 +116,7 @@ const Layout = () => {
             <h2 className="text-lg sm:text-xl font-semibold text-gray-800 truncate">{getPageTitle()}</h2>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
+            <NotificacionesDropdown />
             <SelectorTecnicoSesion />
             <button
               onClick={handleLogout}
@@ -117,6 +128,9 @@ const Layout = () => {
             </button>
           </div>
         </header>
+
+        {/* TAL-122: Alertas Visuales (Mantenimientos Próximos) */}
+        <CriticalAlertBanner />
 
         {/* Dynamic Outlet */}
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">

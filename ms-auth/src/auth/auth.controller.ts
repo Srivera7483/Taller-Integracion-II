@@ -5,8 +5,9 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  Patch, 
+  Patch,
   Post,
+  Query,
   Req,
   UnauthorizedException,
   UseGuards,
@@ -65,5 +66,16 @@ export class AuthController {
     @Body() updateRoleDto: UpdateRoleDto,
   ) {
     return await this.authService.updateUserRole(id, updateRoleDto);
+  }
+
+  @Get('usuarios')
+  @UseGuards(JwtAuthGuard)
+  async listUsers(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit || '15', 10) || 15);
+    return await this.authService.listUsers(pageNum, limitNum);
   }
 }

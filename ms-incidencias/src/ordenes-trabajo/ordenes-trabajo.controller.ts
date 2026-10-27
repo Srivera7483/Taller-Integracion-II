@@ -10,6 +10,7 @@ import {
   Patch,
   Post,
   Query,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -26,7 +27,7 @@ import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 @Controller('ordenes-trabajo')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdenesTrabajoController {
-  constructor(private readonly ordenesService: OrdenesTrabajoService) {}
+  constructor(private readonly ordenesService: OrdenesTrabajoService) { }
 
   @Post('asignar')
   @HttpCode(HttpStatus.CREATED)
@@ -36,7 +37,8 @@ export class OrdenesTrabajoController {
     @Body() body: AsignarOrdenDto,
     @CurrentUser() user: JwtUser,
   ) {
-    const idUsuario = (user.sub || user.userId) as string;
+    const idUsuario = user.sub || user.userId;
+    if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
     return this.ordenesService.asignarOrden(body, idUsuario);
   }
 
@@ -46,7 +48,8 @@ export class OrdenesTrabajoController {
     @CurrentUser() user: JwtUser,
     @Query() filtros: FiltrarOrdenesDto,
   ) {
-    const idUsuario = (user.sub || user.userId) as string;
+    const idUsuario = user.sub || user.userId;
+    if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
     return this.ordenesService.listarPorTecnico(idUsuario, filtros);
   }
 
@@ -58,7 +61,8 @@ export class OrdenesTrabajoController {
     @Query() filtros: FiltrarOrdenesDto,
   ) {
     const rolUsuario = user.rol || user.role;
-    const idUsuario = (user.sub || user.userId) as string;
+    const idUsuario = user.sub || user.userId;
+    if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
 
     if (rolUsuario?.toUpperCase() === 'TECNICO' && idUsuario !== idTecnico) {
       throw new ForbiddenException(
@@ -87,7 +91,8 @@ export class OrdenesTrabajoController {
     @Body() body: ActualizarDiagnosticoDto,
     @CurrentUser() user: JwtUser,
   ) {
-    const idUsuario = (user.sub || user.userId) as string;
+    const idUsuario = user.sub || user.userId;
+    if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
     return this.ordenesService.actualizarDiagnostico(
       id_orden,
       body.diagnostico_tecnico,
