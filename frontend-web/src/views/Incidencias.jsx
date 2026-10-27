@@ -1,8 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
 import StatusFilter from '../components/StatusFilter';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
+import BotonExportarExcel from '../components/BotonExportarExcel';
 import {
   FiSearch,
   FiPlus,
@@ -173,6 +174,8 @@ const Incidencias = () => {
           >
             <FiPlus className="w-4 h-4" /> Reportar Incidencia
           </Link>
+
+          <BotonExportarExcel variant="button" />
         </div>
       </div>
 
@@ -447,6 +450,9 @@ const Incidencias = () => {
           onCierreExitoso={handleCierreExitoso}
         />
       )}
+
+      {/* BOTÓN FLOTANTE ESTÉTICO EXPORTAR A EXCEL (TAL-132) */}
+      <BotonExportarExcel variant="floating" />
     </div>
   );
 };

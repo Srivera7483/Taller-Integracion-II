@@ -2,6 +2,7 @@ import React, { useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import StatusBadge from '../components/StatusBadge';
+import BotonExportarExcel from '../components/BotonExportarExcel';
 import {
   FiAlertTriangle,
   FiCheckCircle,
@@ -128,13 +129,16 @@ const Dashboard = () => {
               Listado con desplazamiento infinito de reportes activos en la plataforma
             </p>
           </div>
-          <Link
-            to="/incidencias"
-            className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
-          >
-            <span>Ver todas</span>
-            <FiArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <BotonExportarExcel variant="compact" />
+            <Link
+              to="/incidencias"
+              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+            >
+              <span>Ver todas</span>
+              <FiArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
         <div

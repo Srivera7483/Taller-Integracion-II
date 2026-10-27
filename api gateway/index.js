@@ -21,6 +21,7 @@ const buildGateway = (options = {}) => {
     fastify.register(fastifyCors, {
         origin: true,
         credentials: true,
+        exposedHeaders: ['Content-Disposition'],
     });
 
     fastify.register(proxy, {
