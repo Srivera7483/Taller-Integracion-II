@@ -2,10 +2,8 @@ import {
   Body,
   Controller,
   Get,
-  HttpStatus,
   UnauthorizedException,
   Param,
-  ParseFilePipeBuilder,
   ParseUUIDPipe,
   Patch,
   Post,
@@ -30,6 +28,7 @@ import { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
 import { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 import { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { IncidenciasService } from './incidencias.service';
+import { FileMimeValidationPipe } from '../validators/file-mime.pipe';
 
 @Controller('incidencias')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -150,16 +149,7 @@ export class IncidenciasController {
   async uploadEvidencia(
     @Param('id_incidencia', ParseUUIDPipe) id: string,
     @Body('id_tipo_evidencia') id_tipo_evidencia: string,
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: /(jpg|jpeg|png)$/,
-        })
-        .build({
-          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-        }),
-    )
-    file: any,
+    @UploadedFile(new FileMimeValidationPipe()) file: any,
   ) {
     return this.incidenciasService.procesarYGuardarEvidencia(id, Number(id_tipo_evidencia), file);
   }

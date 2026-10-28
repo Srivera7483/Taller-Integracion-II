@@ -651,9 +651,9 @@ export class ActivosService {
           data: {
             id_activo: dto.id_activo,
             fecha_programada: new Date(dto.fecha_programada),
-            descripcion: dto.descripcion,
-            tipo: dto.tipo,
-            estado: dto.estado || 'Pendiente',
+
+
+
           },
         });
       }

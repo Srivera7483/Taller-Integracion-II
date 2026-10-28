@@ -21,6 +21,7 @@ import { PrioridadDinamicaService } from './prioridad-dinamica.service';
 import type { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 import { ExportarIncidenciasService } from './exportar-incidencias.service';
 import type { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
+import { validarExtensionEvidencia } from '../validators/file-mime.pipe';
 
 const incidenciaConEstadoActual = {
   include: {
@@ -265,7 +266,9 @@ export class IncidenciasService {
   }
 
   async crearEvidencia(id: string, body: CrearEvidenciaDto) {
+    validarExtensionEvidencia(body.url_evidencia);
     await this.assertIncidenciaExists(id);
+
     const tipo = await this.prisma.tipoEvidencia.findUnique({
       where: { id_tipo_evidencia: body.id_tipo_evidencia },
     });
@@ -288,6 +291,7 @@ export class IncidenciasService {
     if (!idTipoEvidencia) {
       throw new BadRequestException('id_tipo_evidencia es requerido');
     }
+
 
     const tipo = await this.prisma.tipoEvidencia.findUnique({
       where: { id_tipo_evidencia: idTipoEvidencia },

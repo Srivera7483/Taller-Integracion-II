@@ -1,4 +1,5 @@
 import { HttpService } from '@nestjs/axios';
+import { UnsupportedMediaTypeException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IncidenciasService } from './incidencias.service';
 import { of, throwError } from 'rxjs';
@@ -224,6 +225,50 @@ describe('IncidenciasService notifications', () => {
       );
     });
   });
+
+  describe('TAL-127: Validación de extensiones en crearEvidencia', () => {
+    it('rechaza evidencias con extensión .exe lanzando UnsupportedMediaTypeException', async () => {
+      await expect(
+        service.crearEvidencia('incidencia-1', {
+          id_tipo_evidencia: 1,
+          url_evidencia: 'https://evil.com/malware.exe',
+        }),
+      ).rejects.toThrow(UnsupportedMediaTypeException);
+    });
+
+    it('rechaza evidencias con extensión .pdf lanzando UnsupportedMediaTypeException', async () => {
+      await expect(
+        service.crearEvidencia('incidencia-1', {
+          id_tipo_evidencia: 1,
+          url_evidencia: 'https://servidor.com/documento.pdf',
+        }),
+      ).rejects.toThrow(UnsupportedMediaTypeException);
+    });
+
+    it('acepta evidencias con extensiones válidas como .jpg, .png o .webp', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.incidencias = {
+        findUnique: jest.fn().mockResolvedValue(incidenciaCreada),
+      };
+      mockPrisma.tipoEvidencia = {
+        findUnique: jest.fn().mockResolvedValue({ id_tipo_evidencia: 1, nombre_tipo: 'Foto' }),
+      };
+      mockPrisma.evidencia = {
+        create: jest.fn().mockResolvedValue({
+          id_evidencia: 'ev-1',
+          id_incidencia: 'incidencia-1',
+          url_cloudinary: 'https://cloudinary.com/foto.jpg',
+          fecha_creacion: new Date(),
+          tipo_evidencia: { id_tipo_evidencia: 1, nombre_tipo: 'Foto' },
+        }),
+      };
+
+      const resultado = await service.crearEvidencia('incidencia-1', {
+        id_tipo_evidencia: 1,
+        url_evidencia: 'https://cloudinary.com/foto.jpg',
+      });
+
+      expect(resultado.url_evidencia).toBe('https://cloudinary.com/foto.jpg');
+    });
+  });
 });
-
-
