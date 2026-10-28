@@ -50,7 +50,8 @@ api.interceptors.request.use(
 /**
  * Interceptor de Respuesta (TAL-131):
  * Detecta respuestas HTTP 401 Unauthorized en peticiones protegidas y ejecuta la renovación
- * silenciosa (Silent Refresh) comunicándose con el endpoint /auth/refresh.
+ * silenciosa (Silent Refresh) comunicándose con el endpoint /autenticacion/renovar-token
+ * acordado en el contrato OpenAPI en español.
  *
  * Criterios de Aceptación:
  * 1. El usuario no es expulsado si el refresh token es válido (reintento silencioso transparente).
@@ -61,10 +62,13 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Endpoints de autenticación donde un 401 es una respuesta válida de credenciales incorrectas
-    const isAuthEndpoint = /\/auth\/(login|register|refresh)(?:\?|$)/i.test(
-      originalRequest?.url || '',
-    );
+    // Endpoints de autenticación donde un 401 es una respuesta esperada de credenciales inválidas.
+    // Soporta formato en español según contrato OpenAPI y formato retrocompatible:
+    // /autenticacion/inicio-sesion, /autenticacion/usuario-actual, /autenticacion/renovar-token, /autenticacion/registro
+    const isAuthEndpoint =
+      /\/(?:autenticacion|auth)\/(?:inicio-sesion|usuario-actual|renovar-token|refrescar-token|refrescar|renovar|registro|login|register|refresh)(?:\?|$)/i.test(
+        originalRequest?.url || '',
+      );
 
     // Si no es un error 401, o no hay configuración original, o ya fue reintentada, o es auth:
     if (
@@ -100,17 +104,36 @@ api.interceptors.response.use(
       const localRefreshToken = localStorage.getItem('refreshToken');
       const payload = localRefreshToken ? { refreshToken: localRefreshToken } : {};
 
-      // Usamos axios base sin interceptores para evitar bucles si /auth/refresh respondiera 401
-      const refreshResponse = await axios.post(
-        `${api.defaults.baseURL}/auth/refresh`,
-        payload,
-        {
-          withCredentials: true,
-          headers: {
-            'Content-Type': 'application/json',
+      // Invocación al endpoint de renovación en español según contrato OpenAPI: /autenticacion/renovar-token
+      // con fallback automático a /auth/refresh para retrocompatibilidad con servidores legacy
+      let refreshResponse;
+      try {
+        refreshResponse = await axios.post(
+          `${api.defaults.baseURL}/autenticacion/renovar-token`,
+          payload,
+          {
+            withCredentials: true,
+            headers: {
+              'Content-Type': 'application/json',
+            },
           },
-        },
-      );
+        );
+      } catch (err) {
+        if (err.response?.status === 404) {
+          refreshResponse = await axios.post(
+            `${api.defaults.baseURL}/auth/refresh`,
+            payload,
+            {
+              withCredentials: true,
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            },
+          );
+        } else {
+          throw err;
+        }
+      }
 
       const data = refreshResponse.data || {};
       const newAccessToken =

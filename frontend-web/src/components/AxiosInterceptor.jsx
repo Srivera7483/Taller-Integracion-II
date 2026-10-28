@@ -17,7 +17,10 @@ const AxiosInterceptor = ({ children }) => {
           // Si es un error 401 (Unauthorized):
           // En endpoints de refresh o si la sesión caducó, se maneja mediante redirección limpia a /login sin alertas ruidosas
           if (error.response.status === 401) {
-            if (error.config?.url?.includes('/auth/login')) {
+            if (
+              error.config?.url?.includes('/autenticacion/inicio-sesion') ||
+              error.config?.url?.includes('/auth/login')
+            ) {
               showToast(errorMessage || 'Credenciales incorrectas. Verifique su correo y contraseña.', 'error');
             }
             return Promise.reject(error);

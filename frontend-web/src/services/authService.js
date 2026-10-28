@@ -73,23 +73,42 @@ export const limpiarSesion = () => {
 };
 
 /**
- * Fuerza una solicitud de renovación silenciosa manual al endpoint /auth/refresh.
+ * Fuerza una solicitud de renovación silenciosa manual al endpoint /autenticacion/renovar-token
+ * acordado en el contrato OpenAPI (con fallback a /auth/refresh).
  * @returns {Promise<string>} Nuevo access token obtenido
  */
 export const renovarTokenManualmente = async () => {
   const localRefreshToken = getRefreshToken();
   const payload = localRefreshToken ? { refreshToken: localRefreshToken } : {};
 
-  const response = await axios.post(
-    `${api.defaults.baseURL}/auth/refresh`,
-    payload,
-    {
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json',
+  let response;
+  try {
+    response = await axios.post(
+      `${api.defaults.baseURL}/autenticacion/renovar-token`,
+      payload,
+      {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+        },
       },
-    },
-  );
+    );
+  } catch (err) {
+    if (err.response?.status === 404) {
+      response = await axios.post(
+        `${api.defaults.baseURL}/auth/refresh`,
+        payload,
+        {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+    } else {
+      throw err;
+    }
+  }
 
   const data = response.data || {};
   const newAccessToken = data.accessToken || data.token || data.access_token;
@@ -107,12 +126,34 @@ export const renovarTokenManualmente = async () => {
 };
 
 /**
+ * Consulta la información del usuario autenticado en el backend
+ * usando la ruta en español del contrato OpenAPI /autenticacion/usuario-actual.
+ * @returns {Promise<Object>}
+ */
+export const obtenerUsuarioActualRemoto = async () => {
+  try {
+    const response = await api.get('/autenticacion/usuario-actual');
+    return response.data;
+  } catch (err) {
+    if (err.response?.status === 404) {
+      const legacy = await api.get('/auth/me');
+      return legacy.data;
+    }
+    throw err;
+  }
+};
+
+/**
  * Cierra la sesión activa en el backend y limpia el almacenamiento del cliente.
+ * Notifica al endpoint /autenticacion/cerrar-sesion (o /auth/logout).
  */
 export const cerrarSesion = async () => {
   try {
-    // Si el backend expone logout para invalidar cookies de sesión
-    await api.post('/auth/logout').catch(() => {});
+    await api.post('/autenticacion/cerrar-sesion').catch(async (err) => {
+      if (err.response?.status === 404) {
+        await api.post('/auth/logout').catch(() => {});
+      }
+    });
   } finally {
     limpiarSesion();
   }

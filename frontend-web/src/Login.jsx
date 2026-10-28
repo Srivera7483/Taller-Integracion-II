@@ -80,8 +80,19 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const endpoint = mode === 'login' ? '/auth/login' : '/auth/register';
-      const response = await api.post(endpoint, payload);
+      // Rutas en español según contrato OpenAPI (/autenticacion/inicio-sesion y /autenticacion/registro)
+      const openApiEndpoint = mode === 'login' ? '/autenticacion/inicio-sesion' : '/autenticacion/registro';
+      let response;
+      try {
+        response = await api.post(openApiEndpoint, payload);
+      } catch (err) {
+        if (err.response?.status === 404) {
+          const fallbackEndpoint = mode === 'login' ? '/auth/login' : '/auth/register';
+          response = await api.post(fallbackEndpoint, payload);
+        } else {
+          throw err;
+        }
+      }
 
       if (mode === 'login') {
         if (response.status === 200 || response.status === 201) {

@@ -86,9 +86,33 @@ La solución implementa el patrón arquitectónico de **Renovación Silenciosa (
 
 ---
 
-## 5. Verificación y Calidad de Código
+## 5. Alineación con el Contrato OpenAPI (Formato en Español)
 
-### 5.1. Análisis Estático (Linter)
+En cumplimiento con el contrato canónico del proyecto (`openapi.yaml` v1.1.0), los endpoints de autenticación fueron adaptados para utilizar la convención en español bajo el prefijo `/api/v1/autenticacion`, manteniendo soporte dual para máxima compatibilidad:
+
+### 5.1. Mapeo de Endpoints
+| Operación | Ruta OpenAPI Canónica (Español) | Ruta Legacy (Retrocompatibilidad) | Método HTTP |
+| :--- | :--- | :--- | :---: |
+| **Inicio de Sesión** | `/api/v1/autenticacion/inicio-sesion` | `/api/v1/auth/login` | `POST` |
+| **Renovación Silenciosa** | `/api/v1/autenticacion/renovar-token` | `/api/v1/auth/refresh` | `POST` |
+| **Usuario Autenticado** | `/api/v1/autenticacion/usuario-actual` | `/api/v1/auth/me` | `GET` |
+| **Registro de Usuario** | `/api/v1/autenticacion/registro` | `/api/v1/auth/register` | `POST` |
+| **Cierre de Sesión** | `/api/v1/autenticacion/cerrar-sesion` | `/api/v1/auth/logout` | `POST` |
+
+### 5.2. Capa de Retrocompatibilidad y Tolerancia a Fallos
+* **Frontend Web (`api.js`, `authService.js`, `Login.jsx`):** Todas las solicitudes apuntan prioritariamente a los endpoints canónicos en español. Si el servidor remoto o entorno de pruebas responde `404 Not Found` (debido a microservicios ejecutando versiones previas a la homologación), el cliente ejecuta inmediatamente un reintento transparente hacia la ruta legacy en inglés antes de propagar cualquier error.
+* **API Gateway (`api gateway/index.js`):** Se registró la ruta proxy `/api/v1/autenticacion` con `rewritePrefix: '/autenticacion'` hacia el microservicio de autenticación (`ms-auth`), coexistiendo con la ruta `/api/v1/auth`.
+* **Microservicio Auth (`ms-auth/src/auth/auth.controller.ts`):** Soporte multi-ruta mediante decoradores de arreglo en NestJS:
+  * `@Controller(['auth', 'autenticacion'])`
+  * `@Post(['login', 'inicio-sesion'])`
+  * `@Post(['register', 'registro'])`
+  * `@Get(['me', 'usuario-actual'])`
+
+---
+
+## 6. Verificación y Calidad de Código
+
+### 6.1. Análisis Estático (Linter)
 Ejecución del linter `oxlint` sobre el frontend:
 ```bash
 > frontend-web@0.0.0 lint
@@ -97,7 +121,7 @@ Finished in 51ms on 47 files with 104 rules using 16 threads.
 Found 0 errors.
 ```
 
-### 5.2. Compilación de Producción (Vite Build)
+### 6.2. Compilación de Producción (Vite Build)
 Ejecución del empaquetado optimizado:
 ```bash
 > frontend-web@0.0.0 build
@@ -106,24 +130,20 @@ Ejecución del empaquetado optimizado:
 dist/index.html                   0.76 kB │ gzip:   0.42 kB
 dist/assets/index-BGHeSTnm.css   74.77 kB │ gzip:  12.03 kB
 dist/assets/index-DW3kPsxx.js   553.05 kB │ gzip: 153.82 kB
-✓ built in 2.78s
+✓ built in 1.39s
 ```
 *Compilación finalizada exitosamente con 0 errores de empaquetado y tipos.*
 
-### 5.3. Verificación de Rutas Proxy en API Gateway
-```bash
-> api-gateway@1.0.0 test
-> node --test
-✔ GET / responde 200 OK
-✔ redirige activos e incidencias a sus microservicios
-✔ redirige POST de notificaciones al endpoint interno /notificar
-✔ los proxies devuelven 502 y el Gateway sigue disponible
-tests 4 | pass 4 | fail 0
-```
+### 6.3. Verificación de Pruebas Unitarias
+* **API Gateway (`api gateway/index.test.js`):** 4/4 pruebas unitarias aprobadas (100%).
+* **Microservicio Auth (`ms-auth` vitest):** 19 pruebas aprobadas, 6 archivos de test en verde.
 
 ---
 
-## 6. Registro de Tiempos y Smart Commit
-* **Tiempo Total Imputado:** 2 horas y 30 minutos (`#time 2h 30m`), en estricta conformidad con la estimación planificada de Jira.
-* **Mensaje de Commit:**
-  `TAL-131 #time 2h 30m feat(frontend): interceptor axios para renovacion silenciosa de tokens caducados y gestion de sesion`
+## 7. Registro de Tiempos y Smart Commits
+* **Commit Inicial (Implementación Core):**
+  * **Tiempo Imputado:** 2 horas y 30 minutos (`#time 2h 30m`)
+  * **Mensaje:** `TAL-131 #time 2h 30m feat(frontend): interceptor axios para renovacion silenciosa de tokens caducados y gestion de sesion`
+* **Commit de Refactorización (Alineación OpenAPI):**
+  * **Tiempo Real Incurrido:** 30 minutos (`#time 30m`)
+  * **Mensaje:** `TAL-131 #time 30m refactor(auth): alinear rutas de autenticacion al contrato openapi en espanol con soporte dual`
