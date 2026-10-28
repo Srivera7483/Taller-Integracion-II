@@ -23,18 +23,18 @@ import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { RolesGuard}  from './roles.guard.js';
 import { Roles } from './roles.decorator.js';
 
-@Controller('auth')
+@Controller(['auth', 'autenticacion'])
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('register')
+  @Post(['register', 'registro'])
   @HttpCode(HttpStatus.CREATED)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async register(@Body() registerDto: RegisterDto): Promise<any> {
     return await this.authService.register(registerDto);
   }
 
-  @Post('login')
+  @Post(['login', 'inicio-sesion'])
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async login(@Body() loginDto: LoginDto): Promise<any> {
@@ -49,7 +49,7 @@ export class AuthController {
     }
   }
 
-  @Get('me')
+  @Get(['me', 'usuario-actual'])
   @UseGuards(JwtAuthGuard)
   async getAuthenticatedUser(@Req() request: Request & { user: any }) {
     const userId = request.user.sub || request.user.userId;

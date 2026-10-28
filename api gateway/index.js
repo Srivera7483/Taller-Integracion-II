@@ -21,6 +21,7 @@ const buildGateway = (options = {}) => {
     fastify.register(fastifyCors, {
         origin: true,
         credentials: true,
+        exposedHeaders: ['Content-Disposition'],
     });
 
     fastify.register(proxy, {
@@ -69,6 +70,13 @@ const buildGateway = (options = {}) => {
         upstream: options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001',
         prefix: '/api/v1/auth',
         rewritePrefix: '/auth', // ESTÁNDAR! Los otros deben seguir este
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001',
+        prefix: '/api/v1/autenticacion',
+        rewritePrefix: '/autenticacion',
         replyOptions: { onError: handleProxyError }
     });
 
