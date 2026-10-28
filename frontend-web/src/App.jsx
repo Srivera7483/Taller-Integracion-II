@@ -20,6 +20,8 @@ import Usuarios from './views/Usuarios';
 import Trazabilidad from './views/Trazabilidad';
 import PlanificarMantenimiento from './views/PlanificarMantenimiento';
 import Mantenimientos from './views/Mantenimientos';
+import NotFound from './views/NotFound';
+import ServerError from './views/ServerError';
 
 
 function App() {
@@ -28,35 +30,43 @@ function App() {
       <ToastProvider>
         <AxiosInterceptor>
           <Routes>
-          {/* Ruta pública sin Layout */}
-          <Route element={<PublicRoute />}>
-            <Route path="/login" element={<Login />} />
-          </Route>
+            {/* Rutas globales de error */}
+            <Route path="/500" element={<ServerError />} />
+            <Route path="/error" element={<ServerError />} />
 
-          {/* Rutas protegidas con Layout */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<Layout />}>
-              {/* Redirección por defecto */}
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              
-              {/* Rutas hijas que se renderizan en el <Outlet /> del Layout */}
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="incidencias" element={<Incidencias />} />
-              <Route path="incidencias/nueva" element={<ReporteIncidencia />} />
-              <Route path="incidencias/reportar" element={<ReporteIncidencia />} />
-              <Route path="incidencias/asignar" element={<AsignarTecnico />} />
-              <Route path="incidencias/:idIncidencia" element={<DetalleIncidencia />} />
-              <Route path="ordenes/:idOrden" element={<DetalleOrden />} />
-              <Route path="inventario" element={<Inventario />} />
-              <Route path="mantenimientos" element={<Mantenimientos />} />
-              <Route path="mantenimientos/planificar" element={<PlanificarMantenimiento />} />
-              <Route path="mantenimientos/nuevo" element={<PlanificarMantenimiento />} />
-              <Route path="trazabilidad" element={<Trazabilidad />} />
-              <Route path="trazabilidad/:idActivo" element={<Trazabilidad />} />
-              <Route path="activos/:idActivo/trazabilidad" element={<Trazabilidad />} />
-              <Route path="usuarios" element={<Usuarios />} />
+            {/* Ruta pública sin Layout */}
+            <Route element={<PublicRoute />}>
+              <Route path="/login" element={<Login />} />
             </Route>
-          </Route>
+
+            {/* Rutas protegidas con Layout */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/" element={<Layout />}>
+                {/* Redirección por defecto */}
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                
+                {/* Rutas hijas que se renderizan en el <Outlet /> del Layout */}
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="incidencias" element={<Incidencias />} />
+                <Route path="incidencias/nueva" element={<ReporteIncidencia />} />
+                <Route path="incidencias/reportar" element={<ReporteIncidencia />} />
+                <Route path="incidencias/asignar" element={<AsignarTecnico />} />
+                <Route path="incidencias/:idIncidencia" element={<DetalleIncidencia />} />
+                <Route path="ordenes/:idOrden" element={<DetalleOrden />} />
+                <Route path="inventario" element={<Inventario />} />
+                <Route path="mantenimientos" element={<Mantenimientos />} />
+                <Route path="mantenimientos/planificar" element={<PlanificarMantenimiento />} />
+                <Route path="mantenimientos/nuevo" element={<PlanificarMantenimiento />} />
+                <Route path="trazabilidad" element={<Trazabilidad />} />
+                <Route path="trazabilidad/:idActivo" element={<Trazabilidad />} />
+                <Route path="activos/:idActivo/trazabilidad" element={<Trazabilidad />} />
+                <Route path="usuarios" element={<Usuarios />} />
+              </Route>
+            </Route>
+
+            {/* TAL-169: Captura de rutas no definidas y página 404 */}
+            <Route path="/404" element={<NotFound />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
           
           {/* Componente global para notificaciones */}
