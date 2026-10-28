@@ -39,6 +39,8 @@ const Layout = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('token'); 
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('usuario');
     navigate('/login');
   };
 

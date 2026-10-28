@@ -74,6 +74,13 @@ const buildGateway = (options = {}) => {
 
     fastify.register(proxy, {
         upstream: options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001',
+        prefix: '/api/v1/autenticacion',
+        rewritePrefix: '/autenticacion',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001',
         prefix: '/api/v1/usuarios',
         rewritePrefix: '/auth/usuarios',
         replyOptions: { onError: handleProxyError }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   IoServer,
   IoMailOutline,
@@ -8,7 +8,8 @@ import {
   IoEyeOffOutline,
   IoArrowForwardOutline,
   IoPersonOutline,
-  IoCardOutline
+  IoCardOutline,
+  IoAlertCircleOutline,
 } from 'react-icons/io5';
 import { useToast } from './context/ToastContext';
 import api from './services/api';
@@ -16,6 +17,10 @@ import api from './services/api';
 const Login = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
+
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const sesionExpirada = searchParams.get('expirado') === 'true';
 
   const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [rutOId, setRutOId] = useState('');
@@ -75,8 +80,19 @@ const Login = () => {
     setIsSubmitting(true);
 
     try {
-      const endpoint = mode === 'login' ? '/auth/login' : '/auth/register';
-      const response = await api.post(endpoint, payload);
+      // Rutas en español según contrato OpenAPI (/autenticacion/inicio-sesion y /autenticacion/registro)
+      const openApiEndpoint = mode === 'login' ? '/autenticacion/inicio-sesion' : '/autenticacion/registro';
+      let response;
+      try {
+        response = await api.post(openApiEndpoint, payload);
+      } catch (err) {
+        if (err.response?.status === 404) {
+          const fallbackEndpoint = mode === 'login' ? '/auth/login' : '/auth/register';
+          response = await api.post(fallbackEndpoint, payload);
+        } else {
+          throw err;
+        }
+      }
 
       if (mode === 'login') {
         if (response.status === 200 || response.status === 201) {
@@ -84,6 +100,9 @@ const Login = () => {
           const token = data.token || data.accessToken || data.access_token;
           if (token) {
             localStorage.setItem('token', token);
+          }
+          if (data.refreshToken || data.refresh_token) {
+            localStorage.setItem('refreshToken', data.refreshToken || data.refresh_token);
           }
           if (data.usuario) {
             localStorage.setItem('usuario', JSON.stringify(data.usuario));
@@ -125,7 +144,7 @@ const Login = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-8 w-full max-w-sm fade-in-up transition-all relative z-10">
 
           {/* Encabezado con ícono de servidor */}
-          <div className="flex flex-col items-center justify-center gap-2 mb-8">
+          <div className="flex flex-col items-center justify-center gap-2 mb-6">
             <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-2xl mb-2">
               <IoServer />
             </div>
@@ -134,6 +153,14 @@ const Login = () => {
               {mode === 'login' ? 'Iniciar sesión en tu cuenta' : 'Crear una cuenta nueva'}
             </p>
           </div>
+
+          {/* Notificación de sesión expirada por inactividad (TAL-131) */}
+          {sesionExpirada && mode === 'login' && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2 animate-fadeIn">
+              <IoAlertCircleOutline className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <span>Tu sesión ha expirado por inactividad. Por favor, ingresa tus credenciales nuevamente.</span>
+            </div>
+          )}
 
           {/* Formulario */}
           <form id="auth-form" onSubmit={handleSubmit} className="space-y-4">
