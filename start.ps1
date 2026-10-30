@@ -39,6 +39,15 @@ foreach ($carpeta in $carpetasEnv) {
 
 
 Write-Host "`n[3/7] Levantando contenedores..." -ForegroundColor Yellow
+
+# Evitar conflictos de directorios/nombres
+$contenedores = @("auth_db", "activos_db", "incidencias_db", "ms-notificaciones")
+foreach ($c in $contenedores) {
+    $existe = docker ps -a -q -f "name=^/${c}$"
+    if ($existe) {
+        docker rm -f $c > $null 2>&1
+    }
+}
 docker compose up -d --remove-orphans
 
 

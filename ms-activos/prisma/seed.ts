@@ -47,11 +47,37 @@ async function main() {
     },
   }); 
 
+  // Inyectar datos de prueba para mantenimientos_preventivos
+  const fechaHoy = new Date();
+  const fechaEn5Dias = new Date(fechaHoy.getTime() + 5 * 24 * 60 * 60 * 1000);
+  const fechaEn12Dias = new Date(fechaHoy.getTime() + 12 * 24 * 60 * 60 * 1000);
+
+  const mant1 = await prisma.mantenimiento.create({
+    data: {
+      id_mantenimiento: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
+      id_activo: activo1.id,
+      fecha_programada: fechaEn5Dias,
+      fecha_creacion: fechaHoy,
+    },
+  });
+
+  const mant2 = await prisma.mantenimiento.create({
+    data: {
+      id_mantenimiento: 'b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e',
+      id_activo: activo2.id,
+      fecha_programada: fechaEn12Dias,
+      fecha_creacion: fechaHoy,
+    },
+  });
+
   console.log('✅ Seeding completado exitosamente.');
   console.log('Activos creados para pruebas:');
   console.log(`- ${activo1.nombre} (ID: ${activo1.id})`);
   console.log(`- ${activo2.nombre} (ID: ${activo2.id})`);
   console.log(`- ${activo3.nombre} (ID: ${activo3.id})`);
+  console.log('Mantenimientos preventivos creados para pruebas:');
+  console.log(`- Mantenimiento para ${activo1.nombre} (ID: ${mant1.id_mantenimiento}, Programado: ${fechaEn5Dias.toISOString()})`);
+  console.log(`- Mantenimiento para ${activo2.nombre} (ID: ${mant2.id_mantenimiento}, Programado: ${fechaEn12Dias.toISOString()})`);
 }
 
 main()

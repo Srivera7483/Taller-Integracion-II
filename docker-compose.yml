@@ -1,3 +1,5 @@
+name: inframanager
+
 services:
   auth_db:
     image: postgres:16

@@ -433,7 +433,7 @@ export class ActivosService {
 
   private mantenimientosEnMemoria: any[] = [
     {
-      id: 'mant-001',
+      id: 'mant-001', id_mantenimiento: 'mant-001', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
       id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       fecha_programada: new Date('2026-10-15T10:00:00.000Z'),
       descripcion: 'Mantenimiento preventivo semestral de lámpara y calibración óptico-láser',
@@ -448,7 +448,7 @@ export class ActivosService {
       },
     },
     {
-      id: 'mant-002',
+      id: 'mant-002', id_mantenimiento: 'mant-002', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
       id_activo: '550e8400-e29b-41d4-a716-446655440000',
       fecha_programada: new Date('2026-10-20T14:30:00.000Z'),
       descripcion: 'Limpieza de ventiladores, cambio de pasta térmica y diagnóstico de RAM',
@@ -463,7 +463,7 @@ export class ActivosService {
       },
     },
     {
-      id: 'mant-003',
+      id: 'mant-003', id_mantenimiento: 'mant-003', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
       id_activo: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
       fecha_programada: new Date('2026-10-28T09:00:00.000Z'),
       descripcion: 'Inspección de hardware dado de baja y rescate de componentes reutilizables',
@@ -478,7 +478,7 @@ export class ActivosService {
       },
     },
     {
-      id: 'mant-004',
+      id: 'mant-004', id_mantenimiento: 'mant-004', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
       id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       fecha_programada: new Date('2026-11-05T11:00:00.000Z'),
       descripcion: 'Revisión trimestral de filtros de aire y pruebas térmicas',
@@ -493,7 +493,7 @@ export class ActivosService {
       },
     },
     {
-      id: 'mant-005',
+      id: 'mant-005', id_mantenimiento: 'mant-005', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
       id_activo: 'SW-CORE-01',
       fecha_programada: new Date('2026-11-12T16:00:00.000Z'),
       descripcion: 'Actualización preventiva de firmware y verificación de redundancia PoE',
