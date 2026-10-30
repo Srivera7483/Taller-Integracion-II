@@ -14,8 +14,10 @@ import { UserRepository } from './user.repository.js';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') ?? 'dev-secret-change-me',
-        signOptions: { expiresIn: '1h' },
+        secret: configService.get<string>('JWT_SECRET') ?? 'super_secret_key_change_me',
+        signOptions: {
+          expiresIn: (configService.get<string>('JWT_EXPIRATION') ?? '1h') as any,
+        },
       }),
     }),
   ],

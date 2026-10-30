@@ -21,21 +21,21 @@ const incidenciasPrisma = new IncidenciasPrisma({
 
 async function main() {
   const rolAdmin = await authPrisma.role.upsert({
-    where: { nombreRol: 'Administrador' },
+    where: { nombreRol: 'ADMINISTRADOR' },
     update: {},
-    create: { nombreRol: 'Administrador' },
+    create: { nombreRol: 'ADMINISTRADOR' },
   });
 
   const rolTecnico = await authPrisma.role.upsert({
-    where: { nombreRol: 'Técnico' },
+    where: { nombreRol: 'TECNICO' },
     update: {},
-    create: { nombreRol: 'Técnico' },
+    create: { nombreRol: 'TECNICO' },
   });
 
   const rolUsuario = await authPrisma.role.upsert({
-    where: { nombreRol: 'Usuario' },
+    where: { nombreRol: 'REPORTANTE' },
     update: {},
-    create: { nombreRol: 'Usuario' },
+    create: { nombreRol: 'REPORTANTE' },
   });
 
   const hashedPassword = await argon2.hash('password123');

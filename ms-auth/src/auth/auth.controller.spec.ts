@@ -11,6 +11,7 @@ describe('AuthController', () => {
   beforeEach(() => {
     authServiceMock = {
       login: vi.fn(),
+      refreshToken: vi.fn(),
       updateUserRole: vi.fn(),
       getAuthenticatedUser: vi.fn(),
     } as unknown as AuthService;
@@ -37,6 +38,34 @@ describe('AuthController', () => {
       await expect(
         authController.login({ email: 'bad@test.com', password: 'wrong' }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('refreshToken', () => {
+    it('debe renovar el token si se proporciona refreshToken en el body', async () => {
+      const mockResult = { accessToken: 'new-token', refreshToken: 'new-refresh' };
+      vi.spyOn(authServiceMock, 'refreshToken').mockResolvedValue(mockResult as any);
+
+      const result = await authController.refreshToken(
+        { refreshToken: 'valid-refresh' },
+        { headers: {} } as any,
+      );
+
+      expect(authServiceMock.refreshToken).toHaveBeenCalledWith('valid-refresh');
+      expect(result).toEqual(mockResult);
+    });
+
+    it('debe lanzar UnauthorizedException si no se envía ningún token', async () => {
+      await expect(
+        authController.refreshToken({}, { headers: {} } as any),
+      ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('logout', () => {
+    it('debe retornar confirmación de sesión cerrada', async () => {
+      const result = await authController.logout();
+      expect(result).toEqual({ message: 'Sesión cerrada exitosamente' });
     });
   });
 

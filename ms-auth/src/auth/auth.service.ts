@@ -75,9 +75,15 @@ export class AuthService {
     };
 
     const token = this.jwtService.sign(payload);
+    const refreshToken = this.jwtService.sign(
+      { sub: user.id, tokenType: 'refresh' },
+      { expiresIn: '1h' },
+    );
 
     return {
       token,
+      accessToken: token,
+      refreshToken,
       usuario: {
         id_usuario: user.id,
         rut_o_id: user.rut_o_id,
@@ -91,6 +97,58 @@ export class AuthService {
         created_at: user.fechaCreacion.toISOString()
       }
     };
+  }
+
+  async refreshToken(refreshTokenStr: string): Promise<any> {
+    try {
+      const payload = this.jwtService.verify(refreshTokenStr);
+      const userId = payload.sub || payload.userId;
+      if (!userId) {
+        throw new UnauthorizedException('Token de renovación inválido');
+      }
+
+      const user = await this.userRepository.findById(userId);
+      if (!user || user.fechaEliminacion) {
+        throw new UnauthorizedException('Usuario no válido o eliminado');
+      }
+
+      const newPayload = {
+        sub: user.id,
+        rol: user.role.nombreRol,
+        userId: user.id,
+        role: user.role.nombreRol,
+        email: user.email,
+      };
+
+      const newAccessToken = this.jwtService.sign(newPayload);
+      const newRefreshToken = this.jwtService.sign(
+        { sub: user.id, tokenType: 'refresh' },
+        { expiresIn: '1h' },
+      );
+
+      return {
+        token: newAccessToken,
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        usuario: {
+          id_usuario: user.id,
+          rut_o_id: user.rut_o_id,
+          nombre: user.nombre,
+          apellido: user.apellido,
+          correo: user.email,
+          rol: {
+            id_rol: user.role.id,
+            nombre_rol: user.role.nombreRol,
+          },
+          created_at: user.fechaCreacion.toISOString(),
+        },
+      };
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Refresh token inválido o expirado');
+    }
   }
 
   async updateUserRole(id: string, updateRoleDto: UpdateRoleDto) {

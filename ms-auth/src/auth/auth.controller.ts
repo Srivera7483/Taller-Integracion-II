@@ -49,6 +49,26 @@ export class AuthController {
     }
   }
 
+  @Post(['refresh', 'renovar-token'])
+  @HttpCode(HttpStatus.OK)
+  async refreshToken(
+    @Body() body: { refreshToken?: string },
+    @Req() request: Request,
+  ): Promise<any> {
+    const headerToken = request.headers.authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
+    const token = body?.refreshToken || headerToken;
+    if (!token) {
+      throw new UnauthorizedException('Refresh token requerido');
+    }
+    return await this.authService.refreshToken(token);
+  }
+
+  @Post(['logout', 'cerrar-sesion'])
+  @HttpCode(HttpStatus.OK)
+  async logout(): Promise<any> {
+    return { message: 'Sesión cerrada exitosamente' };
+  }
+
   @Get(['me', 'usuario-actual'])
   @UseGuards(JwtAuthGuard)
   async getAuthenticatedUser(@Req() request: Request & { user: any }) {
