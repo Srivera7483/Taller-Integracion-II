@@ -23,6 +23,15 @@ Las rutas documentadas de autenticacion corresponden a la implementacion publica
 
 El rate limit del Gateway permite 5 solicitudes en 15 minutos para login. El contrato incluye la respuesta estandar `429` y el encabezado `Retry-After`.
 
+## Diagnostico del Paso 1
+
+- Auth compila con `npm.cmd run build`.
+- Incidencias compila con `npm.cmd run build`.
+- El Gateway ejecuta 12/12 pruebas sin fallos.
+- Swagger UI responde `200` en `http://localhost:3000/api/docs`.
+- El contrato servido por el Gateway responde `200` en `http://localhost:3000/api/openapi.yaml`.
+- Redocly valida `openapi.yaml` sin errores.
+
 Incidencias y ordenes de trabajo mantienen sus rutas bajo `/api/v1/incidencias` y `/api/v1/ordenes-trabajo`, incluyendo:
 
 - incidencias, estados, historial y evidencias;
@@ -31,7 +40,7 @@ Incidencias y ordenes de trabajo mantienen sus rutas bajo `/api/v1/incidencias` 
 
 ## Decision arquitectonica
 
-Se mantiene el enfoque Code-First como fuente principal en los microservicios y se usa el contrato YAML central como artefacto de integracion movil. En este repositorio los controladores NestJS aun no incluyen `@nestjs/swagger`; por ello el contrato fue actualizado manualmente sin inventar rutas. La alternativa Schema-First manual puede derivar rapidamente de la implementacion y requiere una revision automatizada en CI.
+Se mantiene el contrato YAML central como artefacto de integracion movil (Schema-First documental). Los controladores NestJS aun no incluyen `@nestjs/swagger`, por lo que la generacion dinamica no estaba disponible sin ampliar dependencias y decoradores. Un enfoque Code-First posterior reduciria la deriva entre DTOs y OpenAPI, pero requiere instalar Swagger y generar el documento desde el mismo codigo.
 
 Los esquemas `Error`, `DatosInvalidos`, `NoAutenticado`, `DemasiadasSolicitudes` y `ErrorServidor` permiten que Flutter, React Native, Android e iOS procesen el mismo `statusCode`, `message`, `mensaje`, `timestamp` y `path`.
 

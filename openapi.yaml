@@ -87,6 +87,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SesionIniciada'
+              example:
+                token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+                usuario:
+                  id_usuario: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  rut_o_id: 12.345.678-9
+                  nombre: Ana
+                  apellido: Perez
+                  correo: tecnico@scgi.cl
+                  rol:
+                    id_rol: 3
+                    nombre_rol: TECNICO
+                  fecha_creacion: '2026-10-31T18:00:00.000Z'
         '400':
           $ref: '#/components/responses/DatosInvalidos'
         '401':
@@ -869,12 +881,24 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 400
+            mensaje: Los datos enviados no son validos.
+            message: "titulo must be shorter than or equal to 100 characters"
+            timestamp: '2026-10-31T18:00:00.000Z'
+            path: /api/v1/incidencias
     NoAutenticado:
       description: Falta el token, es invalido o expiro. La app debe cerrar la sesion.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 401
+            mensaje: Falta el token, es invalido o expiro.
+            message: No autorizado
+            timestamp: '2026-10-31T18:00:00.000Z'
+            path: /api/v1/incidencias
     SinPermiso:
       description: El rol del usuario no permite esta accion.
       content:
@@ -893,6 +917,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 500
+            mensaje: Error interno del servidor.
+            message: Internal server error
+            timestamp: '2026-10-31T18:00:00.000Z'
+            path: /api/v1/incidencias
     DemasiadasSolicitudes:
       description: Se excedio el limite de 5 intentos de inicio de sesion por 15 minutos.
       headers:
