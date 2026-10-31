@@ -25,8 +25,23 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request & { user: any }>();
     const user = request.user;
 
-    const userRole = user?.rol || user?.role;
-    if (!userRole || !requiredRoles.includes(userRole)) {
+    const userRole = (user?.rol || user?.role)?.toString().toUpperCase();
+    if (!userRole) {
+      throw new ForbiddenException(
+        'Acceso denegado: rol insuficiente para acceder a este recurso',
+      );
+    }
+
+    const hasRole = requiredRoles.some((reqRole) => {
+      const normalizedReq = reqRole.toUpperCase();
+      if (normalizedReq === userRole) return true;
+      if (normalizedReq === 'ADMINISTRADOR' && (userRole === 'ADMIN' || userRole === 'ADMINISTRADOR')) return true;
+      if (normalizedReq === 'REPORTANTE' && (userRole === 'USUARIO' || userRole === 'REPORTANTE')) return true;
+      if (normalizedReq === 'TECNICO' && (userRole === 'TÉCNICO' || userRole === 'TECNICO')) return true;
+      return false;
+    });
+
+    if (!hasRole) {
       throw new ForbiddenException(
         'Acceso denegado: rol insuficiente para acceder a este recurso',
       );

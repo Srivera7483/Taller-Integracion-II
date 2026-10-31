@@ -8,33 +8,33 @@ async function main() {
 
   // 1. Asegurar la existencia de los Roles
   const rolAdmin = await prisma.role.upsert({
-    where: { nombreRol: 'Administrador' },
+    where: { nombreRol: 'ADMINISTRADOR' },
     update: {},
-    create: { nombreRol: 'Administrador' },
+    create: { nombreRol: 'ADMINISTRADOR' },
   });
   console.log(`✅ Rol asegurado: ${rolAdmin.nombreRol}`);
 
   const rolTecnico = await prisma.role.upsert({
-    where: { nombreRol: 'Técnico' },
+    where: { nombreRol: 'TECNICO' },
     update: {},
-    create: { nombreRol: 'Técnico' },
+    create: { nombreRol: 'TECNICO' },
   });
   console.log(`✅ Rol asegurado: ${rolTecnico.nombreRol}`);
 
-  const rolUsuario = await prisma.role.upsert({
-    where: { nombreRol: 'Usuario' },
+  const rolReportante = await prisma.role.upsert({
+    where: { nombreRol: 'REPORTANTE' },
     update: {},
-    create: { nombreRol: 'Usuario' },
+    create: { nombreRol: 'REPORTANTE' },
   });
-  console.log(`✅ Rol asegurado: ${rolUsuario.nombreRol}`);
+  console.log(`✅ Rol asegurado: ${rolReportante.nombreRol}`);
 
-  // Generamos el hash con argon2, igual que en tu script original
-  const hashedPassword = await argon2.hash('password123'); // Puedes cambiarlo a '123456' si prefieres
+  // Generamos el hash con argon2
+  const hashedPassword = await argon2.hash('password123');
 
   // 2. Crear los Usuarios
   const admin = await prisma.user.upsert({
     where: { rut_o_id: 'ADMIN-001' },
-    update: { passwordHash: hashedPassword }, 
+    update: { passwordHash: hashedPassword, roleId: rolAdmin.id }, 
     create: {
       rut_o_id: 'ADMIN-001',
       nombre: 'Admin',
@@ -44,11 +44,11 @@ async function main() {
       roleId: rolAdmin.id,
     },
   });
-  console.log(`✅ Administrador asegurado: ${admin.rut_o_id}`);
+  console.log(`✅ Administrador asegurado: ${admin.rut_o_id} (${admin.email})`);
 
   const tecnico = await prisma.user.upsert({
     where: { rut_o_id: 'TEC-001' },
-    update: { passwordHash: hashedPassword },
+    update: { passwordHash: hashedPassword, roleId: rolTecnico.id },
     create: {
       rut_o_id: 'TEC-001',
       nombre: 'Juan',
@@ -58,21 +58,21 @@ async function main() {
       roleId: rolTecnico.id,
     },
   });
-  console.log(`✅ Técnico asegurado: ${tecnico.rut_o_id}`);
+  console.log(`✅ Técnico asegurado: ${tecnico.rut_o_id} (${tecnico.email})`);
 
   const reportante = await prisma.user.upsert({
     where: { rut_o_id: 'USR-001' },
-    update: { passwordHash: hashedPassword },
+    update: { passwordHash: hashedPassword, roleId: rolReportante.id },
     create: {
       rut_o_id: 'USR-001',
       nombre: 'María',
       apellido: 'Reportante',
       email: 'usuario@empresa.com',
       passwordHash: hashedPassword,
-      roleId: rolUsuario.id,
+      roleId: rolReportante.id,
     },
   });
-  console.log(`✅ Usuario asegurado: ${reportante.rut_o_id}`);
+  console.log(`✅ Reportante asegurado: ${reportante.rut_o_id} (${reportante.email})`);
 
   console.log('🎉 Todos los perfiles listos para probar.');
 }

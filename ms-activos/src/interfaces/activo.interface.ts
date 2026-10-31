@@ -48,3 +48,36 @@ export interface RespuestaRedireccionIncidencia {
     categoria: string;
   };
 }
+
+export interface EstadisticasActivos {
+  totalActivos: number;
+  porEstado: {
+    operativos: number;
+    enMantenimiento: number;
+    enRevision: number;
+    dadosDeBaja: number;
+  };
+  porCategoria: Record<string, number>;
+  porUbicacion: Record<string, number>;
+  porcentajes: {
+    tasaOperatividad: number;
+    tasaMantenimiento: number;
+    tasaRevision: number;
+    tasaBaja: number;
+  };
+  resumen: {
+    disponibles: number;
+    noDisponibles: number;
+  };
+}
+
+export interface FiltroEstadisticasDto {
+  ubicacion?: string;
+  categoria?: string;
+}
+
+export interface RespuestaEstadisticas {
+  valido: boolean;
+  mensaje: string;
+  datos: EstadisticasActivos;
+}

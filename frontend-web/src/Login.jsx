@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   IoServer,
   IoMailOutline,
   IoLockClosedOutline,
   IoEyeOutline,
   IoEyeOffOutline,
-  IoArrowForwardOutline
+  IoArrowForwardOutline,
+  IoPersonOutline,
+  IoCardOutline,
+  IoAlertCircleOutline,
 } from 'react-icons/io5';
 import { useToast } from './context/ToastContext';
 import api from './services/api';
@@ -15,7 +18,14 @@ const Login = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const sesionExpirada = searchParams.get('expirado') === 'true';
+
   const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [rutOId, setRutOId] = useState('');
+  const [nombre, setNombre] = useState('');
+  const [apellido, setApellido] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -31,14 +41,22 @@ const Login = () => {
   };
 
   const isPasswordValid = isStrongPassword(password);
+  const isUctEmail = (em) => /@uct\.cl$/i.test(em.trim());
 
   const isFormValid =
     mode === 'login'
       ? email.trim() !== '' && password.trim() !== ''
-      : email.trim() !== '' && isPasswordValid;
+      : rutOId.trim() !== '' &&
+        nombre.trim() !== '' &&
+        apellido.trim() !== '' &&
+        isUctEmail(email) &&
+        isPasswordValid;
 
   const handleToggleMode = () => {
     setMode((prevMode) => (prevMode === 'login' ? 'register' : 'login'));
+    setRutOId('');
+    setNombre('');
+    setApellido('');
     setEmail('');
     setPassword('');
     setShowPassword(false);
@@ -48,16 +66,33 @@ const Login = () => {
     e.preventDefault();
     if (!isFormValid || isSubmitting) return;
 
-    const payload = {
-      email,
-      password,
-    };
+    const payload =
+      mode === 'login'
+        ? { email: email.trim().toLowerCase(), password }
+        : {
+            rut_o_id: rutOId.trim(),
+            nombre: nombre.trim(),
+            apellido: apellido.trim(),
+            email: email.trim().toLowerCase(),
+            password,
+          };
 
     setIsSubmitting(true);
 
     try {
-      const endpoint = mode === 'login' ? '/auth/login' : '/auth/register';
-      const response = await api.post(endpoint, payload);
+      // Rutas en español según contrato OpenAPI (/autenticacion/inicio-sesion y /autenticacion/registro)
+      const openApiEndpoint = mode === 'login' ? '/autenticacion/inicio-sesion' : '/autenticacion/registro';
+      let response;
+      try {
+        response = await api.post(openApiEndpoint, payload);
+      } catch (err) {
+        if (err.response?.status === 404) {
+          const fallbackEndpoint = mode === 'login' ? '/auth/login' : '/auth/register';
+          response = await api.post(fallbackEndpoint, payload);
+        } else {
+          throw err;
+        }
+      }
 
       if (mode === 'login') {
         if (response.status === 200 || response.status === 201) {
@@ -65,6 +100,13 @@ const Login = () => {
           const token = data.token || data.accessToken || data.access_token;
           if (token) {
             localStorage.setItem('token', token);
+          }
+          if (data.refreshToken || data.refresh_token) {
+            localStorage.setItem('refreshToken', data.refreshToken || data.refresh_token);
+          }
+          if (data.usuario) {
+            localStorage.setItem('usuario', JSON.stringify(data.usuario));
+            window.dispatchEvent(new Event('tecnico-cambiado'));
           }
           showToast('Inicio de sesión exitoso', 'success');
           navigate('/dashboard');
@@ -88,8 +130,8 @@ const Login = () => {
 
   // Color del texto de requisitos de contraseña según estado de validación
   const getPasswordReqColor = () => {
-    if (password.length === 0) return 'text-gray-500';
-    return isPasswordValid ? 'text-emerald-600' : 'text-red-500';
+    if (password.length === 0) return 'text-gray-600';
+    return isPasswordValid ? 'text-emerald-700' : 'text-red-600';
   };
 
   return (
@@ -102,22 +144,87 @@ const Login = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-8 w-full max-w-sm fade-in-up transition-all relative z-10">
 
           {/* Encabezado con ícono de servidor */}
-          <div className="flex flex-col items-center justify-center gap-2 mb-8">
+          <div className="flex flex-col items-center justify-center gap-2 mb-6">
             <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-2xl mb-2">
               <IoServer />
             </div>
             <h1 className="text-xl font-bold text-gray-900 tracking-tight">InfraManager</h1>
-            <p id="view-title" className="text-sm font-medium text-gray-500 mt-1">
+            <p id="view-title" className="text-sm font-medium text-gray-600 mt-1">
               {mode === 'login' ? 'Iniciar sesión en tu cuenta' : 'Crear una cuenta nueva'}
             </p>
           </div>
 
+          {/* Notificación de sesión expirada por inactividad (TAL-131) */}
+          {sesionExpirada && mode === 'login' && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2 animate-fadeIn">
+              <IoAlertCircleOutline className="w-5 h-5 text-amber-600 flex-shrink-0" />
+              <span>Tu sesión ha expirado por inactividad. Por favor, ingresa tus credenciales nuevamente.</span>
+            </div>
+          )}
+
           {/* Formulario */}
-          <form id="auth-form" onSubmit={handleSubmit} className="space-y-5">
+          <form id="auth-form" onSubmit={handleSubmit} className="space-y-4">
+            {/* Campos exclusivos de registro */}
+            {mode === 'register' && (
+              <>
+                <div>
+                  <label htmlFor="rut_o_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    RUT / Identificación <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <IoCardOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
+                    <input
+                      type="text"
+                      id="rut_o_id"
+                      value={rutOId}
+                      onChange={(e) => setRutOId(e.target.value)}
+                      placeholder="12.345.678-9"
+                      required
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <IoPersonOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
+                      <input
+                        type="text"
+                        id="nombre"
+                        value={nombre}
+                        onChange={(e) => setNombre(e.target.value)}
+                        placeholder="Juan"
+                        required
+                        className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="apellido" className="block text-sm font-medium text-gray-700 mb-1">
+                      Apellido <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="apellido"
+                      value={apellido}
+                      onChange={(e) => setApellido(e.target.value)}
+                      placeholder="Pérez"
+                      required
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             {/* Input Correo Electrónico */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Correo Electrónico
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                Correo Electrónico {mode === 'register' && <span className="text-red-500">*</span>}
               </label>
               <div className="relative">
                 <IoMailOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
@@ -126,11 +233,16 @@ const Login = () => {
                   id="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="usuario@empresa.com"
+                  placeholder={mode === 'register' ? 'usuario@uct.cl' : 'usuario@empresa.com'}
                   required
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 />
               </div>
+              {mode === 'register' && email.length > 0 && !isUctEmail(email) && (
+                <p className="text-xs text-red-500 mt-1">
+                  Solo se permiten correos institucionales terminados en @uct.cl
+                </p>
+              )}
             </div>
 
             {/* Input Contraseña con Botón de Ojo y Texto de Requisitos */}
@@ -200,7 +312,7 @@ const Login = () => {
           {/* Separador */}
           <div className="my-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-gray-100" />
-            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">O</span>
+            <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">O</span>
             <div className="h-px flex-1 bg-gray-100" />
           </div>
 

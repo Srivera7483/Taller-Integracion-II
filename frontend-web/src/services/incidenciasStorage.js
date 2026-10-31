@@ -6,6 +6,7 @@
 
 const COOKIE_NAME = 'temp_incidencias';
 const COOKIE_EXPIRY_DAYS = 1; // 24 horas de vigencia para pruebas
+const memoryStorage = {};
 
 const INCIDENCIAS_INICIALES = [
   {
@@ -19,6 +20,10 @@ const INCIDENCIAS_INICIALES = [
     fecha: 'Hoy, 10:30',
     descripcion: 'Errores intermitentes al autenticar por IMAP/SMTP.',
     esTemporal: false,
+    evidencias: [
+      'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80',
+    ],
+    imagenAdjuntaNombre: 'evidencia_servidor_rack.webp',
   },
   {
     id: 'INC-1041',
@@ -31,6 +36,7 @@ const INCIDENCIAS_INICIALES = [
     fecha: 'Hoy, 08:15',
     descripcion: 'Ventana de mantenimiento programada para el router principal.',
     esTemporal: false,
+    evidencias: [],
   },
 ];
 
@@ -39,6 +45,9 @@ const INCIDENCIAS_INICIALES = [
  */
 function getCookie(name) {
   try {
+    if (typeof document === 'undefined') {
+      return memoryStorage[name] || null;
+    }
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
     if (parts.length === 2) {
@@ -56,6 +65,10 @@ function getCookie(name) {
  */
 function setCookie(name, value, days = COOKIE_EXPIRY_DAYS) {
   try {
+    if (typeof document === 'undefined') {
+      memoryStorage[name] = value;
+      return;
+    }
     const expires = new Date(Date.now() + days * 864e5).toUTCString();
     const serialized = encodeURIComponent(JSON.stringify(value));
     document.cookie = `${name}=${serialized}; expires=${expires}; path=/; SameSite=Lax`;
@@ -68,6 +81,10 @@ function setCookie(name, value, days = COOKIE_EXPIRY_DAYS) {
  * Elimina una cookie expirándola
  */
 function deleteCookie(name) {
+  if (typeof document === 'undefined') {
+    delete memoryStorage[name];
+    return;
+  }
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
 }
 
@@ -77,7 +94,10 @@ function deleteCookie(name) {
 export function getIncidencias() {
   const guardadasEnCookie = getCookie(COOKIE_NAME);
   if (Array.isArray(guardadasEnCookie) && guardadasEnCookie.length > 0) {
-    return [...guardadasEnCookie, ...INCIDENCIAS_INICIALES];
+    // Si una incidencia inicial fue modificada en la cookie, prevalece la versión de la cookie
+    const idsEnCookie = new Set(guardadasEnCookie.map((item) => item.id));
+    const inicialesNoModificadas = INCIDENCIAS_INICIALES.filter((item) => !idsEnCookie.has(item.id));
+    return [...guardadasEnCookie, ...inicialesNoModificadas];
   }
   return INCIDENCIAS_INICIALES;
 }
@@ -169,9 +189,164 @@ export function asignarTecnicoIncidencia(incidenciaId, tecnicoNombre, notas = ''
 }
 
 /**
+ * Registra la confirmación y cierre de mantenimiento técnico por el técnico asignado.
+ * Cambia el estado a "Completada" y persiste la resolución, horas invertidas y materiales.
+ */
+export function completarMantenimientoTecnico({
+  incidenciaId,
+  ordenId,
+  resolucion,
+  horasInvertidas,
+  materialesUsados = [],
+  tecnicoNombre,
+  tecnicoId,
+}) {
+  const guardadasEnCookie = getCookie(COOKIE_NAME) || [];
+  const todas = getIncidencias();
+  const encontrada = todas.find((item) => item.id === incidenciaId);
+
+  const fechaCierre = new Date().toLocaleString([], {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+
+  const incidenciaActualizada = {
+    ...(encontrada || { id: incidenciaId, titulo: 'Mantenimiento Técnico', id_activo: 'ACT-01' }),
+    estado: 'Completada',
+    resolucion: resolucion.trim(),
+    horasInvertidas: Number(horasInvertidas),
+    materialesUsados: Array.isArray(materialesUsados) ? materialesUsados : [],
+    fechaCierre,
+    cerradoPor: tecnicoNombre || (encontrada?.asignado) || 'Técnico Responsable',
+    cerradoPorId: tecnicoId || 'tec-01',
+    ordenId: ordenId || `ORD-${Math.floor(1000 + Math.random() * 9000)}`,
+    esTemporal: true,
+  };
+
+  const listaSinPrevia = guardadasEnCookie.filter((item) => item.id !== incidenciaId);
+  const nuevaLista = [incidenciaActualizada, ...listaSinPrevia];
+  setCookie(COOKIE_NAME, nuevaLista);
+
+  return incidenciaActualizada;
+}
+
+/**
+ * Registra el rechazo de la incidencia por el técnico asignado.
+ * Cambia el estado a "RECHAZADO" ("RECHAZADO" en código) y persiste el motivo del rechazo.
+ */
+export function rechazarIncidenciaTecnico({
+  incidenciaId,
+  ordenId,
+  motivoRechazo,
+  tecnicoNombre,
+  tecnicoId,
+}) {
+  const guardadasEnCookie = getCookie(COOKIE_NAME) || [];
+  const todas = getIncidencias();
+  const encontrada = todas.find((item) => item.id === incidenciaId);
+
+  const fechaRechazo = new Date().toLocaleString([], {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+
+  const incidenciaActualizada = {
+    ...(encontrada || { id: incidenciaId, titulo: 'Incidencia', id_activo: 'ACT-01' }),
+    estado: 'RECHAZADO',
+    motivoRechazo: motivoRechazo.trim(),
+    motivo_rechazo: motivoRechazo.trim(),
+    fechaRechazo,
+    rechazadoPor: tecnicoNombre || (encontrada?.asignado) || 'Técnico Responsable',
+    rechazadoPorId: tecnicoId || 'tec-01',
+    ordenId: ordenId || encontrada?.ordenId || `ORD-${incidenciaId}`,
+    esTemporal: true,
+  };
+
+  const listaSinPrevia = guardadasEnCookie.filter((item) => item.id !== incidenciaId);
+  const nuevaLista = [incidenciaActualizada, ...listaSinPrevia];
+  setCookie(COOKIE_NAME, nuevaLista);
+
+  return incidenciaActualizada;
+}
+
+const TECNICO_STORAGE_KEY = 'tecnico_sesion_activa';
+
+/**
+ * Obtiene el perfil de técnico activo en la sesión.
+ * Prioriza usuario guardado en localStorage o fallback al primer técnico estándar (Carlos Ruiz).
+ */
+export function getTecnicoActual() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const sesionManual = localStorage.getItem(TECNICO_STORAGE_KEY);
+      if (sesionManual) {
+        return JSON.parse(sesionManual);
+      }
+
+      const usuarioAuth = localStorage.getItem('usuario');
+      if (usuarioAuth) {
+        const u = JSON.parse(usuarioAuth);
+        return {
+          id: u.id_usuario || u.id || 'tec-01',
+          nombre: `${u.nombre || ''} ${u.apellido || ''}`.trim() || u.email || 'Carlos Ruiz',
+          email: u.correo || u.email || 'carlos.r@empresa.com',
+          especialidad: 'Técnico de Soporte e Infraestructura',
+          avatar: (u.nombre?.[0] || 'T').toUpperCase(),
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Error leyendo técnico actual de localStorage:', err);
+  }
+
+  // Fallback por defecto: Carlos Ruiz (tec-01)
+  return TECNICOS_EXISTENTES[0];
+}
+
+/**
+ * Cambia el técnico activo para pruebas de asignación y ownership
+ */
+export function setTecnicoActual(tecnico) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(TECNICO_STORAGE_KEY, JSON.stringify(tecnico));
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('tecnico-cambiado'));
+    }
+  } catch (err) {
+    console.error('Error guardando técnico actual:', err);
+  }
+}
+
+/**
+ * Adjunta una evidencia fotográfica de Cloudinary a una incidencia existente
+ */
+export function adjuntarEvidenciaIncidencia(incidenciaId, urlEvidencia, nombreArchivo = 'evidencia.webp') {
+  const guardadasEnCookie = getCookie(COOKIE_NAME) || [];
+  const todas = getIncidencias();
+  const encontrada = todas.find((item) => item.id === incidenciaId);
+
+  const prevEvidencias = encontrada?.evidencias || [];
+  const nuevaListaEvidencias = [...prevEvidencias, urlEvidencia];
+
+  const incidenciaActualizada = {
+    ...(encontrada || { id: incidenciaId, titulo: 'Incidencia', id_activo: 'N/A' }),
+    evidencias: nuevaListaEvidencias,
+    imagenAdjuntaNombre: nombreArchivo,
+    esTemporal: true,
+  };
+
+  const listaSinPrevia = guardadasEnCookie.filter((item) => item.id !== incidenciaId);
+  const nuevaLista = [incidenciaActualizada, ...listaSinPrevia];
+  setCookie(COOKIE_NAME, nuevaLista);
+
+  return incidenciaActualizada;
+}
+
+/**
  * Restablece las incidencias temporales a las originales
  */
 export function clearTempIncidencias() {
   deleteCookie(COOKIE_NAME);
 }
-
