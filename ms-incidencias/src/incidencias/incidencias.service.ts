@@ -98,6 +98,7 @@ export class IncidenciasService {
           id_reportante: usuarioId,
           titulo: body.titulo.trim(),
           descripcion: body.descripcion.trim(),
+          prioridad: body.prioridad ?? 'media',
         },
       });
 
@@ -401,6 +402,7 @@ export class IncidenciasService {
       id_reportante: incidencia.id_reportante,
       titulo: incidencia.titulo,
       descripcion: incidencia.descripcion,
+      prioridad: incidencia.prioridad,
       estado: estado || null,
       fecha_creacion: incidencia.fecha_creacion,
     };

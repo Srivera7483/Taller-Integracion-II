@@ -21,6 +21,7 @@ model Incidencias {
   id_reportante  String   @db.Uuid
   titulo         String   @db.VarChar(255)
   descripcion    String   @db.Text
+  prioridad      String   @default("media") @db.VarChar(10)
   fecha_creacion DateTime @default(now()) @db.Timestamp()
 
   historial_estados HistorialEstados[]

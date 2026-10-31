@@ -5,6 +5,8 @@ const proxy = require('@fastify/http-proxy');
 const fastifyCors = require('@fastify/cors');
 const rateLimit = require('@fastify/rate-limit');
 const RateLimitStore = require('./rate-limit-store');
+const fs = require('fs');
+const path = require('path');
 
 const getTrustProxy = (value) => {
     if (typeof value !== 'string') {
@@ -36,6 +38,36 @@ const buildGateway = (options = {}) => {
 
     fastify.get('/', async () => ({ status: 'OK' }));
 
+    fastify.get('/api/docs', async (_request, reply) => {
+        reply.type('text/html');
+        return `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCGI API - Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    SwaggerUIBundle({
+      url: '/api/openapi.yaml',
+      dom_id: '#swagger-ui',
+      deepLinking: true,
+      displayRequestDuration: true
+    });
+  </script>
+</body>
+</html>`;
+    });
+
+    fastify.get('/api/openapi.yaml', async (_request, reply) => {
+        reply.type('application/yaml');
+        return fs.readFileSync(path.join(__dirname, '..', 'openapi.yaml'), 'utf8');
+    });
+
     const handleProxyError = (reply, error) => {
         fastify.log.error(error, 'Fallo al conectar con el microservicio de destino');
         reply.code(502).send({
@@ -60,6 +92,13 @@ const buildGateway = (options = {}) => {
         upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
         prefix: '/api/v1/incidencias',
         rewritePrefix: '/api/v1/incidencias',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
+        prefix: '/api/v1/ordenes-trabajo',
+        rewritePrefix: '/api/v1/ordenes-trabajo',
         replyOptions: { onError: handleProxyError }
     });
 
