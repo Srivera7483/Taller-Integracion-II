@@ -16,8 +16,11 @@ import { useToast } from '../context/ToastContext';
 import { saveIncidencia } from '../services/incidenciasStorage';
 import { createIncidencia } from '../services/incidenciasService';
 import ModalPrevisualizadorImagen from './ModalPrevisualizadorImagen';
-import EvidenciaUploader from './EvidenciaUploader';
+import ImageUploader from './ImageUploader';
 import api from '../services/api';
+
+const MAX_FILE_SIZE_BYTES = 5242880;
+const MENSAJE_ERROR_LIMITE_5MB = 'El archivo supera el límite de 5MB';
 
 const CATEGORIAS_FALLA = [
   { id: 'hardware', nombre: 'Hardware', desc: 'Falla física en servidores, equipos o periféricos' },
@@ -160,10 +163,48 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   };
 
   /**
+   * TAL-134: Validador de tamaño de archivo (Max 5MB = 5,242,880 bytes) en cliente.
+   * Procesa el archivo una vez validado por <ImageUploader /> (o invocado directamente).
+   */
+  const handleFileAccepted = (file) => {
+    if (!file) return;
+
+    // Doble barrera de seguridad en el formulario: bloquear si supera 5,242,880 bytes (5MB)
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      showToast(MENSAJE_ERROR_LIMITE_5MB, 'error');
+      return;
+    }
+
+    const esImagen = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
+
+    if (esImagen) {
+      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imagenPreviewUrl);
+      }
+      const preview = URL.createObjectURL(file);
+      setArchivoImagen(file);
+      setImagenPreviewUrl(preview);
+      setAdjuntoNombre(file.name);
+      showToast(`Imagen "${file.name}" cargada para previsualización`, 'info');
+    } else {
+      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imagenPreviewUrl);
+      }
+      setArchivoImagen(file);
+      setImagenPreviewUrl(null);
+      setAdjuntoNombre(file.name);
+      showToast(`Archivo "${file.name}" adjuntado al reporte`, 'info');
+    }
+  };
+
+  /**
    * TAL-133 - Criterio de Aceptación b:
    * Posibilidad de limpiar la selección antes de enviar el POST final.
    */
-  const handleLimpiarImagen = () => {
+  const handleLimpiarImagen = (options = {}) => {
     if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(imagenPreviewUrl);
     }
@@ -171,7 +212,9 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     setImagenPreviewUrl(null);
     setAdjuntoNombre('');
     setIsImageModalOpen(false);
-    showToast('Selección de imagen eliminada', 'info');
+    if (!options?.silent) {
+      showToast('Selección de imagen eliminada', 'info');
+    }
   };
 
   const handleCambiarImagen = () => {
@@ -221,6 +264,14 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       return;
     }
 
+    // TAL-134 - Criterio de Aceptación a:
+    // El POST a Cloudinary/Backend nunca se ejecuta si el archivo es mayor a 5MB (5,242,880 bytes)
+    if (archivoImagen && archivoImagen.size > MAX_FILE_SIZE_BYTES) {
+      handleLimpiarImagen({ silent: true });
+      showToast(MENSAJE_ERROR_LIMITE_5MB, 'error');
+      return;
+    }
+
     // Criterio 2: Activar estado de envío / loading y deshabilitar botón
     setIsSubmitting(true);
 
@@ -266,8 +317,8 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
 
     let urlEvidencia = null;
 
-    // Si el usuario adjuntó una imagen (y no la limpió), subirla como evidencia asociada a la incidencia (TAL-14/TAL-133)
-    if (idGenerado && archivoImagen) {
+    // Si el usuario adjuntó una imagen válida (<= 5MB) y no la limpió, subirla como evidencia asociada a la incidencia (TAL-14/TAL-133/TAL-134)
+    if (idGenerado && archivoImagen && archivoImagen.size <= MAX_FILE_SIZE_BYTES) {
       try {
         const formData = new FormData();
         formData.append('file', archivoImagen);
@@ -564,24 +615,21 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
           )}
         </div>
 
-        {/* Campo: Adjuntar Evidencias Fotográficas con Previsualizador y Animación Cloudinary (TAL-14 / TAL-133 / TAL-136) */}
+        {/* Campo: Adjuntar Evidencias Fotográficas con Validador de Tamaño Max 5MB (TAL-134) y Previsualizador (TAL-133) */}
         <div>
-          <EvidenciaUploader
-            archivo={archivoImagen}
-            previewUrl={imagenPreviewUrl}
-            nombreArchivo={adjuntoNombre}
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Evidencia Fotográfica o Archivo de Registro <span className="text-xs text-gray-400 font-normal">(Opcional — Máx. 5MB)</span>
+          </label>
+
+          <ImageUploader
+            archivoImagen={archivoImagen}
+            imagenPreviewUrl={imagenPreviewUrl}
+            adjuntoNombre={adjuntoNombre}
+            onFileAccepted={handleFileAccepted}
+            onClearFile={handleLimpiarImagen}
+            onOpenModal={() => setIsImageModalOpen(true)}
             disabled={isSubmitting}
-            onFileLoaded={({ file, previewUrl, name }) => {
-              if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
-                URL.revokeObjectURL(imagenPreviewUrl);
-              }
-              setArchivoImagen(file);
-              setImagenPreviewUrl(previewUrl);
-              setAdjuntoNombre(name);
-              showToast(`Evidencia "${name}" procesada y lista`, 'success');
-            }}
-            onClear={handleLimpiarImagen}
-            onOpenPreview={() => setIsImageModalOpen(true)}
+            fileInputRef={fileInputRef}
           />
         </div>
       </div>
