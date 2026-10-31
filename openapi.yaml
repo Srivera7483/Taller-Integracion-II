@@ -31,11 +31,7 @@ info:
     - Todo cambio se acuerda entre TI2 y TI4 antes de implementarlo.
 
     Cambios de la version 1.2.0:
-    - Se agrega el esquema Prioridad (baja, media, alta) para el registro de incidencias (RF3).
-    - Se agrega prioridad a Incidencia, y a NuevaIncidencia como campo opcional con valor
-      por defecto media.
     - Se agrega a Incidencia el arreglo opcional evidencias (RF4).
-    - Se limita el largo de titulo (100) y descripcion (1000) en NuevaIncidencia.
     - url_evidencia de NuevaEvidencia debe ser una direccion valida de Cloudinary.
     - POST /incidencias detalla cuando responde 400 y 404.
     - POST /incidencias/{id_incidencia}/evidencias admite como maximo 5 evidencias
@@ -497,8 +493,8 @@ paths:
                 $ref: '#/components/schemas/Incidencia'
         '400':
           description: |
-            Faltan id_activo, titulo o descripcion; superan el largo maximo;
-            id_activo no es un UUID, o prioridad no es baja, media ni alta.
+            Faltan id_activo, titulo o descripcion, superan el largo maximo,
+            o id_activo no es un UUID.
           content:
             application/json:
               schema:
@@ -884,7 +880,7 @@ components:
           example:
             statusCode: 400
             mensaje: Los datos enviados no son validos.
-            message: "titulo must be shorter than or equal to 100 characters"
+            message: "titulo must be shorter than or equal to 255 characters"
             timestamp: '2026-10-31T18:00:00.000Z'
             path: /api/v1/incidencias
     NoAutenticado:
@@ -1201,15 +1197,6 @@ components:
           type: string
           format: date
 
-    Prioridad:
-      type: string
-      description: Prioridad inicial que asigna el reportante (columna prioridad de INCIDENCIAS).
-      enum:
-        - baja
-        - media
-        - alta
-      default: media
-
     EstadoIncidencia:
       type: object
       description: Estado del ciclo de vida de una incidencia (tabla ESTADOS_INCIDENCIA).
@@ -1236,7 +1223,6 @@ components:
         - id_reportante
         - titulo
         - descripcion
-        - prioridad
         - estado
         - fecha_creacion
       properties:
@@ -1253,8 +1239,6 @@ components:
           type: string
         descripcion:
           type: string
-        prioridad:
-          $ref: '#/components/schemas/Prioridad'
         estado:
           $ref: '#/components/schemas/EstadoIncidencia'
         evidencias:
@@ -1268,7 +1252,7 @@ components:
 
     NuevaIncidencia:
       type: object
-      description: Si no se envia prioridad, el backend usa media.
+      description: Datos requeridos para registrar una incidencia.
       required:
         - id_activo
         - titulo
@@ -1280,13 +1264,10 @@ components:
         titulo:
           type: string
           minLength: 1
-          maxLength: 100
+          maxLength: 255
         descripcion:
           type: string
           minLength: 1
-          maxLength: 1000
-        prioridad:
-          $ref: '#/components/schemas/Prioridad'
 
     CambioEstado:
       type: object

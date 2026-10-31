@@ -1,4 +1,4 @@
-import { IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsString, IsUUID, MaxLength } from 'class-validator';
 
 export class CrearIncidenciaDto {
   @IsUUID()
@@ -6,15 +6,10 @@ export class CrearIncidenciaDto {
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(100)
+  @MaxLength(255)
   titulo!: string;
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(1000)
   descripcion!: string;
-
-  @IsOptional()
-  @IsIn(['baja', 'media', 'alta'])
-  prioridad?: 'baja' | 'media' | 'alta';
 }
