@@ -72,7 +72,7 @@ const CriticalAlertBanner = () => {
         if (isMounted) {
           setCantidadCriticos(criticos.length);
         }
-      } catch (error) {
+      } catch {
         // Manejo silencioso: en caso de error en el endpoint, no rompe la UI
         if (isMounted) {
           setCantidadCriticos(0);

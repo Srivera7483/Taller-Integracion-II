@@ -161,7 +161,7 @@ const DetalleOrden = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Navegación tipo Breadcrumbs */}
-      <nav className="flex items-center gap-2 text-sm text-gray-500">
+      <nav aria-label="Ruta de navegación" className="flex items-center gap-2 text-sm text-gray-600">
         <Link to="/dashboard" className="hover:text-blue-600 transition-colors">Inicio</Link>
         <FiChevronRight className="w-3.5 h-3.5" />
         <Link to="/incidencias" className="hover:text-blue-600 transition-colors">Incidencias</Link>
@@ -185,7 +185,7 @@ const DetalleOrden = () => {
             </h1>
           </div>
 
-          <div className="text-xs text-gray-400 flex items-center gap-1.5 font-mono">
+          <div className="text-xs text-gray-600 flex items-center gap-1.5 font-mono">
             <FiClock className="w-4 h-4" />
             <span>Emitida: {new Date(orden.fecha_emision).toLocaleDateString()}</span>
           </div>
@@ -195,13 +195,13 @@ const DetalleOrden = () => {
         <div className="p-5 sm:p-6 space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100">
-              <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold block mb-1">
+              <span className="text-[11px] uppercase tracking-wider text-gray-600 font-semibold block mb-1">
                 Incidencia Asociada
               </span>
               <div className="flex items-center gap-2">
                 <Link
                   to={`/incidencias/${orden.incidencia_id}`}
-                  className="font-mono text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                  className="font-mono text-xs font-bold text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1"
                 >
                   <span>{orden.incidencia_id}</span>
                 </Link>
@@ -209,30 +209,30 @@ const DetalleOrden = () => {
             </div>
 
             <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100">
-              <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold block mb-1">
+              <span className="text-[11px] uppercase tracking-wider text-gray-600 font-semibold block mb-1">
                 Activo Afectado
               </span>
               <div className="flex items-center gap-1.5 text-xs text-gray-800 font-semibold">
-                <FiBox className="w-3.5 h-3.5 text-orange-500" />
+                <FiBox className="w-3.5 h-3.5 text-orange-600" aria-hidden="true" />
                 <span className="font-mono">{orden.id_activo}</span>
               </div>
             </div>
 
             <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100">
-              <span className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold block mb-1">
+              <span className="text-[11px] uppercase tracking-wider text-gray-600 font-semibold block mb-1">
                 Técnico Designado
               </span>
               <div className="flex items-center gap-1.5 text-xs text-gray-800 font-semibold">
-                <FiUser className="w-3.5 h-3.5 text-indigo-500" />
+                <FiUser className="w-3.5 h-3.5 text-indigo-600" aria-hidden="true" />
                 <span>{orden.tecnico_nombre}</span>
               </div>
             </div>
           </div>
 
           <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-4">
-            <h4 className="text-xs uppercase tracking-wider text-blue-900 font-bold mb-1.5 flex items-center gap-1.5">
-              <FiInfo className="w-4 h-4 text-blue-600" /> Instrucciones del Supervisor
-            </h4>
+            <h2 className="text-xs uppercase tracking-wider text-blue-900 font-bold mb-1.5 flex items-center gap-1.5">
+              <FiInfo className="w-4 h-4 text-blue-600" aria-hidden="true" /> Instrucciones del Supervisor
+            </h2>
             <p className="text-xs sm:text-sm text-blue-950 leading-relaxed">
               {orden.instrucciones || 'Realizar diagnóstico preventivo y resolver la falla en el menor tiempo posible.'}
             </p>
@@ -260,7 +260,7 @@ const DetalleOrden = () => {
                 <FiCheckCircle className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-bold text-lg text-emerald-950">Mantenimiento Técnico Completado</h3>
+                <h2 className="font-bold text-lg text-emerald-950">Mantenimiento Técnico Completado</h2>
                 <p className="text-xs text-emerald-700">
                   El técnico responsable ha cerrado esta tarea y rendido cuentas de su trabajo.
                 </p>
@@ -277,7 +277,7 @@ const DetalleOrden = () => {
                 <FiClock className="w-3.5 h-3.5" /> Horas Invertidas
               </span>
               <span className="text-2xl font-black text-gray-900">{orden.horasInvertidas || 1.5}</span>
-              <span className="text-xs text-gray-500 ml-1">horas dedicadas</span>
+              <span className="text-xs text-gray-700 ml-1">horas dedicadas</span>
             </div>
 
             <div className="bg-emerald-50/40 p-4 rounded-xl border border-emerald-100 md:col-span-2">
@@ -296,7 +296,7 @@ const DetalleOrden = () => {
                   ))}
                 </div>
               ) : (
-                <span className="text-xs text-gray-500 italic mt-1 block">
+                <span className="text-xs text-gray-700 italic mt-1 block">
                   Sin materiales adicionales consumidos (solo mano de obra).
                 </span>
               )}
@@ -304,7 +304,7 @@ const DetalleOrden = () => {
           </div>
 
           <div className="space-y-1.5 pt-2">
-            <span className="text-xs uppercase font-bold text-gray-500 block flex items-center gap-1">
+            <span className="text-xs uppercase font-bold text-gray-700 block flex items-center gap-1">
               <FiFileText className="w-3.5 h-3.5 text-blue-600" /> Resolución Técnica Registrada
             </span>
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
@@ -313,7 +313,7 @@ const DetalleOrden = () => {
           </div>
 
           {orden.fechaCierre && (
-            <div className="text-xs text-gray-400 text-right pt-2 border-t border-gray-100">
+            <div className="text-xs text-gray-600 text-right pt-2 border-t border-gray-100">
               Cierre formal registrado el: {orden.fechaCierre}
             </div>
           )}
@@ -323,11 +323,11 @@ const DetalleOrden = () => {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <FiCheckCircle className="w-5 h-5 text-blue-600" />
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <FiCheckCircle className="w-5 h-5 text-blue-600" aria-hidden="true" />
                 Cierre de Tarea y Rendición de Cuentas
-              </h3>
-              <p className="text-xs text-gray-500 mt-0.5">
+              </h2>
+              <p className="text-xs text-gray-600 mt-0.5">
                 Al concluir o desestimar los trabajos en terreno, puedes confirmar la resolución o rechazar la incidencia explicando el motivo.
               </p>
             </div>
@@ -353,7 +353,7 @@ const DetalleOrden = () => {
                 type="button"
                 id="btn-abrir-modal-cierre"
                 onClick={() => setIsModalOpen(true)}
-                className="w-full sm:w-auto px-6 py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[48px]"
+                className="w-full sm:w-auto px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 active:scale-98 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg shadow-emerald-700/25 flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[48px]"
               >
                 <FiCheckCircle className="w-5 h-5" />
                 <span>Gestionar Cierre / Rechazo</span>
@@ -368,9 +368,9 @@ const DetalleOrden = () => {
               <div className="flex items-start gap-3">
                 <FiShield className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <h4 className="font-bold text-sm text-amber-950">
+                  <h3 className="font-bold text-sm text-amber-950">
                     Formulario Finalizativo No Disponible para este Perfil
-                  </h4>
+                  </h3>
                   <p className="text-xs text-amber-800 leading-relaxed">
                     Esta orden fue asignada por el supervisor a <strong>{orden.tecnico_nombre}</strong>. Tu perfil activo actual es <strong>{tecnicoActual?.nombre}</strong>.
                   </p>

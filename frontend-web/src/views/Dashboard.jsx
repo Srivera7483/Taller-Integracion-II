@@ -67,7 +67,7 @@ const Dashboard = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900 tracking-tight">Panel de Control Operativo</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-gray-600 mt-0.5">
             Monitoreo en tiempo real de órdenes de trabajo e indicadores del sistema.
           </p>
         </div>
@@ -125,7 +125,7 @@ const Dashboard = () => {
                 {incidencias.length} registros cargados
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-gray-600 mt-0.5">
               Listado con desplazamiento infinito de reportes activos en la plataforma
             </p>
           </div>
@@ -147,7 +147,7 @@ const Dashboard = () => {
           className="overflow-x-auto overflow-y-auto max-h-[520px]"
         >
           <table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-50 text-gray-500 uppercase text-xs sticky top-0 z-10 shadow-xs">
+            <thead className="bg-gray-50 text-gray-600 uppercase text-xs sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="px-6 py-3 font-semibold">ID / Asunto</th>
                 <th className="px-6 py-3 font-semibold">Activo</th>
@@ -190,7 +190,7 @@ const Dashboard = () => {
                     >
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="font-mono text-xs font-semibold text-gray-500">
+                          <span className="font-mono text-xs font-semibold text-gray-600">
                             {idTexto ? idTexto.substring(0, 13) : 'INC-#'}
                           </span>
                           <span className="font-medium text-gray-900">{inc.titulo}</span>
@@ -207,15 +207,15 @@ const Dashboard = () => {
                             {inc.id_activo.substring(0, 8)}...
                           </Link>
                         ) : (
-                          <span className="font-mono text-xs text-gray-400">N/A</span>
+                          <span className="font-mono text-xs text-gray-600">N/A</span>
                         )}
                       </td>
                       <td className="px-6 py-4">
                         <StatusBadge status={estadoTexto} />
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-500">
+                      <td className="px-6 py-4 text-xs text-gray-600">
                         <div>{fechaTexto}</div>
-                        <div className="text-[11px] text-gray-400 font-medium">
+                        <div className="text-[11px] text-gray-500 font-medium">
                           {inc.asignado || (inc.id_reportante ? `Reportante: ${inc.id_reportante.substring(0, 8)}` : 'Sin asignar')}
                         </div>
                       </td>
@@ -234,7 +234,7 @@ const Dashboard = () => {
           )}
 
           {!hasMore && incidencias.length > 0 && (
-            <div className="text-center py-3 text-xs text-gray-400 font-medium bg-gray-50/40 border-t border-gray-100">
+            <div className="text-center py-3 text-xs text-gray-600 font-medium bg-gray-50/40 border-t border-gray-100">
               Se han cargado todas las incidencias disponibles ({incidencias.length})
             </div>
           )}

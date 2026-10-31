@@ -115,8 +115,8 @@ const Incidencias = () => {
 
   const getPriorityStyle = (prioridad) => {
     const p = (prioridad || '').toLowerCase();
-    if (p === 'critica' || p === 'crítica') return 'text-red-600 bg-red-50 border-red-200';
-    if (p === 'alta') return 'text-orange-600 bg-orange-50 border-orange-200';
+    if (p === 'critica' || p === 'crítica') return 'text-red-800 bg-red-50 border-red-200';
+    if (p === 'alta') return 'text-orange-800 bg-orange-50 border-orange-200';
     if (p === 'media') return 'text-yellow-700 bg-yellow-50 border-yellow-200';
     return 'text-emerald-700 bg-emerald-50 border-emerald-200';
   };
@@ -154,6 +154,7 @@ const Incidencias = () => {
             value={terminoBusqueda}
             onChange={(e) => setTerminoBusqueda(e.target.value)}
             placeholder="Buscar por título, ID, activo o técnico..."
+            aria-label="Buscar incidencias por título, ID, activo o técnico"
             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm bg-white"
           />
         </div>
@@ -173,14 +174,14 @@ const Incidencias = () => {
           <Link
             to="/incidencias/asignar"
             id="btn-abrir-asignar-tecnico"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors font-medium text-sm shadow-xs min-h-[44px]"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-700 text-white rounded-xl hover:bg-indigo-800 transition-colors font-medium text-sm shadow-xs min-h-[44px]"
           >
             <FiUserCheck className="w-4 h-4" /> Asignar Técnico
           </Link>
 
           <Link
             to="/incidencias/nueva"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium text-sm shadow-xs min-h-[44px]"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-700 text-white rounded-xl hover:bg-blue-800 transition-colors font-medium text-sm shadow-xs min-h-[44px]"
           >
             <FiPlus className="w-4 h-4" /> Reportar Incidencia
           </Link>
@@ -282,7 +283,7 @@ const Incidencias = () => {
                         <button
                           type="button"
                           onClick={() => abrirModalParaIncidencia(inc)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-xs flex items-center gap-1 transition-all cursor-pointer min-h-[38px]"
+                          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs shadow-xs flex items-center gap-1 transition-all cursor-pointer min-h-[38px]"
                         >
                           <FiCheckCircle className="w-3.5 h-3.5" />
                           <span>Finalizar Tarea</span>
@@ -300,15 +301,16 @@ const Incidencias = () => {
 
                       <Link
                         to={`/incidencias/${inc.id}`}
-                        className="p-1.5 text-gray-400 hover:text-blue-600"
+                        className="p-1.5 text-gray-600 hover:text-blue-700"
                         title="Ver detalle de la incidencia"
+                        aria-label={`Ver detalle de la incidencia ${inc.id}`}
                       >
                         <FiExternalLink className="w-4 h-4" />
                       </Link>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-gray-400">
+                  <div className="flex items-center gap-1.5 text-gray-600">
                     <FiClock className="w-3.5 h-3.5" />
                     {inc.fecha || 'Reciente'}
                   </div>
@@ -367,7 +369,7 @@ const Incidencias = () => {
                             )}
                             <Link
                               to={`/ordenes/${inc.id}`}
-                              className="text-[11px] text-gray-400 hover:text-indigo-600 ml-1 font-mono hover:underline"
+                              className="text-[11px] text-gray-600 hover:text-indigo-700 ml-1 font-mono hover:underline"
                               title="Ver orden de trabajo asociada"
                             >
                               (Orden)
@@ -414,7 +416,7 @@ const Incidencias = () => {
                               </Link>
                             )}
                           </span>
-                          <span className="flex items-center gap-1 text-gray-400 mt-0.5">
+                          <span className="flex items-center gap-1 text-gray-600 mt-0.5">
                             <FiClock className="w-3 h-3" />
                             {inc.fecha || 'Reciente'}
                           </span>
@@ -444,7 +446,7 @@ const Incidencias = () => {
                           <button
                             type="button"
                             onClick={() => abrirModalParaIncidencia(inc)}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer min-h-[40px]"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer min-h-[40px]"
                             title="Confirmar mantenimiento o rechazar incidencia"
                           >
                             <FiCheckCircle className="w-3.5 h-3.5" />

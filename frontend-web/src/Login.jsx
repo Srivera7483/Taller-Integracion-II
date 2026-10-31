@@ -130,8 +130,8 @@ const Login = () => {
 
   // Color del texto de requisitos de contraseña según estado de validación
   const getPasswordReqColor = () => {
-    if (password.length === 0) return 'text-gray-500';
-    return isPasswordValid ? 'text-emerald-600' : 'text-red-500';
+    if (password.length === 0) return 'text-gray-600';
+    return isPasswordValid ? 'text-emerald-700' : 'text-red-600';
   };
 
   return (
@@ -149,7 +149,7 @@ const Login = () => {
               <IoServer />
             </div>
             <h1 className="text-xl font-bold text-gray-900 tracking-tight">InfraManager</h1>
-            <p id="view-title" className="text-sm font-medium text-gray-500 mt-1">
+            <p id="view-title" className="text-sm font-medium text-gray-600 mt-1">
               {mode === 'login' ? 'Iniciar sesión en tu cuenta' : 'Crear una cuenta nueva'}
             </p>
           </div>
@@ -312,7 +312,7 @@ const Login = () => {
           {/* Separador */}
           <div className="my-6 flex items-center gap-3">
             <div className="h-px flex-1 bg-gray-100" />
-            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">O</span>
+            <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">O</span>
             <div className="h-px flex-1 bg-gray-100" />
           </div>
 

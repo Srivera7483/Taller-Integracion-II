@@ -32,9 +32,9 @@ const PanelIncidenciaRechazada = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-lg sm:text-xl font-bold text-red-950 tracking-tight">
+              <h2 className="text-lg sm:text-xl font-bold text-red-950 tracking-tight">
                 Incidencia Desestimada / Rechazada
-              </h3>
+              </h2>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider bg-red-200/80 text-red-900 border border-red-300">
                 <LuTriangleAlert className="w-3 h-3 text-red-700" />
                 RECHAZADO
@@ -47,7 +47,7 @@ const PanelIncidenciaRechazada = ({
         </div>
 
         {fechaRechazo && (
-          <div className="flex items-center gap-1.5 text-xs text-red-600 font-medium sm:self-start bg-red-100/60 px-3 py-1.5 rounded-lg border border-red-200">
+          <div className="flex items-center gap-1.5 text-xs text-red-800 font-medium sm:self-start bg-red-100/60 px-3 py-1.5 rounded-lg border border-red-200">
             <FiClock className="w-3.5 h-3.5" />
             <span>Rechazado el {fechaRechazo}</span>
           </div>

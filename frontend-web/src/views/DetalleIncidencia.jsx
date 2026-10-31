@@ -19,6 +19,7 @@ import api from '../services/api';
 import AprobacionReportante from '../components/AprobacionReportante';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
 import ModalPrevisualizadorImagen from '../components/ModalPrevisualizadorImagen';
+import PanelIncidenciaRechazada from '../components/PanelIncidenciaRechazada';
 import EvidenciaUploader from '../components/EvidenciaUploader';
 import { useToast } from '../context/ToastContext';
 import {
@@ -118,9 +119,10 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
             type="button"
             onClick={() => onAmpliar(url, nombre)}
             title="Ampliar en tamaño completo"
+            aria-label="Ampliar imagen en tamaño completo"
             className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-white shadow-md transition-all cursor-pointer"
           >
-            <FiMaximize2 className="w-4 h-4" />
+            <FiMaximize2 className="w-4 h-4" aria-hidden="true" />
           </button>
         )}
       </div>
@@ -152,7 +154,7 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
           <button
             type="button"
             onClick={() => onAmpliar(url, nombre)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 active:scale-95 transition-all shadow-xs cursor-pointer"
           >
             <FiMaximize2 className="w-3.5 h-3.5" />
             <span>Ver en Alta Resolución</span>
@@ -223,23 +225,10 @@ const DetalleIncidencia = () => {
         console.warn('API incidencias no disponible o 404, usando fallback local.', err.message);
       }
 
-      setIncidencia(
-        encontradaLocal || {
-          id: idIncidencia,
-          titulo: 'Problemas de conectividad en el piso 3',
-          descripcion: 'Los routers no están asignando IPs correctamente.',
-          id_activo: 'ROUTER-03',
-          prioridad: 'Alta',
-          estado: 'Asignada',
-          fecha_creacion: new Date().toISOString(),
-          asignado: 'Carlos Ruiz',
-          resolucion: null,
-          horasInvertidas: null,
-          materialesUsados: [],
-          evidencias: [
-            'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80',
-          ],
-          imagenAdjuntaNombre: 'evidencia_servidor_rack.webp',
+      if (encontradaLocal) {
+        let estadoFinal = encontradaLocal.estado || 'Pendiente';
+        if (estadoFinal && (estadoFinal.toUpperCase() === 'RECHAZADO' || estadoFinal.toLowerCase() === 'rechazada')) {
+          estadoFinal = 'RECHAZADO';
         }
         setIncidencia({
           ...encontradaLocal,
@@ -247,6 +236,10 @@ const DetalleIncidencia = () => {
           motivoRechazo: encontradaLocal.motivoRechazo || encontradaLocal.motivo_rechazo || null,
           fechaRechazo: encontradaLocal.fechaRechazo || null,
           rechazadoPor: encontradaLocal.rechazadoPor || null,
+          evidencias: encontradaLocal.evidencias || [
+            'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80',
+          ],
+          imagenAdjuntaNombre: encontradaLocal.imagenAdjuntaNombre || 'evidencia_servidor_rack.webp',
         });
         return;
       }
@@ -266,6 +259,10 @@ const DetalleIncidencia = () => {
         motivoRechazo: null,
         fechaRechazo: null,
         rechazadoPor: null,
+        evidencias: [
+          'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80',
+        ],
+        imagenAdjuntaNombre: 'evidencia_servidor_rack.webp',
       });
     } catch (err) {
       console.error('Error al cargar la incidencia:', err);
@@ -348,7 +345,7 @@ const DetalleIncidencia = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <nav className="flex items-center gap-2 text-sm text-gray-500">
+      <nav aria-label="Ruta de navegación" className="flex items-center gap-2 text-sm text-gray-600">
         <Link to="/dashboard" className="hover:text-blue-600 transition-colors">Inicio</Link>
         <FiChevronRight className="w-3.5 h-3.5" />
         <Link to="/incidencias" className="hover:text-blue-600 transition-colors">Incidencias</Link>
@@ -363,13 +360,13 @@ const DetalleIncidencia = () => {
             <div className="flex items-center gap-3 mb-2 flex-wrap">
               <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{incidencia.titulo}</h1>
             </div>
-            <span className="font-mono text-sm bg-gray-100 text-gray-600 px-2.5 py-1 rounded-md border border-gray-200 font-semibold">
+            <span className="font-mono text-sm bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md border border-gray-200 font-semibold">
               {incidencia.id}
             </span>
           </div>
           <div className="flex flex-col items-start md:items-end gap-1.5">
             <StatusBadge status={incidencia.estado} />
-            <span className="text-xs text-gray-400 flex items-center gap-1 mt-1 font-mono">
+            <span className="text-xs text-gray-600 flex items-center gap-1 mt-1 font-mono">
               <FiClock className="w-3.5 h-3.5" /> Creada: {new Date(incidencia.fecha_creacion).toLocaleString()}
             </span>
           </div>
@@ -377,29 +374,39 @@ const DetalleIncidencia = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
-            <h4 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Activo Afectado</h4>
+            <h2 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Activo Afectado</h2>
             <div className="flex items-center gap-2 text-gray-800 font-medium">
-              <FiBox className="w-4 h-4 text-orange-500" />
+              <FiBox className="w-4 h-4 text-orange-600" aria-hidden="true" />
               <span>{incidencia.id_activo || 'N/A'}</span>
             </div>
           </div>
 
           <div>
-            <h4 className="text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Técnico Asignado</h4>
+            <h2 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Técnico Asignado</h2>
             <div className="flex items-center gap-2 text-gray-800 font-medium">
-              <FiUser className="w-4 h-4 text-blue-500" />
+              <FiUser className="w-4 h-4 text-blue-600" aria-hidden="true" />
               <span>{incidencia.asignado || 'Sin asignar'}</span>
             </div>
           </div>
         </div>
 
         <div className="space-y-2">
-          <h4 className="text-xs uppercase tracking-wider text-gray-400 font-semibold">Descripción del problema</h4>
+          <h2 className="text-xs uppercase tracking-wider text-gray-600 font-semibold">Descripción del problema</h2>
           <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-100 whitespace-pre-wrap leading-relaxed">
             {incidencia.descripcion}
           </p>
         </div>
       </div>
+
+      {/* COMPONENTE CONDICIONAL: SE RENDERIZA ÚNICAMENTE SI estado === 'RECHAZADO' */}
+      {(incidencia.estado === 'RECHAZADO' || estaRechazada) && (
+        <PanelIncidenciaRechazada
+          motivoRechazo={incidencia.motivoRechazo || incidencia.motivo_rechazo}
+          fechaRechazo={incidencia.fechaRechazo}
+          tecnicoNombre={incidencia.rechazadoPor || incidencia.asignado}
+          idActivo={incidencia.id_activo}
+        />
+      )}
 
       {/* SECCIÓN DE EVIDENCIA FOTOGRÁFICA DE CLOUDINARY (TAL-136) */}
       <div id="seccion-evidencia-cloudinary" className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
@@ -409,8 +416,8 @@ const DetalleIncidencia = () => {
               <FiImage className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-lg text-gray-900">Evidencia Fotográfica (Cloudinary)</h3>
-              <p className="text-xs text-gray-500">
+              <h2 className="font-bold text-lg text-gray-900">Evidencia Fotográfica (Cloudinary)</h2>
+              <p className="text-xs text-gray-600">
                 Imágenes adjuntadas por el reportante para respaldo del fallo.
               </p>
             </div>
@@ -472,7 +479,7 @@ const DetalleIncidencia = () => {
             <button
               type="button"
               onClick={() => setMostrarSubidorNuevo(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
             >
               <FiUploadCloud className="w-4 h-4" />
               <span>Subir Evidencia a Cloudinary</span>
@@ -487,7 +494,7 @@ const DetalleIncidencia = () => {
           <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
             <div className="flex items-center gap-2.5">
               <FiCheckCircle className="w-6 h-6 text-emerald-600" />
-              <h3 className="font-bold text-lg text-emerald-950">Mantenimiento Completado</h3>
+              <h2 className="font-bold text-lg text-emerald-950">Mantenimiento Completado</h2>
             </div>
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
               Completada
@@ -500,7 +507,7 @@ const DetalleIncidencia = () => {
                 Horas Invertidas
               </span>
               <span className="text-2xl font-black text-gray-900">{incidencia.horasInvertidas || 1.5}</span>
-              <span className="text-xs text-gray-500 ml-1">horas</span>
+              <span className="text-xs text-gray-700 ml-1">horas</span>
             </div>
             <div className="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-100">
               <span className="text-[11px] uppercase font-bold text-emerald-700 block mb-1">
@@ -515,13 +522,13 @@ const DetalleIncidencia = () => {
                   ))}
                 </div>
               ) : (
-                <span className="text-xs text-gray-500 italic">Sin materiales adicionales.</span>
+                <span className="text-xs text-gray-700 italic">Sin materiales adicionales.</span>
               )}
             </div>
           </div>
 
           <div className="space-y-1">
-            <span className="text-xs uppercase font-bold text-gray-500 block flex items-center gap-1">
+            <span className="text-xs uppercase font-bold text-gray-700 block flex items-center gap-1">
               <FiFileText className="w-3.5 h-3.5 text-blue-600" /> Resolución Técnica
             </span>
             <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-sm text-gray-800 whitespace-pre-wrap">
@@ -534,10 +541,10 @@ const DetalleIncidencia = () => {
       {/* ACCIÓN DE CIERRE SI AÚN NO ESTÁ COMPLETADA NI RECHAZADA NI RESUELTA */}
       {!estaCompletada && !estaResuelta && !estaRechazada && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-3">
-          <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-            <FiCheckCircle className="w-5 h-5 text-blue-600" />
+          <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+            <FiCheckCircle className="w-5 h-5 text-blue-600" aria-hidden="true" />
             Acciones de Mantenimiento
-          </h3>
+          </h2>
 
           {esTecnicoAsignado ? (
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
@@ -552,7 +559,7 @@ const DetalleIncidencia = () => {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px]"
+                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px]"
               >
                 <FiCheckCircle className="w-4 h-4" />
                 <span>Confirmar y Finalizar Mantenimiento</span>

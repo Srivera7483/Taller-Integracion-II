@@ -78,6 +78,7 @@ const NotificacionesDropdown = () => {
         className="relative p-2 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50/70 transition-all duration-200 cursor-pointer focus:outline-none"
         title="Notificaciones"
         aria-label="Abrir notificaciones"
+        aria-expanded={abierto}
       >
         <FiBell className="w-5 h-5" />
 
@@ -157,7 +158,7 @@ const NotificacionesDropdown = () => {
                       <p className="text-xs font-semibold text-gray-800 truncate">
                         {item.titulo}
                       </p>
-                      <span className="text-[10px] text-gray-400 flex items-center gap-0.5 flex-shrink-0">
+                      <span className="text-[10px] text-gray-600 flex items-center gap-0.5 flex-shrink-0">
                         <FiClock className="w-2.5 h-2.5" />
                         {item.tiempo}
                       </span>
@@ -167,7 +168,7 @@ const NotificacionesDropdown = () => {
                       {item.mensaje}
                     </p>
 
-                    <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                    <p className="text-[11px] text-gray-600 mt-0.5 truncate">
                       {item.detalle}
                     </p>
                   </div>
