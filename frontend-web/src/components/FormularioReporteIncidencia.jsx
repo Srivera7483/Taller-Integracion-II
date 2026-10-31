@@ -10,18 +10,17 @@ import {
   FiLink, 
   FiX, 
   FiSend, 
-  FiArrowLeft,
-  FiUploadCloud,
-  FiImage,
-  FiMaximize2,
-  FiTrash2,
-  FiRefreshCw
+  FiArrowLeft
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { saveIncidencia } from '../services/incidenciasStorage';
 import { createIncidencia } from '../services/incidenciasService';
 import ModalPrevisualizadorImagen from './ModalPrevisualizadorImagen';
+import ImageUploader from './ImageUploader';
 import api from '../services/api';
+
+const MAX_FILE_SIZE_BYTES = 5242880;
+const MENSAJE_ERROR_LIMITE_5MB = 'El archivo supera el límite de 5MB';
 
 const CATEGORIAS_FALLA = [
   { id: 'hardware', nombre: 'Hardware', desc: 'Falla física en servidores, equipos o periféricos' },
@@ -164,9 +163,21 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+  /**
+   * TAL-134: Validador de tamaño de archivo (Max 5MB = 5,242,880 bytes) en cliente.
+   * Procesa el archivo una vez validado por <ImageUploader /> (o invocado directamente).
+   */
+  const handleFileAccepted = (file) => {
     if (!file) return;
+
+    // Doble barrera de seguridad en el formulario: bloquear si supera 5,242,880 bytes (5MB)
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      showToast(MENSAJE_ERROR_LIMITE_5MB, 'error');
+      return;
+    }
 
     const esImagen = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
 
@@ -194,7 +205,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
    * TAL-133 - Criterio de Aceptación b:
    * Posibilidad de limpiar la selección antes de enviar el POST final.
    */
-  const handleLimpiarImagen = () => {
+  const handleLimpiarImagen = (options = {}) => {
     if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(imagenPreviewUrl);
     }
@@ -205,7 +216,9 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       fileInputRef.current.value = '';
     }
     setIsImageModalOpen(false);
-    showToast('Selección de imagen eliminada', 'info');
+    if (!options?.silent) {
+      showToast('Selección de imagen eliminada', 'info');
+    }
   };
 
   const handleCambiarImagen = () => {
@@ -260,6 +273,14 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       return;
     }
 
+    // TAL-134 - Criterio de Aceptación a:
+    // El POST a Cloudinary/Backend nunca se ejecuta si el archivo es mayor a 5MB (5,242,880 bytes)
+    if (archivoImagen && archivoImagen.size > MAX_FILE_SIZE_BYTES) {
+      handleLimpiarImagen({ silent: true });
+      showToast(MENSAJE_ERROR_LIMITE_5MB, 'error');
+      return;
+    }
+
     // Criterio 2: Activar estado de envío / loading y deshabilitar botón
     setIsSubmitting(true);
 
@@ -305,8 +326,8 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
 
     let urlEvidencia = null;
 
-    // Si el usuario adjuntó una imagen (y no la limpió), subirla como evidencia asociada a la incidencia (TAL-14/TAL-133)
-    if (idGenerado && archivoImagen) {
+    // Si el usuario adjuntó una imagen válida (<= 5MB) y no la limpió, subirla como evidencia asociada a la incidencia (TAL-14/TAL-133/TAL-134)
+    if (idGenerado && archivoImagen && archivoImagen.size <= MAX_FILE_SIZE_BYTES) {
       try {
         const formData = new FormData();
         formData.append('file', archivoImagen);
@@ -603,156 +624,22 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
           )}
         </div>
 
-        {/* Campo: Adjuntar Evidencias Fotográficas con Previsualizador y Miniatura (TAL-133) */}
+        {/* Campo: Adjuntar Evidencias Fotográficas con Validador de Tamaño Max 5MB (TAL-134) y Previsualizador (TAL-133) */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Evidencia Fotográfica o Archivo de Registro <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
+            Evidencia Fotográfica o Archivo de Registro <span className="text-xs text-gray-400 font-normal">(Opcional — Máx. 5MB)</span>
           </label>
 
-          {/* Input de archivo subyacente */}
-          <input 
-            ref={fileInputRef}
-            type="file" 
-            id="input-archivo-evidencia"
-            onChange={handleFileChange}
-            className="hidden"
-            accept=".png,.jpg,.jpeg,.webp,.gif,.log,.txt,.pdf"
+          <ImageUploader
+            archivoImagen={archivoImagen}
+            imagenPreviewUrl={imagenPreviewUrl}
+            adjuntoNombre={adjuntoNombre}
+            onFileAccepted={handleFileAccepted}
+            onClearFile={handleLimpiarImagen}
+            onOpenModal={() => setIsImageModalOpen(true)}
+            disabled={isSubmitting}
+            fileInputRef={fileInputRef}
           />
-
-          {imagenPreviewUrl ? (
-            /* Miniatura (Thumbnail) en el formulario cuando se adjunta una imagen */
-            <div
-              id="contenedor-thumbnail-evidencia"
-              className="bg-slate-50 border border-slate-200 rounded-xl p-4 transition-all"
-            >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                {/* Miniatura clickable (Thumbnail) */}
-                <div
-                  id="miniatura-imagen-clickable"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setIsImageModalOpen(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setIsImageModalOpen(true);
-                    }
-                  }}
-                  title="Clic sobre la miniatura para abrir en tamaño grande (Modal UI)"
-                  className="group relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-blue-500 shadow-md cursor-pointer hover:border-blue-700 hover:shadow-lg transition-all flex-shrink-0 bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                  {/* Criterio de Aceptación a: El thumbnail utiliza la propiedad object-cover para no deformar la foto */}
-                  <img
-                    id="thumbnail-imagen-adjunta"
-                    src={imagenPreviewUrl}
-                    alt={adjuntoNombre || 'Miniatura de evidencia adjunta'}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                    style={{ objectFit: 'cover' }}
-                  />
-                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-1">
-                    <FiMaximize2 className="w-5 h-5 mb-1" />
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-center">Ampliar</span>
-                  </div>
-                </div>
-
-                {/* Detalles y Acciones de la Imagen */}
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1">
-                      <FiImage className="w-3 h-3" /> Imagen Adjunta
-                    </span>
-                    {archivoImagen?.size && (
-                      <span className="text-xs text-gray-500 font-mono">
-                        {(archivoImagen.size / (1024 * 1024)).toFixed(2)} MB
-                      </span>
-                    )}
-                    <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      Lista para previsualizar
-                    </span>
-                  </div>
-
-                  <p className="text-sm font-semibold text-gray-900 truncate" title={adjuntoNombre}>
-                    {adjuntoNombre}
-                  </p>
-
-                  <p className="text-xs text-gray-500">
-                    Haz clic sobre la miniatura para verificar en tamaño grande la foto antes de enviar.
-                  </p>
-
-                  {/* Acciones directas sobre la selección (Criterio de Aceptación b) */}
-                  <div className="flex items-center gap-2 flex-wrap pt-1">
-                    <button
-                      type="button"
-                      id="btn-abrir-modal-desde-formulario"
-                      onClick={() => setIsImageModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700 bg-white border border-blue-300 hover:bg-blue-50 transition-colors shadow-2xs cursor-pointer"
-                    >
-                      <FiMaximize2 className="w-3.5 h-3.5" />
-                      <span>Ver en tamaño grande</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      id="btn-limpiar-seleccion-imagen"
-                      onClick={handleLimpiarImagen}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-700 bg-white border border-red-300 hover:bg-red-50 transition-colors shadow-2xs cursor-pointer"
-                      title="Limpiar la selección antes de enviar el POST final"
-                    >
-                      <FiTrash2 className="w-3.5 h-3.5 text-red-500" />
-                      <span>Limpiar selección</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      id="btn-cambiar-imagen-formulario"
-                      onClick={handleCambiarImagen}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors shadow-2xs cursor-pointer"
-                      title="Cambiar por otra foto"
-                    >
-                      <FiRefreshCw className="w-3.5 h-3.5 text-gray-500" />
-                      <span>Cambiar foto</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : adjuntoNombre ? (
-            /* Caso archivo no-imagen (logs, txt) */
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <FiFileText className="w-6 h-6 text-blue-600" />
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{adjuntoNombre}</p>
-                  <p className="text-xs text-gray-500">Documento de registro adjunto</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleLimpiarImagen}
-                className="text-xs font-semibold text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 transition-colors cursor-pointer"
-              >
-                Limpiar archivo
-              </button>
-            </div>
-          ) : (
-            /* Dropzone inicial cuando no hay archivo seleccionado */
-            <div 
-              onClick={handleCambiarImagen}
-              className="relative border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-xl p-6 text-center bg-gray-50/50 hover:bg-blue-50/20 transition-all cursor-pointer group"
-            >
-              <div className="flex flex-col items-center justify-center space-y-2">
-                <div className="w-12 h-12 rounded-full bg-blue-50 group-hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors">
-                  <FiUploadCloud className="w-6 h-6" />
-                </div>
-                <div className="text-sm text-gray-600">
-                  <span className="font-semibold text-blue-600 hover:underline">Haz clic para subir una foto</span> o arrastra y suelta aquí
-                </div>
-                <p className="text-xs text-gray-400">
-                  Formatos recomendados: PNG, JPG, WEBP (hasta 10MB)
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
