@@ -51,6 +51,7 @@ export class AuthController {
 
   @Post(['refresh', 'renovar-token'])
   @HttpCode(HttpStatus.OK)
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async refreshToken(
     @Body() body: { refreshToken?: string },
     @Req() request: Request,
@@ -95,7 +96,7 @@ export class AuthController {
     @Query('limit') limit?: string,
   ) {
     const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
-    const limitNum = Math.max(1, parseInt(limit || '15', 10) || 15);
+    const limitNum = Math.max(1, Math.min(50, parseInt(limit || '15', 10) || 15));
     return await this.authService.listUsers(pageNum, limitNum);
   }
 }

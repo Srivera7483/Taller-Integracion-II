@@ -61,12 +61,47 @@ export class IncidenciasService {
     private readonly exportarIncidenciasService: ExportarIncidenciasService = new ExportarIncidenciasService(),
   ) {}
 
-  async listar(query: ListarIncidenciasQueryDto) {
-    const limite = query.limit ?? query.limite ?? 15;
-    const pagina = query.page ?? query.pagina ?? 1;
+  async listar(query?: ListarIncidenciasQueryDto) {
+    const rawLimit = Number(query?.limit ?? query?.limite) || 20;
+    const limite = Math.max(1, Math.min(50, rawLimit));
+    const rawPage = Number(query?.page ?? query?.pagina) || 1;
+    const pagina = Math.max(1, rawPage);
     const offset = (pagina - 1) * limite;
-    const idActivo = query.id_activo ?? null;
-    const idEstado = query.id_estado ?? null;
+    const idActivo = query?.id_activo ?? null;
+    const idEstado = query?.id_estado ?? null;
+
+    const countResult = await this.prisma.$queryRaw<Array<{ count: string | number | bigint }>>(
+      Prisma.sql`
+        SELECT COUNT(i."id_incidencia")::bigint as count
+        FROM "INCIDENCIAS" i
+        LEFT JOIN LATERAL (
+          SELECT h."id_estado"
+          FROM "HISTORIAL_ESTADOS" h
+          WHERE h."id_incidencia" = i."id_incidencia"
+          ORDER BY h."fecha_creacion" DESC, h."id_historial" DESC
+          LIMIT 1
+        ) estado_actual ON TRUE
+        WHERE (${idActivo}::uuid IS NULL OR i."id_activo" = ${idActivo}::uuid)
+          AND (${idEstado}::integer IS NULL OR estado_actual."id_estado" = ${idEstado}::integer)
+      `,
+    );
+    const totalItems = Number(countResult[0]?.count ?? 0);
+    const totalPages = Math.ceil(totalItems / limite) || (totalItems === 0 ? 0 : 1);
+
+    if (totalItems === 0) {
+      return {
+        data: [],
+        items: [],
+        totalItems: 0,
+        total: 0,
+        totalPages: 0,
+        currentPage: pagina,
+        page: pagina,
+        limit: limite,
+        limite,
+        itemsPerPage: limite,
+      };
+    }
 
     const ids = await this.prisma.$queryRaw<Array<{ id_incidencia: string }>>(
       Prisma.sql`
@@ -85,21 +120,48 @@ export class IncidenciasService {
         LIMIT ${limite} OFFSET ${offset}
       `,
     );
-    if (ids.length === 0) return [];
+    if (ids.length === 0) {
+      return {
+        data: [],
+        items: [],
+        totalItems,
+        total: totalItems,
+        totalPages,
+        currentPage: pagina,
+        page: pagina,
+        limit: limite,
+        limite,
+        itemsPerPage: limite,
+      };
+    }
 
     const incidencias = await this.prisma.incidencias.findMany({
       where: { id_incidencia: { in: ids.map((row) => row.id_incidencia) } },
       ...incidenciaConEstadoActual,
+      take: limite,
     });
     
     const porId = new Map(
       incidencias.map((incidencia) => [incidencia.id_incidencia, incidencia]),
     );
     
-    return ids.flatMap((row) => {
+    const items = ids.flatMap((row) => {
       const incidencia = porId.get(row.id_incidencia);
       return incidencia ? [this.toApiIncidencia(incidencia)] : [];
     });
+
+    return {
+      data: items,
+      items,
+      totalItems,
+      total: totalItems,
+      totalPages,
+      currentPage: pagina,
+      page: pagina,
+      limit: limite,
+      limite,
+      itemsPerPage: limite,
+    };
   }
 
   async crear(
@@ -245,6 +307,7 @@ export class IncidenciasService {
       where: { id_incidencia: id },
       include: { estado: { select: { id_estado: true, nombre_estado: true } } },
       orderBy: [{ fecha_creacion: 'asc' }, { id_historial: 'asc' }],
+      take: 50,
     });
     return historial.map((evento) => ({
       id_historial: evento.id_historial,
@@ -261,6 +324,7 @@ export class IncidenciasService {
       where: { id_incidencia: id },
       include: { tipo_evidencia: { select: { id_tipo_evidencia: true, nombre_tipo: true } } },
       orderBy: [{ fecha_creacion: 'asc' }, { id_evidencia: 'asc' }],
+      take: 50,
     });
     return evidencias.map((evidencia) => this.toApiEvidencia(evidencia));
   }
@@ -279,7 +343,7 @@ export class IncidenciasService {
         id_incidencia: id,
         id_tipo_evidencia: tipo.id_tipo_evidencia,
         url_cloudinary: body.url_evidencia.trim(), 
-      },
+        },
       include: { tipo_evidencia: { select: { id_tipo_evidencia: true, nombre_tipo: true } } },
     });
     return this.toApiEvidencia(evidencia);
@@ -291,7 +355,6 @@ export class IncidenciasService {
     if (!idTipoEvidencia) {
       throw new BadRequestException('id_tipo_evidencia es requerido');
     }
-
 
     const tipo = await this.prisma.tipoEvidencia.findUnique({
       where: { id_tipo_evidencia: idTipoEvidencia },
@@ -332,6 +395,7 @@ export class IncidenciasService {
     return this.prisma.estadoIncidencia.findMany({
       select: { id_estado: true, nombre_estado: true },
       orderBy: { id_estado: 'asc' },
+      take: 50,
     });
   }
 
@@ -339,6 +403,7 @@ export class IncidenciasService {
     return this.prisma.tipoEvidencia.findMany({
       select: { id_tipo_evidencia: true, nombre_tipo: true },
       orderBy: { id_tipo_evidencia: 'asc' },
+      take: 50,
     });
   }
 
@@ -350,84 +415,83 @@ export class IncidenciasService {
     if (!exists) throw new NotFoundException('Incidencia no encontrada');
   }
 
-
   async resolverIncidencia(
     idIncidencia: string,
     idTecnico: string,
     rolUsuario: string,
     emailUsuario?: string,
   ) {
-      const rolUpper = rolUsuario.toUpperCase();
-      if (rolUpper !== 'TÉCNICO' && rolUpper !== 'TECNICO') {
-        throw new ForbiddenException(
-          'Acceso denegado: Solo los técnicos pueden resolver incidencias.',
+    const rolUpper = rolUsuario.toUpperCase();
+    if (rolUpper !== 'TÉCNICO' && rolUpper !== 'TECNICO') {
+      throw new ForbiddenException(
+        'Acceso denegado: Solo los técnicos pueden resolver incidencias.',
+      );
+    }
+
+    const resultado = await this.prisma.$transaction(async (transaction) => {
+      const ultimoHistorial = await transaction.historialEstados.findFirst({
+        where: { id_incidencia: idIncidencia },
+        orderBy: { fecha_creacion: 'desc' },
+        include: { estado: true },
+      });
+
+      if (!ultimoHistorial) {
+        throw new BadRequestException(
+          'La incidencia no tiene un historial de estados válido.',
         );
       }
 
-      const resultado = await this.prisma.$transaction(async (transaction) => {
-        const ultimoHistorial = await transaction.historialEstados.findFirst({
-          where: { id_incidencia: idIncidencia },
-          orderBy: { fecha_creacion: 'desc' },
-          include: { estado: true },
-        });
+      const nombreEstadoActual = ultimoHistorial.estado.nombre_estado.toUpperCase();
 
-        if (!ultimoHistorial) {
-          throw new BadRequestException(
-            'La incidencia no tiene un historial de estados válido.',
-          );
-        }
+      if (nombreEstadoActual !== 'ASIGNADA') {
+        throw new BadRequestException(
+          `Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`,
+        );
+      }
 
-        const nombreEstadoActual = ultimoHistorial.estado.nombre_estado.toUpperCase();
-
-        if (nombreEstadoActual !== 'ASIGNADA') {
-          throw new BadRequestException(
-            `Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`,
-          );
-        }
-
-        const estadoDestino = await transaction.estadoIncidencia.findFirst({
-          where: {
-            nombre_estado: {
-              equals: 'Resuelta',
-              mode: 'insensitive',
-            },
+      const estadoDestino = await transaction.estadoIncidencia.findFirst({
+        where: {
+          nombre_estado: {
+            equals: 'Resuelta',
+            mode: 'insensitive',
           },
-        });
-
-        if (!estadoDestino) {
-          throw new InternalServerErrorException(
-            'Error de configuración: El estado "Resuelta" no existe en la base de datos.',
-          );
-        }
-
-        const incidencia = await transaction.incidencias.findUnique({
-          where: { id_incidencia: idIncidencia },
-          select: { titulo: true },
-        });
-
-        if (!incidencia) {
-          throw new NotFoundException('Incidencia no encontrada');
-        }
-
-        const nuevoHistorial = await transaction.historialEstados.create({
-          data: {
-            id_incidencia: idIncidencia,
-            id_estado: estadoDestino.id_estado,
-            id_usuario_cambio: idTecnico,
-          },
-          include: { estado: true },
-        });
-
-        return { historial: nuevoHistorial, titulo: incidencia.titulo };
+        },
       });
 
-      await this.notificarIncidencia(
-        emailUsuario,
-        `Incidencia Resuelta: ${resultado.titulo}`,
-        `La incidencia "${resultado.titulo}" fue resuelta.`,
-      );
-      return resultado.historial;
-    }
+      if (!estadoDestino) {
+        throw new InternalServerErrorException(
+          'Error de configuración: El estado "Resuelta" no existe en la base de datos.',
+        );
+      }
+
+      const incidencia = await transaction.incidencias.findUnique({
+        where: { id_incidencia: idIncidencia },
+        select: { titulo: true },
+      });
+
+      if (!incidencia) {
+        throw new NotFoundException('Incidencia no encontrada');
+      }
+
+      const nuevoHistorial = await transaction.historialEstados.create({
+        data: {
+          id_incidencia: idIncidencia,
+          id_estado: estadoDestino.id_estado,
+          id_usuario_cambio: idTecnico,
+        },
+        include: { estado: true },
+      });
+
+      return { historial: nuevoHistorial, titulo: incidencia.titulo };
+    });
+
+    await this.notificarIncidencia(
+      emailUsuario,
+      `Incidencia Resuelta: ${resultado.titulo}`,
+      `La incidencia "${resultado.titulo}" fue resuelta.`,
+    );
+    return resultado.historial;
+  }
 
   private async notificarIncidencia(
     email: string | undefined,
@@ -490,9 +554,12 @@ export class IncidenciasService {
    * TAL-115: Reporte consolidado de prioridades dinámicas y escalamiento
    */
   async obtenerReportePrioridades(query?: PrioridadDinamicaQueryDto) {
+    const rawLimit = Number(query?.limit ?? query?.limite) || 50;
+    const take = Math.max(1, Math.min(50, rawLimit));
     const incidencias = await this.prisma.incidencias.findMany({
       ...incidenciaConEstadoActual,
       orderBy: { fecha_creacion: 'asc' },
+      take,
     });
 
     return this.prioridadDinamicaService.generarReporte(incidencias, query);

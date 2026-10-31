@@ -45,7 +45,7 @@ export class OrdenesTrabajoService {
 
   async listarTodas(filtros?: FiltrarOrdenesDto) {
     const page = Math.max(1, Number(filtros?.page) || 1);
-    const limit = Math.max(1, Math.min(100, Number(filtros?.limit) || 10));
+    const limit = Math.max(1, Math.min(50, Number(filtros?.limit) || 10));
     const skip = (page - 1) * limit;
     const orden = filtros?.orden?.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
@@ -65,7 +65,9 @@ export class OrdenesTrabajoService {
 
     return {
       total,
+      totalItems: total,
       page,
+      currentPage: page,
       limit,
       totalPages: Math.ceil(total / limit) || 1,
       data: ordenes,
@@ -78,7 +80,7 @@ export class OrdenesTrabajoService {
     }
 
     const page = Math.max(1, Number(filtros?.page) || 1);
-    const limit = Math.max(1, Math.min(100, Number(filtros?.limit) || 10));
+    const limit = Math.max(1, Math.min(50, Number(filtros?.limit) || 10));
     const skip = (page - 1) * limit;
     const orden = filtros?.orden?.toLowerCase() === 'asc' ? 'asc' : 'desc';
 
@@ -120,7 +122,9 @@ export class OrdenesTrabajoService {
 
     return {
       total,
+      totalItems: total,
       page,
+      currentPage: page,
       limit,
       totalPages: Math.ceil(total / limit) || 1,
       data: ordenes,
@@ -155,7 +159,7 @@ export class OrdenesTrabajoService {
 
     if (orden.id_tecnico !== idTecnicoPeticion) {
       throw new ForbiddenException(
-        'Acceso denegado: Solo el t�cnico asignado puede registrar el diagn�stico.',
+        'Acceso denegado: Solo el técnico asignado puede registrar el diagnóstico.',
       );
     }
 

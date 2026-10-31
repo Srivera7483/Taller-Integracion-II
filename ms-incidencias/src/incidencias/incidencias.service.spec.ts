@@ -271,4 +271,65 @@ describe('IncidenciasService notifications', () => {
       expect(resultado.url_evidencia).toBe('https://cloudinary.com/foto.jpg');
     });
   });
+
+  describe('TAL-139: Optimización y paginación forzada de Queries grandes', () => {
+    it('retorna metadatos de paginación (totalItems, totalPages, currentPage, limit, data) con defaults', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.$queryRaw = jest
+        .fn()
+        .mockResolvedValueOnce([{ count: 1n }])
+        .mockResolvedValueOnce([{ id_incidencia: 'incidencia-1' }]);
+      mockPrisma.incidencias = {
+        findMany: jest.fn().mockResolvedValue([incidenciaCreada]),
+      };
+
+      const resultado = await service.listar({});
+
+      expect(resultado).toBeDefined();
+      expect(resultado.totalItems).toBe(1);
+      expect(resultado.totalPages).toBe(1);
+      expect(resultado.currentPage).toBe(1);
+      expect(resultado.limit).toBe(20);
+      expect(resultado.data).toHaveLength(1);
+      expect(resultado.data[0].id_incidencia).toBe('incidencia-1');
+      expect(mockPrisma.incidencias.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 20 }),
+      );
+    });
+
+    it('fuerza un tope máximo de 50 registros aunque se solicite un límite mayor', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.$queryRaw = jest
+        .fn()
+        .mockResolvedValueOnce([{ count: 100n }])
+        .mockResolvedValueOnce([{ id_incidencia: 'incidencia-1' }]);
+      mockPrisma.incidencias = {
+        findMany: jest.fn().mockResolvedValue([incidenciaCreada]),
+      };
+
+      const resultado = await service.listar({ limit: 100 as any, page: 2 });
+
+      expect(resultado.limit).toBe(50);
+      expect(resultado.currentPage).toBe(2);
+      expect(resultado.totalItems).toBe(100);
+      expect(resultado.totalPages).toBe(2);
+      expect(mockPrisma.incidencias.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 50 }),
+      );
+    });
+
+    it('maneja respuestas vacías retornando metadatos coherentes sin consultar findMany', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.$queryRaw = jest.fn().mockResolvedValueOnce([{ count: 0 }]);
+      mockPrisma.incidencias = { findMany: jest.fn() };
+
+      const resultado = await service.listar({ limit: 20, page: 1 });
+
+      expect(resultado.totalItems).toBe(0);
+      expect(resultado.totalPages).toBe(0);
+      expect(resultado.currentPage).toBe(1);
+      expect(resultado.data).toEqual([]);
+      expect(mockPrisma.incidencias.findMany).not.toHaveBeenCalled();
+    });
+  });
 });
