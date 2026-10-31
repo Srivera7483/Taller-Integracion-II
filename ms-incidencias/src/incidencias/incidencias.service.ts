@@ -165,6 +165,7 @@ export class IncidenciasService {
     usuarioId: string,
     rolUsuario: string,
     emailUsuario?: string,
+    motivoRechazo?: string,
   ) {
     if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
       throw new BadRequestException('El ID del estado es obligatorio y debe ser numérico');
@@ -198,8 +199,8 @@ export class IncidenciasService {
       if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR') {
         throw new ForbiddenException('Solo un SUPERVISOR puede pasar de Reportada a Asignada');
       }
-      if (idEstadoActual === 2 && (idEstadoNuevo === 3 || idEstadoNuevo === 6) && (rolUpper !== 'TECNICO' && rolUpper !== 'TÉCNICO' && rolUpper !== 'ADMINISTRADOR')) {
-        throw new ForbiddenException('Solo un TECNICO puede pasar de Asignada a Resuelta o Completada');
+      if (idEstadoActual === 2 && (idEstadoNuevo === 3 || idEstadoNuevo === 6 || idEstadoNuevo === 5) && (rolUpper !== 'TECNICO' && rolUpper !== 'TÉCNICO' && rolUpper !== 'ADMINISTRADOR')) {
+        throw new ForbiddenException('Solo un TECNICO puede pasar de Asignada a Resuelta, Completada o Rechazada');
       }
       if (idEstadoActual === 3 && (idEstadoNuevo === 4 || idEstadoNuevo === 5) && rolUpper !== 'REPORTANTE' && rolUpper !== 'ADMINISTRADOR') {
         throw new ForbiddenException('Solo el REPORTANTE o ADMINISTRADOR puede Cerrar o Rechazar una incidencia');
@@ -212,6 +213,13 @@ export class IncidenciasService {
           id_usuario_cambio: usuarioId,
         },
       });
+
+      if (motivoRechazo) {
+        await transaction.ordenTrabajo.updateMany({
+          where: { id_incidencia: incidencia.id_incidencia },
+          data: { diagnostico_tecnico: motivoRechazo.trim() },
+        });
+      }
 
       const incidenciaActualizada = await transaction.incidencias.findUnique({
         where: { id_incidencia: incidenciaId },
@@ -464,6 +472,7 @@ export class IncidenciasService {
 
   private toApiIncidencia(incidencia: IncidenciaConEstadoActual) {
     const estado = incidencia.historial_estados?.[0]?.estado;
+    const orden = incidencia.ordenes_trabajo?.[0];
     const calculo = this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia);
 
     return {
@@ -473,6 +482,8 @@ export class IncidenciasService {
       titulo: incidencia.titulo,
       descripcion: incidencia.descripcion,
       estado: estado || null,
+      motivo_rechazo: orden?.diagnostico_tecnico || null,
+      diagnostico_tecnico: orden?.diagnostico_tecnico || null,
       evidencias: incidencia.evidencias?.map(e => e.url_cloudinary) || [],
       fecha_creacion: incidencia.fecha_creacion,
       // Prioridad Dinámica por Antigüedad (TAL-115)
