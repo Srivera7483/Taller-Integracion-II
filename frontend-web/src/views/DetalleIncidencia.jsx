@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   FiChevronRight,
@@ -7,22 +7,176 @@ import {
   FiUser,
   FiCheckCircle,
   FiShield,
-  FiLayers,
-  FiFileText
+  FiFileText,
+  FiImage,
+  FiMaximize2,
+  FiUploadCloud,
+  FiAlertCircle,
+  FiPlusCircle
 } from 'react-icons/fi';
 import StatusBadge from '../components/StatusBadge';
 import api from '../services/api';
 import AprobacionReportante from '../components/AprobacionReportante';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
-import { getIncidencias, getTecnicoActual } from '../services/incidenciasStorage';
+import ModalPrevisualizadorImagen from '../components/ModalPrevisualizadorImagen';
+import EvidenciaUploader from '../components/EvidenciaUploader';
+import { useToast } from '../context/ToastContext';
+import {
+  getIncidencias,
+  getTecnicoActual,
+  adjuntarEvidenciaIncidencia
+} from '../services/incidenciasStorage';
+
+/**
+ * Componente TarjetaEvidenciaCloudinary (TAL-136)
+ * Despliega la evidencia fotográfica de la incidencia con animación fluida de carga:
+ * - Spinner circular + barra de progreso indeterminada + "Procesando..." mientras descarga de Cloudinary.
+ * - Transición suave (fade-in) hacia la imagen una vez cargada con object-cover (TAL-133).
+ */
+const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
+  const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState(false);
+
+  return (
+    <div className="relative rounded-2xl border border-gray-200 bg-slate-900/5 p-4 sm:p-5 flex flex-col md:flex-row items-center gap-5 transition-all">
+      {/* Contenedor de la foto con estado de carga animado */}
+      <div className="relative w-full sm:w-64 h-52 sm:h-44 rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center border-2 border-blue-500/40 shadow-inner flex-shrink-0">
+        {/* ANIMACIÓN DE CARGA / LATENCIA CLOUDINARY (TAL-136) */}
+        {cargando && !errorCarga && (
+          <div
+            id="loading-evidencia-cloudinary"
+            role="status"
+            aria-live="polite"
+            className="absolute inset-0 z-10 bg-slate-900/90 backdrop-blur-xs flex flex-col items-center justify-center p-4 text-center space-y-3"
+          >
+            {/* Anillo de carga (Spinner circular con halo) */}
+            <div className="relative flex items-center justify-center">
+              <div className="absolute w-12 h-12 rounded-full bg-blue-500/20 animate-ping" />
+              <svg
+                className="animate-spin w-9 h-9 text-blue-500 relative z-10"
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  className="opacity-20"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="3.5"
+                />
+                <path
+                  className="opacity-90"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+            </div>
+
+            <div className="space-y-0.5">
+              <span className="text-xs font-bold text-white tracking-wide animate-pulse">
+                Procesando...
+              </span>
+              <p className="text-[11px] text-blue-300">
+                Cargando imagen desde Cloudinary
+              </p>
+            </div>
+
+            {/* Barra de progreso indeterminada animada */}
+            <div className="w-3/4 bg-slate-800 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-500 via-indigo-400 to-blue-500 h-full rounded-full animate-indeterminate" />
+            </div>
+          </div>
+        )}
+
+        {/* Imagen renderizada con object-cover para no deformarse */}
+        {!errorCarga ? (
+          <img
+            src={url}
+            alt={nombre || 'Evidencia fotográfica de la incidencia'}
+            onLoad={() => setCargando(false)}
+            onError={() => {
+              setCargando(false);
+              setErrorCarga(true);
+            }}
+            onClick={() => onAmpliar(url, nombre)}
+            className={`w-full h-full object-cover cursor-pointer transition-all duration-500 hover:scale-105 ${
+              cargando ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+            }`}
+            style={{ objectFit: 'cover' }}
+          />
+        ) : (
+          <div className="p-4 text-center text-xs text-red-400 flex flex-col items-center gap-1.5">
+            <FiAlertCircle className="w-5 h-5 text-red-400" />
+            <span>No se pudo cargar la imagen de Cloudinary</span>
+          </div>
+        )}
+
+        {/* Botón flotante para ampliar foto */}
+        {!cargando && !errorCarga && (
+          <button
+            type="button"
+            onClick={() => onAmpliar(url, nombre)}
+            title="Ampliar en tamaño completo"
+            className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-white shadow-md transition-all cursor-pointer"
+          >
+            <FiMaximize2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Información contextual de la evidencia */}
+      <div className="flex-1 space-y-2 text-center md:text-left min-w-0">
+        <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+            <FiImage className="w-3.5 h-3.5" />
+            <span>Evidencia Fotográfica</span>
+          </span>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-purple-100 text-purple-800 border border-purple-200">
+            <FiUploadCloud className="w-3 h-3" /> Cloudinary CDN
+          </span>
+          <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            Activo Verificado
+          </span>
+        </div>
+
+        <p className="text-sm font-bold text-gray-900 truncate" title={nombre || 'evidencia_reportante.webp'}>
+          {nombre || 'evidencia_reportante.webp'}
+        </p>
+
+        <p className="text-xs text-gray-600 leading-relaxed">
+          Esta prueba fotográfica fue provista por el usuario reportante al momento de registrar la falla en el sistema. Puedes visualizarla en alta resolución para inspección técnica.
+        </p>
+
+        <div className="pt-1 flex items-center justify-center md:justify-start gap-3">
+          <button
+            type="button"
+            onClick={() => onAmpliar(url, nombre)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all shadow-xs cursor-pointer"
+          >
+            <FiMaximize2 className="w-3.5 h-3.5" />
+            <span>Ver en Alta Resolución</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const DetalleIncidencia = () => {
   const { idIncidencia } = useParams();
+  const { showToast } = useToast();
   const [incidencia, setIncidencia] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tecnicoActual, setTecnicoActual] = useState(() => getTecnicoActual());
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Estados para modal visor de evidencias (TAL-133 y TAL-136)
+  const [modalPreviewOpen, setModalPreviewOpen] = useState(false);
+  const [previewActivoUrl, setPreviewActivoUrl] = useState(null);
+  const [previewActivoNombre, setPreviewActivoNombre] = useState('');
+  const [mostrarSubidorNuevo, setMostrarSubidorNuevo] = useState(false);
 
   useEffect(() => {
     const handleCambioTecnico = () => {
@@ -32,7 +186,7 @@ const DetalleIncidencia = () => {
     return () => window.removeEventListener('tecnico-cambiado', handleCambioTecnico);
   }, []);
 
-  const cargarIncidencia = async () => {
+  const cargarIncidencia = useCallback(async () => {
     try {
       setLoading(true);
       // Buscar primero en datos locales
@@ -55,6 +209,8 @@ const DetalleIncidencia = () => {
             horasInvertidas: encontradaLocal?.horasInvertidas || null,
             materialesUsados: encontradaLocal?.materialesUsados || [],
             fechaCierre: encontradaLocal?.fechaCierre || null,
+            evidencias: apiData.evidencias?.length ? apiData.evidencias : (encontradaLocal?.evidencias || []),
+            imagenAdjuntaNombre: apiData.imagenAdjuntaNombre || encontradaLocal?.imagenAdjuntaNombre || null,
           });
           return;
         }
@@ -75,6 +231,10 @@ const DetalleIncidencia = () => {
           resolucion: null,
           horasInvertidas: null,
           materialesUsados: [],
+          evidencias: [
+            'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80',
+          ],
+          imagenAdjuntaNombre: 'evidencia_servidor_rack.webp',
         }
       );
     } catch (err) {
@@ -83,11 +243,11 @@ const DetalleIncidencia = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [idIncidencia]);
 
   useEffect(() => {
     cargarIncidencia();
-  }, [idIncidencia]);
+  }, [cargarIncidencia]);
 
   const handleAprobacionCompletada = (nuevoEstado) => {
     setIncidencia((prev) => ({
@@ -105,6 +265,24 @@ const DetalleIncidencia = () => {
       materialesUsados: datosActualizados.materialesUsados,
       fechaCierre: datosActualizados.fechaCierre,
     }));
+  };
+
+  const handleAbrirPrevisualizador = (url, nombre) => {
+    setPreviewActivoUrl(url);
+    setPreviewActivoNombre(nombre || 'Evidencia Fotográfica');
+    setModalPreviewOpen(true);
+  };
+
+  const handleEvidenciaSubidaDesdeDetalle = ({ previewUrl, name }) => {
+    // Persistir la evidencia en la cookie / almacenamiento local
+    adjuntarEvidenciaIncidencia(incidencia.id, previewUrl, name);
+    setIncidencia((prev) => ({
+      ...prev,
+      evidencias: [...(prev.evidencias || []), previewUrl],
+      imagenAdjuntaNombre: name,
+    }));
+    setMostrarSubidorNuevo(false);
+    showToast(`¡Evidencia "${name}" subida a Cloudinary exitosamente!`, 'success');
   };
 
   if (loading) {
@@ -127,6 +305,8 @@ const DetalleIncidencia = () => {
       nombreAsignado.includes(nombreActual) ||
       nombreActual.includes(nombreAsignado));
 
+  const evidencias = Array.isArray(incidencia.evidencias) ? incidencia.evidencias : [];
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <nav className="flex items-center gap-2 text-sm text-gray-500">
@@ -137,6 +317,7 @@ const DetalleIncidencia = () => {
         <span className="font-semibold text-gray-900">Incidencia {incidencia.id}</span>
       </nav>
 
+      {/* Tarjeta Principal de la Incidencia */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-gray-100 pb-5 mb-5">
           <div>
@@ -179,6 +360,86 @@ const DetalleIncidencia = () => {
             {incidencia.descripcion}
           </p>
         </div>
+      </div>
+
+      {/* SECCIÓN DE EVIDENCIA FOTOGRÁFICA DE CLOUDINARY (TAL-136) */}
+      <div id="seccion-evidencia-cloudinary" className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+              <FiImage className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-gray-900">Evidencia Fotográfica (Cloudinary)</h3>
+              <p className="text-xs text-gray-500">
+                Imágenes adjuntadas por el reportante para respaldo del fallo.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!mostrarSubidorNuevo && (
+              <button
+                type="button"
+                onClick={() => setMostrarSubidorNuevo(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
+              >
+                <FiPlusCircle className="w-3.5 h-3.5" />
+                <span>Agregar Foto</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Formulario Uploader opcional para subir nueva evidencia a esta incidencia */}
+        {mostrarSubidorNuevo && (
+          <div className="bg-slate-50 border border-blue-200 rounded-2xl p-4 space-y-3 animate-fadeIn">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-blue-900">Subir nueva evidencia para esta incidencia:</span>
+              <button
+                type="button"
+                onClick={() => setMostrarSubidorNuevo(false)}
+                className="text-xs text-gray-500 hover:text-gray-800"
+              >
+                Cancelar
+              </button>
+            </div>
+            <EvidenciaUploader
+              onFileLoaded={handleEvidenciaSubidaDesdeDetalle}
+              label=""
+            />
+          </div>
+        )}
+
+        {/* Lista de Evidencias Fotográficas */}
+        {evidencias.length > 0 ? (
+          <div className="space-y-4">
+            {evidencias.map((urlEvidencia, idx) => (
+              <TarjetaEvidenciaCloudinary
+                key={idx}
+                url={urlEvidencia}
+                nombre={incidencia.imagenAdjuntaNombre || `evidencia_incidencia_${idx + 1}.webp`}
+                onAmpliar={handleAbrirPrevisualizador}
+              />
+            ))}
+          </div>
+        ) : !mostrarSubidorNuevo ? (
+          <div className="p-8 text-center bg-gray-50/60 rounded-2xl border-2 border-dashed border-gray-200 space-y-2">
+            <FiImage className="w-10 h-10 text-gray-300 mx-auto" />
+            <p className="text-sm font-medium text-gray-700">Sin evidencias fotográficas adjuntas</p>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              Esta incidencia no incluyó fotos al momento de ser creada. Puedes adjuntar una prueba ahora.
+            </p>
+            <button
+              type="button"
+              onClick={() => setMostrarSubidorNuevo(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+            >
+              <FiUploadCloud className="w-4 h-4" />
+              <span>Subir Evidencia a Cloudinary</span>
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* REPORTE DE MANTENIMIENTO SI YA ESTÁ COMPLETADA */}
@@ -280,7 +541,7 @@ const DetalleIncidencia = () => {
         />
       )}
 
-      {/* MODAL DE CIERRE */}
+      {/* MODAL DE CIERRE DE MANTENIMIENTO */}
       <ModalCierreMantenimiento
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -297,6 +558,14 @@ const DetalleIncidencia = () => {
         }}
         tecnicoActual={tecnicoActual}
         onCierreExitoso={handleCierreExitoso}
+      />
+
+      {/* MODAL PREVISUALIZADOR EN ALTA DEFINICIÓN (TAL-133 y TAL-136) */}
+      <ModalPrevisualizadorImagen
+        isOpen={modalPreviewOpen}
+        onClose={() => setModalPreviewOpen(false)}
+        imageUrl={previewActivoUrl}
+        imageName={previewActivoNombre}
       />
     </div>
   );
