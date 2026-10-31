@@ -83,7 +83,9 @@ describe('OrdenesTrabajoService', () => {
 
       expect(resultado).toEqual({
         total: 1,
+        totalItems: 1,
         page: 1,
+        currentPage: 1,
         limit: 10,
         totalPages: 1,
         data: mockOrdenes,

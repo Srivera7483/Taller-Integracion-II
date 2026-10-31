@@ -183,7 +183,9 @@ export class AuthService {
   }
 
   async listUsers(page: number = 1, limit: number = 15) {
-    const { usuarios, total, totalPages } = await this.userRepository.findMany(page, limit);
+    const clampedLimit = Math.max(1, Math.min(50, limit));
+    const clampedPage = Math.max(1, page);
+    const { usuarios, total, totalPages } = await this.userRepository.findMany(clampedPage, clampedLimit);
     return {
       datos: usuarios.map((user: any) => ({
         id_usuario: user.id,
@@ -202,9 +204,14 @@ export class AuthService {
         estado: user.fechaEliminacion ? 'inactivo' : 'activo',
       })),
       total,
-      pagina: page,
-      limite: limit,
+      totalItems: total,
+      pagina: clampedPage,
+      currentPage: clampedPage,
+      page: clampedPage,
+      limite: clampedLimit,
+      limit: clampedLimit,
       totalPaginas: totalPages,
+      totalPages: totalPages,
     };
   }
 }

@@ -21,6 +21,7 @@ describe('AuthService', () => {
       findByEmail: vi.fn(),
       findById: vi.fn(),
       updateRole: vi.fn(),
+      findMany: vi.fn(),
     };
 
     jwtMock = {
@@ -109,6 +110,34 @@ describe('AuthService', () => {
       ).rejects.toThrow(NotFoundException);
 
       expect(userRepositoryMock.updateRole).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('TAL-139: listUsers con paginación forzada', () => {
+    it('debe paginar y retornar metadatos de paginación limitando a máximo 50 registros', async () => {
+      userRepositoryMock.findMany.mockResolvedValue({
+        usuarios: [{
+          id: 'u-1',
+          rut_o_id: '12345678-9',
+          nombre: 'Juan',
+          apellido: 'Perez',
+          email: 'juan@test.com',
+          role: { id: 1, nombreRol: 'REPORTANTE' },
+          fechaCreacion: new Date('2026-01-01T00:00:00Z'),
+          fechaEliminacion: null,
+        }],
+        total: 100,
+        totalPages: 2,
+      });
+
+      const res = await service.listUsers(1, 100);
+
+      expect(userRepositoryMock.findMany).toHaveBeenCalledWith(1, 50);
+      expect(res.totalItems).toBe(100);
+      expect(res.limit).toBe(50);
+      expect(res.currentPage).toBe(1);
+      expect(res.totalPages).toBe(2);
+      expect(res.datos).toHaveLength(1);
     });
   });
 });

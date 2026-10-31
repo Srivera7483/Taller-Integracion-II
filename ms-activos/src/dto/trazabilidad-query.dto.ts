@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class TrazabilidadQueryDto {
   @IsOptional()
@@ -12,6 +12,7 @@ export class TrazabilidadQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(50, { message: 'El límite máximo permitido es de 50 registros por petición' })
   limit?: number = 10;
 
   @IsOptional()
@@ -20,7 +21,7 @@ export class TrazabilidadQueryDto {
 
   static sanitizar(dto?: TrazabilidadQueryDto): { page: number; limit: number; tipoFiltro: string } {
     const page = Math.max(1, Number(dto?.page) || 1);
-    const limit = Math.max(1, Math.min(100, Number(dto?.limit) || 10));
+    const limit = Math.max(1, Math.min(50, Number(dto?.limit) || 10));
     const tipoFiltro = (dto?.tipoFiltro || 'todos').trim().toLowerCase();
     return { page, limit, tipoFiltro };
   }

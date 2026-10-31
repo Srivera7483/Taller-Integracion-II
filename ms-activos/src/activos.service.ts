@@ -566,6 +566,7 @@ export class ActivosService {
             },
           },
           orderBy: { fecha_programada: 'asc' },
+          take: 50,
         });
 
         if (dbMantenimientos && dbMantenimientos.length > 0) {
@@ -812,11 +813,17 @@ export class ActivosService {
     return this.activosEnMemoria.find((item) => item.id === id) || null;
   }
 
-  async listarTodos(): Promise<Activo[]> {
+  async listarTodos(query?: { page?: number; limit?: number }): Promise<Activo[]> {
+    const page = Math.max(1, Number(query?.page) || 1);
+    const limit = Math.max(1, Math.min(50, Number(query?.limit) || 50));
+    const skip = (page - 1) * limit;
+
     try {
       if (this.prisma?.activo) {
         const activosDb = await this.prisma.activo.findMany({
           orderBy: { fechaRegistro: 'desc' },
+          skip,
+          take: limit,
         });
         if (activosDb.length > 0) {
           return activosDb as unknown as Activo[];
@@ -825,7 +832,18 @@ export class ActivosService {
     } catch {
       // Fallback a memoria
     }
-    return [...this.activosEnMemoria];
+    return this.activosEnMemoria.slice(skip, skip + limit);
+  }
+
+  async contarTotalActivos(): Promise<number> {
+    try {
+      if (this.prisma?.activo) {
+        return await this.prisma.activo.count();
+      }
+    } catch {
+      // Fallback a memoria
+    }
+    return this.activosEnMemoria.length;
   }
 
   async obtenerEstadisticas(filtros?: FiltroEstadisticasDto): Promise<RespuestaEstadisticas> {
