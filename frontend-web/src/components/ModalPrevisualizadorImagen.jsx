@@ -117,36 +117,42 @@ const ModalPrevisualizadorImagen = ({
           />
 
           {/* BOTÓN SUPERPUESTO DE "Eliminar/Cambiar imagen" (Requerimiento estricto) */}
-          <div
-            id="contenedor-botones-superpuestos"
-            className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-20"
-          >
-            <div className="bg-slate-900/90 backdrop-blur-md p-1.5 sm:p-2 rounded-2xl border border-slate-700/80 shadow-2xl flex flex-wrap items-center gap-2">
-              {/* Botón principal superpuesto que identifica explícitamente la acción requerida */}
-              <button
-                type="button"
-                id="btn-eliminar-cambiar-imagen"
-                onClick={onCambiarImagen}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-md transition-all cursor-pointer"
-                title="Cambiar por otra foto o seleccionar una nueva imagen"
-              >
-                <FiRefreshCw className="w-4 h-4" />
-                <span>Eliminar/Cambiar imagen</span>
-              </button>
+          {(onCambiarImagen || onLimpiarImagen) && (
+            <div
+              id="contenedor-botones-superpuestos"
+              className="absolute bottom-4 right-4 sm:bottom-6 sm:right-6 z-20"
+            >
+              <div className="bg-slate-900/90 backdrop-blur-md p-1.5 sm:p-2 rounded-2xl border border-slate-700/80 shadow-2xl flex flex-wrap items-center gap-2">
+                {/* Botón principal superpuesto que identifica explícitamente la acción requerida */}
+                {onCambiarImagen && (
+                  <button
+                    type="button"
+                    id="btn-eliminar-cambiar-imagen"
+                    onClick={onCambiarImagen}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-md transition-all cursor-pointer"
+                    title="Cambiar por otra foto o seleccionar una nueva imagen"
+                  >
+                    <FiRefreshCw className="w-4 h-4" />
+                    <span>Eliminar/Cambiar imagen</span>
+                  </button>
+                )}
 
-              {/* Botón directo para limpiar la selección antes del POST final (Criterio de Aceptación b) */}
-              <button
-                type="button"
-                id="btn-superpuesto-limpiar-imagen"
-                onClick={onLimpiarImagen}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-red-600/90 hover:bg-red-600 text-white shadow-md transition-all cursor-pointer"
-                title="Limpiar y remover esta imagen del formulario"
-              >
-                <FiTrash2 className="w-4 h-4 text-red-100" />
-                <span>Limpiar selección</span>
-              </button>
+                {/* Botón directo para limpiar la selección antes del POST final (Criterio de Aceptación b) */}
+                {onLimpiarImagen && (
+                  <button
+                    type="button"
+                    id="btn-superpuesto-limpiar-imagen"
+                    onClick={onLimpiarImagen}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-red-600/90 hover:bg-red-600 text-white shadow-md transition-all cursor-pointer"
+                    title="Limpiar y remover esta imagen del formulario"
+                  >
+                    <FiTrash2 className="w-4 h-4 text-red-100" />
+                    <span>Limpiar selección</span>
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Barra inferior informativa */}
@@ -159,14 +165,18 @@ const ModalPrevisualizadorImagen = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onLimpiarImagen}
-              className="text-red-400 hover:text-red-300 underline font-medium cursor-pointer"
-            >
-              Descartar foto
-            </button>
-            <span>•</span>
+            {onLimpiarImagen && (
+              <>
+                <button
+                  type="button"
+                  onClick={onLimpiarImagen}
+                  className="text-red-400 hover:text-red-300 underline font-medium cursor-pointer"
+                >
+                  Descartar foto
+                </button>
+                <span>•</span>
+              </>
+            )}
             <button
               type="button"
               onClick={onClose}

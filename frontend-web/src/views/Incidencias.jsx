@@ -216,7 +216,14 @@ const Incidencias = () => {
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-gray-500">{inc.id}</span>
+                      <Link
+                        to={`/incidencias/${inc.id}`}
+                        className="font-mono text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                        title="Ver detalles de la incidencia"
+                      >
+                        <span>{inc.id}</span>
+                        <FiExternalLink className="w-3 h-3" />
+                      </Link>
                       {inc.esTemporal && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
                           Temporal
@@ -324,9 +331,9 @@ const Incidencias = () => {
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">
                             <Link
-                              to={`/ordenes/${inc.id}`}
+                              to={`/incidencias/${inc.id}`}
                               className="font-mono text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                              title="Ver orden de trabajo"
+                              title="Ver detalles de la incidencia"
                             >
                               <span>{inc.id}</span>
                               <FiExternalLink className="w-3 h-3" />
@@ -336,6 +343,13 @@ const Incidencias = () => {
                                 Cookie
                               </span>
                             )}
+                            <Link
+                              to={`/ordenes/${inc.id}`}
+                              className="text-[11px] text-gray-400 hover:text-indigo-600 ml-1 font-mono hover:underline"
+                              title="Ver orden de trabajo asociada"
+                            >
+                              (Orden)
+                            </Link>
                           </div>
                           <span className="font-semibold text-gray-900 mt-0.5">{inc.titulo}</span>
                           {inc.descripcion && (
