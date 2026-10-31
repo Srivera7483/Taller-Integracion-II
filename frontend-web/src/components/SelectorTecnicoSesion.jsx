@@ -44,6 +44,8 @@ const SelectorTecnicoSesion = () => {
           onClick={() => setDesplegado(!desplegado)}
           className="text-indigo-600 hover:text-indigo-800 p-1 rounded transition-colors cursor-pointer"
           title="Cambiar perfil técnico para pruebas de permisos"
+          aria-label="Cambiar perfil técnico para pruebas de permisos"
+          aria-expanded={desplegado}
         >
           <FiChevronDown className={`w-3.5 h-3.5 transition-transform ${desplegado ? 'rotate-180' : ''}`} />
         </button>
@@ -56,7 +58,7 @@ const SelectorTecnicoSesion = () => {
               <FiShield className="w-3.5 h-3.5 text-indigo-600" />
               Simular Perfil Técnico
             </span>
-            <p className="text-[10px] text-gray-400 mt-0.5">
+            <p className="text-[10px] text-gray-600 mt-0.5">
               Prueba cómo cambia el acceso al formulario finalizativo según la asignación:
             </p>
           </div>
@@ -78,7 +80,7 @@ const SelectorTecnicoSesion = () => {
                   </div>
                   <div>
                     <span className="block">{tec.nombre}</span>
-                    <span className="text-[10px] text-gray-400">{tec.especialidad}</span>
+                    <span className="text-[10px] text-gray-600">{tec.especialidad}</span>
                   </div>
                 </div>
                 {tec.nombre === tecnico?.nombre && (

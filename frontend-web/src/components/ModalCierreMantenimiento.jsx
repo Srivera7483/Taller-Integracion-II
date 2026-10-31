@@ -388,14 +388,14 @@ const ModalCierreMantenimiento = ({
                 <div className="flex items-center gap-2">
                   <FiBox className="w-4 h-4 text-blue-600 flex-shrink-0" />
                   <div>
-                    <span className="text-gray-400 block text-[10px] uppercase font-semibold">Título</span>
+                    <span className="text-gray-600 block text-[10px] uppercase font-semibold">Título</span>
                     <strong className="text-gray-900 truncate block">{orden.incidencia_titulo || orden.titulo || 'Mantenimiento Correctivo'}</strong>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <FiUser className="w-4 h-4 text-indigo-600 flex-shrink-0" />
                   <div>
-                    <span className="text-gray-400 block text-[10px] uppercase font-semibold">Técnico Responsable</span>
+                    <span className="text-gray-600 block text-[10px] uppercase font-semibold">Técnico Responsable</span>
                     <strong className="text-indigo-900">{tecnicoActual?.nombre || orden.tecnico_nombre}</strong>
                   </div>
                 </div>
@@ -406,7 +406,7 @@ const ModalCierreMantenimiento = ({
                     <FiCheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                   )}
                   <div>
-                    <span className="text-gray-400 block text-[10px] uppercase font-semibold">Nuevo Estado</span>
+                    <span className="text-gray-600 block text-[10px] uppercase font-semibold">Nuevo Estado</span>
                     {modoAccion === 'RECHAZAR' ? (
                       <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-100 text-red-800 border border-red-300">
                         RECHAZADO
@@ -488,7 +488,7 @@ const ModalCierreMantenimiento = ({
                         <span>Motivo de Rechazo de la Incidencia</span>
                         <span className="text-red-500">*</span>
                       </label>
-                      <span className={`text-[11px] font-mono ${motivoRechazo.trim().length >= 5 ? 'text-emerald-600 font-semibold' : 'text-gray-400'}`}>
+                      <span className={`text-[11px] font-mono ${motivoRechazo.trim().length >= 5 ? 'text-emerald-700 font-semibold' : 'text-gray-600'}`}>
                         {motivoRechazo.trim().length} caracteres (mín. 5)
                       </span>
                     </div>
@@ -547,7 +547,7 @@ const ModalCierreMantenimiento = ({
                         <span>Resolución Técnica del Trabajo</span>
                         <span className="text-red-500">*</span>
                       </label>
-                      <span className={`text-[11px] font-mono ${resolucion.trim().length >= 10 ? 'text-emerald-600 font-semibold' : 'text-gray-400'}`}>
+                      <span className={`text-[11px] font-mono ${resolucion.trim().length >= 10 ? 'text-emerald-700 font-semibold' : 'text-gray-600'}`}>
                         {resolucion.trim().length} caracteres (mín. 10)
                       </span>
                     </div>
@@ -621,7 +621,7 @@ const ModalCierreMantenimiento = ({
                       </div>
 
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] text-gray-400 w-full font-medium">Acceso rápido:</span>
+                        <span className="text-[11px] text-gray-600 w-full font-medium">Acceso rápido:</span>
                         {[0.5, 1, 2, 3, 4, 8].map((h) => (
                           <button
                             key={h}
@@ -687,6 +687,7 @@ const ModalCierreMantenimiento = ({
                           <input
                             type="text"
                             id="input-material-personalizado"
+                            aria-label="Nombre de otro material o insumo"
                             value={nuevoMaterialTexto}
                             onChange={(e) => setNuevoMaterialTexto(e.target.value)}
                             placeholder="Otro material (ej. Adaptador HDMI, Canaleta 2m)..."
@@ -702,11 +703,12 @@ const ModalCierreMantenimiento = ({
                             disabled={isSubmitting}
                             className="w-16 px-2 py-2 bg-white border border-gray-300 rounded-lg text-xs text-center text-gray-900 outline-none"
                             title="Cantidad"
+                            aria-label="Cantidad de material"
                           />
                           <button
                             type="submit"
                             disabled={isSubmitting || !nuevoMaterialTexto.trim()}
-                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <FiPlus className="w-3.5 h-3.5" />
                             <span>Añadir</span>
@@ -736,6 +738,7 @@ const ModalCierreMantenimiento = ({
                                     disabled={isSubmitting}
                                     className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
                                     title="Eliminar material"
+                                    aria-label={`Eliminar material ${m.nombre}`}
                                   >
                                     <FiTrash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -744,7 +747,7 @@ const ModalCierreMantenimiento = ({
                             </div>
                           </div>
                         ) : (
-                          <p className="text-[11px] text-gray-400 italic text-center py-1">
+                          <p className="text-[11px] text-gray-600 italic text-center py-1">
                             Ningún material añadido todavía. Usa los insumos rápidos o escribe uno personalizado.
                           </p>
                         )}
@@ -795,7 +798,7 @@ const ModalCierreMantenimiento = ({
                   className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-sm transition-all min-h-[48px] cursor-pointer ${
                     isSubmitting || !motivoRechazoValido
                       ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                      : 'bg-red-600 hover:bg-red-700 active:scale-98 shadow-red-600/20'
+                      : 'bg-red-700 hover:bg-red-800 active:scale-98 shadow-red-700/20'
                   }`}
                 >
                   {isSubmitting ? (
@@ -822,7 +825,7 @@ const ModalCierreMantenimiento = ({
                   className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-sm transition-all min-h-[48px] cursor-pointer ${
                     isSubmitting || !isFormCompletarValido
                       ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                      : 'bg-emerald-600 hover:bg-emerald-700 active:scale-98 shadow-emerald-600/20'
+                      : 'bg-emerald-700 hover:bg-emerald-800 active:scale-98 shadow-emerald-700/20'
                   }`}
                 >
                   {isSubmitting ? (

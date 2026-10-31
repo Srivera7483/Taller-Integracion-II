@@ -52,7 +52,7 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
-      <h3 className="text-lg font-bold text-gray-900 mb-2">Validar Solución</h3>
+      <h2 className="text-lg font-bold text-gray-900 mb-2">Validar Solución</h2>
       <p className="text-gray-600 text-sm mb-5">
         El equipo técnico ha marcado esta incidencia como resuelta. Por favor revisa la solución y confirma si tu problema ha sido solucionado.
       </p>
@@ -62,7 +62,7 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
           <button
             onClick={handleAprobar}
             disabled={isSubmitting}
-            className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50"
           >
             <FiCheck className="w-5 h-5" />
             Aprobar Solución
@@ -78,10 +78,11 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
         </div>
       ) : (
         <div className="animate-fadeIn">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="motivo-rechazo-reportante" className="block text-sm font-medium text-gray-700 mb-2">
             Motivo del rechazo (obligatorio)
           </label>
           <textarea
+            id="motivo-rechazo-reportante"
             value={motivoRechazo}
             onChange={(e) => setMotivoRechazo(e.target.value)}
             disabled={isSubmitting}
@@ -100,7 +101,7 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
             <button
               onClick={handleRechazar}
               disabled={isSubmitting || !motivoRechazo.trim()}
-              className="flex items-center gap-2 px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2 bg-red-700 hover:bg-red-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
             >
               <FiSend className="w-4 h-4" />
               Enviar Rechazo

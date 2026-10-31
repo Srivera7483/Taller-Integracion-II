@@ -71,10 +71,13 @@ const Layout = () => {
         <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
           <h1 className="text-lg font-bold text-blue-600">InfraManager</h1>
           <button 
+            type="button"
             className="lg:hidden text-gray-500 hover:text-gray-700"
             onClick={() => setIsMobileMenuOpen(false)}
+            aria-label="Cerrar menú de navegación"
+            title="Cerrar menú de navegación"
           >
-            <FiX className="w-6 h-6" />
+            <FiX className="w-6 h-6" aria-hidden="true" />
           </button>
         </div>
         <nav className="flex-1 overflow-y-auto py-4">
@@ -110,10 +113,13 @@ const Layout = () => {
         <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
           <div className="flex items-center gap-3 sm:gap-4">
             <button 
+              type="button"
               className="lg:hidden text-gray-500 hover:text-gray-700 p-1"
               onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Abrir menú de navegación"
+              title="Abrir menú de navegación"
             >
-              <FiMenu className="w-6 h-6" />
+              <FiMenu className="w-6 h-6" aria-hidden="true" />
             </button>
             <h2 className="text-lg sm:text-xl font-semibold text-gray-800 truncate">{getPageTitle()}</h2>
           </div>
@@ -121,11 +127,13 @@ const Layout = () => {
             <NotificacionesDropdown />
             <SelectorTecnicoSesion />
             <button
+              type="button"
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-gray-500 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"
+              className="flex items-center gap-1.5 text-gray-600 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"
               title="Cerrar sesión"
+              aria-label="Salir - Cerrar sesión"
             >
-              <FiLogOut className="w-5 h-5" />
+              <FiLogOut className="w-5 h-5" aria-hidden="true" />
               <span className="hidden md:inline text-xs font-medium">Salir</span>
             </button>
           </div>

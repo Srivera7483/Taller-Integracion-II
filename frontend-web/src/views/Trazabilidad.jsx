@@ -110,7 +110,7 @@ const Trazabilidad = () => {
           <button
             type="button"
             onClick={cargarDatos}
-            title="Refrescar trazabilidad"
+            title="Refrescar trazabilidad" aria-label="Refrescar trazabilidad"
             className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition border border-gray-200"
           >
             <FiRefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin' : ''}`} />

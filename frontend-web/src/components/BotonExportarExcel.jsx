@@ -92,7 +92,7 @@ const BotonExportarExcel = ({
           </div>
         )}
 
-        <div className="flex items-center gap-1 bg-emerald-600 text-white rounded-full shadow-lg hover:shadow-emerald-600/30 hover:bg-emerald-700 transition-all duration-200">
+        <div className="flex items-center gap-1 bg-emerald-700 text-white rounded-full shadow-lg hover:shadow-emerald-700/30 hover:bg-emerald-800 transition-all duration-200">
           <button
             type="button"
             id="btn-exportar-excel-floating"
@@ -125,6 +125,8 @@ const BotonExportarExcel = ({
             onClick={() => setMenuAbierto(!menuAbierto)}
             disabled={cargando}
             title="Opciones de formato"
+            aria-label="Opciones de formato"
+            aria-expanded={menuAbierto}
             className="px-2.5 py-3.5 border-l border-emerald-500/60 hover:bg-emerald-800/40 rounded-r-full transition-colors cursor-pointer"
           >
             <FiChevronDown className={`w-4 h-4 transition-transform ${menuAbierto ? 'rotate-180' : ''}`} />
@@ -143,7 +145,8 @@ const BotonExportarExcel = ({
         onClick={() => ejecutarDescarga('xlsx')}
         disabled={cargando}
         title="Exportar a Excel (.xlsx)"
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${className}`}
+        aria-label="Exportar a Excel"
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${className}`}
       >
         {cargando ? (
           <>
@@ -163,7 +166,7 @@ const BotonExportarExcel = ({
   // VARIANTE ESTÁNDAR PARA TOOLBAR / CABECERAS
   return (
     <div className={`relative inline-flex items-center ${className}`}>
-      <div className="inline-flex rounded-xl shadow-xs overflow-hidden border border-emerald-600 bg-emerald-600 hover:bg-emerald-700 transition-all">
+      <div className="inline-flex rounded-xl shadow-xs overflow-hidden border border-emerald-700 bg-emerald-700 hover:bg-emerald-800 transition-all">
         <button
           type="button"
           id="btn-exportar-excel"
@@ -196,7 +199,9 @@ const BotonExportarExcel = ({
           onClick={() => setMenuAbierto(!menuAbierto)}
           disabled={cargando}
           title="Seleccionar formato de exportación"
-          className="px-2 border-l border-emerald-500 text-white hover:bg-emerald-800 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-h-[44px]"
+          aria-label="Seleccionar formato de exportación"
+          aria-expanded={menuAbierto}
+          className="px-2 border-l border-emerald-600 text-white hover:bg-emerald-900 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-h-[44px]"
         >
           <FiChevronDown className={`w-3.5 h-3.5 transition-transform ${menuAbierto ? 'rotate-180' : ''}`} />
         </button>
