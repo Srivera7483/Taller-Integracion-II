@@ -197,12 +197,17 @@ const DetalleIncidencia = () => {
         const response = await api.get(`/incidencias/${idIncidencia}`);
         if (response.data) {
           const apiData = response.data;
+          let estadoFinal = encontradaLocal?.estado || apiData.estado?.nombre_estado || 'Pendiente';
+          if (estadoFinal && (estadoFinal.toUpperCase() === 'RECHAZADO' || estadoFinal.toLowerCase() === 'rechazada')) {
+            estadoFinal = 'RECHAZADO';
+          }
+
           setIncidencia({
             id: apiData.id_incidencia || idIncidencia,
             titulo: apiData.titulo,
             descripcion: apiData.descripcion,
             id_activo: apiData.id_activo,
-            estado: encontradaLocal?.estado || apiData.estado?.nombre_estado || 'Pendiente',
+            estado: estadoFinal,
             fecha_creacion: apiData.fecha_creacion || new Date().toISOString(),
             asignado: encontradaLocal?.asignado || 'Carlos Ruiz',
             resolucion: encontradaLocal?.resolucion || null,
@@ -236,7 +241,32 @@ const DetalleIncidencia = () => {
           ],
           imagenAdjuntaNombre: 'evidencia_servidor_rack.webp',
         }
-      );
+        setIncidencia({
+          ...encontradaLocal,
+          estado: estadoFinal,
+          motivoRechazo: encontradaLocal.motivoRechazo || encontradaLocal.motivo_rechazo || null,
+          fechaRechazo: encontradaLocal.fechaRechazo || null,
+          rechazadoPor: encontradaLocal.rechazadoPor || null,
+        });
+        return;
+      }
+
+      setIncidencia({
+        id: idIncidencia,
+        titulo: 'Problemas de conectividad en el piso 3',
+        descripcion: 'Los routers no están asignando IPs correctamente.',
+        id_activo: 'ROUTER-03',
+        prioridad: 'Alta',
+        estado: 'Asignada',
+        fecha_creacion: new Date().toISOString(),
+        asignado: 'Carlos Ruiz',
+        resolucion: null,
+        horasInvertidas: null,
+        materialesUsados: [],
+        motivoRechazo: null,
+        fechaRechazo: null,
+        rechazadoPor: null,
+      });
     } catch (err) {
       console.error('Error al cargar la incidencia:', err);
       setError(err);
@@ -257,13 +287,21 @@ const DetalleIncidencia = () => {
   };
 
   const handleCierreExitoso = (datosActualizados) => {
+    let nuevoEstado = datosActualizados.estado || 'Completada';
+    if (nuevoEstado && (nuevoEstado.toUpperCase() === 'RECHAZADO' || nuevoEstado.toLowerCase() === 'rechazada')) {
+      nuevoEstado = 'RECHAZADO';
+    }
+
     setIncidencia((prev) => ({
       ...prev,
-      estado: 'Completada',
+      estado: nuevoEstado,
       resolucion: datosActualizados.resolucion,
       horasInvertidas: datosActualizados.horasInvertidas,
       materialesUsados: datosActualizados.materialesUsados,
       fechaCierre: datosActualizados.fechaCierre,
+      motivoRechazo: datosActualizados.motivoRechazo || datosActualizados.motivo_rechazo,
+      fechaRechazo: datosActualizados.fechaRechazo,
+      rechazadoPor: datosActualizados.rechazadoPor,
     }));
   };
 
@@ -295,6 +333,7 @@ const DetalleIncidencia = () => {
 
   const estaResuelta = incidencia.estado?.toLowerCase() === 'resuelta';
   const estaCompletada = incidencia.estado?.toLowerCase() === 'completada';
+  const estaRechazada = incidencia.estado === 'RECHAZADO' || incidencia.estado?.toUpperCase() === 'RECHAZADO';
 
   // Validación de Ownership
   const nombreAsignado = (incidencia.asignado || '').trim().toLowerCase();
@@ -492,8 +531,8 @@ const DetalleIncidencia = () => {
         </div>
       )}
 
-      {/* ACCIÓN DE CIERRE SI AÚN NO ESTÁ COMPLETADA */}
-      {!estaCompletada && !estaResuelta && (
+      {/* ACCIÓN DE CIERRE SI AÚN NO ESTÁ COMPLETADA NI RECHAZADA NI RESUELTA */}
+      {!estaCompletada && !estaResuelta && !estaRechazada && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-3">
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
             <FiCheckCircle className="w-5 h-5 text-blue-600" />
@@ -507,7 +546,7 @@ const DetalleIncidencia = () => {
                   Eres el técnico asignado por el supervisor.
                 </p>
                 <p className="text-xs text-emerald-800 mt-0.5">
-                  Puedes abrir el formulario táctil para registrar resolución, horas invertidas y materiales.
+                  Puedes abrir el formulario táctil para registrar resolución, horas y materiales, o bien rechazar la incidencia con su motivo justificado.
                 </p>
               </div>
               <button
@@ -525,7 +564,7 @@ const DetalleIncidencia = () => {
               <div className="text-xs space-y-1">
                 <p className="font-bold text-amber-950">Acceso restringido al formulario finalizativo</p>
                 <p>
-                  Esta incidencia está asignada a <strong>{incidencia.asignado || 'otro técnico'}</strong>. Únicamente dicho técnico puede rendir cuentas de la intervención y cerrarla.
+                  Esta incidencia está asignada a <strong>{incidencia.asignado || 'otro técnico'}</strong>. Únicamente dicho técnico puede rendir cuentas de la intervención o rechazarla.
                 </p>
               </div>
             </div>
@@ -534,7 +573,7 @@ const DetalleIncidencia = () => {
       )}
 
       {/* Renderizado condicional si ya está marcada como resuelta para aprobación del reportante */}
-      {estaResuelta && (
+      {estaResuelta && !estaRechazada && (
         <AprobacionReportante
           incidenciaId={incidencia.id}
           onAprobacionCompletada={handleAprobacionCompletada}
@@ -555,6 +594,7 @@ const DetalleIncidencia = () => {
           resolucion: incidencia.resolucion,
           horasInvertidas: incidencia.horasInvertidas,
           materialesUsados: incidencia.materialesUsados,
+          motivoRechazo: incidencia.motivoRechazo,
         }}
         tecnicoActual={tecnicoActual}
         onCierreExitoso={handleCierreExitoso}

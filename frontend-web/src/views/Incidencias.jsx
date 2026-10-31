@@ -15,7 +15,8 @@ import {
   FiUserCheck,
   FiCheckCircle,
   FiLock,
-  FiExternalLink
+  FiExternalLink,
+  FiAlertTriangle
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import {
@@ -32,7 +33,7 @@ const Incidencias = () => {
   const [filtroEstado, setFiltroEstado] = useState('Todas');
   const [tecnicoActual, setTecnicoActual] = useState(() => getTecnicoActual());
 
-  // Estado para el modal de cierre de mantenimiento
+  // Estado para el modal de cierre / rechazo de mantenimiento
   const [ordenSeleccionadaParaCierre, setOrdenSeleccionadaParaCierre] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -55,6 +56,12 @@ const Incidencias = () => {
     (acc, inc) => {
       const estado = inc.estado || 'Pendiente';
       acc[estado] = (acc[estado] || 0) + 1;
+      
+      // Conteo específico si el estado es RECHAZADO
+      if (estado === 'RECHAZADO' || estado.toLowerCase() === 'rechazado' || estado.toLowerCase() === 'rechazada') {
+        acc['Rechazado'] = (acc['Rechazado'] || 0) + 1;
+      }
+
       acc['Todas'] = (acc['Todas'] || 0) + 1;
 
       // Conteo para Mis Asignadas
@@ -65,7 +72,7 @@ const Incidencias = () => {
       }
       return acc;
     },
-    { Todas: 0, 'Mis Asignadas': 0 }
+    { Todas: 0, 'Mis Asignadas': 0, Rechazado: 0 }
   );
 
   // Filtrado reactivo en tiempo real
@@ -89,6 +96,8 @@ const Incidencias = () => {
       const asignado = (inc.asignado || '').trim().toLowerCase();
       const actual = (tecnicoActual?.nombre || '').trim().toLowerCase();
       matchEstado = Boolean(asignado && actual && (asignado === actual || asignado.includes(actual) || actual.includes(asignado)));
+    } else if (filtroEstado.toLowerCase() === 'rechazado') {
+      matchEstado = incEstado === 'RECHAZADO' || incEstado.toLowerCase() === 'rechazado' || incEstado.toLowerCase() === 'rechazada';
     } else {
       matchEstado = incEstado.toLowerCase() === filtroEstado.toLowerCase();
     }
@@ -124,6 +133,7 @@ const Incidencias = () => {
       resolucion: inc.resolucion,
       horasInvertidas: inc.horasInvertidas,
       materialesUsados: inc.materialesUsados,
+      motivoRechazo: inc.motivoRechazo || inc.motivo_rechazo,
       estado: inc.estado,
     });
     setIsModalOpen(true);
@@ -182,7 +192,7 @@ const Incidencias = () => {
       {/* Filtros visuales por estado */}
       <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
         <StatusFilter
-          options={['Todas', 'Mis Asignadas', 'Pendiente', 'Asignada', 'En Progreso', 'Completada', 'Resuelta', 'Cerrada']}
+          options={['Todas', 'Mis Asignadas', 'Pendiente', 'Asignada', 'En Progreso', 'Completada', 'Resuelta', 'Rechazado', 'Cerrada']}
           activeFilter={filtroEstado}
           onFilterChange={setFiltroEstado}
           counts={counts}
@@ -196,7 +206,7 @@ const Incidencias = () => {
           <div className="flex-1">
             <p className="font-semibold">Modo de Pruebas con Cookies Activo</p>
             <p className="text-xs text-blue-700 mt-0.5">
-              Las incidencias y confirmaciones de mantenimiento completadas se sincronizan automáticamente en la cookie (`temp_incidencias`) y en la base de datos PostgreSQL.
+              Las incidencias, confirmaciones y rechazos de mantenimiento se sincronizan automáticamente en la cookie (`temp_incidencias`) y en la base de datos PostgreSQL.
             </p>
           </div>
         </div>
@@ -210,6 +220,7 @@ const Incidencias = () => {
             const actual = (tecnicoActual?.nombre || '').trim().toLowerCase();
             const esMio = Boolean(asignado && actual && (asignado === actual || asignado.includes(actual) || actual.includes(asignado)));
             const estaCompletada = inc.estado?.toLowerCase() === 'completada' || inc.estado?.toLowerCase() === 'resuelta' || inc.estado?.toLowerCase() === 'cerrada';
+            const esRechazado = inc.estado === 'RECHAZADO' || inc.estado?.toLowerCase() === 'rechazado' || inc.estado?.toLowerCase() === 'rechazada';
 
             return (
               <div key={inc.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-3">
@@ -257,8 +268,17 @@ const Incidencias = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* ACCIÓN RÁPIDA DE CIERRE DE MANTENIMIENTO SEGÚN OWNERSHIP */}
-                      {esMio && !estaCompletada && (
+                      {/* ACCIÓN RÁPIDA SEGÚN ESTADO Y OWNERSHIP */}
+                      {esRechazado ? (
+                        <Link
+                          to={`/incidencias/${inc.id}`}
+                          className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg font-semibold text-xs shadow-2xs flex items-center gap-1 transition-all cursor-pointer min-h-[38px]"
+                          title="Ver motivo del rechazo ingresado por el técnico"
+                        >
+                          <FiAlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                          <span>Ver Rechazo</span>
+                        </Link>
+                      ) : esMio && !estaCompletada ? (
                         <button
                           type="button"
                           onClick={() => abrirModalParaIncidencia(inc)}
@@ -267,7 +287,7 @@ const Incidencias = () => {
                           <FiCheckCircle className="w-3.5 h-3.5" />
                           <span>Finalizar Tarea</span>
                         </button>
-                      )}
+                      ) : null}
 
                       {(!inc.asignado || inc.asignado === 'Sin asignar' || inc.estado === 'Pendiente') && (
                         <Link
@@ -279,9 +299,9 @@ const Incidencias = () => {
                       )}
 
                       <Link
-                        to={`/ordenes/${inc.id}`}
+                        to={`/incidencias/${inc.id}`}
                         className="p-1.5 text-gray-400 hover:text-blue-600"
-                        title="Ver detalle de orden"
+                        title="Ver detalle de la incidencia"
                       >
                         <FiExternalLink className="w-4 h-4" />
                       </Link>
@@ -324,12 +344,14 @@ const Incidencias = () => {
                   const actual = (tecnicoActual?.nombre || '').trim().toLowerCase();
                   const esMio = Boolean(asignado && actual && (asignado === actual || asignado.includes(actual) || actual.includes(asignado)));
                   const estaCompletada = inc.estado?.toLowerCase() === 'completada' || inc.estado?.toLowerCase() === 'resuelta' || inc.estado?.toLowerCase() === 'cerrada';
+                  const esRechazado = inc.estado === 'RECHAZADO' || inc.estado?.toLowerCase() === 'rechazado' || inc.estado?.toLowerCase() === 'rechazada';
 
                   return (
                     <tr key={inc.id} className="hover:bg-gray-50/70 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">
+                            {/* ACCESO A LA INCIDENCIA PRESIONANDO EL NÚMERO DE ID */}
                             <Link
                               to={`/incidencias/${inc.id}`}
                               className="font-mono text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
@@ -400,10 +422,19 @@ const Incidencias = () => {
                       </td>
 
                       <td className="px-6 py-4 text-right">
-                        {/* BOTÓN ERGONÓMICO DE CONFIRMACIÓN DE MANTENIMIENTO SEGÚN OWNERSHIP */}
-                        {estaCompletada ? (
+                        {/* BOTÓN ERGONÓMICO SEGÚN ESTADO Y OWNERSHIP */}
+                        {esRechazado ? (
                           <Link
-                            to={`/ordenes/${inc.id}`}
+                            to={`/incidencias/${inc.id}`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-semibold hover:bg-red-100 transition-colors"
+                            title="Ver motivo del rechazo ingresado por el técnico"
+                          >
+                            <FiAlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                            <span>Ver Rechazo</span>
+                          </Link>
+                        ) : estaCompletada ? (
+                          <Link
+                            to={`/incidencias/${inc.id}`}
                             className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors"
                           >
                             <FiCheckCircle className="w-3.5 h-3.5 text-emerald-600" />
@@ -414,7 +445,7 @@ const Incidencias = () => {
                             type="button"
                             onClick={() => abrirModalParaIncidencia(inc)}
                             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer min-h-[40px]"
-                            title="Confirmar mantenimiento y cerrar tarea"
+                            title="Confirmar mantenimiento o rechazar incidencia"
                           >
                             <FiCheckCircle className="w-3.5 h-3.5" />
                             <span>Finalizar Tarea</span>
@@ -451,7 +482,7 @@ const Incidencias = () => {
         </div>
       </div>
 
-      {/* MODAL DE CIERRE DE MANTENIMIENTO TÉCNICO */}
+      {/* MODAL DE CIERRE / RECHAZO DE MANTENIMIENTO TÉCNICO */}
       {ordenSeleccionadaParaCierre && (
         <ModalCierreMantenimiento
           isOpen={isModalOpen}
@@ -465,7 +496,7 @@ const Incidencias = () => {
         />
       )}
 
-      {/* BOTÓN FLOTANTE ESTÉTICO EXPORTAR A EXCEL (TAL-132) */}
+      {/* BOTÓN FLOTANTE ESTÉTICO EXPORTAR A EXCEL */}
       <BotonExportarExcel variant="floating" />
     </div>
   );

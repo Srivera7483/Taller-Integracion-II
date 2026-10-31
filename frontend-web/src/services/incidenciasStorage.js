@@ -6,6 +6,7 @@
 
 const COOKIE_NAME = 'temp_incidencias';
 const COOKIE_EXPIRY_DAYS = 1; // 24 horas de vigencia para pruebas
+const memoryStorage = {};
 
 const INCIDENCIAS_INICIALES = [
   {
@@ -44,6 +45,9 @@ const INCIDENCIAS_INICIALES = [
  */
 function getCookie(name) {
   try {
+    if (typeof document === 'undefined') {
+      return memoryStorage[name] || null;
+    }
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
     if (parts.length === 2) {
@@ -61,6 +65,10 @@ function getCookie(name) {
  */
 function setCookie(name, value, days = COOKIE_EXPIRY_DAYS) {
   try {
+    if (typeof document === 'undefined') {
+      memoryStorage[name] = value;
+      return;
+    }
     const expires = new Date(Date.now() + days * 864e5).toUTCString();
     const serialized = encodeURIComponent(JSON.stringify(value));
     document.cookie = `${name}=${serialized}; expires=${expires}; path=/; SameSite=Lax`;
@@ -73,6 +81,10 @@ function setCookie(name, value, days = COOKIE_EXPIRY_DAYS) {
  * Elimina una cookie expirándola
  */
 function deleteCookie(name) {
+  if (typeof document === 'undefined') {
+    delete memoryStorage[name];
+    return;
+  }
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Lax`;
 }
 
@@ -82,7 +94,10 @@ function deleteCookie(name) {
 export function getIncidencias() {
   const guardadasEnCookie = getCookie(COOKIE_NAME);
   if (Array.isArray(guardadasEnCookie) && guardadasEnCookie.length > 0) {
-    return [...guardadasEnCookie, ...INCIDENCIAS_INICIALES];
+    // Si una incidencia inicial fue modificada en la cookie, prevalece la versión de la cookie
+    const idsEnCookie = new Set(guardadasEnCookie.map((item) => item.id));
+    const inicialesNoModificadas = INCIDENCIAS_INICIALES.filter((item) => !idsEnCookie.has(item.id));
+    return [...guardadasEnCookie, ...inicialesNoModificadas];
   }
   return INCIDENCIAS_INICIALES;
 }
@@ -215,6 +230,45 @@ export function completarMantenimientoTecnico({
   return incidenciaActualizada;
 }
 
+/**
+ * Registra el rechazo de la incidencia por el técnico asignado.
+ * Cambia el estado a "RECHAZADO" ("RECHAZADO" en código) y persiste el motivo del rechazo.
+ */
+export function rechazarIncidenciaTecnico({
+  incidenciaId,
+  ordenId,
+  motivoRechazo,
+  tecnicoNombre,
+  tecnicoId,
+}) {
+  const guardadasEnCookie = getCookie(COOKIE_NAME) || [];
+  const todas = getIncidencias();
+  const encontrada = todas.find((item) => item.id === incidenciaId);
+
+  const fechaRechazo = new Date().toLocaleString([], {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+
+  const incidenciaActualizada = {
+    ...(encontrada || { id: incidenciaId, titulo: 'Incidencia', id_activo: 'ACT-01' }),
+    estado: 'RECHAZADO',
+    motivoRechazo: motivoRechazo.trim(),
+    motivo_rechazo: motivoRechazo.trim(),
+    fechaRechazo,
+    rechazadoPor: tecnicoNombre || (encontrada?.asignado) || 'Técnico Responsable',
+    rechazadoPorId: tecnicoId || 'tec-01',
+    ordenId: ordenId || encontrada?.ordenId || `ORD-${incidenciaId}`,
+    esTemporal: true,
+  };
+
+  const listaSinPrevia = guardadasEnCookie.filter((item) => item.id !== incidenciaId);
+  const nuevaLista = [incidenciaActualizada, ...listaSinPrevia];
+  setCookie(COOKIE_NAME, nuevaLista);
+
+  return incidenciaActualizada;
+}
+
 const TECNICO_STORAGE_KEY = 'tecnico_sesion_activa';
 
 /**
@@ -223,21 +277,23 @@ const TECNICO_STORAGE_KEY = 'tecnico_sesion_activa';
  */
 export function getTecnicoActual() {
   try {
-    const sesionManual = localStorage.getItem(TECNICO_STORAGE_KEY);
-    if (sesionManual) {
-      return JSON.parse(sesionManual);
-    }
+    if (typeof localStorage !== 'undefined') {
+      const sesionManual = localStorage.getItem(TECNICO_STORAGE_KEY);
+      if (sesionManual) {
+        return JSON.parse(sesionManual);
+      }
 
-    const usuarioAuth = localStorage.getItem('usuario');
-    if (usuarioAuth) {
-      const u = JSON.parse(usuarioAuth);
-      return {
-        id: u.id_usuario || u.id || 'tec-01',
-        nombre: `${u.nombre || ''} ${u.apellido || ''}`.trim() || u.email || 'Carlos Ruiz',
-        email: u.correo || u.email || 'carlos.r@empresa.com',
-        especialidad: 'Técnico de Soporte e Infraestructura',
-        avatar: (u.nombre?.[0] || 'T').toUpperCase(),
-      };
+      const usuarioAuth = localStorage.getItem('usuario');
+      if (usuarioAuth) {
+        const u = JSON.parse(usuarioAuth);
+        return {
+          id: u.id_usuario || u.id || 'tec-01',
+          nombre: `${u.nombre || ''} ${u.apellido || ''}`.trim() || u.email || 'Carlos Ruiz',
+          email: u.correo || u.email || 'carlos.r@empresa.com',
+          especialidad: 'Técnico de Soporte e Infraestructura',
+          avatar: (u.nombre?.[0] || 'T').toUpperCase(),
+        };
+      }
     }
   } catch (err) {
     console.warn('Error leyendo técnico actual de localStorage:', err);
@@ -252,8 +308,12 @@ export function getTecnicoActual() {
  */
 export function setTecnicoActual(tecnico) {
   try {
-    localStorage.setItem(TECNICO_STORAGE_KEY, JSON.stringify(tecnico));
-    window.dispatchEvent(new Event('tecnico-cambiado'));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(TECNICO_STORAGE_KEY, JSON.stringify(tecnico));
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('tecnico-cambiado'));
+    }
   } catch (err) {
     console.error('Error guardando técnico actual:', err);
   }
@@ -290,4 +350,3 @@ export function adjuntarEvidenciaIncidencia(incidenciaId, urlEvidencia, nombreAr
 export function clearTempIncidencias() {
   deleteCookie(COOKIE_NAME);
 }
-

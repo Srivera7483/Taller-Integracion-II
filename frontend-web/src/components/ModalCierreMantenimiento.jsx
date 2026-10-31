@@ -14,8 +14,9 @@ import {
   FiFileText,
   FiUser
 } from 'react-icons/fi';
+import { LuTriangleAlert, LuCircleAlert, LuInfo } from 'react-icons/lu';
 import { useToast } from '../context/ToastContext';
-import { completarMantenimientoTecnico } from '../services/incidenciasStorage';
+import { completarMantenimientoTecnico, rechazarIncidenciaTecnico } from '../services/incidenciasStorage';
 import api from '../services/api';
 
 // Lista de materiales e insumos comunes para selección rápida táctil en tablets
@@ -32,13 +33,20 @@ const MATERIALES_FRECUENTES = [
   'Limpiador de Contactos'
 ];
 
+// Motivos de rechazo rápidos para agilizar la labor del técnico en tablets o terreno
+const MOTIVOS_RECHAZO_FRECUENTES = [
+  'No es falla, equipo desconectado de la energía eléctrica.',
+  'No se reproduce la falla reportada durante las pruebas técnicas.',
+  'Configuración incorrecta u error operacional del usuario.',
+  'Equipo o software no corporativo fuera del alcance de soporte.',
+  'Incidencia duplicada o resuelta previamente por otro ticket.'
+];
+
 /**
- * Modal de Confirmación de Mantenimiento Técnico.
- * Permite al técnico asignado rendir cuentas de su trabajo especificando:
- * - Resolución
- * - Horas invertidas
- * - Materiales usados
- * Cambiando el estado de la incidencia a "Completada".
+ * Modal de Confirmación y Cierre de Mantenimiento Técnico.
+ * Permite al técnico asignado rendir cuentas de su trabajo:
+ * - Opción 1: Completar mantenimiento (resolución, horas, materiales) -> Estado "Completada"
+ * - Opción 2: Rechazar incidencia con su respectiva zona de motivo -> Estado "RECHAZADO"
  */
 const ModalCierreMantenimiento = ({
   isOpen,
@@ -49,7 +57,10 @@ const ModalCierreMantenimiento = ({
 }) => {
   const { showToast } = useToast();
 
-  // Estados del formulario
+  // Modo de acción: 'COMPLETAR' o 'RECHAZAR'
+  const [modoAccion, setModoAccion] = useState('COMPLETAR');
+
+  // Estados del formulario para COMPLETAR
   const [resolucion, setResolucion] = useState('');
   const [horasInvertidas, setHorasInvertidas] = useState(1.5);
   const [materialesUsados, setMaterialesUsados] = useState([]);
@@ -57,19 +68,24 @@ const ModalCierreMantenimiento = ({
   const [cantidadMaterial, setCantidadMaterial] = useState(1);
   const [sinMateriales, setSinMateriales] = useState(false);
 
-  // Estado para prevenir Double Submit
+  // Estados del formulario para RECHAZAR
+  const [motivoRechazo, setMotivoRechazo] = useState('');
+
+  // Estado para prevenir Double Submit y validaciones
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorValidacion, setErrorValidacion] = useState(null);
 
   // Reiniciar estado cuando se abre para una nueva orden
   useEffect(() => {
     if (isOpen && orden) {
+      setModoAccion('COMPLETAR');
       setResolucion(orden.resolucion || orden.diagnostico_tecnico || '');
       setHorasInvertidas(orden.horasInvertidas || 1.5);
       setMaterialesUsados(orden.materialesUsados || []);
       setNuevoMaterialTexto('');
       setCantidadMaterial(1);
       setSinMateriales(false);
+      setMotivoRechazo(orden.motivoRechazo || orden.motivo_rechazo || '');
       setIsSubmitting(false);
       setErrorValidacion(null);
     }
@@ -78,7 +94,7 @@ const ModalCierreMantenimiento = ({
   if (!isOpen || !orden) return null;
 
   // Validación de Ownership / Asignación:
-  // Solo el técnico asignado a esta tarea específica puede acceder al formulario finalizativo.
+  // Solo el técnico asignado a esta tarea específica puede acceder al formulario.
   const nombreAsignado = (orden.tecnico_nombre || orden.asignado || '').trim().toLowerCase();
   const nombreActual = (tecnicoActual?.nombre || '').trim().toLowerCase();
   
@@ -89,10 +105,12 @@ const ModalCierreMantenimiento = ({
       nombreActual.includes(nombreAsignado) ||
       orden.tecnico_id === tecnicoActual?.id);
 
-  // Validación del formulario
+  // Validaciones según el modo
   const resolucionValida = resolucion.trim().length >= 10;
   const horasValidas = Number(horasInvertidas) > 0;
-  const isFormValid = resolucionValida && horasValidas;
+  const isFormCompletarValido = resolucionValida && horasValidas;
+
+  const motivoRechazoValido = motivoRechazo.trim().length >= 5;
 
   // Manejadores para Horas (Touch Stepper)
   const incrementarHoras = (cantidad = 0.5) => {
@@ -147,14 +165,14 @@ const ModalCierreMantenimiento = ({
     });
   };
 
-  // Envío final con prevención estricta de Double Submit
+  // Envío final para COMPLETAR MANTENIMIENTO
   const handleGuardarCierre = async () => {
     if (!esTecnicoAsignado) {
       setErrorValidacion('Operación denegada: No eres el técnico asignado a esta tarea.');
       return;
     }
 
-    if (!isFormValid || isSubmitting) {
+    if (!isFormCompletarValido || isSubmitting) {
       if (!resolucionValida) {
         setErrorValidacion('La resolución debe contener al menos 10 caracteres detallando el trabajo.');
       } else if (!horasValidas) {
@@ -183,19 +201,16 @@ const ModalCierreMantenimiento = ({
       // 2. Intentar actualizar en el backend real mediante el API Gateway si está disponible
       try {
         const idIncidenciaBackend = orden.incidencia_id || orden.id;
-        // Enviar actualización de estado al backend (id_estado: 6 = Completada, o 3 = Resuelta)
         await api.patch(`/incidencias/${idIncidenciaBackend}/estado`, {
           id_estado: 6, // Estado Completada
         });
 
-        // Si la orden existe en el backend, actualizar también su diagnóstico con la resolución
         if (orden.id_orden) {
           await api.patch(`/ordenes-trabajo/${orden.id_orden}/diagnostico`, {
             diagnostico_tecnico: resolucion.trim(),
           });
         }
       } catch (backendError) {
-        // Si el microservicio responde con error o está en modo desarrollo, no bloquea el flujo local
         console.warn('[ModalCierre] Notificación backend omitida o en fallback:', backendError.message);
       }
 
@@ -209,6 +224,65 @@ const ModalCierreMantenimiento = ({
     } catch (err) {
       console.error('Error al confirmar cierre de mantenimiento:', err);
       showToast('Error al registrar la confirmación del mantenimiento', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Envío final para RECHAZAR INCIDENCIA
+  const handleGuardarRechazo = async () => {
+    if (!esTecnicoAsignado) {
+      setErrorValidacion('Operación denegada: No eres el técnico asignado a esta tarea.');
+      return;
+    }
+
+    if (!motivoRechazoValido || isSubmitting) {
+      setErrorValidacion('Debes indicar el motivo del rechazo (mínimo 5 caracteres).');
+      return;
+    }
+
+    setErrorValidacion(null);
+    setIsSubmitting(true);
+
+    const payloadRechazo = {
+      incidenciaId: orden.incidencia_id || orden.id,
+      ordenId: orden.id_orden || orden.id,
+      motivoRechazo: motivoRechazo.trim(),
+      tecnicoNombre: tecnicoActual?.nombre || orden.tecnico_nombre || 'Técnico Responsable',
+      tecnicoId: tecnicoActual?.id || orden.tecnico_id || 'tec-01',
+    };
+
+    try {
+      // 1. Guardar en cookies / persistencia local con estado RECHAZADO
+      const resultadoLocal = rechazarIncidenciaTecnico(payloadRechazo);
+
+      // 2. Intentar actualizar en el backend si está disponible (id_estado: 5 = Rechazada)
+      try {
+        const idIncidenciaBackend = orden.incidencia_id || orden.id;
+        await api.patch(`/incidencias/${idIncidenciaBackend}/estado`, {
+          id_estado: 5,
+          motivo_rechazo: motivoRechazo.trim(),
+        });
+
+        if (orden.id_orden) {
+          await api.patch(`/ordenes-trabajo/${orden.id_orden}/diagnostico`, {
+            diagnostico_tecnico: `[RECHAZADO]: ${motivoRechazo.trim()}`,
+          });
+        }
+      } catch (backendError) {
+        console.warn('[ModalCierre] Rechazo backend omitido o en fallback:', backendError.message);
+      }
+
+      showToast('Incidencia rechazada. El motivo ha sido registrado para el reportante.', 'info');
+
+      if (onCierreExitoso) {
+        onCierreExitoso(resultadoLocal);
+      }
+
+      onClose();
+    } catch (err) {
+      console.error('Error al registrar rechazo:', err);
+      showToast('Error al registrar el rechazo de la incidencia', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -230,16 +304,24 @@ const ModalCierreMantenimiento = ({
         aria-labelledby="modal-cierre-titulo"
       >
         {/* Cabecera del Modal */}
-        <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 text-white px-5 sm:px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <div className={`px-5 sm:px-6 py-4 flex items-center justify-between flex-shrink-0 text-white transition-colors duration-300 ${
+          modoAccion === 'RECHAZAR'
+            ? 'bg-gradient-to-r from-red-700 via-rose-700 to-red-800'
+            : 'bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800'
+        }`}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white flex-shrink-0 border border-white/20">
-              <FiTool className="w-5 h-5" />
+              {modoAccion === 'RECHAZAR' ? (
+                <LuTriangleAlert className="w-5 h-5 text-white" />
+              ) : (
+                <FiTool className="w-5 h-5 text-white" />
+              )}
             </div>
             <div>
               <h3 id="modal-cierre-titulo" className="text-lg sm:text-xl font-bold tracking-tight">
-                Confirmación de Mantenimiento Técnico
+                {modoAccion === 'RECHAZAR' ? 'Rechazar Incidencia' : 'Confirmación de Mantenimiento Técnico'}
               </h3>
-              <p className="text-xs text-blue-100 mt-0.5 flex items-center gap-2">
+              <p className="text-xs text-white/80 mt-0.5 flex items-center gap-2">
                 <span>Orden: <strong>{orden.id_orden || orden.id}</strong></span>
                 <span>•</span>
                 <span>Activo: <strong>{orden.id_activo || 'N/A'}</strong></span>
@@ -280,7 +362,7 @@ const ModalCierreMantenimiento = ({
                     </strong>.
                   </p>
                   <p className="text-xs text-amber-700 bg-amber-100/60 p-3 rounded-lg border border-amber-200">
-                    <strong>Regla de negocio:</strong> Los técnicos no pueden elegir tareas de otros compañeros. Solo el supervisor asigna las órdenes, y únicamente el técnico designado puede ingresar la resolución, horas y materiales para cerrar la tarea y rendir cuentas de su trabajo.
+                    <strong>Regla de negocio:</strong> Solo el técnico asignado puede reportar la finalización o el rechazo justificado de la incidencia.
                   </p>
                   <div className="text-xs text-gray-600 pt-1">
                     Tu perfil activo actualmente es: <strong className="text-gray-900">{tecnicoActual?.nombre || 'Técnico no identificado'}</strong>.
@@ -299,7 +381,7 @@ const ModalCierreMantenimiento = ({
               </div>
             </div>
           ) : (
-            /* CASO: TÉCNICO AUTORIZADO - FORMULARIO COMPLETO PARA TABLETS */
+            /* CASO: TÉCNICO AUTORIZADO */
             <>
               {/* Tarjeta de Contexto Rápido de la Tarea */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 sm:p-4 text-xs text-slate-700 grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -318,14 +400,63 @@ const ModalCierreMantenimiento = ({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <FiCheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  {modoAccion === 'RECHAZAR' ? (
+                    <LuTriangleAlert className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  ) : (
+                    <FiCheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                  )}
                   <div>
                     <span className="text-gray-400 block text-[10px] uppercase font-semibold">Nuevo Estado</span>
-                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                      Completada
-                    </span>
+                    {modoAccion === 'RECHAZAR' ? (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-100 text-red-800 border border-red-300">
+                        RECHAZADO
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        Completada
+                      </span>
+                    )}
                   </div>
                 </div>
+              </div>
+
+              {/* SELECTOR ERGONÓMICO DE ACCIÓN: COMPLETAR VS RECHAZAR */}
+              <div className="flex items-center p-1 bg-gray-100 rounded-xl border border-gray-200">
+                <button
+                  type="button"
+                  id="tab-completar-mantenimiento"
+                  onClick={() => {
+                    setModoAccion('COMPLETAR');
+                    setErrorValidacion(null);
+                  }}
+                  disabled={isSubmitting}
+                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    modoAccion === 'COMPLETAR'
+                      ? 'bg-white text-emerald-800 shadow-xs border border-gray-200'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <FiCheckCircle className={`w-4 h-4 ${modoAccion === 'COMPLETAR' ? 'text-emerald-600' : 'text-gray-400'}`} />
+                  <span>Completar Mantenimiento</span>
+                </button>
+
+                <button
+                  type="button"
+                  id="tab-rechazar-incidencia"
+                  onClick={() => {
+                    setModoAccion('RECHAZAR');
+                    setErrorValidacion(null);
+                  }}
+                  disabled={isSubmitting}
+                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    modoAccion === 'RECHAZAR'
+                      ? 'bg-red-50 text-red-800 shadow-xs border border-red-200'
+                      : 'text-gray-600 hover:text-red-700'
+                  }`}
+                >
+                  <LuTriangleAlert className={`w-4 h-4 ${modoAccion === 'RECHAZAR' ? 'text-red-600' : 'text-gray-400'}`} />
+                  <span>Rechazar Incidencia</span>
+                </button>
               </div>
 
               {/* Banner de error de validación */}
@@ -336,233 +467,311 @@ const ModalCierreMantenimiento = ({
                 </div>
               )}
 
-              {/* SECCIÓN 1: RESOLUCIÓN (OBLIGATORIO) */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="input-resolucion" className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                    <FiFileText className="w-4 h-4 text-blue-600" />
-                    <span>Resolución Técnica del Trabajo</span>
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <span className={`text-[11px] font-mono ${resolucion.trim().length >= 10 ? 'text-emerald-600' : 'text-gray-400'}`}>
-                    {resolucion.trim().length} caracteres (mín. 10)
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500">
-                  Explica detalladamente la intervención, hallazgos, reparaciones o ajustes efectuados para solucionar la falla.
-                </p>
-                <textarea
-                  id="input-resolucion"
-                  rows={4}
-                  value={resolucion}
-                  onChange={(e) => {
-                    setResolucion(e.target.value);
-                    if (errorValidacion) setErrorValidacion(null);
-                  }}
-                  disabled={isSubmitting}
-                  placeholder="Ej: Se realizó el desmontaje y limpieza de los disipadores. Se reemplazó el cable de señal dañado y se realizaron pruebas de funcionamiento durante 45 minutos sin presentar fallas..."
-                  className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white outline-none text-sm text-gray-900 transition-all resize-y min-h-[110px]"
-                />
-              </div>
-
-              {/* SECCIÓN 2: HORAS INVERTIDAS (OBLIGATORIO - ERGONOMÍA TABLET) */}
-              <div className="space-y-2 pt-1 border-t border-gray-100">
-                <div className="flex items-center justify-between">
-                  <label htmlFor="input-horas-invertidas" className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                    <FiClock className="w-4 h-4 text-indigo-600" />
-                    <span>Horas Invertidas</span>
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <span className="text-xs text-indigo-700 font-medium bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
-                    Tiempo de mano de obra
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                  {/* Stepper táctil amplio para tablets */}
-                  <div className="flex items-center gap-2 bg-gray-50 p-1.5 border border-gray-300 rounded-xl">
-                    <button
-                      type="button"
-                      id="btn-decrementar-horas"
-                      onClick={() => decrementarHoras(0.5)}
-                      disabled={isSubmitting || horasInvertidas <= 0.5}
-                      className="w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs transition-colors disabled:opacity-40 cursor-pointer"
-                      title="Restar 0.5 horas"
-                    >
-                      -
-                    </button>
-                    <div className="flex-1 text-center">
-                      <input
-                        type="number"
-                        id="input-horas-invertidas"
-                        step="0.5"
-                        min="0.5"
-                        max="24"
-                        inputMode="decimal"
-                        value={horasInvertidas}
-                        onChange={(e) => setHorasInvertidas(Math.max(0, Number(e.target.value) || 0))}
-                        disabled={isSubmitting}
-                        className="w-full text-center font-bold text-xl text-gray-900 bg-transparent outline-none py-1"
-                      />
-                      <span className="text-[11px] text-gray-500 block -mt-1 font-medium">horas</span>
-                    </div>
-                    <button
-                      type="button"
-                      id="btn-incrementar-horas"
-                      onClick={() => incrementarHoras(0.5)}
-                      disabled={isSubmitting || horasInvertidas >= 24}
-                      className="w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs transition-colors disabled:opacity-40 cursor-pointer"
-                      title="Sumar 0.5 horas"
-                    >
-                      +
-                    </button>
+              {/* ============================================================ */}
+              {/* VISTA 1: FORMULARIO DE RECHAZO DE INCIDENCIA */}
+              {/* ============================================================ */}
+              {modoAccion === 'RECHAZAR' ? (
+                <div className="space-y-4 animate-fadeIn">
+                  {/* Banner Explicativo de Rechazo */}
+                  <div className="bg-red-50/80 border border-red-200 rounded-xl p-3.5 text-xs text-red-800 flex items-start gap-2.5">
+                    <LuInfo className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="leading-relaxed">
+                      Al rechazar la incidencia, la tarea pasará directamente al estado <strong className="font-semibold text-red-950">"RECHAZADO"</strong>. El reportante podrá visualizar el motivo que ingreses para comprender claramente el por qué de la desestimación.
+                    </p>
                   </div>
 
-                  {/* Botones de presets rápidos táctiles para tablet */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] text-gray-400 w-full font-medium">Acceso rápido:</span>
-                    {[0.5, 1, 2, 3, 4, 8].map((h) => (
-                      <button
-                        key={h}
-                        type="button"
-                        onClick={() => setHorasPreset(h)}
-                        disabled={isSubmitting}
-                        className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                          Number(horasInvertidas) === h
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                            : 'bg-white hover:bg-indigo-50 text-gray-700 border-gray-300'
-                        }`}
-                      >
-                        {h}h
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* SECCIÓN 3: MATERIALES USADOS */}
-              <div className="space-y-3 pt-2 border-t border-gray-100">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                  <label className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                    <FiLayers className="w-4 h-4 text-emerald-600" />
-                    <span>Materiales e Insumos Usados</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-600 select-none">
-                    <input
-                      type="checkbox"
-                      id="check-sin-materiales"
-                      checked={sinMateriales}
-                      onChange={toggleSinMateriales}
-                      disabled={isSubmitting}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
-                    />
-                    <span>Solo mano de obra (sin materiales adicionales)</span>
-                  </label>
-                </div>
-
-                {!sinMateriales && (
-                  <div className="space-y-3 bg-gray-50/80 p-3.5 rounded-xl border border-gray-200">
-                    {/* Chips táctiles rápidos para tablets */}
-                    <div>
-                      <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-2">
-                        Insumos recurrentes (toca para añadir):
+                  {/* ZONA DE MOTIVO DE RECHAZO (TEXTAREA OBLIGATORIO) */}
+                  <div className="space-y-1.5" id="zona-motivo-rechazo">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="input-motivo-rechazo" className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                        <LuCircleAlert className="w-4 h-4 text-red-600" />
+                        <span>Motivo de Rechazo de la Incidencia</span>
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <span className={`text-[11px] font-mono ${motivoRechazo.trim().length >= 5 ? 'text-emerald-600 font-semibold' : 'text-gray-400'}`}>
+                        {motivoRechazo.trim().length} caracteres (mín. 5)
                       </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {MATERIALES_FRECUENTES.map((mat) => (
-                          <button
-                            key={mat}
-                            type="button"
-                            onClick={() => agregarMaterialPreset(mat)}
+                    </div>
+
+                    <p className="text-xs text-gray-500">
+                      Explica al reportante de manera clara y empática el por qué se desestima la incidencia (ej: "No es falla, el equipo estaba desconectado").
+                    </p>
+
+                    <textarea
+                      id="input-motivo-rechazo"
+                      rows={4}
+                      value={motivoRechazo}
+                      onChange={(e) => {
+                        setMotivoRechazo(e.target.value);
+                        if (errorValidacion) setErrorValidacion(null);
+                      }}
+                      disabled={isSubmitting}
+                      placeholder="Ej: No es falla técnica del equipo, se constató en terreno que el cable de poder se encontraba desconectado de la toma eléctrica de pared..."
+                      className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 focus:bg-white outline-none text-sm text-gray-900 transition-all resize-y min-h-[120px]"
+                    />
+                  </div>
+
+                  {/* Sugerencias Rápidas de Motivo (Chips Táctiles) */}
+                  <div className="space-y-2 pt-1 border-t border-gray-100">
+                    <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block">
+                      Motivos frecuentes (toca para seleccionar):
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {MOTIVOS_RECHAZO_FRECUENTES.map((motivo, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setMotivoRechazo(motivo);
+                            if (errorValidacion) setErrorValidacion(null);
+                          }}
+                          disabled={isSubmitting}
+                          className="px-2.5 py-1.5 rounded-lg text-xs bg-white border border-gray-200 text-gray-700 hover:border-red-400 hover:text-red-800 hover:bg-red-50 active:scale-95 transition-all text-left cursor-pointer shadow-2xs"
+                        >
+                          {motivo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* ============================================================ */
+                /* VISTA 2: FORMULARIO HABITUAL DE COMPLETAR MANTENIMIENTO */
+                /* ============================================================ */
+                <div className="space-y-5 animate-fadeIn">
+                  {/* SECCIÓN 1: RESOLUCIÓN (OBLIGATORIO) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="input-resolucion" className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                        <FiFileText className="w-4 h-4 text-blue-600" />
+                        <span>Resolución Técnica del Trabajo</span>
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <span className={`text-[11px] font-mono ${resolucion.trim().length >= 10 ? 'text-emerald-600 font-semibold' : 'text-gray-400'}`}>
+                        {resolucion.trim().length} caracteres (mín. 10)
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Explica detalladamente la intervención, hallazgos, reparaciones o ajustes efectuados para solucionar la falla.
+                    </p>
+                    <textarea
+                      id="input-resolucion"
+                      rows={4}
+                      value={resolucion}
+                      onChange={(e) => {
+                        setResolucion(e.target.value);
+                        if (errorValidacion) setErrorValidacion(null);
+                      }}
+                      disabled={isSubmitting}
+                      placeholder="Ej: Se realizó el desmontaje y limpieza de los disipadores. Se reemplazó el cable de señal dañado y se realizaron pruebas de funcionamiento durante 45 minutos sin presentar fallas..."
+                      className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white outline-none text-sm text-gray-900 transition-all resize-y min-h-[110px]"
+                    />
+                  </div>
+
+                  {/* SECCIÓN 2: HORAS INVERTIDAS */}
+                  <div className="space-y-2 pt-1 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="input-horas-invertidas" className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                        <FiClock className="w-4 h-4 text-indigo-600" />
+                        <span>Horas Invertidas</span>
+                        <span className="text-red-500">*</span>
+                      </label>
+                      <span className="text-xs text-indigo-700 font-medium bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                        Tiempo de mano de obra
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                      <div className="flex items-center gap-2 bg-gray-50 p-1.5 border border-gray-300 rounded-xl">
+                        <button
+                          type="button"
+                          id="btn-decrementar-horas"
+                          onClick={() => decrementarHoras(0.5)}
+                          disabled={isSubmitting || horasInvertidas <= 0.5}
+                          className="w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs transition-colors disabled:opacity-40 cursor-pointer"
+                          title="Restar 0.5 horas"
+                        >
+                          -
+                        </button>
+                        <div className="flex-1 text-center">
+                          <input
+                            type="number"
+                            id="input-horas-invertidas"
+                            step="0.5"
+                            min="0.5"
+                            max="24"
+                            inputMode="decimal"
+                            value={horasInvertidas}
+                            onChange={(e) => setHorasInvertidas(Math.max(0, Number(e.target.value) || 0))}
                             disabled={isSubmitting}
-                            className="px-2.5 py-1.5 rounded-lg text-xs bg-white border border-gray-300 text-gray-700 hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 active:scale-95 transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                            className="w-full text-center font-bold text-xl text-gray-900 bg-transparent outline-none py-1"
+                          />
+                          <span className="text-[11px] text-gray-500 block -mt-1 font-medium">horas</span>
+                        </div>
+                        <button
+                          type="button"
+                          id="btn-incrementar-horas"
+                          onClick={() => incrementarHoras(0.5)}
+                          disabled={isSubmitting || horasInvertidas >= 24}
+                          className="w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs transition-colors disabled:opacity-40 cursor-pointer"
+                          title="Sumar 0.5 horas"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] text-gray-400 w-full font-medium">Acceso rápido:</span>
+                        {[0.5, 1, 2, 3, 4, 8].map((h) => (
+                          <button
+                            key={h}
+                            type="button"
+                            onClick={() => setHorasPreset(h)}
+                            disabled={isSubmitting}
+                            className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                              Number(horasInvertidas) === h
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                : 'bg-white hover:bg-indigo-50 text-gray-700 border-gray-300'
+                            }`}
                           >
-                            <FiPlus className="w-3 h-3 text-emerald-600" />
-                            <span>{mat}</span>
+                            {h}h
                           </button>
                         ))}
                       </div>
                     </div>
+                  </div>
 
-                    {/* Agregar material personalizado */}
-                    <form onSubmit={agregarMaterialCustom} className="flex gap-2 pt-2 border-t border-gray-200">
-                      <input
-                        type="text"
-                        id="input-material-personalizado"
-                        value={nuevoMaterialTexto}
-                        onChange={(e) => setNuevoMaterialTexto(e.target.value)}
-                        placeholder="Otro material (ej. Adaptador HDMI, Canaleta 2m)..."
-                        disabled={isSubmitting}
-                        className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        max="999"
-                        value={cantidadMaterial}
-                        onChange={(e) => setCantidadMaterial(Math.max(1, Number(e.target.value) || 1))}
-                        disabled={isSubmitting}
-                        className="w-16 px-2 py-2 bg-white border border-gray-300 rounded-lg text-xs text-center text-gray-900 outline-none"
-                        title="Cantidad"
-                      />
-                      <button
-                        type="submit"
-                        disabled={isSubmitting || !nuevoMaterialTexto.trim()}
-                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                      >
-                        <FiPlus className="w-3.5 h-3.5" />
-                        <span>Añadir</span>
-                      </button>
-                    </form>
+                  {/* SECCIÓN 3: MATERIALES USADOS */}
+                  <div className="space-y-3 pt-2 border-t border-gray-100">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                      <label className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
+                        <FiLayers className="w-4 h-4 text-emerald-600" />
+                        <span>Materiales e Insumos Usados</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-600 select-none">
+                        <input
+                          type="checkbox"
+                          id="check-sin-materiales"
+                          checked={sinMateriales}
+                          onChange={toggleSinMateriales}
+                          disabled={isSubmitting}
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
+                        />
+                        <span>Solo mano de obra (sin materiales adicionales)</span>
+                      </label>
+                    </div>
 
-                    {/* Lista de materiales añadidos */}
-                    {materialesUsados.length > 0 ? (
-                      <div className="space-y-1.5 pt-1">
-                        <span className="text-[11px] font-semibold text-gray-600 block">
-                          Materiales registrados para esta orden ({materialesUsados.length}):
-                        </span>
-                        <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
-                          {materialesUsados.map((m, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-800 shadow-2xs"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                                  {m.cantidad}x
-                                </span>
-                                <span>{m.nombre}</span>
-                              </div>
+                    {!sinMateriales && (
+                      <div className="space-y-3 bg-gray-50/80 p-3.5 rounded-xl border border-gray-200">
+                        <div>
+                          <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+                            Insumos recurrentes (toca para añadir):
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {MATERIALES_FRECUENTES.map((mat) => (
                               <button
+                                key={mat}
                                 type="button"
-                                onClick={() => eliminarMaterial(idx)}
+                                onClick={() => agregarMaterialPreset(mat)}
                                 disabled={isSubmitting}
-                                className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
-                                title="Eliminar material"
+                                className="px-2.5 py-1.5 rounded-lg text-xs bg-white border border-gray-300 text-gray-700 hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 active:scale-95 transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
                               >
-                                <FiTrash2 className="w-3.5 h-3.5" />
+                                <FiPlus className="w-3 h-3 text-emerald-600" />
+                                <span>{mat}</span>
                               </button>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
                         </div>
+
+                        <form onSubmit={agregarMaterialCustom} className="flex gap-2 pt-2 border-t border-gray-200">
+                          <input
+                            type="text"
+                            id="input-material-personalizado"
+                            value={nuevoMaterialTexto}
+                            onChange={(e) => setNuevoMaterialTexto(e.target.value)}
+                            placeholder="Otro material (ej. Adaptador HDMI, Canaleta 2m)..."
+                            disabled={isSubmitting}
+                            className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <input
+                            type="number"
+                            min="1"
+                            max="999"
+                            value={cantidadMaterial}
+                            onChange={(e) => setCantidadMaterial(Math.max(1, Number(e.target.value) || 1))}
+                            disabled={isSubmitting}
+                            className="w-16 px-2 py-2 bg-white border border-gray-300 rounded-lg text-xs text-center text-gray-900 outline-none"
+                            title="Cantidad"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isSubmitting || !nuevoMaterialTexto.trim()}
+                            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <FiPlus className="w-3.5 h-3.5" />
+                            <span>Añadir</span>
+                          </button>
+                        </form>
+
+                        {materialesUsados.length > 0 ? (
+                          <div className="space-y-1.5 pt-1">
+                            <span className="text-[11px] font-semibold text-gray-600 block">
+                              Materiales registrados para esta orden ({materialesUsados.length}):
+                            </span>
+                            <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+                              {materialesUsados.map((m, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-800 shadow-2xs"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                      {m.cantidad}x
+                                    </span>
+                                    <span>{m.nombre}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => eliminarMaterial(idx)}
+                                    disabled={isSubmitting}
+                                    className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
+                                    title="Eliminar material"
+                                  >
+                                    <FiTrash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-gray-400 italic text-center py-1">
+                            Ningún material añadido todavía. Usa los insumos rápidos o escribe uno personalizado.
+                          </p>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-[11px] text-gray-400 italic text-center py-1">
-                        Ningún material añadido todavía. Usa los insumos rápidos o escribe uno personalizado.
-                      </p>
                     )}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </>
           )}
         </div>
 
-        {/* PIE DEL MODAL CON ACCIONES Y PREVENCIÓN DE DOUBLE SUBMIT */}
+        {/* PIE DEL MODAL CON ACCIONES SEGÚN EL MODO */}
         {esTecnicoAsignado && (
           <div className="bg-gray-50 border-t border-gray-200 px-5 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
             <div className="text-xs text-gray-500 flex items-center gap-1.5 order-2 sm:order-1">
-              <FiCheck className="w-4 h-4 text-emerald-600" />
-              <span>Al confirmar, la tarea pasará a <strong>Completada</strong></span>
+              {modoAccion === 'RECHAZAR' ? (
+                <>
+                  <LuTriangleAlert className="w-4 h-4 text-red-600" />
+                  <span>Al confirmar, la tarea pasará a <strong>RECHAZADO</strong></span>
+                </>
+              ) : (
+                <>
+                  <FiCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Al confirmar, la tarea pasará a <strong>Completada</strong></span>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto order-1 sm:order-2">
@@ -576,49 +785,62 @@ const ModalCierreMantenimiento = ({
                 Cancelar
               </button>
 
-              {/* BOTÓN CON DOBLE SUBMIT PREVENIDO */}
-              <button
-                type="button"
-                id="btn-confirmar-cierre-mantenimiento"
-                onClick={handleGuardarCierre}
-                disabled={isSubmitting || !isFormValid}
-                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-sm transition-all min-h-[48px] cursor-pointer ${
-                  isSubmitting || !isFormValid
-                    ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                    : 'bg-emerald-600 hover:bg-emerald-700 active:scale-98 shadow-emerald-600/20'
-                }`}
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8v8H4z"
-                      />
-                    </svg>
-                    <span>Guardando Cierre...</span>
-                  </>
-                ) : (
-                  <>
-                    <FiCheckCircle className="w-4 h-4" />
-                    <span>Guardar y Finalizar</span>
-                  </>
-                )}
-              </button>
+              {/* BOTÓN PRINCIPAL SEGÚN EL MODO */}
+              {modoAccion === 'RECHAZAR' ? (
+                <button
+                  type="button"
+                  id="btn-confirmar-rechazo-incidencia"
+                  onClick={handleGuardarRechazo}
+                  disabled={isSubmitting || !motivoRechazoValido}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-sm transition-all min-h-[48px] cursor-pointer ${
+                    isSubmitting || !motivoRechazoValido
+                      ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                      : 'bg-red-600 hover:bg-red-700 active:scale-98 shadow-red-600/20'
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      <span>Rechazando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <LuTriangleAlert className="w-4 h-4" />
+                      <span>Confirmar Rechazo</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  id="btn-confirmar-cierre-mantenimiento"
+                  onClick={handleGuardarCierre}
+                  disabled={isSubmitting || !isFormCompletarValido}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-sm transition-all min-h-[48px] cursor-pointer ${
+                    isSubmitting || !isFormCompletarValido
+                      ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                      : 'bg-emerald-600 hover:bg-emerald-700 active:scale-98 shadow-emerald-600/20'
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      <span>Guardando Cierre...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FiCheckCircle className="w-4 h-4" />
+                      <span>Guardar y Finalizar</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         )}

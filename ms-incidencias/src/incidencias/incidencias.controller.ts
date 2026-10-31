@@ -103,6 +103,7 @@ export class IncidenciasController {
       idUsuario,
       rolUsuario,
       usuario.email,
+      body.motivo_rechazo,
     );
   }
 
