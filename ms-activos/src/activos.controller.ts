@@ -63,11 +63,29 @@ export class ActivosController {
   }
 
   @Get()
-  async listarActivos(): Promise<{ valido: boolean; total: number; datos: Activo[] }> {
-    const activos = await this.activosService.listarTodos();
+  async listarActivos(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<{
+    valido: boolean;
+    total: number;
+    totalItems: number;
+    totalPages: number;
+    currentPage: number;
+    limit: number;
+    datos: Activo[];
+  }> {
+    const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
+    const limitNum = Math.max(1, Math.min(50, parseInt(limit || '20', 10) || 20));
+    const activos = await this.activosService.listarTodos({ page: pageNum, limit: limitNum });
+    const total = await this.activosService.contarTotalActivos();
     return {
       valido: true,
-      total: activos.length,
+      total,
+      totalItems: total,
+      totalPages: Math.ceil(total / limitNum) || 1,
+      currentPage: pageNum,
+      limit: limitNum,
       datos: activos,
     };
   }

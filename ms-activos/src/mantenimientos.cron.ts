@@ -23,6 +23,7 @@ export class MantenimientosCron {
             lte: fechaLimite,
           },
         },
+        take: 50,
       });
 
       if (mantenimientos.length === 0) {

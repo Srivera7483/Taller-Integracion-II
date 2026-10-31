@@ -16,14 +16,14 @@ export class PrioridadDinamicaQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(50, { message: 'El límite máximo permitido es de 50 registros por petición' })
   limite?: number = 20;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(50, { message: 'El límite máximo permitido es de 50 registros por petición' })
   limit?: number;
 
   @IsOptional()

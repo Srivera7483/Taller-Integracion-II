@@ -39,8 +39,8 @@ export class UserRepository {
   }
 
   async findMany(page: number = 1, limit: number = 15) {
-    const take = limit;
-    const skip = (page - 1) * limit;
+    const take = Math.max(1, Math.min(50, limit));
+    const skip = (Math.max(1, page) - 1) * take;
     const [usuarios, total] = await Promise.all([
       this.prisma.user.findMany({
         skip,
@@ -56,7 +56,7 @@ export class UserRepository {
     return {
       usuarios,
       total,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / take) || (total === 0 ? 0 : 1),
     };
   }
 }

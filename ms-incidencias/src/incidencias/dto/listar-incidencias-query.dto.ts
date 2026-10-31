@@ -16,25 +16,25 @@ export class ListarIncidenciasQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
-  limite?: number;
+  @Max(50, { message: 'El límite máximo permitido es de 50 registros por petición' })
+  limite?: number = 20;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
-  limit?: number;
+  @Max(50, { message: 'El límite máximo permitido es de 50 registros por petición' })
+  limit?: number = 20;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  pagina?: number;
+  pagina?: number = 1;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page?: number;
+  page?: number = 1;
 }
