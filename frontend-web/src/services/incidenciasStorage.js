@@ -20,6 +20,10 @@ const INCIDENCIAS_INICIALES = [
     fecha: 'Hoy, 10:30',
     descripcion: 'Errores intermitentes al autenticar por IMAP/SMTP.',
     esTemporal: false,
+    evidencias: [
+      'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80',
+    ],
+    imagenAdjuntaNombre: 'evidencia_servidor_rack.webp',
   },
   {
     id: 'INC-1041',
@@ -32,6 +36,7 @@ const INCIDENCIAS_INICIALES = [
     fecha: 'Hoy, 08:15',
     descripcion: 'Ventana de mantenimiento programada para el router principal.',
     esTemporal: false,
+    evidencias: [],
   },
 ];
 
@@ -312,6 +317,31 @@ export function setTecnicoActual(tecnico) {
   } catch (err) {
     console.error('Error guardando técnico actual:', err);
   }
+}
+
+/**
+ * Adjunta una evidencia fotográfica de Cloudinary a una incidencia existente
+ */
+export function adjuntarEvidenciaIncidencia(incidenciaId, urlEvidencia, nombreArchivo = 'evidencia.webp') {
+  const guardadasEnCookie = getCookie(COOKIE_NAME) || [];
+  const todas = getIncidencias();
+  const encontrada = todas.find((item) => item.id === incidenciaId);
+
+  const prevEvidencias = encontrada?.evidencias || [];
+  const nuevaListaEvidencias = [...prevEvidencias, urlEvidencia];
+
+  const incidenciaActualizada = {
+    ...(encontrada || { id: incidenciaId, titulo: 'Incidencia', id_activo: 'N/A' }),
+    evidencias: nuevaListaEvidencias,
+    imagenAdjuntaNombre: nombreArchivo,
+    esTemporal: true,
+  };
+
+  const listaSinPrevia = guardadasEnCookie.filter((item) => item.id !== incidenciaId);
+  const nuevaLista = [incidenciaActualizada, ...listaSinPrevia];
+  setCookie(COOKIE_NAME, nuevaLista);
+
+  return incidenciaActualizada;
 }
 
 /**

@@ -227,11 +227,10 @@ const Incidencias = () => {
                 <div className="flex justify-between items-start gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      {/* ENLACE DIRECTO AL DETALLE DE INCIDENCIA PRESIONANDO EL NÚMERO DE ID */}
                       <Link
                         to={`/incidencias/${inc.id}`}
                         className="font-mono text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                        title="Ver detalle de la incidencia"
+                        title="Ver detalles de la incidencia"
                       >
                         <span>{inc.id}</span>
                         <FiExternalLink className="w-3 h-3" />
@@ -356,7 +355,7 @@ const Incidencias = () => {
                             <Link
                               to={`/incidencias/${inc.id}`}
                               className="font-mono text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                              title="Ver detalle de la incidencia"
+                              title="Ver detalles de la incidencia"
                             >
                               <span>{inc.id}</span>
                               <FiExternalLink className="w-3 h-3" />
@@ -366,6 +365,13 @@ const Incidencias = () => {
                                 Cookie
                               </span>
                             )}
+                            <Link
+                              to={`/ordenes/${inc.id}`}
+                              className="text-[11px] text-gray-400 hover:text-indigo-600 ml-1 font-mono hover:underline"
+                              title="Ver orden de trabajo asociada"
+                            >
+                              (Orden)
+                            </Link>
                           </div>
                           <span className="font-semibold text-gray-900 mt-0.5">{inc.titulo}</span>
                           {inc.descripcion && (
