@@ -75,18 +75,23 @@ foreach ($db in $bases) {
 
 Write-Host "`n[5/7] Verificando dependencias y migraciones de Prisma..." -ForegroundColor Yellow
 
+$OldPreference = $ErrorActionPreference # solo en este proceso
+
 $serviciosPrisma = @("ms-auth", "ms-activos", "ms-incidencias")
 foreach ($srv in $serviciosPrisma) {
     Write-Host "  -> Procesando $srv..." -ForegroundColor DarkGray
     Push-Location $srv
+
+    $ErrorActionPreference = "Continue"
+
     try {
         if (-not (Test-Path "node_modules")) {
             Write-Host "     Instalando paquetes con pnpm..." -ForegroundColor DarkGray
             pnpm.cmd install --silent
         }
         pnpm.cmd exec prisma generate > $null 2>&1
-        pnpm.cmd exec prisma migrate deploy
-        Write-Host "     Esquema y migraciones de $srv sincronizadas exitosamente." -ForegroundColor Green
+        pnpm.cmd exec prisma db push --skip-generate > $null 2>&1
+        Write-Host "     Esquema y tablas de $srv sincronizadas exitosamente." -ForegroundColor Green
     } catch {
         Write-Host "     [AVISO] Ocurrio un detalle durante la migracion de $($srv): $_" -ForegroundColor Yellow
     } finally {
@@ -94,34 +99,10 @@ foreach ($srv in $serviciosPrisma) {
     }
 }
 
+$ErrorActionPreference = $OldPreference
+
 # sixseven xddxdxd
 Write-Host "`n[6/7] Agregando datos de prueba..." -ForegroundColor Yellow
-
-
-Push-Location "ms-auth"
-try {
-    Write-Host "Ingreso a ms-auth" -ForegroundColor Cyan
-    node create-user.js | Out-Null 
-   Write-Host "  -> Usuarios base asegurados en MS Auth (Admin, Tecnico, Usuario)." -ForegroundColor Green
-    Write-Host "  -> La contrasena para ingresar a estos es: password123" -ForegroundColor Green
-} catch {
-    Write-Host "  [AVISO] No se pudo ejecutar create-user.js: $_" -ForegroundColor Yellow
-} finally {
-    Pop-Location
-}
-
-
-Push-Location "ms-activos"
-try {
-    Write-Host "Ingreso a ms-activos" -ForegroundColor Cyan
-    pnpm.cmd exec prisma db seed | Out-Null
-    Write-Host " -> Activos de prueba ingresados correctamente." -ForegroundColor Green
-} catch {
-    Write-Host "  [AVISO] No se pudo ejecutar prisma db seed en ms-activos: $_" -ForegroundColor Yellow
-} finally {
-    Pop-Location
-}
-
 
 Push-Location "ms-incidencias"
 try {
@@ -134,13 +115,12 @@ try {
     Pop-Location
 }
 
-
-if (Test-Path "seed-rapido.cjs") {
+if (Test-Path "seed.cjs") {
     try {
-        node seed-rapido.cjs | Out-Null
-        Write-Host "  -> 40 incidencias de pruebas ingresadas a la DB (seed-rapido.cjs)." -ForegroundColor Green
+        node seed.cjs | Out-Null
+        Write-Host "  -> 40 incidencias de pruebas ingresadas a la DB (seed.cjs)." -ForegroundColor Green
     } catch {
-        Write-Host "  [AVISO] No se pudo ejecutar seed-rapido.cjs: $_" -ForegroundColor Yellow
+        Write-Host "  [AVISO] No se pudo ejecutar seed.cjs: $_" -ForegroundColor Yellow
     }
 }
 
