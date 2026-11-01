@@ -22,6 +22,7 @@ import type { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.d
 import { ExportarIncidenciasService } from './exportar-incidencias.service';
 import type { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { validarExtensionEvidencia } from '../validators/file-mime.pipe';
+import { sanitizeStringXss } from '../validators/sanitize-xss.pipe';
 
 const incidenciaConEstadoActual = {
   include: {
@@ -182,8 +183,8 @@ export class IncidenciasService {
         data: {
           id_activo: body.id_activo,
           id_reportante: usuarioId,
-          titulo: body.titulo.trim(),
-          descripcion: body.descripcion.trim(),
+          titulo: sanitizeStringXss(body.titulo).trim(),
+          descripcion: sanitizeStringXss(body.descripcion).trim(),
         },
       });
 

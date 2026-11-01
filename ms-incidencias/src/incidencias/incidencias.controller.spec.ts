@@ -3,7 +3,7 @@ import { IncidenciasService } from './incidencias.service';
 import { StreamableFile } from '@nestjs/common';
 import type { Response } from 'express';
 
-describe('IncidenciasController - TAL-117 & TAL-127', () => {
+describe('IncidenciasController - TAL-117, TAL-127 & TAL-140', () => {
   let controller: IncidenciasController;
   let service: jest.Mocked<Partial<IncidenciasService>>;
 
@@ -16,6 +16,7 @@ describe('IncidenciasController - TAL-117 & TAL-127', () => {
       obtenerPrioridadDinamica: jest.fn(),
       procesarYGuardarEvidencia: jest.fn(),
       crearEvidencia: jest.fn(),
+      crear: jest.fn(),
     };
 
     controller = new IncidenciasController(service as IncidenciasService);
@@ -126,6 +127,25 @@ describe('IncidenciasController - TAL-117 & TAL-127', () => {
 
       expect(service.crearEvidencia).toHaveBeenCalledWith('inc-1', mockBody);
       expect(resultado).toBe(mockResultado);
+    });
+  });
+
+  describe('POST /incidencias (TAL-140)', () => {
+    it('delega la creación de incidencia al servicio', async () => {
+      const mockBody = {
+        id_activo: 'activo-1',
+        titulo: 'Falla de proyector',
+        descripcion: 'No enciende',
+      };
+      const mockUser = { sub: 'user-1', email: 'user@test.com' } as any;
+      const mockCreada = { id_incidencia: 'inc-1', ...mockBody };
+
+      (service.crear as jest.Mock).mockResolvedValue(mockCreada);
+
+      const resultado = await controller.crear(mockBody, mockUser);
+
+      expect(service.crear).toHaveBeenCalledWith(mockBody, 'user-1', 'user@test.com');
+      expect(resultado).toBe(mockCreada);
     });
   });
 });
