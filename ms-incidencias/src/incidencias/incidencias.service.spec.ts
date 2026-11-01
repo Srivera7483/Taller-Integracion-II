@@ -332,4 +332,44 @@ describe('IncidenciasService notifications', () => {
       expect(mockPrisma.incidencias.findMany).not.toHaveBeenCalled();
     });
   });
+
+  describe('TAL-140: Sanitización de Entradas en MS Incidencias (XSS)', () => {
+    it('sanitiza intentos de inyección XSS en titulo y descripcion al crear una incidencia', async () => {
+      await service.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: '<script>alert("hack")</script>Proyector averiado',
+          descripcion: 'Falla <script>alert(1)</script>',
+        },
+        'reportante-1',
+        'reportante@example.com',
+      );
+
+      expect(transaction.incidencias.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          titulo: 'alert("hack")Proyector averiado',
+          descripcion: 'Falla alert(1)',
+        }),
+      });
+    });
+
+    it('elimina etiquetas img con onerror e iframes antes de guardar en base de datos', async () => {
+      await service.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: 'Pantalla azul <img src=x onerror=alert(document.cookie)>',
+          descripcion: 'Ver detalle <iframe src="http://evil.com">malware</iframe> fin',
+        },
+        'reportante-1',
+        'reportante@example.com',
+      );
+
+      expect(transaction.incidencias.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          titulo: 'Pantalla azul',
+          descripcion: 'Ver detalle fin',
+        }),
+      });
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import { IsNotEmpty, IsString, IsUUID, MaxLength } from 'class-validator';
+import { SanitizeXss } from '../../validators/sanitize-xss.pipe';
 
 export class CrearIncidenciaDto {
   @IsUUID()
@@ -7,9 +8,11 @@ export class CrearIncidenciaDto {
   @IsString()
   @IsNotEmpty()
   @MaxLength(255)
+  @SanitizeXss()
   titulo!: string;
 
   @IsString()
   @IsNotEmpty()
+  @SanitizeXss()
   descripcion!: string;
 }
