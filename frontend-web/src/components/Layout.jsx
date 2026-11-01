@@ -1,14 +1,47 @@
-import React, { useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate, useOutlet } from 'react-router-dom';
 import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar } from 'react-icons/fi';
+import { AnimatePresence, motion } from 'framer-motion';
 import SelectorTecnicoSesion from './SelectorTecnicoSesion';
 import NotificacionesDropdown from './NotificacionesDropdown';
 import CriticalAlertBanner from './CriticalAlertBanner';
 
+// Variantes de animación para transiciones fluidas de página
+const pageVariants = {
+  initial: {
+    opacity: 0,
+    y: 12,
+  },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.2,
+      ease: [0.25, 0.1, 0.25, 1],
+    },
+  },
+  exit: {
+    opacity: 0,
+    transition: {
+      duration: 0.1,
+      ease: 'easeOut',
+    },
+  },
+};
+
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const currentOutlet = useOutlet();
+  const mainContentRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Scroll al tope del contenedor principal al cambiar de ruta para evitar saltos visuales
+  useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
 
   const getPageTitle = () => {
     if (location.pathname.startsWith('/incidencias/nueva') || location.pathname.startsWith('/incidencias/reportar')) {
@@ -152,9 +185,20 @@ const Layout = () => {
         {/* TAL-122: Alertas Visuales (Mantenimientos Próximos) */}
         <CriticalAlertBanner />
 
-        {/* Dynamic Outlet */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
-          <Outlet />
+        {/* Dynamic Outlet con animación fluida entre vistas (TAL-147) */}
+        <main ref={mainContentRef} className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="w-full flex-1"
+            >
+              {currentOutlet || <Outlet />}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>
