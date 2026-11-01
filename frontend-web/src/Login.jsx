@@ -141,15 +141,19 @@ const Login = () => {
         <div className="absolute top-0 left-0 w-full h-64 bg-primary/5 -skew-y-3 transform origin-top-left -z-10" />
 
         {/* Tarjeta de autenticación */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100/80 p-8 w-full max-w-sm fade-in-up transition-all relative z-10">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200/90 p-8 w-full max-w-sm fade-in-up transition-all relative z-10">
 
-          {/* Encabezado con ícono de servidor */}
-          <div className="flex flex-col items-center justify-center gap-2 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-2xl mb-2">
+          {/* Encabezado con ícono y marca institucional */}
+          <div className="flex flex-col items-center justify-center gap-1.5 mb-6 text-center">
+            <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center text-2xl mb-1 shadow-md shadow-primary/20">
               <IoServer />
             </div>
-            <h1 className="text-xl font-bold text-gray-900 tracking-tight">InfraManager</h1>
-            <p id="view-title" className="text-sm font-medium text-gray-600 mt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xl font-extrabold text-gray-900 tracking-tight">Infra<span className="text-primary font-black">Manager</span></span>
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-primary-50 text-primary px-1.5 py-0.5 rounded-lg border border-primary-200">UCT</span>
+            </div>
+            <p className="text-xs text-gray-500 font-medium">Universidad Católica de Temuco</p>
+            <p id="view-title" className="text-sm font-semibold text-gray-700 mt-2">
               {mode === 'login' ? 'Iniciar sesión en tu cuenta' : 'Crear una cuenta nueva'}
             </p>
           </div>
@@ -290,22 +294,22 @@ const Login = () => {
               )}
             </div>
 
-            {/* Botón de Envío */}
+            {/* Botón de Envío (CTA Principal) */}
             <button
               type="submit"
               id="submit-btn"
               disabled={!isFormValid || isSubmitting}
-              className={`w-full mt-2 bg-primary hover:bg-primary-hover text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${isFormValid && !isSubmitting ? 'hover:shadow-md hover:-translate-y-0.5' : ''
+              className={`w-full mt-3 bg-primary hover:bg-primary-hover text-white px-5 py-3 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${isFormValid && !isSubmitting ? 'hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0' : ''
                 }`}
             >
               <span id="btn-text">
                 {isSubmitting
                   ? 'Procesando...'
                   : mode === 'login'
-                    ? 'Ingresar'
+                    ? 'Ingresar al Sistema'
                     : 'Registrarse'}
               </span>
-              <IoArrowForwardOutline />
+              <IoArrowForwardOutline className="text-base" />
             </button>
           </form>
 

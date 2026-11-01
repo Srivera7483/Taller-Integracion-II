@@ -74,7 +74,7 @@ const Dashboard = () => {
         <div className="flex items-center gap-2">
           <Link
             to="/trazabilidad"
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition shadow-2xs"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-primary-50 border border-primary-200 text-primary rounded-lg hover:bg-primary-100 transition shadow-2xs"
           >
             <FiActivity className="w-3.5 h-3.5" />
             <span>Trazabilidad Activos</span>
@@ -88,7 +88,7 @@ const Dashboard = () => {
           </Link>
           <button
             onClick={() => showToast('Sistema de notificaciones operativo y listo para integración.', 'success')}
-            className="px-3.5 py-2 bg-blue-600 text-white font-semibold text-xs rounded-lg hover:bg-blue-700 transition shadow-2xs"
+            className="px-3.5 py-2 bg-primary hover:bg-primary-hover text-white font-semibold text-xs rounded-lg transition shadow-sm hover:shadow cursor-pointer"
           >
             Probar Notificación
           </button>
@@ -121,7 +121,7 @@ const Dashboard = () => {
           <div>
             <div className="flex items-center gap-3">
               <h3 className="font-semibold text-gray-900 text-sm">Órdenes de Trabajo e Incidencias Recientes</h3>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary-50 text-primary border border-primary-200">
                 {incidencias.length} registros cargados
               </span>
             </div>
@@ -133,7 +133,7 @@ const Dashboard = () => {
             <BotonExportarExcel variant="compact" />
             <Link
               to="/incidencias"
-              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+              className="text-xs text-primary hover:text-primary-hover font-semibold flex items-center gap-1 transition-colors"
             >
               <span>Ver todas</span>
               <FiArrowRight className="w-3.5 h-3.5" />
@@ -160,7 +160,7 @@ const Dashboard = () => {
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-500">
                     <div className="flex justify-center items-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
                       <span>Cargando incidencias iniciales...</span>
                     </div>
                   </td>
@@ -200,7 +200,7 @@ const Dashboard = () => {
                         {inc.id_activo ? (
                           <Link
                             to={`/trazabilidad/${encodeURIComponent(inc.id_activo)}`}
-                            className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 bg-gray-100 hover:bg-blue-50 text-gray-800 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 bg-gray-100 hover:bg-primary-50 text-gray-800 hover:text-primary rounded-lg border border-gray-200 hover:border-primary-300 transition-colors shadow-2xs"
                             title={`Ver trazabilidad de ${inc.id_activo}`}
                           >
                             <FiBox className="w-3 h-3 text-gray-400" />
@@ -228,7 +228,7 @@ const Dashboard = () => {
 
           {loadingMore && (
             <div className="flex justify-center items-center py-4 bg-gray-50/60 border-t border-gray-100">
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
               <span className="ml-2.5 text-xs font-medium text-gray-600">Cargando siguientes incidencias...</span>
             </div>
           )}

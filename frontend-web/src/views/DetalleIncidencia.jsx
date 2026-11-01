@@ -39,9 +39,9 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
   const [errorCarga, setErrorCarga] = useState(false);
 
   return (
-    <div className="relative rounded-2xl border border-gray-200 bg-slate-900/5 p-4 sm:p-5 flex flex-col md:flex-row items-center gap-5 transition-all">
+    <div className="relative rounded-xl border border-gray-200 bg-slate-900/5 p-4 sm:p-5 flex flex-col md:flex-row items-center gap-5 transition-all">
       {/* Contenedor de la foto con estado de carga animado */}
-      <div className="relative w-full sm:w-64 h-52 sm:h-44 rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center border-2 border-blue-500/40 shadow-inner flex-shrink-0">
+      <div className="relative w-full sm:w-64 h-52 sm:h-44 rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center border-2 border-primary/40 shadow-inner flex-shrink-0">
         {/* ANIMACIÓN DE CARGA / LATENCIA CLOUDINARY (TAL-136) */}
         {cargando && !errorCarga && (
           <div
@@ -52,9 +52,9 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
           >
             {/* Anillo de carga (Spinner circular con halo) */}
             <div className="relative flex items-center justify-center">
-              <div className="absolute w-12 h-12 rounded-full bg-blue-500/20 animate-ping" />
+              <div className="absolute w-12 h-12 rounded-full bg-primary/20 animate-ping" />
               <svg
-                className="animate-spin w-9 h-9 text-blue-500 relative z-10"
+                className="animate-spin w-9 h-9 text-primary relative z-10"
                 viewBox="0 0 24 24"
                 fill="none"
               >
@@ -78,14 +78,14 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
               <span className="text-xs font-bold text-white tracking-wide animate-pulse">
                 Procesando...
               </span>
-              <p className="text-[11px] text-blue-300">
+              <p className="text-[11px] text-slate-300">
                 Cargando imagen desde Cloudinary
               </p>
             </div>
 
             {/* Barra de progreso indeterminada animada */}
             <div className="w-3/4 bg-slate-800 rounded-full h-1.5 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-500 via-indigo-400 to-blue-500 h-full rounded-full animate-indeterminate" />
+              <div className="bg-gradient-to-r from-primary-500 via-primary-400 to-primary-600 h-full rounded-full animate-indeterminate" />
             </div>
           </div>
         )}
@@ -130,14 +130,14 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
       {/* Información contextual de la evidencia */}
       <div className="flex-1 space-y-2 text-center md:text-left min-w-0">
         <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary-50 text-primary border border-primary-200">
             <FiImage className="w-3.5 h-3.5" />
             <span>Evidencia Fotográfica</span>
           </span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-purple-100 text-purple-800 border border-purple-200">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-mono font-bold bg-secondary-50 text-secondary-900 border border-secondary-200">
             <FiUploadCloud className="w-3 h-3" /> Cloudinary CDN
           </span>
-          <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+          <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
             Activo Verificado
           </span>
         </div>
@@ -154,7 +154,7 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
           <button
             type="button"
             onClick={() => onAmpliar(url, nombre)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 active:scale-95 transition-all shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover active:scale-95 transition-all shadow-md hover:shadow-lg cursor-pointer"
           >
             <FiMaximize2 className="w-3.5 h-3.5" />
             <span>Ver en Alta Resolución</span>
@@ -346,21 +346,21 @@ const DetalleIncidencia = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <nav aria-label="Ruta de navegación" className="flex items-center gap-2 text-sm text-gray-600">
-        <Link to="/dashboard" className="hover:text-blue-600 transition-colors">Inicio</Link>
+        <Link to="/dashboard" className="hover:text-primary transition-colors">Inicio</Link>
         <FiChevronRight className="w-3.5 h-3.5" />
-        <Link to="/incidencias" className="hover:text-blue-600 transition-colors">Incidencias</Link>
+        <Link to="/incidencias" className="hover:text-primary transition-colors">Incidencias</Link>
         <FiChevronRight className="w-3.5 h-3.5" />
         <span className="font-semibold text-gray-900">Incidencia {incidencia.id}</span>
       </nav>
 
       {/* Tarjeta Principal de la Incidencia */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-gray-100 pb-5 mb-5">
           <div>
             <div className="flex items-center gap-3 mb-2 flex-wrap">
               <h1 className="text-2xl font-bold text-gray-900 tracking-tight">{incidencia.titulo}</h1>
             </div>
-            <span className="font-mono text-sm bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md border border-gray-200 font-semibold">
+            <span className="font-mono text-sm bg-gray-100 text-gray-700 px-2.5 py-1 rounded-lg border border-gray-200 font-semibold">
               {incidencia.id}
             </span>
           </div>
@@ -384,7 +384,7 @@ const DetalleIncidencia = () => {
           <div>
             <h2 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Técnico Asignado</h2>
             <div className="flex items-center gap-2 text-gray-800 font-medium">
-              <FiUser className="w-4 h-4 text-blue-600" aria-hidden="true" />
+              <FiUser className="w-4 h-4 text-primary" aria-hidden="true" />
               <span>{incidencia.asignado || 'Sin asignar'}</span>
             </div>
           </div>
@@ -409,10 +409,10 @@ const DetalleIncidencia = () => {
       )}
 
       {/* SECCIÓN DE EVIDENCIA FOTOGRÁFICA DE CLOUDINARY (TAL-136) */}
-      <div id="seccion-evidencia-cloudinary" className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
+      <div id="seccion-evidencia-cloudinary" className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-gray-100 pb-3">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
+            <div className="w-9 h-9 rounded-lg bg-primary-50 text-primary flex items-center justify-center border border-primary-200">
               <FiImage className="w-5 h-5" />
             </div>
             <div>
@@ -428,7 +428,7 @@ const DetalleIncidencia = () => {
               <button
                 type="button"
                 onClick={() => setMostrarSubidorNuevo(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 transition-colors cursor-pointer"
               >
                 <FiPlusCircle className="w-3.5 h-3.5" />
                 <span>Agregar Foto</span>
@@ -439,9 +439,9 @@ const DetalleIncidencia = () => {
 
         {/* Formulario Uploader opcional para subir nueva evidencia a esta incidencia */}
         {mostrarSubidorNuevo && (
-          <div className="bg-slate-50 border border-blue-200 rounded-2xl p-4 space-y-3 animate-fadeIn">
+          <div className="bg-slate-50 border border-primary-200 rounded-xl p-4 space-y-3 animate-fadeIn">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-blue-900">Subir nueva evidencia para esta incidencia:</span>
+              <span className="text-xs font-bold text-primary">Subir nueva evidencia para esta incidencia:</span>
               <button
                 type="button"
                 onClick={() => setMostrarSubidorNuevo(false)}
@@ -470,7 +470,7 @@ const DetalleIncidencia = () => {
             ))}
           </div>
         ) : !mostrarSubidorNuevo ? (
-          <div className="p-8 text-center bg-gray-50/60 rounded-2xl border-2 border-dashed border-gray-200 space-y-2">
+          <div className="p-8 text-center bg-gray-50/60 rounded-xl border-2 border-dashed border-gray-200 space-y-2">
             <FiImage className="w-10 h-10 text-gray-300 mx-auto" />
             <p className="text-sm font-medium text-gray-700">Sin evidencias fotográficas adjuntas</p>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
@@ -479,7 +479,7 @@ const DetalleIncidencia = () => {
             <button
               type="button"
               onClick={() => setMostrarSubidorNuevo(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all shadow-sm hover:shadow cursor-pointer"
             >
               <FiUploadCloud className="w-4 h-4" />
               <span>Subir Evidencia a Cloudinary</span>
@@ -490,7 +490,7 @@ const DetalleIncidencia = () => {
 
       {/* REPORTE DE MANTENIMIENTO SI YA ESTÁ COMPLETADA */}
       {estaCompletada && (
-        <div className="bg-white rounded-2xl shadow-sm border border-emerald-200 p-5 sm:p-6 space-y-4 animate-fadeIn">
+        <div className="bg-white rounded-xl shadow-sm border border-emerald-200 p-5 sm:p-6 space-y-4 animate-fadeIn">
           <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
             <div className="flex items-center gap-2.5">
               <FiCheckCircle className="w-6 h-6 text-emerald-600" />
@@ -516,7 +516,7 @@ const DetalleIncidencia = () => {
               {incidencia.materialesUsados && incidencia.materialesUsados.length > 0 ? (
                 <div className="flex flex-wrap gap-1 mt-1">
                   {incidencia.materialesUsados.map((m, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded text-xs bg-white border border-emerald-200 text-emerald-900 font-medium">
+                    <span key={idx} className="px-2 py-0.5 rounded-lg text-xs bg-white border border-emerald-200 text-emerald-900 font-medium">
                       {m.cantidad}x {m.nombre}
                     </span>
                   ))}
@@ -529,7 +529,7 @@ const DetalleIncidencia = () => {
 
           <div className="space-y-1">
             <span className="text-xs uppercase font-bold text-gray-700 block flex items-center gap-1">
-              <FiFileText className="w-3.5 h-3.5 text-blue-600" /> Resolución Técnica
+              <FiFileText className="w-3.5 h-3.5 text-primary" /> Resolución Técnica
             </span>
             <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-sm text-gray-800 whitespace-pre-wrap">
               {incidencia.resolucion || 'Intervención técnica completada satisfactoriamente.'}
@@ -540,9 +540,9 @@ const DetalleIncidencia = () => {
 
       {/* ACCIÓN DE CIERRE SI AÚN NO ESTÁ COMPLETADA NI RECHAZADA NI RESUELTA */}
       {!estaCompletada && !estaResuelta && !estaRechazada && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-3">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-3">
           <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-            <FiCheckCircle className="w-5 h-5 text-blue-600" aria-hidden="true" />
+            <FiCheckCircle className="w-5 h-5 text-primary" aria-hidden="true" />
             Acciones de Mantenimiento
           </h2>
 
@@ -559,7 +559,7 @@ const DetalleIncidencia = () => {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px]"
+                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px]"
               >
                 <FiCheckCircle className="w-4 h-4" />
                 <span>Confirmar y Finalizar Mantenimiento</span>

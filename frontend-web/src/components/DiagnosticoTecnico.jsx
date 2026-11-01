@@ -35,7 +35,7 @@ const DiagnosticoTecnico = ({ idOrden }) => {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 mt-6">
       <div className="flex items-center gap-2 mb-3">
-        <FiAlertCircle className="w-5 h-5 text-blue-600" />
+        <FiAlertCircle className="w-5 h-5 text-primary" />
         <h3 className="font-semibold text-gray-900 text-lg">Información de Diagnóstico</h3>
       </div>
       
@@ -50,7 +50,7 @@ const DiagnosticoTecnico = ({ idOrden }) => {
           placeholder="Escribe el diagnóstico detallado aquí..."
           rows={6}
           disabled={isSubmitting}
-          className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white outline-none transition-all text-sm resize-y"
+          className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white outline-none transition-all text-sm resize-y"
         />
       </div>
 
@@ -58,7 +58,7 @@ const DiagnosticoTecnico = ({ idOrden }) => {
         <button
           onClick={handleGuardar}
           disabled={isSubmitting || !diagnostico.trim()}
-          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium text-sm shadow-sm hover:shadow disabled:opacity-60 disabled:cursor-not-allowed"
+          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-hover transition-all font-bold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         >
           <FiSave className="w-4 h-4" />
           {isSubmitting ? 'Guardando...' : 'Guardar Diagnóstico'}

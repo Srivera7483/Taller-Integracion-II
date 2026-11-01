@@ -74,10 +74,10 @@ const Trazabilidad = () => {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* 1. Encabezado de la Vista y Selector Rápido de Activo */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-gray-200 shadow-2xs">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-gray-200 shadow-2xs">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-blue-50 text-blue-600">
+            <span className="p-2 rounded-lg bg-primary-50 text-primary">
               <FiActivity className="w-5 h-5" />
             </span>
             <h2 className="text-xl font-bold text-gray-900 tracking-tight">
@@ -96,7 +96,7 @@ const Trazabilidad = () => {
               id="selector-activo-trazabilidad"
               value={activoSeleccionado}
               onChange={(e) => handleCambiarActivo(e.target.value)}
-              className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-blue-500 focus:outline-none transition shadow-2xs pr-8"
+              className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition shadow-2xs pr-8"
             >
               {listaActivos.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -111,7 +111,7 @@ const Trazabilidad = () => {
             type="button"
             onClick={cargarDatos}
             title="Refrescar trazabilidad" aria-label="Refrescar trazabilidad"
-            className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition border border-gray-200"
+            className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition border border-gray-200 cursor-pointer"
           >
             <FiRefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin' : ''}`} />
           </button>
@@ -120,18 +120,18 @@ const Trazabilidad = () => {
 
       {/* 2. Tarjeta Resumen del Activo Seleccionado */}
       {activo && (
-        <div className="bg-white rounded-2xl p-5 border border-gray-200 shadow-2xs space-y-4">
+        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-2xs space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-blue-500/20 flex-shrink-0">
+              <div className="w-14 h-14 rounded-xl bg-primary text-white flex items-center justify-center shadow-md shadow-primary/20 flex-shrink-0">
                 <FiBox className="w-7 h-7" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-mono text-xs font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  <span className="font-mono text-xs font-bold text-primary bg-primary-50 px-2 py-0.5 rounded-lg border border-primary-200">
                     {activo.codigoQr || activo.id}
                   </span>
-                  <span className="text-xs font-semibold px-2 py-0.5 bg-gray-100 text-gray-700 rounded border border-gray-200">
+                  <span className="text-xs font-semibold px-2 py-0.5 bg-gray-100 text-gray-700 rounded-lg border border-gray-200">
                     {activo.categoria}
                   </span>
                   <StatusBadge status={activo.estadoActual} />
@@ -219,12 +219,12 @@ const Trazabilidad = () => {
             </div>
           </div>
 
-          <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200 shadow-2xs flex items-center justify-between">
+          <div className="bg-primary-50/70 p-4 rounded-xl border border-primary-200 shadow-2xs flex items-center justify-between">
             <div>
-              <p className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">Mantenimientos</p>
-              <p className="text-2xl font-bold text-blue-950 font-mono mt-0.5">{resumen.totalMantenimientos}</p>
+              <p className="text-[11px] font-bold text-primary uppercase tracking-wider">Mantenimientos</p>
+              <p className="text-2xl font-bold text-primary-950 font-mono mt-0.5">{resumen.totalMantenimientos}</p>
             </div>
-            <div className="w-9 h-9 rounded-xl bg-blue-200/80 text-blue-800 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-primary-200/80 text-primary flex items-center justify-center">
               <FiTool className="w-4 h-4" />
             </div>
           </div>
@@ -284,8 +284,8 @@ const Trazabilidad = () => {
               onClick={() => setFiltroTipo('mantenimiento')}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
                 filtroTipo === 'mantenimiento'
-                  ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                  : 'bg-blue-50/70 text-blue-800 border-blue-200 hover:bg-blue-100'
+                  ? 'bg-primary text-white border-primary shadow-xs'
+                  : 'bg-primary-50/70 text-primary border-primary-200 hover:bg-primary-100'
               }`}
             >
               <FiTool className="w-3.5 h-3.5" />
@@ -309,7 +309,7 @@ const Trazabilidad = () => {
         </div>
 
         {/* Componente Visual del Timeline Vertical */}
-        <div className="bg-white rounded-2xl p-5 sm:p-6 border border-gray-200 shadow-2xs">
+        <div className="bg-white rounded-xl p-5 sm:p-6 border border-gray-200 shadow-2xs">
           <TimelineActivo
             eventos={datosTrazabilidad?.trazabilidad || []}
             paginacion={datosTrazabilidad?.paginacion}
