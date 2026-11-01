@@ -133,17 +133,10 @@ const AsignarTecnico = () => {
           'success'
         );
       } else {
-        const detalleError =
-          res.data?.message ||
-          res.data?.error ||
-          `Código HTTP ${res.status}`;
-        console.log(`[API Gateway] Error de respuesta: ${detalleError}`, res);
         setErrorApi('Fallo en la comunicacion ERROR 502');
         showToast('Fallo en la comunicacion ERROR 502', 'error');
       }
-    } catch (networkError) {
-      const endpoint = getAsignarOrdenEndpoint();
-      console.log(`No fue posible conectar con el API Gateway en '${endpoint}'. Verifica que el Gateway esté en ejecución.`, networkError);
+    } catch {
       setErrorApi('Fallo en la comunicacion ERROR 502');
       showToast('Fallo en la comunicacion ERROR 502', 'error');
     } finally {

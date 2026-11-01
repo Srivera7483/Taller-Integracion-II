@@ -14,13 +14,8 @@ import api from './api';
  * @param {string} [payload.estado] - Estado inicial (por defecto 'Pendiente')
  */
 export const planificarMantenimiento = async (payload) => {
-  try {
-    const response = await api.post('/mantenimientos/planificar', payload);
-    return response.data;
-  } catch (error) {
-    console.error('[mantenimientosService] Error al planificar mantenimiento:', error);
-    throw error;
-  }
+  const response = await api.post('/mantenimientos/planificar', payload);
+  return response.data;
 };
 
 /**
@@ -31,8 +26,7 @@ export const fetchActivosParaMantenimiento = async () => {
     const response = await api.get('/activos');
     const data = response.data?.datos || (Array.isArray(response.data) ? response.data : []);
     return data;
-  } catch (error) {
-    console.error('[mantenimientosService] Error al obtener catálogo de activos:', error);
+  } catch {
     return [];
   }
 };
@@ -132,8 +126,8 @@ export const fetchMantenimientos = async (filtros = {}) => {
     const response = await api.get('/mantenimientos', { params });
     const data = response.data?.datos || (Array.isArray(response.data) ? response.data : []);
     return data;
-  } catch (error) {
-    console.warn('[mantenimientosService] Fallback a datos en memoria por error en backend:', error?.message);
+  } catch {
+    // Fallback estructurado a datos locales en memoria
     let data = [...MANTENIMIENTOS_FALLBACK];
     if (filtros.startDate) {
       const inicio = new Date(filtros.startDate);

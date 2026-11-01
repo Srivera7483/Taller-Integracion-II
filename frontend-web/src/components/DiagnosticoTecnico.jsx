@@ -24,8 +24,7 @@ const DiagnosticoTecnico = ({ idOrden }) => {
       if (response.status === 200 || response.status === 201) {
         showToast('Diagnóstico guardado exitosamente', 'success');
       }
-    } catch (error) {
-      console.error('Error al guardar el diagnóstico', error);
+    } catch {
       // Nota: El AxiosInterceptor global ya disparará un Toast de error si hay fallo 4xx/5xx
     } finally {
       setIsSubmitting(false);

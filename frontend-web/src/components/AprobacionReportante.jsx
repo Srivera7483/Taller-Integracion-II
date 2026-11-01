@@ -17,8 +17,7 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
       await api.patch(`/incidencias/${incidenciaId}/estado`, { id_estado: 4 });
       showToast('Solución aprobada. La incidencia ha sido cerrada.', 'success');
       if (onAprobacionCompletada) onAprobacionCompletada('Aprobada');
-    } catch (error) {
-      console.error('Error al aprobar', error);
+    } catch {
       showToast('Error al aprobar la solución.', 'error');
     } finally {
       setIsSubmitting(false);
@@ -42,8 +41,7 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
       setMostrarRechazo(false);
       setMotivoRechazo('');
       if (onAprobacionCompletada) onAprobacionCompletada('Rechazada');
-    } catch (error) {
-      console.error('Error al rechazar', error);
+    } catch {
       showToast('Error al enviar el rechazo.', 'error');
     } finally {
       setIsSubmitting(false);

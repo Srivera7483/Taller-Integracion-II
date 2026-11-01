@@ -8,7 +8,6 @@ import {
   FiCheckCircle,
   FiClock,
   FiAlertTriangle,
-  FiFilter,
   FiSliders,
   FiSearch,
   FiRotateCcw,
@@ -36,8 +35,8 @@ const Mantenimientos = () => {
         endDate: endDate || undefined,
       });
       setMantenimientos(data);
-    } catch (err) {
-      console.error('Error al cargar agenda de mantenimientos:', err);
+    } catch {
+      // Error capturado y notificado en estado visual
       setError('No fue posible cargar el cronograma de mantenimientos. Por favor, reintente.');
     } finally {
       setCargando(false);

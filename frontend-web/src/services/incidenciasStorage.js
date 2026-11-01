@@ -54,9 +54,8 @@ function getCookie(name) {
       const cookieVal = parts.pop().split(';').shift();
       return JSON.parse(decodeURIComponent(cookieVal));
     }
-  } catch (error) {
-    console.warn(`[Cookies] Error al leer cookie ${name}:`, error);
-  }
+  } catch {
+    }
   return null;
 }
 
@@ -72,9 +71,8 @@ function setCookie(name, value, days = COOKIE_EXPIRY_DAYS) {
     const expires = new Date(Date.now() + days * 864e5).toUTCString();
     const serialized = encodeURIComponent(JSON.stringify(value));
     document.cookie = `${name}=${serialized}; expires=${expires}; path=/; SameSite=Lax`;
-  } catch (error) {
-    console.error(`[Cookies] Error al guardar cookie ${name}:`, error);
-  }
+  } catch {
+    }
 }
 
 /**
@@ -295,9 +293,8 @@ export function getTecnicoActual() {
         };
       }
     }
-  } catch (err) {
-    console.warn('Error leyendo técnico actual de localStorage:', err);
-  }
+  } catch {
+    }
 
   // Fallback por defecto: Carlos Ruiz (tec-01)
   return TECNICOS_EXISTENTES[0];
@@ -314,9 +311,8 @@ export function setTecnicoActual(tecnico) {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('tecnico-cambiado'));
     }
-  } catch (err) {
-    console.error('Error guardando técnico actual:', err);
-  }
+  } catch {
+    }
 }
 
 /**

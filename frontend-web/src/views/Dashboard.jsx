@@ -184,7 +184,7 @@ const Dashboard = () => {
 
                   return (
                     <tr
-                      key={idTexto || index}
+                      key={idTexto || `inc-dash-${index}`}
                       ref={isSentinel ? sentinelRef : null}
                       className="hover:bg-gray-50 transition-colors"
                     >

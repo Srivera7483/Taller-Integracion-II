@@ -47,8 +47,7 @@ const BotonExportarExcel = ({
       setTimeout(() => {
         setDescargaExitosa(false);
       }, 3000);
-    } catch (error) {
-      console.error('Error al exportar incidencias:', error);
+    } catch {
       showToast(
         'No se pudo generar el reporte. Verifica la conexión con el servidor.',
         'error'
