@@ -298,7 +298,7 @@ const ModalCierreMantenimiento = ({
     >
       <div
         id="modal-cierre-contenedor"
-        className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] transform transition-all"
+        className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] transform transition-all"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-cierre-titulo"
@@ -307,7 +307,7 @@ const ModalCierreMantenimiento = ({
         <div className={`px-5 sm:px-6 py-4 flex items-center justify-between flex-shrink-0 text-white transition-colors duration-300 ${
           modoAccion === 'RECHAZAR'
             ? 'bg-gradient-to-r from-red-700 via-rose-700 to-red-800'
-            : 'bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800'
+            : 'bg-primary'
         }`}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white flex-shrink-0 border border-white/20">
@@ -386,17 +386,17 @@ const ModalCierreMantenimiento = ({
               {/* Tarjeta de Contexto Rápido de la Tarea */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 sm:p-4 text-xs text-slate-700 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="flex items-center gap-2">
-                  <FiBox className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                  <FiBox className="w-4 h-4 text-primary flex-shrink-0" />
                   <div>
                     <span className="text-gray-600 block text-[10px] uppercase font-semibold">Título</span>
                     <strong className="text-gray-900 truncate block">{orden.incidencia_titulo || orden.titulo || 'Mantenimiento Correctivo'}</strong>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <FiUser className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                  <FiUser className="w-4 h-4 text-primary flex-shrink-0" />
                   <div>
                     <span className="text-gray-600 block text-[10px] uppercase font-semibold">Técnico Responsable</span>
-                    <strong className="text-indigo-900">{tecnicoActual?.nombre || orden.tecnico_nombre}</strong>
+                    <strong className="text-primary-950 font-semibold">{tecnicoActual?.nombre || orden.tecnico_nombre}</strong>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -408,11 +408,11 @@ const ModalCierreMantenimiento = ({
                   <div>
                     <span className="text-gray-600 block text-[10px] uppercase font-semibold">Nuevo Estado</span>
                     {modoAccion === 'RECHAZAR' ? (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-red-100 text-red-800 border border-red-300">
+                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-red-100 text-red-800 border border-red-300">
                         RECHAZADO
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                         Completada
                       </span>
                     )}
@@ -543,7 +543,7 @@ const ModalCierreMantenimiento = ({
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label htmlFor="input-resolucion" className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                        <FiFileText className="w-4 h-4 text-blue-600" />
+                        <FiFileText className="w-4 h-4 text-primary" />
                         <span>Resolución Técnica del Trabajo</span>
                         <span className="text-red-500">*</span>
                       </label>
@@ -564,7 +564,7 @@ const ModalCierreMantenimiento = ({
                       }}
                       disabled={isSubmitting}
                       placeholder="Ej: Se realizó el desmontaje y limpieza de los disipadores. Se reemplazó el cable de señal dañado y se realizaron pruebas de funcionamiento durante 45 minutos sin presentar fallas..."
-                      className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white outline-none text-sm text-gray-900 transition-all resize-y min-h-[110px]"
+                      className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white outline-none text-sm text-gray-900 transition-all resize-y min-h-[110px]"
                     />
                   </div>
 
@@ -572,11 +572,11 @@ const ModalCierreMantenimiento = ({
                   <div className="space-y-2 pt-1 border-t border-gray-100">
                     <div className="flex items-center justify-between">
                       <label htmlFor="input-horas-invertidas" className="text-sm font-bold text-gray-900 flex items-center gap-1.5">
-                        <FiClock className="w-4 h-4 text-indigo-600" />
+                        <FiClock className="w-4 h-4 text-primary" />
                         <span>Horas Invertidas</span>
                         <span className="text-red-500">*</span>
                       </label>
-                      <span className="text-xs text-indigo-700 font-medium bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                      <span className="text-xs text-primary font-medium bg-primary-50 px-2 py-0.5 rounded-lg border border-primary-200">
                         Tiempo de mano de obra
                       </span>
                     </div>
@@ -630,8 +630,8 @@ const ModalCierreMantenimiento = ({
                             disabled={isSubmitting}
                             className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                               Number(horasInvertidas) === h
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                                : 'bg-white hover:bg-indigo-50 text-gray-700 border-gray-300'
+                                ? 'bg-primary text-white border-primary shadow-xs'
+                                : 'bg-white hover:bg-primary-50 text-gray-700 border-gray-300'
                             }`}
                           >
                             {h}h
@@ -727,7 +727,7 @@ const ModalCierreMantenimiento = ({
                                   className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-800 shadow-2xs"
                                 >
                                   <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                                    <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
                                       {m.cantidad}x
                                     </span>
                                     <span>{m.nombre}</span>
@@ -736,7 +736,7 @@ const ModalCierreMantenimiento = ({
                                     type="button"
                                     onClick={() => eliminarMaterial(idx)}
                                     disabled={isSubmitting}
-                                    className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors cursor-pointer"
+                                    className="text-gray-400 hover:text-red-600 p-1 rounded-lg transition-colors cursor-pointer"
                                     title="Eliminar material"
                                     aria-label={`Eliminar material ${m.nombre}`}
                                   >
@@ -783,7 +783,7 @@ const ModalCierreMantenimiento = ({
                 id="btn-cancelar-cierre"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 font-medium text-sm transition-colors disabled:opacity-50 cursor-pointer min-h-[44px]"
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 font-medium text-sm transition-colors disabled:opacity-50 cursor-pointer min-h-[44px]"
               >
                 Cancelar
               </button>
@@ -795,7 +795,7 @@ const ModalCierreMantenimiento = ({
                   id="btn-confirmar-rechazo-incidencia"
                   onClick={handleGuardarRechazo}
                   disabled={isSubmitting || !motivoRechazoValido}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-sm transition-all min-h-[48px] cursor-pointer ${
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
                     isSubmitting || !motivoRechazoValido
                       ? 'bg-gray-400 cursor-not-allowed opacity-60'
                       : 'bg-red-700 hover:bg-red-800 active:scale-98 shadow-red-700/20'
@@ -822,10 +822,10 @@ const ModalCierreMantenimiento = ({
                   id="btn-confirmar-cierre-mantenimiento"
                   onClick={handleGuardarCierre}
                   disabled={isSubmitting || !isFormCompletarValido}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm text-white shadow-sm transition-all min-h-[48px] cursor-pointer ${
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
                     isSubmitting || !isFormCompletarValido
                       ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                      : 'bg-emerald-700 hover:bg-emerald-800 active:scale-98 shadow-emerald-700/20'
+                      : 'bg-primary hover:bg-primary-hover active:scale-98 shadow-primary/20'
                   }`}
                 >
                   {isSubmitting ? (

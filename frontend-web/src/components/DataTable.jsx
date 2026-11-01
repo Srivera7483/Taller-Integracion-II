@@ -19,7 +19,7 @@ const DataTable = ({ columns, data, title, description }) => {
   );
 
   return (
-    <div className="w-full bg-white/80 backdrop-blur-md shadow-lg shadow-blue-900/5 rounded-2xl border border-gray-100 overflow-hidden transition-all duration-300">
+    <div className="w-full bg-white/80 backdrop-blur-md shadow-lg shadow-primary/5 rounded-xl border border-gray-100 overflow-hidden transition-all duration-300">
       {/* Header section */}
       <div className="p-6 border-b border-gray-100 bg-white/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -34,7 +34,7 @@ const DataTable = ({ columns, data, title, description }) => {
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-xl leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-200 shadow-sm"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary sm:text-sm transition-all duration-200 shadow-sm"
             placeholder="Buscar..."
             value={searchTerm}
             onChange={(e) => {
@@ -66,7 +66,7 @@ const DataTable = ({ columns, data, title, description }) => {
               currentData.map((row, rowIndex) => (
                 <tr 
                   key={rowIndex} 
-                  className="hover:bg-blue-50/50 transition-colors duration-200 group"
+                  className="hover:bg-primary-50/40 transition-colors duration-200 group"
                 >
                   {columns.map((col, colIndex) => (
                     <td 
@@ -98,14 +98,14 @@ const DataTable = ({ columns, data, title, description }) => {
           <button
             onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
             disabled={currentPage === 1}
-            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
           >
             Anterior
           </button>
           <button
             onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages || totalPages === 0}
-            className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
           >
             Siguiente
           </button>
@@ -117,11 +117,11 @@ const DataTable = ({ columns, data, title, description }) => {
             </p>
           </div>
           <div>
-            <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+            <nav className="relative z-0 inline-flex rounded-lg shadow-sm -space-x-px" aria-label="Pagination">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                className="relative inline-flex items-center px-2 py-2 rounded-l-lg border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 transition-colors"
               >
                 <span className="sr-only">Anterior</span>
                 <FiChevronLeft className="h-5 w-5" aria-hidden="true" />
@@ -134,7 +134,7 @@ const DataTable = ({ columns, data, title, description }) => {
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
-                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                className="relative inline-flex items-center px-2 py-2 rounded-r-lg border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 transition-colors"
               >
                 <span className="sr-only">Siguiente</span>
                 <FiChevronRight className="h-5 w-5" aria-hidden="true" />

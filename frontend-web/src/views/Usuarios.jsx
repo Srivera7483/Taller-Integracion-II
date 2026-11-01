@@ -34,10 +34,10 @@ const Usuarios = () => {
   const getRoleBadgeClass = (rol) => {
     const rolNormalizado = (rol || '').toLowerCase();
     if (rolNormalizado.includes('admin')) {
-      return 'bg-purple-100 text-purple-800 border-purple-200';
+      return 'bg-secondary-50 text-secondary-800 border-secondary-200';
     }
     if (rolNormalizado.includes('téc') || rolNormalizado.includes('tec')) {
-      return 'bg-blue-100 text-blue-800 border-blue-200';
+      return 'bg-primary-50 text-primary border-primary-200';
     }
     return 'bg-gray-100 text-gray-800 border-gray-200';
   };
@@ -46,19 +46,19 @@ const Usuarios = () => {
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+          <h1 className="text-3xl font-extrabold text-primary tracking-tight">
             Gestión de Usuarios
           </h1>
           <p className="mt-1 text-sm text-gray-600">
             Catálogo del personal y credenciales sincronizadas con la base de datos de autenticación.
           </p>
         </div>
-        <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+        <div className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-primary-50 text-primary border border-primary-200">
           {usuarios.length} usuarios cargados
         </div>
       </div>
 
-      <div className="w-full bg-white/90 backdrop-blur-md shadow-lg shadow-blue-900/5 rounded-2xl border border-gray-100 overflow-hidden">
+      <div className="w-full bg-white/90 backdrop-blur-md shadow-lg shadow-primary/5 rounded-xl border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100 bg-white/60 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className="text-xl font-bold text-gray-800 tracking-tight">Directorio de Usuarios</h2>
@@ -98,7 +98,7 @@ const Usuarios = () => {
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-500">
                     <div className="flex justify-center items-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-indigo-600 border-t-transparent"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
                       <span>Cargando primeros 15 usuarios...</span>
                     </div>
                   </td>
@@ -122,12 +122,12 @@ const Usuarios = () => {
                     <tr
                       key={usr.id_usuario || usr.rut_o_id || index}
                       ref={isSentinel ? sentinelRef : null}
-                      className="hover:bg-blue-50/40 transition-colors duration-150"
+                      className="hover:bg-primary-50/40 transition-colors duration-150"
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-9 w-9 flex-shrink-0">
-                            <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
+                            <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xs shadow-xs">
                               {inicial}
                             </div>
                           </div>
@@ -138,7 +138,7 @@ const Usuarios = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-mono text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded border border-gray-200">
+                        <span className="font-mono text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded-lg border border-gray-200">
                           {usr.rut_o_id || 'N/A'}
                         </span>
                       </td>
@@ -162,7 +162,7 @@ const Usuarios = () => {
 
           {loadingMore && (
             <div className="flex justify-center items-center py-4 bg-gray-50/70 border-t border-gray-100">
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-indigo-600 border-t-transparent"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
               <span className="ml-2.5 text-xs font-medium text-gray-600">Cargando siguientes usuarios...</span>
             </div>
           )}

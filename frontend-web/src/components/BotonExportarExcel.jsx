@@ -77,7 +77,7 @@ const BotonExportarExcel = ({
                 <RiFileExcel2Line className="w-4 h-4 text-emerald-600" />
                 Microsoft Excel (.xlsx)
               </span>
-              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-lg">
                 Recomendado
               </span>
             </button>
@@ -225,7 +225,7 @@ const BotonExportarExcel = ({
               <RiFileExcel2Line className="w-4 h-4 text-emerald-600" />
               Microsoft Excel (.xlsx)
             </span>
-            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-bold">
+            <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-lg font-bold">
               Estándar
             </span>
           </button>

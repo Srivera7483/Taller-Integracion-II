@@ -41,7 +41,7 @@ const ServerError = () => {
       {/* Cabecera institucional */}
       <header className="max-w-5xl mx-auto w-full flex items-center justify-between py-4">
         <Link to="/dashboard" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-blue-900 text-white flex items-center justify-center font-bold text-lg shadow-md group-hover:bg-blue-800 transition">
+          <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-lg shadow-md group-hover:bg-primary-hover transition">
             SG
           </div>
           <div>
@@ -64,7 +64,7 @@ const ServerError = () => {
             {statusCodigo}
           </span>
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-rose-600 text-white flex items-center justify-center shadow-xl shadow-rose-600/30 -rotate-3 transition-transform hover:rotate-0">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-xl shadow-rose-600/30 -rotate-3 transition-transform hover:rotate-0">
               <FiServer className="w-8 h-8 sm:w-10 sm:h-10 animate-bounce" />
             </div>
           </div>
@@ -101,7 +101,7 @@ const ServerError = () => {
             id="btn-500-reintentar"
             onClick={handleReintentar}
             disabled={reintentando}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition shadow-sm hover:shadow cursor-pointer min-h-[44px] disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm transition shadow-md hover:shadow-lg hover:-translate-y-0.5 cursor-pointer min-h-[44px] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             <FiRefreshCw className={`w-4 h-4 ${reintentando ? 'animate-spin' : ''}`} />
             <span>{reintentando ? 'Reconectando...' : 'Reintentar Conexión'}</span>
@@ -110,7 +110,7 @@ const ServerError = () => {
           <Link
             to="/dashboard"
             id="btn-500-inicio"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 hover:text-gray-900 transition shadow-2xs cursor-pointer min-h-[44px]"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-white border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 hover:text-gray-900 transition shadow-2xs cursor-pointer min-h-[44px]"
           >
             <FiHome className="w-4 h-4" />
             <span>Volver al Inicio</span>
@@ -124,15 +124,15 @@ const ServerError = () => {
           </p>
           <ul className="space-y-2 text-xs text-gray-600">
             <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
               <span>Verifica que los microservicios Docker o el API Gateway (puerto 8080) se encuentren en ejecución.</span>
             </li>
             <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
               <span>Confirma que tu sesión de usuario sea válida y cuentes con acceso de red institucional.</span>
             </li>
             <li className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shrink-0" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
               <span>Si el fallo persiste tras recargar, comunica el incidente al administrador del sistema.</span>
             </li>
           </ul>
