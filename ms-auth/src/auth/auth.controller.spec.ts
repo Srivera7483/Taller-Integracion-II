@@ -3,10 +3,12 @@ import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { RoleEnum } from './dto/update-role.dto.js';
+import { AuditService } from './audit.service.js';
 
 describe('AuthController', () => {
   let authController: AuthController;
   let authServiceMock: AuthService;
+  let auditServiceMock: AuditService;
 
   beforeEach(() => {
     authServiceMock = {
@@ -15,8 +17,12 @@ describe('AuthController', () => {
       updateUserRole: vi.fn(),
       getAuthenticatedUser: vi.fn(),
     } as unknown as AuthService;
+    auditServiceMock = {
+      record: vi.fn(),
+      list: vi.fn(),
+    } as unknown as AuditService;
 
-    authController = new AuthController(authServiceMock);
+    authController = new AuthController(authServiceMock, auditServiceMock);
   });
 
   describe('login', () => {

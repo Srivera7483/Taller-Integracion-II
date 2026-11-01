@@ -6,6 +6,7 @@ import { verify } from 'argon2';
 import { AuthService } from './auth.service.js';
 import { UserRepository } from './user.repository.js';
 import { RoleEnum } from './dto/update-role.dto.js';
+import { AuditService } from './audit.service.js';
 
 vi.mock('argon2', () => ({
   verify: vi.fn(),
@@ -15,6 +16,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let userRepositoryMock: any;
   let jwtMock: any;
+  let auditServiceMock: any;
 
   beforeEach(async () => {
     userRepositoryMock = {
@@ -27,12 +29,17 @@ describe('AuthService', () => {
       sign: vi.fn().mockReturnValue('signed-token'),
       verify: vi.fn(),
     };
+    auditServiceMock = {
+      record: vi.fn().mockResolvedValue(undefined),
+      list: vi.fn(),
+    };
 
     const moduleRef = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: UserRepository, useValue: userRepositoryMock },
         { provide: JwtService, useValue: jwtMock },
+        { provide: AuditService, useValue: auditServiceMock },
       ],
     }).compile();
 

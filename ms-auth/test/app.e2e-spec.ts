@@ -42,6 +42,12 @@ describe('AppController (e2e)', () => {
             passwordHash,
           })),
         },
+        auditLog: {
+          create: vi.fn().mockResolvedValue({ id: 'audit-1' }),
+          findMany: vi.fn().mockResolvedValue([]),
+          count: vi.fn().mockResolvedValue(0),
+        },
+        $transaction: vi.fn().mockResolvedValue([[], 0]),
       })
       .compile();
 

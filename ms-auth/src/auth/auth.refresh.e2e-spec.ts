@@ -10,6 +10,7 @@ import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { RolesGuard } from './roles.guard.js';
 import { UserRepository } from './user.repository.js';
+import { AuditService } from './audit.service.js';
 
 const jwtSecret = 'test-access-secret';
 const refreshSecret = 'test-refresh-secret';
@@ -33,6 +34,10 @@ describe('Auth refresh flow (e2e)', () => {
     findByEmail: vi.fn(),
     findById: vi.fn(),
     updateRole: vi.fn(),
+  };
+  const auditService = {
+    record: vi.fn().mockResolvedValue(undefined),
+    list: vi.fn(),
   };
 
   beforeAll(async () => {
@@ -69,6 +74,7 @@ describe('Auth refresh flow (e2e)', () => {
         JwtAuthGuard,
         RolesGuard,
         { provide: UserRepository, useValue: userRepository },
+        { provide: AuditService, useValue: auditService },
       ],
     }).compile();
 

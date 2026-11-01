@@ -4,6 +4,8 @@ import { verify } from 'argon2';
 import { UserRepository } from './user.repository.js';
 import { LoginDto } from './dto/login.dto.js';
 import { UpdateRoleDto } from './dto/update-role.dto.js';
+import { AuditEvent } from '@prisma/client';
+import { AuditContext, AuditService } from './audit.service.js';
 
 interface RefreshTokenPayload {
   sub: string;
@@ -25,20 +27,30 @@ export class AuthService {
   constructor(
     private readonly jwtService: JwtService,
     private readonly userRepository: UserRepository,
+    private readonly auditService: AuditService,
   ) {}
 
-  async login(loginDto: LoginDto): Promise<any> {
+  async login(loginDto: LoginDto, auditContext: AuditContext = {}): Promise<any> {
     const email = loginDto.email.trim().toLowerCase();
 
     const user = await this.userRepository.findByEmail(email);
 
     if (!user || user.fechaEliminacion) {
+      await this.auditService.record(AuditEvent.LOGIN_FAILED, {
+        ...auditContext,
+        email,
+      });
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
     const passwordMatches = await verify(user.passwordHash, loginDto.password);
 
     if (!passwordMatches) {
+      await this.auditService.record(AuditEvent.LOGIN_FAILED, {
+        ...auditContext,
+        email,
+        userId: user.id,
+      });
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
@@ -54,6 +66,12 @@ export class AuthService {
     const refreshToken = this.jwtService.sign(
       { sub: user.id, tokenUse: 'refresh' },
       { secret: getRefreshTokenSecret(), expiresIn: '7d' },
+    );
+
+    await this.auditService.record(
+      AuditEvent.LOGIN_SUCCESS,
+      { ...auditContext, email, userId: user.id },
+      { role: user.role.nombreRol },
     );
 
     return {

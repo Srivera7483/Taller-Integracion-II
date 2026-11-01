@@ -140,6 +140,28 @@ const buildGateway = (options = {}) => {
         }
     });
 
+    fastify.addHook('onResponse', (request, reply, done) => {
+        if (
+            reply.statusCode === 429 &&
+            request.method === 'POST' &&
+            request.url.startsWith('/api/v1/auth/login')
+        ) {
+            void fetch(`${authUrl}/auth/audit/rate-limit-blocked`, {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json',
+                    'x-audit-secret': process.env.AUDIT_INTERNAL_SECRET ?? 'dev-audit-secret',
+                },
+                body: JSON.stringify({
+                    ipAddress: request.ip,
+                    userAgent: request.headers['user-agent'],
+                }),
+                signal: AbortSignal.timeout(2000),
+            }).catch((error) => fastify.log.error(error, 'No fue posible registrar el bloqueo del rate limit'));
+        }
+        done();
+    });
+
     fastify.register(proxy, {
         upstream: options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3003',
         prefix: '/api/v1/activos',

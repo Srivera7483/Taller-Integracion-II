@@ -6,6 +6,8 @@ import { JwtAuthGuard } from './jwt-auth.guard.js';
 // Se deja por consideración, pero está definido Global
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { UserRepository } from './user.repository.js';
+import { AuditService } from './audit.service.js';
+import { RolesGuard } from './roles.guard.js';
 
 @Module({
   imports: [
@@ -15,6 +17,6 @@ import { UserRepository } from './user.repository.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard, UserRepository],
+  providers: [AuthService, JwtAuthGuard, RolesGuard, UserRepository, AuditService],
 })
 export class AuthModule {}
