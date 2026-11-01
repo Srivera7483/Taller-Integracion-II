@@ -2,11 +2,11 @@ import React from 'react';
 
 const MetricCard = ({ title, value, icon: Icon, color }) => {
   const colorStyles = {
-    blue: 'bg-blue-50 text-blue-600',
+    blue: 'bg-primary-50 text-primary',
     green: 'bg-green-50 text-green-600',
     red: 'bg-red-50 text-red-600',
-    orange: 'bg-orange-50 text-orange-600',
-    purple: 'bg-purple-50 text-purple-600',
+    orange: 'bg-secondary-50 text-secondary',
+    purple: 'bg-primary-50 text-primary',
   };
 
   const selectedStyle = colorStyles[color] || 'bg-gray-50 text-gray-600';

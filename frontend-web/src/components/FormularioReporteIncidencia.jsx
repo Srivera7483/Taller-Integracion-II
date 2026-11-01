@@ -368,7 +368,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
         <div className="border-b border-gray-100 pb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <FiAlertCircle className="text-blue-600" />
+            <FiAlertCircle className="text-primary" />
             Datos Principales del Reporte
           </h3>
           <p className="text-sm text-gray-500 mt-1">
@@ -397,7 +397,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 className={`w-full pl-11 pr-4 py-2.5 rounded-lg border text-sm transition-all outline-none ${
                   touched.titulo && errors.titulo
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white'
+                    : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'
                 } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
                 required
               />
@@ -422,7 +422,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               </label>
 
               {isUrlPreloaded && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary-50 text-primary border border-primary-200">
                   <FiLink className="w-3 h-3" /> Pre-cargado desde URL
                 </span>
               )}
@@ -441,11 +441,11 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 disabled={isSubmitting}
                 placeholder="Ej. SN-MPM2-2023-001 o ACT-SRV-04"
                 className={`w-full pl-11 ${
-                  isUrlPreloaded ? 'pr-10 bg-blue-50/30' : 'pr-4 bg-white'
+                  isUrlPreloaded ? 'pr-10 bg-primary-50/30' : 'pr-4 bg-white'
                 } py-2.5 rounded-lg border text-sm transition-all outline-none font-mono ${
                   touched.idActivo && errors.idActivo
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary'
                 } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
                 required
               />
@@ -468,7 +468,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 {errors.idActivo}
               </p>
             ) : isUrlPreloaded ? (
-              <p className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+              <p className="mt-1 text-xs text-primary font-medium flex items-center gap-1">
                 <FiCheckCircle className="w-3.5 h-3.5" />
                 Identificador de equipo cargado automáticamente desde el enlace.
               </p>
@@ -491,7 +491,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 value={ubicacion}
                 onChange={(e) => setUbicacion(e.target.value)}
                 placeholder="Ej. Rack A3 - DataCenter Norte / Piso 2"
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-sm transition-all"
               />
             </div>
             <p className="mt-1 text-xs text-gray-500">
@@ -505,7 +505,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
         <div className="border-b border-gray-100 pb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <FiLayers className="text-blue-600" />
+            <FiLayers className="text-primary" />
             Clasificación de la Falla
           </h3>
           <p className="text-sm text-gray-500 mt-1">
@@ -529,7 +529,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-all outline-none appearance-none bg-white ${
                   touched.categoria && errors.categoria
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary'
                 } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
                 required
               >
@@ -569,7 +569,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
         <div className="border-b border-gray-100 pb-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <FiAlignLeft className="text-blue-600" />
+              <FiAlignLeft className="text-primary" />
               Detalle y Diagnóstico
             </h3>
             <p className="text-sm text-gray-500 mt-1">
@@ -598,7 +598,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             className={`w-full p-4 rounded-lg border text-sm transition-all outline-none resize-y ${
               touched.descripcion && errors.descripcion
                 ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white'
+                : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'
             } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
             required
           />
@@ -646,7 +646,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               navigate('/incidencias');
             }
           }}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           <FiArrowLeft className="w-4 h-4" />
           Volver a Incidencias
@@ -666,7 +666,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             type="submit"
             id="btn-enviar-incidencia"
             disabled={isSubmitting}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover focus:ring-4 focus:ring-primary/20 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >
             {isSubmitting ? (
               <>

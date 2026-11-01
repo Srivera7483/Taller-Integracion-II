@@ -162,20 +162,20 @@ const DetalleOrden = () => {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Navegación tipo Breadcrumbs */}
       <nav aria-label="Ruta de navegación" className="flex items-center gap-2 text-sm text-gray-600">
-        <Link to="/dashboard" className="hover:text-blue-600 transition-colors">Inicio</Link>
+        <Link to="/dashboard" className="hover:text-primary transition-colors">Inicio</Link>
         <FiChevronRight className="w-3.5 h-3.5" />
-        <Link to="/incidencias" className="hover:text-blue-600 transition-colors">Incidencias</Link>
+        <Link to="/incidencias" className="hover:text-primary transition-colors">Incidencias</Link>
         <FiChevronRight className="w-3.5 h-3.5" />
         <span className="font-semibold text-gray-900">Orden {orden.id_orden}</span>
       </nav>
 
       {/* TARJETA PRINCIPAL DE LA ORDEN DE TRABAJO */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {/* Cabecera */}
         <div className="p-5 sm:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-gray-50 to-white">
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
-              <span className="font-mono text-sm font-bold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md border border-blue-200">
+              <span className="font-mono text-sm font-bold bg-primary-50 text-primary px-2.5 py-1 rounded-lg border border-primary-200">
                 {orden.id_orden}
               </span>
               <StatusBadge status={orden.estado} />
@@ -201,7 +201,7 @@ const DetalleOrden = () => {
               <div className="flex items-center gap-2">
                 <Link
                   to={`/incidencias/${orden.incidencia_id}`}
-                  className="font-mono text-xs font-bold text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1"
+                  className="font-mono text-xs font-bold text-primary hover:text-primary-hover hover:underline flex items-center gap-1"
                 >
                   <span>{orden.incidencia_id}</span>
                 </Link>
@@ -223,17 +223,17 @@ const DetalleOrden = () => {
                 Técnico Designado
               </span>
               <div className="flex items-center gap-1.5 text-xs text-gray-800 font-semibold">
-                <FiUser className="w-3.5 h-3.5 text-indigo-600" aria-hidden="true" />
+                <FiUser className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
                 <span>{orden.tecnico_nombre}</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-4">
-            <h2 className="text-xs uppercase tracking-wider text-blue-900 font-bold mb-1.5 flex items-center gap-1.5">
-              <FiInfo className="w-4 h-4 text-blue-600" aria-hidden="true" /> Instrucciones del Supervisor
+          <div className="bg-primary-50/70 border border-primary-200 rounded-xl p-4">
+            <h2 className="text-xs uppercase tracking-wider text-primary font-bold mb-1.5 flex items-center gap-1.5">
+              <FiInfo className="w-4 h-4 text-primary" aria-hidden="true" /> Instrucciones del Supervisor
             </h2>
-            <p className="text-xs sm:text-sm text-blue-950 leading-relaxed">
+            <p className="text-xs sm:text-sm text-primary-950 leading-relaxed">
               {orden.instrucciones || 'Realizar diagnóstico preventivo y resolver la falla en el menor tiempo posible.'}
             </p>
           </div>
@@ -253,7 +253,7 @@ const DetalleOrden = () => {
       {/* SECCIÓN FINALIZATIVA: SEGÚN ESTADO Y OWNERSHIP DEL TÉCNICO */}
       {estaCompletada ? (
         /* VISTA: MANTENIMIENTO YA CONFIRMADO Y COMPLETADO */
-        <div id="seccion-reporte-cierre" className="bg-white rounded-2xl shadow-sm border border-emerald-200 p-6 space-y-5 animate-fadeIn">
+        <div id="seccion-reporte-cierre" className="bg-white rounded-xl shadow-sm border border-emerald-200 p-6 space-y-5 animate-fadeIn">
           <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
@@ -289,7 +289,7 @@ const DetalleOrden = () => {
                   {orden.materialesUsados.map((m, idx) => (
                     <span
                       key={idx}
-                      className="px-2.5 py-1 rounded-md text-xs font-semibold bg-white border border-emerald-200 text-emerald-900 shadow-2xs"
+                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-emerald-200 text-emerald-900 shadow-2xs"
                     >
                       {m.cantidad}x {m.nombre}
                     </span>
@@ -305,7 +305,7 @@ const DetalleOrden = () => {
 
           <div className="space-y-1.5 pt-2">
             <span className="text-xs uppercase font-bold text-gray-700 block flex items-center gap-1">
-              <FiFileText className="w-3.5 h-3.5 text-blue-600" /> Resolución Técnica Registrada
+              <FiFileText className="w-3.5 h-3.5 text-primary" /> Resolución Técnica Registrada
             </span>
             <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
               {orden.resolucion || orden.diagnostico_tecnico || 'Resolución satisfactoria del servicio.'}
@@ -320,11 +320,11 @@ const DetalleOrden = () => {
         </div>
       ) : !estaRechazada ? (
         /* VISTA: TAREA PENDIENTE DE COMPLETAR O RECHAZAR */
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <FiCheckCircle className="w-5 h-5 text-blue-600" aria-hidden="true" />
+                <FiCheckCircle className="w-5 h-5 text-primary" aria-hidden="true" />
                 Cierre de Tarea y Rendición de Cuentas
               </h2>
               <p className="text-xs text-gray-600 mt-0.5">
@@ -335,11 +335,11 @@ const DetalleOrden = () => {
 
           {/* EVALUACIÓN DE OWNERSHIP / ACCESO AL FORMULARIO */}
           {esTecnicoAsignado ? (
-            /* TÉCNICO ASIGNADO: BOTÓN PRINCIPAL HABILITADO */
+            /* TÉCNICO ASIGNADO: BOTÓN PRINCIPAL HABILITADO (CTA) */
             <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-200 text-emerald-900 font-mono">
+                  <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-200 text-emerald-900 font-mono">
                     Técnico Asignado
                   </span>
                   <strong className="text-sm text-emerald-950">{tecnicoActual?.nombre}</strong>
@@ -353,7 +353,7 @@ const DetalleOrden = () => {
                 type="button"
                 id="btn-abrir-modal-cierre"
                 onClick={() => setIsModalOpen(true)}
-                className="w-full sm:w-auto px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 active:scale-98 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg shadow-emerald-700/25 flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[48px]"
+                className="w-full sm:w-auto px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 active:scale-98 text-white rounded-lg font-bold text-sm shadow-md hover:shadow-lg shadow-emerald-700/25 flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[48px]"
               >
                 <FiCheckCircle className="w-5 h-5" />
                 <span>Gestionar Cierre / Rechazo</span>

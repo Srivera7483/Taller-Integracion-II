@@ -195,11 +195,11 @@ const AsignarTecnico = () => {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Navegación tipo Breadcrumbs */}
       <nav className="flex items-center gap-2 text-sm text-gray-500">
-        <Link to="/dashboard" className="hover:text-blue-600 transition-colors">
+        <Link to="/dashboard" className="hover:text-primary transition-colors">
           Inicio
         </Link>
         <FiChevronRight className="w-3.5 h-3.5" />
-        <Link to="/incidencias" className="hover:text-blue-600 transition-colors">
+        <Link to="/incidencias" className="hover:text-primary transition-colors">
           Incidencias
         </Link>
         <FiChevronRight className="w-3.5 h-3.5" />
@@ -213,7 +213,7 @@ const AsignarTecnico = () => {
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
               Asignación de Técnico a Incidencia
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary border border-primary-200">
               Panel de Supervisor
             </span>
           </div>
@@ -345,7 +345,7 @@ const AsignarTecnico = () => {
                 value={selectedIncidenciaId}
                 onChange={(e) => setSelectedIncidenciaId(e.target.value)}
                 required
-                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer"
               >
                 <option value="">-- Selecciona una incidencia --</option>
                 {incidenciasDisponibles.length === 0 ? (
@@ -412,7 +412,7 @@ const AsignarTecnico = () => {
                 value={selectedTecnicoId}
                 onChange={(e) => setSelectedTecnicoId(e.target.value)}
                 required
-                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all cursor-pointer font-medium"
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer font-medium"
               >
                 <option value="">-- Seleccionar técnico disponible --</option>
                 {TECNICOS_EXISTENTES.map((tec) => (
@@ -421,15 +421,15 @@ const AsignarTecnico = () => {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 Nota: La nómina de técnicos es gestionada por administración. No es posible crear técnicos nuevos desde esta vista.
               </p>
             </div>
 
             {/* Ficha rápida del técnico seleccionado */}
             {tecnicoSeleccionado && (
-              <div className="p-4 bg-indigo-50/60 rounded-xl border border-indigo-100 flex items-center gap-4 transition-all">
-                <div className="w-12 h-12 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-sm flex-shrink-0">
+              <div className="p-4 bg-primary-50/60 rounded-xl border border-primary-100 flex items-center gap-4 transition-all">
+                <div className="w-12 h-12 rounded-lg bg-primary text-white font-bold flex items-center justify-center text-sm shadow-sm flex-shrink-0">
                   {tecnicoSeleccionado.avatar}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -437,14 +437,14 @@ const AsignarTecnico = () => {
                     <h4 className="font-bold text-gray-900 text-sm truncate">
                       {tecnicoSeleccionado.nombre}
                     </h4>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${tecnicoSeleccionado.disponibilidad === 'Disponible'
+                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold border ${tecnicoSeleccionado.disponibilidad === 'Disponible'
                       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                       : 'bg-amber-50 text-amber-700 border-amber-200'
                       }`}>
                       {tecnicoSeleccionado.disponibilidad}
                     </span>
                   </div>
-                  <p className="text-xs text-indigo-900 font-medium mt-0.5">
+                  <p className="text-xs text-primary-950 font-medium mt-0.5">
                     {tecnicoSeleccionado.especialidad}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -468,7 +468,7 @@ const AsignarTecnico = () => {
                 value={notasInstrucciones}
                 onChange={(e) => setNotasInstrucciones(e.target.value)}
                 placeholder="Ejemplo: Priorizar la revisión del cableado de red antes del cambio de módulo..."
-                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400"
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-gray-400"
               />
             </div>
 
@@ -485,8 +485,8 @@ const AsignarTecnico = () => {
                 type="submit"
                 id="btn-asignar-orden"
                 disabled={!isFormValid || isSubmitting}
-                className={`w-full sm:w-auto px-6 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm flex items-center justify-center gap-2 ${isFormValid && !isSubmitting
-                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer hover:shadow-md'
+                className={`w-full sm:w-auto px-6 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2 ${isFormValid && !isSubmitting
+                    ? 'bg-primary hover:bg-primary-hover text-white cursor-pointer hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300'
                   }`}
                 title={
@@ -545,7 +545,7 @@ const AsignarTecnico = () => {
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold font-mono text-emerald-900">{ord.id_orden}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-emerald-200 text-emerald-800 font-semibold text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded-lg bg-emerald-200 text-emerald-800 font-semibold text-[10px]">
                         {ord.estado}
                       </span>
                     </div>
@@ -566,7 +566,7 @@ const AsignarTecnico = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-                <FiUserCheck className="text-indigo-600 w-4 h-4" />
+                <FiUserCheck className="text-primary w-4 h-4" />
                 Técnicos Existentes
               </h3>
               <span className="text-[11px] bg-gray-100 text-gray-600 font-semibold px-2 py-0.5 rounded-full">
@@ -580,7 +580,7 @@ const AsignarTecnico = () => {
                   key={tec.id}
                   onClick={() => setSelectedTecnicoId(tec.id)}
                   className={`py-2.5 px-2 rounded-lg flex items-center justify-between cursor-pointer transition-colors ${selectedTecnicoId === tec.id
-                      ? 'bg-indigo-50 border border-indigo-200'
+                      ? 'bg-primary-50 border border-primary-200'
                       : 'hover:bg-gray-50'
                     }`}
                   title="Haz clic para seleccionarlo en el formulario"
@@ -598,7 +598,7 @@ const AsignarTecnico = () => {
                       </p>
                     </div>
                   </div>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${tec.disponibilidad === 'Disponible'
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-lg font-medium flex-shrink-0 ${tec.disponibilidad === 'Disponible'
                       ? 'bg-emerald-50 text-emerald-700'
                       : 'bg-amber-50 text-amber-700'
                     }`}>
