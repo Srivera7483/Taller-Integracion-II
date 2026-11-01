@@ -45,8 +45,36 @@ const DataTable = ({ columns, data, title, description }) => {
         </div>
       </div>
 
-      {/* Table section */}
-      <div className="overflow-x-auto">
+      {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
+      <div className="md:hidden divide-y divide-gray-100 p-4 space-y-3">
+        {currentData.length > 0 ? (
+          currentData.map((row, rowIndex) => (
+            <div
+              key={rowIndex}
+              className="bg-white rounded-xl p-4 border border-gray-200 shadow-2xs space-y-2.5 hover:border-gray-300 transition-all"
+            >
+              {columns.map((col, colIndex) => (
+                <div key={colIndex} className="flex justify-between items-center text-xs py-1 border-b border-gray-50 last:border-0 gap-2">
+                  <span className="font-semibold text-gray-500 uppercase tracking-wider text-[10px] flex-shrink-0">
+                    {col.header}
+                  </span>
+                  <span className="font-medium text-gray-800 text-right truncate">
+                    {col.cell ? col.cell(row) : row[col.accessorKey]}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))
+        ) : (
+          <div className="px-6 py-12 text-center text-sm text-gray-500 bg-gray-50/30 rounded-xl">
+            No se encontraron resultados para "{searchTerm}"
+          </div>
+        )}
+      </div>
+
+      {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
+      <div className="hidden md:block overflow-x-auto">
+
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50/80 backdrop-blur-sm">
             <tr>

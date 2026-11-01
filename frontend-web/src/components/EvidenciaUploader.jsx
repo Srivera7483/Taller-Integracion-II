@@ -80,8 +80,7 @@ const EvidenciaUploader = ({
           cloudinaryResult: result,
         });
       }
-    } catch (err) {
-      console.error('[EvidenciaUploader] Error al procesar imagen:', err);
+    } catch {
       setErrorMessage('Error al subir imagen a Cloudinary. Intenta nuevamente.');
     } finally {
       setIsUploading(false);

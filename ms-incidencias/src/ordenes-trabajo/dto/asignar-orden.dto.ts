@@ -1,4 +1,5 @@
 import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { SanitizeXss } from '../../validators/sanitize-xss.pipe';
 
 export class AsignarOrdenDto {
   @IsUUID()
@@ -11,5 +12,6 @@ export class AsignarOrdenDto {
 
   @IsString()
   @IsOptional()
+  @SanitizeXss()
   diagnostico_tecnico?: string;
 }

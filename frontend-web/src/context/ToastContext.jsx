@@ -24,6 +24,7 @@ export const ToastProvider = ({ children }) => {
   );
 };
 
+// oxlint-disable-next-line react/only-export-components
 export const useToast = () => {
   const context = useContext(ToastContext);
   if (!context) {
