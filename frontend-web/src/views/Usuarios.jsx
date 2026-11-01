@@ -73,7 +73,70 @@ const Usuarios = () => {
           onScroll={handleContainerScroll}
           className="overflow-x-auto overflow-y-auto max-h-[580px]"
         >
-          <table className="min-w-full divide-y divide-gray-200 text-left text-sm text-gray-600">
+          {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
+          <div className="md:hidden divide-y divide-gray-100 p-3 sm:p-4 space-y-3">
+            {loading && usuarios.length === 0 ? (
+              <div className="py-12 text-center text-sm text-gray-500">
+                <div className="flex justify-center items-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+                  <span>Cargando primeros 15 usuarios...</span>
+                </div>
+              </div>
+            ) : usuarios.length === 0 ? (
+              <div className="py-12 text-center text-sm text-gray-500">
+                No se encontraron usuarios registrados en la base de datos.
+              </div>
+            ) : (
+              usuarios.map((usr, index) => {
+                const nombreCompleto = `${usr.nombre || ''} ${usr.apellido || ''}`.trim() || 'Usuario';
+                const inicial = (usr.nombre || 'U').charAt(0).toUpperCase();
+                const fechaTexto = usr.fecha_creacion
+                  ? new Date(usr.fecha_creacion).toLocaleDateString()
+                  : 'N/A';
+
+                return (
+                  <div
+                    key={usr.id_usuario || usr.rut_o_id || `user-card-${index}`}
+                    className="bg-white rounded-xl p-4 border border-gray-200 shadow-2xs space-y-3 hover:border-gray-300 transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm shadow-xs flex-shrink-0">
+                          {inicial}
+                        </div>
+                        <div>
+                          <h4 className="font-semibold text-sm text-gray-900 leading-snug">{nombreCompleto}</h4>
+                          <span className="text-xs text-gray-500 break-all">{usr.correo || usr.email}</span>
+                        </div>
+                      </div>
+                      <StatusBadge status={usr.estado === 'inactivo' ? 'inactivo' : 'activo'} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50/80 p-2.5 rounded-lg border border-gray-100">
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">RUT / ID</span>
+                        <span className="font-mono text-xs font-semibold text-gray-700">{usr.rut_o_id || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Rol Asignado</span>
+                        <span className={`px-2 py-0.5 inline-flex text-[11px] font-semibold rounded-full border ${getRoleBadgeClass(usr.rol)}`}>
+                          {usr.rol || 'Usuario'}
+                        </span>
+                      </div>
+                      <div className="col-span-2 pt-1 border-t border-gray-200/60 flex items-center justify-between text-gray-500">
+                        <span className="text-[10px] uppercase font-bold text-gray-400">Fecha Registro</span>
+                        <span className="font-medium text-xs">{fechaTexto}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
+          <div className="hidden md:block">
+<table className="min-w-full divide-y divide-gray-200 text-left text-sm text-gray-600">
             <thead className="bg-gray-50/90 backdrop-blur-sm sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
@@ -159,6 +222,7 @@ const Usuarios = () => {
               )}
             </tbody>
           </table>
+          </div>
 
           {loadingMore && (
             <div className="flex justify-center items-center py-4 bg-gray-50/70 border-t border-gray-100">

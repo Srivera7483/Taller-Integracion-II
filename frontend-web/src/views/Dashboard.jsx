@@ -9,7 +9,8 @@ import {
   FiClock,
   FiArrowRight,
   FiBox,
-  FiActivity
+  FiActivity,
+  FiUser
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { fetchIncidencias } from '../services/incidenciasService';
@@ -146,7 +147,74 @@ const Dashboard = () => {
           onScroll={handleContainerScroll}
           className="overflow-x-auto overflow-y-auto max-h-[520px]"
         >
-          <table className="w-full text-left text-sm text-gray-600">
+          {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
+          <div className="md:hidden divide-y divide-gray-100 p-3 sm:p-4 space-y-3">
+            {loading && incidencias.length === 0 ? (
+              <div className="py-12 text-center text-sm text-gray-500">
+                <div className="flex justify-center items-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+                  <span>Cargando incidencias iniciales...</span>
+                </div>
+              </div>
+            ) : incidencias.length === 0 ? (
+              <div className="py-12 text-center text-sm text-gray-500">
+                No hay incidencias registradas en el sistema.
+              </div>
+            ) : (
+              incidencias.map((inc, index) => {
+                const estadoTexto = typeof inc.estado === 'object' && inc.estado !== null
+                  ? inc.estado.nombre_estado
+                  : inc.estado || 'Reportada';
+                const idTexto = inc.id_incidencia || inc.id;
+                const fechaTexto = inc.fecha_creacion
+                  ? new Date(inc.fecha_creacion).toLocaleDateString()
+                  : inc.fecha || 'Reciente';
+
+                return (
+                  <div
+                    key={idTexto || `inc-card-${index}`}
+                    className="bg-white rounded-xl shadow-2xs border border-gray-200 p-4 space-y-2.5 hover:border-gray-300 transition-all"
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md border border-gray-200">
+                          {idTexto ? idTexto.substring(0, 13) : 'INC-#'}
+                        </span>
+                        <StatusBadge status={estadoTexto} />
+                      </div>
+                      <span className="text-xs text-gray-400 font-medium">{fechaTexto}</span>
+                    </div>
+
+                    <h4 className="font-semibold text-sm text-gray-900 leading-snug">{inc.titulo}</h4>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100 text-xs">
+                      {inc.id_activo ? (
+                        <Link
+                          to={`/trazabilidad/${encodeURIComponent(inc.id_activo)}`}
+                          className="inline-flex items-center gap-1.5 font-mono text-xs px-2.5 py-1 bg-gray-50 hover:bg-primary-50 text-gray-700 hover:text-primary rounded-lg border border-gray-200 hover:border-primary-300 transition-colors"
+                          title={`Ver trazabilidad de ${inc.id_activo}`}
+                        >
+                          <FiBox className="w-3.5 h-3.5 text-gray-400" />
+                          <span>{inc.id_activo}</span>
+                        </Link>
+                      ) : (
+                        <span className="font-mono text-xs text-gray-400 italic">Sin activo asociado</span>
+                      )}
+
+                      <div className="inline-flex items-center gap-1 text-gray-600 font-medium">
+                        <FiUser className="w-3.5 h-3.5 text-gray-400" />
+                        <span>{inc.asignado || (inc.id_reportante ? `Reportante: ${inc.id_reportante.substring(0, 8)}` : 'Sin asignar')}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
+          <div className="hidden md:block">
+<table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 text-gray-600 uppercase text-xs sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="px-6 py-3 font-semibold">ID / Asunto</th>
@@ -225,6 +293,7 @@ const Dashboard = () => {
               )}
             </tbody>
           </table>
+          </div>
 
           {loadingMore && (
             <div className="flex justify-center items-center py-4 bg-gray-50/60 border-t border-gray-100">
