@@ -23,4 +23,4 @@ No se cerrarán los puertos, se forzará mejor a solo aceptar conexiones a Postg
 - Modifica **docker-compose.yml** para que especifique la IP de localhost (máquina host) en lugar de dejar solo el puerto, ya que de lo contrario Docker asume la IP de red (0.0.0.0) y deja entrar a cualquier máquina en la red.
 
 - Se comprueba la conexión impedida al usar la dirección IPv4 de red de la máquina host en lugar de la loopback (127.0.0.1 o localhost).
-![[Pasted image 20261101164947.png]]
+![[Pasted image 20261101164947.png]] (imagen en versión PDF)
