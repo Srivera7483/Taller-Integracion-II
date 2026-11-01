@@ -6,7 +6,7 @@ services:
     container_name: activos_db
     restart: always
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     environment:
       - POSTGRES_DB=activos_db
       - POSTGRES_USER=postgres
@@ -19,7 +19,7 @@ services:
     container_name: incidencias_db
     restart: always
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     environment:
       - POSTGRES_DB=incidencias_db
       - POSTGRES_USER=postgres
@@ -32,7 +32,7 @@ services:
     container_name: auth_db
     restart: always
     ports:
-      - "5435:5432"
+      - "127.0.0.1:5435:5432"
     environment:
       - POSTGRES_DB=auth_db
       - POSTGRES_USER=postgres
