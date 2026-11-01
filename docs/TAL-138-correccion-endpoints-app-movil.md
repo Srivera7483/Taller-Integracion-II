@@ -57,3 +57,19 @@ Ejemplo de respuesta JSON:
   "updatedAt": "2026-11-01T17:30:00.000Z"
 }
 ```
+
+## Matriz de validacion ampliada
+
+- API Gateway: 13/13 pruebas automatizadas aprobadas.
+- MS Activos: compilacion exitosa y 25/25 pruebas aprobadas.
+- MS Notificaciones: compilacion correcta.
+- CORS HTTP real: preflight `204` y cabeceras esperadas.
+- Docker Compose: Auth, Activos, Incidencias y Notificaciones levantados.
+
+La prueba completa de Auth requiere aplicar las migraciones Prisma de `ms-auth`
+antes de ejecutar el archivo de conexion real (`ROLES` y `USUARIOS`).
+
+La suite completa de Incidencias conserva tres pruebas pendientes relacionadas
+con exportacion y carga de evidencia. Sus firmas ya forman parte de ese contrato,
+por lo que no deben considerarse validas hasta restaurar los metodos del
+controlador y del servicio correspondientes.

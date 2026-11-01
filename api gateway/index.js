@@ -27,7 +27,14 @@ const getTrustProxy = (value) => {
 
 const parseAllowedOrigins = (value) => {
     if (!value) {
-        return [];
+        return [
+            'http://localhost:5173',
+            'http://127.0.0.1:5173',
+            'http://localhost:4173',
+            'http://127.0.0.1:4173',
+            'capacitor://localhost',
+            'ionic://localhost',
+        ];
     }
 
     return value
@@ -109,7 +116,7 @@ const buildGateway = (options = {}) => {
     fastify.register(fastifyCors, {
         origin(origin, callback) {
             const allowedOrigins = parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS);
-            callback(null, !origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin));
+            callback(null, !origin || allowedOrigins.includes(origin));
         },
         credentials: true,
         methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
