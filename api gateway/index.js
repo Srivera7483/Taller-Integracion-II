@@ -25,6 +25,36 @@ const getTrustProxy = (value) => {
     return trustedProxies.length === 1 ? trustedProxies[0] : trustedProxies;
 };
 
+const parseAllowedOrigins = (value) => {
+    if (!value) {
+        return [];
+    }
+
+    return value
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean);
+};
+
+const normalizeIsoDates = (value) => {
+    if (Array.isArray(value)) {
+        return value.map(normalizeIsoDates);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, nestedValue]) => [key, normalizeIsoDates(nestedValue)])
+        );
+    }
+
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:T.*)?$/.test(value)) {
+        return value;
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toISOString();
+};
+
 const buildGateway = (options = {}) => {
     const fastify = Fastify({
         logger: options.logger ?? true,
@@ -77,14 +107,43 @@ const buildGateway = (options = {}) => {
     };
 
     fastify.register(fastifyCors, {
-        origin: true,
+        origin(origin, callback) {
+            const allowedOrigins = parseAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS);
+            callback(null, !origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin));
+        },
         credentials: true,
+        methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'X-Requested-With'],
+        exposedHeaders: ['Authorization', 'Content-Type'],
+        maxAge: 86400,
+    });
+
+    fastify.addHook('onSend', (request, reply, payload, done) => {
+        const contentType = reply.getHeader('content-type');
+        if (!payload || !String(contentType ?? '').includes('application/json')) {
+            done(null, payload);
+            return;
+        }
+
+        try {
+            const body = Buffer.isBuffer(payload) ? payload.toString('utf8') : payload;
+            done(null, JSON.stringify(normalizeIsoDates(JSON.parse(body))));
+        } catch (_error) {
+            done(null, payload);
+        }
     });
 
     fastify.register(proxy, {
         upstream: options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3003',
         prefix: '/api/v1/activos',
         rewritePrefix: '/api/v1/activos',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3003',
+        prefix: '/api/v1/mantenimientos',
+        rewritePrefix: '/api/v1/mantenimientos',
         replyOptions: { onError: handleProxyError }
     });
 

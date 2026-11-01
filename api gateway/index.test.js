@@ -112,6 +112,45 @@ test('redirige POST de notificaciones al endpoint interno /notificar', async (t)
         notificacionesUrl: notificaciones.url,
         logger: false,
     });
+
+    test('configura CORS y normaliza fechas en respuestas JSON', async (t) => {
+        const target = await startTarget({
+            service: 'incidencias',
+            createdAt: '2026-11-01T17:30:00.000Z',
+        });
+        const app = buildGateway({
+            incidenciasUrl: target.url,
+            logger: false,
+        });
+        process.env.CORS_ALLOWED_ORIGINS = 'http://localhost:5173';
+        t.after(async () => {
+            delete process.env.CORS_ALLOWED_ORIGINS;
+            await app.close();
+            target.server.close();
+        });
+
+        const preflight = await app.inject({
+            method: 'OPTIONS',
+            url: '/api/v1/incidencias',
+            headers: {
+                origin: 'http://localhost:5173',
+                'access-control-request-method': 'GET',
+                'access-control-request-headers': 'authorization,content-type',
+            },
+        });
+        assert.equal(preflight.statusCode, 204);
+        assert.equal(preflight.headers['access-control-allow-origin'], 'http://localhost:5173');
+        assert.match(preflight.headers['access-control-allow-methods'], /GET/);
+
+        const response = await app.inject({
+            method: 'GET',
+            url: '/api/v1/incidencias',
+            headers: { origin: 'http://localhost:5173' },
+        });
+        assert.equal(response.statusCode, 200);
+        assert.equal(response.headers['access-control-expose-headers'], 'Authorization, Content-Type');
+        assert.equal(response.json().createdAt, '2026-11-01T17:30:00.000Z');
+    });
     t.after(async () => {
         await app.close();
         notificaciones.server.close();
