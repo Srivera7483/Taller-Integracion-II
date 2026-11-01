@@ -210,8 +210,8 @@ const ModalCierreMantenimiento = ({
             diagnostico_tecnico: resolucion.trim(),
           });
         }
-      } catch (backendError) {
-        console.warn('[ModalCierre] Notificación backend omitida o en fallback:', backendError.message);
+      } catch {
+        // Fallback silencioso
       }
 
       showToast('¡Mantenimiento técnico confirmado! La tarea pasó a estado Completada.', 'success');
@@ -221,8 +221,7 @@ const ModalCierreMantenimiento = ({
       }
 
       onClose();
-    } catch (err) {
-      console.error('Error al confirmar cierre de mantenimiento:', err);
+    } catch {
       showToast('Error al registrar la confirmación del mantenimiento', 'error');
     } finally {
       setIsSubmitting(false);
@@ -269,8 +268,8 @@ const ModalCierreMantenimiento = ({
             diagnostico_tecnico: `[RECHAZADO]: ${motivoRechazo.trim()}`,
           });
         }
-      } catch (backendError) {
-        console.warn('[ModalCierre] Rechazo backend omitido o en fallback:', backendError.message);
+      } catch {
+        // Fallback silencioso
       }
 
       showToast('Incidencia rechazada. El motivo ha sido registrado para el reportante.', 'info');
@@ -280,8 +279,7 @@ const ModalCierreMantenimiento = ({
       }
 
       onClose();
-    } catch (err) {
-      console.error('Error al registrar rechazo:', err);
+    } catch {
       showToast('Error al registrar el rechazo de la incidencia', 'error');
     } finally {
       setIsSubmitting(false);

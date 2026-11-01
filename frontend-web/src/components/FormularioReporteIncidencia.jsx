@@ -311,9 +311,9 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     try {
       const resp = await createIncidencia(payloadApi);
       idGenerado = resp?.id_incidencia || resp?.id;
-    } catch (apiErr) {
-      console.warn('[Incidencias] Backend no disponible o modo local, procediendo con almacenamiento local:', apiErr);
-    }
+    } catch {
+      // Fallback a almacenamiento persistente local
+      }
 
     let urlEvidencia = null;
 
@@ -329,8 +329,8 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
           },
         });
         urlEvidencia = uploadResp.data?.url_evidencia || uploadResp.data?.url_cloudinary;
-      } catch (uploadErr) {
-        console.warn('[Incidencias] No se pudo subir imagen al backend (S3/Uploads):', uploadErr);
+      } catch {
+        // Omisión controlada si backend de carga de evidencias no está disponible
       }
     }
 

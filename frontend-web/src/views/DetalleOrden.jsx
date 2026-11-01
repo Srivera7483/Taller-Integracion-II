@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   FiChevronRight,
@@ -34,7 +34,7 @@ const DetalleOrden = () => {
     return () => window.removeEventListener('tecnico-cambiado', handleCambioTecnico);
   }, []);
 
-  const cargarOrden = async () => {
+  const cargarOrden = useCallback(async () => {
     try {
       setLoading(true);
       // 1. Intentar consultar desde el almacenamiento local persistente primero
@@ -72,8 +72,8 @@ const DetalleOrden = () => {
           });
           return;
         }
-      } catch (apiErr) {
-        console.warn('API Gateway no respondió con la orden, utilizando datos locales.', apiErr.message);
+      } catch {
+        // Fallback a almacenamiento local persistente
       }
 
       // Si no viene del API o falla, estructurar datos locales/mock consistentes
@@ -101,16 +101,16 @@ const DetalleOrden = () => {
         fechaRechazo: incidenciaMatch?.fechaRechazo || null,
       });
     } catch (err) {
-      console.error('Error general al cargar orden:', err);
+      // Error controlado y expuesto en estado local
       setError(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [idOrden]);
 
   useEffect(() => {
     cargarOrden();
-  }, [idOrden]);
+  }, [cargarOrden]);
 
   const handleCierreExitoso = (datosActualizados) => {
     let nuevoEstado = datosActualizados.estado || 'Completada';

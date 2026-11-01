@@ -5,14 +5,8 @@ import api from './api';
  * Utiliza paginación por defecto si no se especifican parámetros.
  */
 export const fetchIncidencias = async (params = {}) => {
-  try {
-    const response = await api.get('/incidencias', { params });
-    // Soporte para respuestas paginadas (ej. response.data.data) o arrays directos
-    return response.data.data || response.data || [];
-  } catch (error) {
-    console.error('[incidenciasService] Error al obtener incidencias:', error);
-    throw error;
-  }
+  const response = await api.get('/incidencias', { params });
+  return response.data.data || response.data || [];
 };
 
 /**
@@ -24,8 +18,7 @@ export const fetchIncidenciasRecientes = async () => {
     const response = await api.get('/incidencias', { params: { limit: 5, sort: 'desc' } });
     const data = response.data.data || response.data || [];
     return data;
-  } catch (error) {
-    console.error('[incidenciasService] Error al obtener incidencias recientes:', error);
+  } catch {
     return [];
   }
 };
@@ -34,13 +27,8 @@ export const fetchIncidenciasRecientes = async () => {
  * Crea una nueva incidencia en el backend a través del API Gateway.
  */
 export const createIncidencia = async (payload) => {
-  try {
-    const response = await api.post('/incidencias', payload);
-    return response.data;
-  } catch (error) {
-    console.error('[incidenciasService] Error al crear incidencia:', error);
-    throw error;
-  }
+  const response = await api.post('/incidencias', payload);
+  return response.data;
 };
 
 /**
@@ -63,68 +51,61 @@ export const exportarReporteIncidencias = async ({
   fecha_inicio,
   fecha_fin,
 } = {}) => {
-  try {
-    const params = { formato };
-    if (id_activo) params.id_activo = id_activo;
-    if (id_estado !== undefined && id_estado !== null && id_estado !== '') {
-      params.id_estado = id_estado;
-    }
-    if (fecha_inicio) params.fecha_inicio = fecha_inicio;
-    if (fecha_fin) params.fecha_fin = fecha_fin;
-
-    const response = await api.get('/incidencias/exportar', {
-      params,
-      responseType: 'blob',
-    });
-
-    // Intentar extraer el nombre del archivo desde el header Content-Disposition
-    let filename = '';
-    const disposition = response.headers?.['content-disposition'] || response.headers?.['Content-Disposition'];
-    if (disposition && typeof disposition === 'string') {
-      const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)["']?/i);
-      if (match && match[1]) {
-        filename = decodeURIComponent(match[1].trim());
-      }
-    }
-
-    // Nombre dinámico de fallback si el encabezado no está presente
-    if (!filename) {
-      const ahora = new Date();
-      const pad = (n) => n.toString().padStart(2, '0');
-      const dia = pad(ahora.getDate());
-      const mes = pad(ahora.getMonth() + 1);
-      const anio = ahora.getFullYear();
-      const extension = formato === 'csv' ? 'csv' : 'xlsx';
-      filename = `Reporte_Incidencias_${dia}-${mes}-${anio}.${extension}`;
-    }
-
-    const mimeType = formato === 'csv'
-      ? 'text/csv;charset=utf-8;'
-      : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
-    const blob = new Blob([response.data], { type: mimeType });
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.setAttribute('download', filename);
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-
-    // Limpieza de memoria y DOM
-    setTimeout(() => {
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-    }, 150);
-
-    return {
-      filename,
-      totalBytes: blob.size,
-    };
-  } catch (error) {
-    console.error('[incidenciasService] Error al exportar reporte de incidencias:', error);
-    throw error;
+  const params = { formato };
+  if (id_activo) params.id_activo = id_activo;
+  if (id_estado !== undefined && id_estado !== null && id_estado !== '') {
+    params.id_estado = id_estado;
   }
+  if (fecha_inicio) params.fecha_inicio = fecha_inicio;
+  if (fecha_fin) params.fecha_fin = fecha_fin;
+
+  const response = await api.get('/incidencias/exportar', {
+    params,
+    responseType: 'blob',
+  });
+
+  // Intentar extraer el nombre del archivo desde el header Content-Disposition
+  let filename = '';
+  const disposition = response.headers?.['content-disposition'] || response.headers?.['Content-Disposition'];
+  if (disposition && typeof disposition === 'string') {
+    const match = disposition.match(/filename\*?=(?:UTF-8'')?["']?([^"';\n]+)["']?/i);
+    if (match && match[1]) {
+      filename = decodeURIComponent(match[1].trim());
+    }
+  }
+
+  // Fallback si no viene el header
+  if (!filename) {
+    const timestamp = new Date().toISOString().slice(0, 10);
+    filename = `reporte_incidencias_${timestamp}.${formato}`;
+  }
+
+  // Crear Blob y disparar la descarga por el navegador
+  const blob = new Blob([response.data], {
+    type:
+      formato === 'csv'
+        ? 'text/csv;charset=utf-8;'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.setAttribute('download', filename);
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+
+  // Limpieza de memoria y DOM
+  setTimeout(() => {
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  }, 150);
+
+  return {
+    filename,
+    totalBytes: blob.size,
+  };
 };
 
 

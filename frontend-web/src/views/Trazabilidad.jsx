@@ -50,8 +50,7 @@ const Trazabilidad = () => {
       if (resp.ok) {
         setDatosTrazabilidad(resp.data);
       }
-    } catch (error) {
-      console.error('Error al consultar trazabilidad:', error);
+    } catch {
       showToast('No fue posible cargar el historial de trazabilidad del activo', 'error');
     } finally {
       setCargando(false);

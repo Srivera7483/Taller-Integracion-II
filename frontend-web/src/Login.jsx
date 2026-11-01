@@ -119,8 +119,7 @@ const Login = () => {
           setShowPassword(false);
         }
       }
-    } catch (error) {
-      console.error('Error de red:', error);
+    } catch {
       // El Toast ya es disparado automáticamente por el AxiosInterceptor en caso de 4xx/5xx
       // Solo mostramos toast genérico en caso de que no haya respuesta (ya manejado por interceptor también)
     } finally {

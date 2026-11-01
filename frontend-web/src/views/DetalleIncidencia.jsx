@@ -221,8 +221,8 @@ const DetalleIncidencia = () => {
           });
           return;
         }
-      } catch (err) {
-        console.warn('API incidencias no disponible o 404, usando fallback local.', err.message);
+      } catch {
+        // Fallback a almacenamiento persistente local
       }
 
       if (encontradaLocal) {
@@ -264,8 +264,7 @@ const DetalleIncidencia = () => {
         ],
         imagenAdjuntaNombre: 'evidencia_servidor_rack.webp',
       });
-    } catch (err) {
-      console.error('Error al cargar la incidencia:', err);
+    } catch {
       setError(err);
     } finally {
       setLoading(false);

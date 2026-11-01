@@ -120,7 +120,7 @@ const Usuarios = () => {
 
                   return (
                     <tr
-                      key={usr.id_usuario || usr.rut_o_id || index}
+                      key={usr.id_usuario || usr.rut_o_id || `user-${index}`}
                       ref={isSentinel ? sentinelRef : null}
                       className="hover:bg-primary-50/40 transition-colors duration-150"
                     >
