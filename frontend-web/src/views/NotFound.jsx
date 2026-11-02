@@ -23,7 +23,7 @@ const NotFound = () => {
       {/* Cabecera mínima con identidad institucional */}
       <header className="max-w-5xl mx-auto w-full flex items-center justify-between py-4">
         <Link to="/dashboard" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-blue-900 text-white flex items-center justify-center font-bold text-lg shadow-md group-hover:bg-blue-800 transition">
+          <div className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-lg shadow-md group-hover:bg-primary-hover transition">
             SG
           </div>
           <div>
@@ -46,7 +46,7 @@ const NotFound = () => {
             404
           </span>
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-xl shadow-amber-500/20 rotate-3 transition-transform hover:rotate-0">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-secondary text-white flex items-center justify-center shadow-xl shadow-secondary/20 rotate-3 transition-transform hover:rotate-0">
               <FiCompass className="w-8 h-8 sm:w-10 sm:h-10 animate-pulse" />
             </div>
           </div>
@@ -62,7 +62,7 @@ const NotFound = () => {
         {/* Ruta solicitada */}
         <div className="mt-4 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-white border border-gray-200 shadow-2xs text-xs text-gray-500 max-w-md truncate">
           <span className="font-semibold text-gray-700">Ruta consultada:</span>
-          <code className="text-blue-700 font-mono bg-blue-50 px-1.5 py-0.5 rounded text-[11px]">
+          <code className="text-primary font-mono bg-primary-50 px-1.5 py-0.5 rounded-lg text-[11px]">
             {location.pathname}
           </code>
         </div>
@@ -72,7 +72,7 @@ const NotFound = () => {
           <Link
             to="/dashboard"
             id="btn-404-inicio"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 transition shadow-sm hover:shadow cursor-pointer min-h-[44px]"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm transition shadow-md hover:shadow-lg hover:-translate-y-0.5 cursor-pointer min-h-[44px]"
           >
             <FiHome className="w-4 h-4" />
             <span>Volver al Inicio</span>
@@ -82,7 +82,7 @@ const NotFound = () => {
             type="button"
             onClick={() => navigate(-1)}
             id="btn-404-volver"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-white border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 hover:text-gray-900 transition shadow-2xs cursor-pointer min-h-[44px]"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-white border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 hover:text-gray-900 transition shadow-2xs cursor-pointer min-h-[44px]"
           >
             <FiArrowLeft className="w-4 h-4" />
             <span>Regresar a la página anterior</span>
@@ -97,10 +97,10 @@ const NotFound = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left">
             <Link
               to="/incidencias"
-              className="p-3.5 rounded-xl bg-white border border-gray-200 hover:border-blue-400 hover:shadow-sm transition group"
+              className="p-3.5 rounded-xl bg-white border border-gray-200 hover:border-primary-400 hover:shadow-sm transition group"
             >
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition">
+                <div className="p-2 rounded-lg bg-primary-50 text-primary group-hover:bg-primary group-hover:text-white transition">
                   <FiTool className="w-4 h-4" />
                 </div>
                 <div>
@@ -112,10 +112,10 @@ const NotFound = () => {
 
             <Link
               to="/inventario"
-              className="p-3.5 rounded-xl bg-white border border-gray-200 hover:border-indigo-400 hover:shadow-sm transition group"
+              className="p-3.5 rounded-xl bg-white border border-gray-200 hover:border-primary-400 hover:shadow-sm transition group"
             >
               <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-lg bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition">
+                <div className="p-2 rounded-lg bg-primary-50 text-primary group-hover:bg-primary group-hover:text-white transition">
                   <FiBox className="w-4 h-4" />
                 </div>
                 <div>

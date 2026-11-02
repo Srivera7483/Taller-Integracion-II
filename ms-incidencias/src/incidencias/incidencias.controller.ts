@@ -13,6 +13,7 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+  UsePipes,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -29,6 +30,7 @@ import { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 import { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { IncidenciasService } from './incidencias.service';
 import { FileMimeValidationPipe } from '../validators/file-mime.pipe';
+import { SanitizeXssPipe } from '../validators/sanitize-xss.pipe';
 
 @Controller('incidencias')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -62,8 +64,9 @@ export class IncidenciasController {
   }
 
   @Post()
+  @UsePipes(new SanitizeXssPipe())
   crear(
-    @Body() body: CrearIncidenciaDto,
+    @Body(SanitizeXssPipe) body: CrearIncidenciaDto,
     @CurrentUser() usuario: JwtUser,
   ) {
     const idUsuario = usuario.sub || usuario.userId;

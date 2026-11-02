@@ -8,7 +8,6 @@ import {
   FiCheckCircle,
   FiClock,
   FiAlertTriangle,
-  FiFilter,
   FiSliders,
   FiSearch,
   FiRotateCcw,
@@ -36,8 +35,8 @@ const Mantenimientos = () => {
         endDate: endDate || undefined,
       });
       setMantenimientos(data);
-    } catch (err) {
-      console.error('Error al cargar agenda de mantenimientos:', err);
+    } catch {
+      // Error capturado y notificado en estado visual
       setError('No fue posible cargar el cronograma de mantenimientos. Por favor, reintente.');
     } finally {
       setCargando(false);
@@ -106,8 +105,8 @@ const Mantenimientos = () => {
     }
     if (estadoLimpio.includes('proceso')) {
       return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-          <FiActivity className="w-3 h-3 text-blue-500 animate-pulse" />
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full bg-primary-50 text-primary border border-primary-200">
+          <FiActivity className="w-3 h-3 text-primary animate-pulse" />
           En Proceso
         </span>
       );
@@ -128,7 +127,7 @@ const Mantenimientos = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-blue-100 text-blue-700 rounded-xl">
+            <span className="p-2 bg-primary-50 text-primary rounded-lg border border-primary-200">
               <FiCalendar className="w-6 h-6" />
             </span>
             <div>
@@ -146,16 +145,16 @@ const Mantenimientos = () => {
           <button
             onClick={cargarMantenimientos}
             disabled={cargando}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
             title="Actualizar listado"
           >
-            <FiRefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin text-blue-600' : ''}`} />
+            <FiRefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin text-primary' : ''}`} />
             <span>Actualizar</span>
           </button>
 
           <Link
             to="/mantenimientos/planificar"
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-sm hover:shadow transition-all duration-150"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-primary hover:bg-primary-hover rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150"
           >
             <FiPlus className="w-4 h-4" />
             <span>Planificar Mantenimiento</span>
@@ -166,7 +165,7 @@ const Mantenimientos = () => {
       {/* Tarjetas de métricas rápidas */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+          <div className="p-3 bg-primary-50 text-primary rounded-lg">
             <FiCalendar className="w-5 h-5" />
           </div>
           <div>
@@ -188,7 +187,7 @@ const Mantenimientos = () => {
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+          <div className="p-3 bg-primary-50 text-primary rounded-lg">
             <FiActivity className="w-5 h-5" />
           </div>
           <div>
@@ -232,11 +231,11 @@ const Mantenimientos = () => {
       )}
 
       {/* Tabla de mantenimientos */}
-      <div className="bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden">
         {/* Cabecera interna de tabla con buscador de texto rápido */}
         <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50/50">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-            <FiSliders className="w-4 h-4 text-blue-600" />
+            <FiSliders className="w-4 h-4 text-primary" />
             <span>Mantenimientos Agendados</span>
             <span className="text-xs font-medium text-gray-500 bg-gray-200/80 px-2 py-0.5 rounded-full">
               {mantenimientosFiltrados.length}
@@ -252,7 +251,7 @@ const Mantenimientos = () => {
               value={filtroTexto}
               onChange={(e) => setFiltroTexto(e.target.value)}
               placeholder="Buscar por activo, código o tipo..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs text-gray-900 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-9 pr-3 py-1.5 text-xs text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
             />
           </div>
         </div>
@@ -260,12 +259,77 @@ const Mantenimientos = () => {
         {/* Estado de carga */}
         {cargando ? (
           <div className="py-20 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent mb-3"></div>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent mb-3"></div>
             <p className="text-sm font-medium text-gray-600">Consultando cronograma de mantenimientos...</p>
           </div>
         ) : mantenimientosFiltrados.length > 0 ? (
           /* Tabla de datos */
-          <div className="overflow-x-auto">
+          <>
+            {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
+            <div className="md:hidden p-3 sm:p-4 space-y-3">
+              {mantenimientosFiltrados.map((mant) => {
+                const activo = mant.activo || {};
+                return (
+                  <div
+                    key={mant.id}
+                    className="bg-white rounded-xl p-4 border border-gray-200 shadow-2xs space-y-3 hover:border-gray-300 transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h4 className="font-bold text-sm text-gray-900 leading-snug">{activo.nombre || 'Activo no asignado'}</h4>
+                        <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
+                          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-md text-gray-700 text-[11px]">
+                            {activo.codigoQr || mant.id_activo || mant.id}
+                          </span>
+                          {activo.ubicacion && (
+                            <span className="text-gray-400">· {activo.ubicacion}</span>
+                          )}
+                        </div>
+                      </div>
+                      {getBadgeEstado(mant.estado)}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50/80 p-2.5 rounded-lg border border-gray-100">
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Fecha Programada</span>
+                        <div className="flex items-center gap-1 font-medium text-gray-800 mt-0.5">
+                          <FiCalendar className="w-3.5 h-3.5 text-gray-400" />
+                          <span>{formatearFecha(mant.fecha_programada)}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Tipo</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 mt-0.5">
+                          {mant.tipo || 'Preventivo'}
+                        </span>
+                      </div>
+                      {mant.descripcion && (
+                        <div className="col-span-2 pt-1 border-t border-gray-200/60">
+                          <span className="text-gray-400 block text-[10px] uppercase font-bold">Descripción Técnica</span>
+                          <p className="text-gray-600 text-xs mt-0.5 line-clamp-2">{mant.descripcion}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {activo.id && (
+                      <div className="pt-1">
+                        <Link
+                          to={`/trazabilidad/${activo.id}`}
+                          className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors shadow-2xs"
+                        >
+                          <FiActivity className="w-3.5 h-3.5 text-primary" />
+                          <span>Ver Trazabilidad del Activo</span>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
+            <div className="hidden md:block overflow-x-auto">
+
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 <tr>
@@ -283,15 +347,15 @@ const Mantenimientos = () => {
                   return (
                     <tr
                       key={mant.id}
-                      className="hover:bg-blue-50/40 transition-colors group"
+                      className="hover:bg-primary-50/30 transition-colors group"
                     >
                       {/* Activo / Código */}
                       <td className="px-6 py-4">
-                        <div className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                        <div className="font-semibold text-gray-900 group-hover:text-primary transition-colors">
                           {activo.nombre || 'Activo no asignado'}
                         </div>
                         <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
-                          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-700">
+                          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-lg text-gray-700">
                             {activo.codigoQr || mant.id_activo || mant.id}
                           </span>
                           {activo.ubicacion && (
@@ -330,7 +394,7 @@ const Mantenimientos = () => {
                         {activo.id ? (
                           <Link
                             to={`/trazabilidad/${activo.id}`}
-                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary-hover hover:underline"
                           >
                             <FiActivity className="w-3.5 h-3.5" />
                             <span>Trazabilidad</span>
@@ -344,11 +408,12 @@ const Mantenimientos = () => {
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         ) : (
           /* Estado vacío */
           <div className="py-16 px-4 text-center">
-            <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 text-gray-400 rounded-2xl flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 text-gray-400 rounded-xl flex items-center justify-center">
               <FiCalendar className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-gray-900 mb-1">
@@ -366,7 +431,7 @@ const Mantenimientos = () => {
               {hayFiltroFechaActivo && (
                 <Link
                   to="/mantenimientos"
-                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-200 transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 rounded-lg border border-primary-200 transition-colors cursor-pointer"
                 >
                   <FiRotateCcw className="w-3.5 h-3.5" />
                   <span>Limpiar filtro de fechas (Ver todos)</span>
@@ -375,7 +440,7 @@ const Mantenimientos = () => {
 
               <Link
                 to="/mantenimientos/planificar"
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-lg transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
               >
                 <FiPlus className="w-3.5 h-3.5" />
                 <span>Agendar nuevo</span>

@@ -202,7 +202,7 @@ const ImageUploader = ({
                 }
               }}
               title="Clic sobre la miniatura para abrir en tamaño grande (Modal UI)"
-              className="group relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-blue-500 shadow-md cursor-pointer hover:border-blue-700 hover:shadow-lg transition-all flex-shrink-0 bg-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="group relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-primary shadow-md cursor-pointer hover:border-primary-hover hover:shadow-lg transition-all flex-shrink-0 bg-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             >
               {/* TAL-133 Criterio a: El thumbnail utiliza la propiedad object-cover para no deformar la foto */}
               <img
@@ -221,7 +221,7 @@ const ImageUploader = ({
             {/* Detalles y Acciones de la Imagen */}
             <div className="flex-1 min-w-0 space-y-2">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-primary-50 text-primary border border-primary-200 flex items-center gap-1">
                   <FiImage className="w-3 h-3" /> Imagen Adjunta
                 </span>
                 {archivoImagen?.size && (
@@ -229,7 +229,7 @@ const ImageUploader = ({
                     {(archivoImagen.size / (1024 * 1024)).toFixed(2)} MB / 5.00 MB máx.
                   </span>
                 )}
-                <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-1">
+                <span className="text-[11px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 inline-flex items-center gap-1">
                   <FiCheckCircle className="w-3 h-3" /> Tamaño válido (&le; 5MB)
                 </span>
               </div>
@@ -248,7 +248,7 @@ const ImageUploader = ({
                   type="button"
                   id="btn-abrir-modal-desde-formulario"
                   onClick={onOpenModal}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-700 bg-white border border-blue-300 hover:bg-blue-50 transition-colors shadow-2xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary bg-white border border-primary-300 hover:bg-primary-50 transition-colors shadow-2xs cursor-pointer"
                 >
                   <FiMaximize2 className="w-3.5 h-3.5" />
                   <span>Ver en tamaño grande</span>
@@ -283,7 +283,7 @@ const ImageUploader = ({
         /* Caso archivo no-imagen válido (<= 5MB) */
         <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <FiFileText className="w-6 h-6 text-blue-600" />
+            <FiFileText className="w-6 h-6 text-primary" />
             <div>
               <p className="text-sm font-semibold text-gray-900">{adjuntoNombre}</p>
               <p className="text-xs text-gray-500">
@@ -312,8 +312,8 @@ const ImageUploader = ({
             errorTamano
               ? 'border-red-300 hover:border-red-500 bg-red-50/20 hover:bg-red-50/40'
               : isDragging
-              ? 'border-blue-500 bg-blue-50/40'
-              : 'border-gray-300 hover:border-blue-500 bg-gray-50/50 hover:bg-blue-50/20'
+              ? 'border-primary bg-primary-50/40'
+              : 'border-gray-300 hover:border-primary bg-gray-50/50 hover:bg-primary-50/20'
           }`}
         >
           <div className="flex flex-col items-center justify-center space-y-2">
@@ -321,13 +321,13 @@ const ImageUploader = ({
               className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
                 errorTamano
                   ? 'bg-red-100 text-red-600 group-hover:bg-red-200'
-                  : 'bg-blue-50 group-hover:bg-blue-100 text-blue-600'
+                  : 'bg-primary-50 group-hover:bg-primary-100 text-primary'
               }`}
             >
               <FiUploadCloud className="w-6 h-6" />
             </div>
             <div className="text-sm text-gray-600">
-              <span className="font-semibold text-blue-600 hover:underline">Haz clic para subir una foto</span> o
+              <span className="font-semibold text-primary hover:underline">Haz clic para subir una foto</span> o
               arrastra y suelta aquí
             </div>
             <p className="text-xs text-gray-400">

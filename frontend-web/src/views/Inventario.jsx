@@ -134,22 +134,22 @@ const Inventario = () => {
             value={terminoBusqueda}
             onChange={(e) => setTerminoBusqueda(e.target.value)}
             placeholder="Buscar por equipo, serie, QR o ubicación..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm bg-white shadow-2xs"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm bg-white shadow-2xs"
           />
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={cargarEquipos}
             disabled={cargando}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors font-medium text-xs shadow-2xs disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium text-xs shadow-2xs disabled:opacity-50 cursor-pointer"
             title="Recargar inventario desde el microservicio"
           >
-            <FiRefreshCw className={`w-3.5 h-3.5 ${cargando ? 'animate-spin text-blue-600' : ''}`} />
+            <FiRefreshCw className={`w-3.5 h-3.5 ${cargando ? 'animate-spin text-primary' : ''}`} />
             <span>{cargando ? 'Cargando...' : 'Actualizar'}</span>
           </button>
           <Link
             to="/mantenimientos/planificar"
-            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-semibold text-xs shadow-2xs"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors font-semibold text-xs shadow-2xs"
             title="Agendar nuevo mantenimiento preventivo"
           >
             <FiCalendar className="w-3.5 h-3.5" />
@@ -157,12 +157,12 @@ const Inventario = () => {
           </Link>
           <Link
             to="/trazabilidad"
-            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors font-semibold text-xs shadow-2xs"
+            className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-primary-50 border border-primary-200 text-primary rounded-lg hover:bg-primary-100 transition-colors font-semibold text-xs shadow-2xs"
           >
-            <FiActivity className="w-3.5 h-3.5 text-indigo-600" />
+            <FiActivity className="w-3.5 h-3.5 text-primary" />
             <span>Módulo de Trazabilidad</span>
           </Link>
-          <button className="flex items-center justify-center gap-2 px-3.5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-semibold text-xs shadow-2xs">
+          <button className="flex items-center justify-center gap-2 px-3.5 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all font-semibold text-xs shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
             <FiPlus className="w-3.5 h-3.5" /> Añadir Equipo
           </button>
         </div>
@@ -177,8 +177,89 @@ const Inventario = () => {
       )}
 
       {/* Tabla de Equipos e Inventario */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
+        <div className="md:hidden p-3 sm:p-4 space-y-3">
+          {cargando && equipos.length === 0 ? (
+            <div className="py-10 text-center text-gray-500 text-sm">
+              <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent mb-2"></div>
+              <p>Cargando equipos del inventario...</p>
+            </div>
+          ) : equiposFiltrados.length === 0 ? (
+            <div className="py-10 text-center text-gray-500 text-sm">
+              No se encontraron equipos que coincidan con la búsqueda.
+            </div>
+          ) : (
+            equiposFiltrados.map((item) => {
+              const idPrincipal = item.codigoQr || item.id;
+              const numeroSerie = item.numeroSerie || item.numero_serie || 'S/N';
+              const estadoLegible = normalizarEstado(item.estado);
+
+              return (
+                <div
+                  key={item.id || item.codigoQr}
+                  className="bg-white rounded-xl p-4 border border-gray-200 shadow-2xs space-y-3 hover:border-gray-300 transition-all"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-sm leading-snug">{item.nombre}</h3>
+                      <span className="font-mono text-xs font-semibold text-primary">{idPrincipal}</span>
+                    </div>
+                    <StatusBadge status={estadoLegible} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50/80 p-2.5 rounded-lg border border-gray-100">
+                    <div>
+                      <span className="text-gray-400 block text-[10px] uppercase font-bold">Categoría</span>
+                      <span className="font-medium text-gray-800">{item.categoria}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block text-[10px] uppercase font-bold">Ubicación</span>
+                      <span className="font-medium text-gray-800">{item.ubicacion}</span>
+                    </div>
+                    <div className="col-span-2 pt-1 border-t border-gray-200/60 flex items-center justify-between">
+                      <span className="text-gray-400 text-[10px] uppercase font-bold">N° Serie</span>
+                      <span className="font-mono font-medium text-gray-700">{numeroSerie}</span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    <Link
+                      to={`/trazabilidad/${encodeURIComponent(idPrincipal)}`}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors shadow-2xs"
+                      title="Ver línea de tiempo y trazabilidad completa del activo"
+                    >
+                      <FiActivity className="w-3.5 h-3.5 text-primary" />
+                      <span>Trazabilidad</span>
+                    </Link>
+
+                    <Link
+                      to={`/mantenimientos/planificar?id_activo=${encodeURIComponent(item.id || idPrincipal)}`}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors shadow-2xs"
+                      title="Planificar mantenimiento preventivo para este equipo"
+                    >
+                      <FiCalendar className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Mantenimiento</span>
+                    </Link>
+
+                    <Link
+                      to={`/incidencias/nueva?id_activo=${encodeURIComponent(idPrincipal)}`}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
+                      title="Reportar incidencia para este equipo"
+                    >
+                      <FiAlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Reportar Falla</span>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
+        <div className="hidden md:block overflow-x-auto">
+
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
               <tr>
@@ -213,13 +294,13 @@ const Inventario = () => {
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="font-bold text-gray-900">{item.nombre}</span>
-                          <span className="font-mono text-xs font-semibold text-blue-700">{idPrincipal}</span>
+                          <span className="font-mono text-xs font-semibold text-primary">{idPrincipal}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="font-medium text-gray-800">{item.categoria}</span>
-                          <span className="text-xs text-gray-400">{item.ubicacion}</span>
+                          <span className="text-xs text-gray-500">{item.ubicacion}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 font-mono text-xs text-gray-600 font-medium">
@@ -233,20 +314,20 @@ const Inventario = () => {
                           {/* Botón a Trazabilidad */}
                           <Link
                             to={`/trazabilidad/${encodeURIComponent(idPrincipal)}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors shadow-2xs"
                             title="Ver línea de tiempo y trazabilidad completa del activo"
                           >
-                            <FiActivity className="w-3.5 h-3.5 text-indigo-600" />
+                            <FiActivity className="w-3.5 h-3.5 text-primary" />
                             <span>Trazabilidad</span>
                           </Link>
 
                           {/* Botón para Planificar Mantenimiento */}
                           <Link
                             to={`/mantenimientos/planificar?id_activo=${encodeURIComponent(item.id || idPrincipal)}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors shadow-2xs"
                             title="Planificar mantenimiento preventivo para este equipo"
                           >
-                            <FiCalendar className="w-3.5 h-3.5 text-emerald-600" />
+                            <FiCalendar className="w-3.5 h-3.5 text-emerald-700" />
                             <span>Mantenimiento</span>
                           </Link>
 

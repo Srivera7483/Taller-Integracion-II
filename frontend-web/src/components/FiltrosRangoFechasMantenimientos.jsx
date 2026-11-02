@@ -138,7 +138,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
   const hayFiltrosAplicados = Boolean(searchParams.get('startDate') || searchParams.get('endDate'));
 
   return (
-    <div className="w-full bg-white rounded-2xl border border-gray-200/80 shadow-sm overflow-hidden mb-6 transition-all duration-200">
+    <div className="w-full bg-white rounded-xl border border-gray-200/80 shadow-sm overflow-hidden mb-6 transition-all duration-200">
       {/* Barra superior de herramientas (Toolbar) */}
       <div className="p-4 sm:p-5">
         <form onSubmit={handleFiltrar} className="space-y-4">
@@ -153,7 +153,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 >
                   Fecha Inicio (Desde)
                 </label>
-                <div className="relative rounded-xl shadow-sm">
+                <div className="relative rounded-lg shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                     <FiCalendar className="w-4 h-4" />
                   </div>
@@ -167,7 +167,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                       setErrorValidacion('');
                       setPresetActivo('');
                     }}
-                    className="block w-full pl-10 pr-3 py-2 text-sm text-gray-900 bg-gray-50/70 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
+                    className="block w-full pl-10 pr-3 py-2 text-sm text-gray-900 bg-gray-50/70 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-colors"
                     placeholder="YYYY-MM-DD"
                   />
                 </div>
@@ -181,7 +181,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 >
                   Fecha Fin (Hasta)
                 </label>
-                <div className="relative rounded-xl shadow-sm">
+                <div className="relative rounded-lg shadow-sm">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
                     <FiCalendar className="w-4 h-4" />
                   </div>
@@ -195,7 +195,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                       setErrorValidacion('');
                       setPresetActivo('');
                     }}
-                    className="block w-full pl-10 pr-3 py-2 text-sm text-gray-900 bg-gray-50/70 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
+                    className="block w-full pl-10 pr-3 py-2 text-sm text-gray-900 bg-gray-50/70 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-colors"
                     placeholder="YYYY-MM-DD"
                   />
                 </div>
@@ -208,7 +208,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 type="submit"
                 id="btn-filtrar-mantenimientos"
                 disabled={cargando}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-xl shadow-sm hover:shadow transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-bold text-white bg-primary hover:bg-primary-hover active:bg-primary-900 rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 cursor-pointer"
               >
                 <FiFilter className="w-4 h-4" />
                 <span>{cargando ? 'Filtrando...' : 'Filtrar'}</span>
@@ -220,7 +220,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 onClick={handleLimpiar}
                 disabled={cargando || (!startDate && !endDate && !hayFiltrosAplicados)}
                 title="Limpiar rango y volver al listado original"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-xl transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 <FiRotateCcw className="w-4 h-4" />
                 <span>Limpiar</span>
@@ -230,7 +230,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
 
           {/* Mensaje de validación de fechas */}
           {errorValidacion && (
-            <div className="flex items-center gap-2 p-2.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl animate-fadeIn">
+            <div className="flex items-center gap-2 p-2.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg animate-fadeIn">
               <FiAlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
               <span>{errorValidacion}</span>
             </div>
@@ -248,7 +248,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 onClick={() => aplicarPreset('hoy')}
                 className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
                   presetActivo === 'hoy'
-                    ? 'bg-blue-100 text-blue-800 font-semibold'
+                    ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -259,7 +259,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 onClick={() => aplicarPreset('semana')}
                 className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
                   presetActivo === 'semana'
-                    ? 'bg-blue-100 text-blue-800 font-semibold'
+                    ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -270,7 +270,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 onClick={() => aplicarPreset('mes')}
                 className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
                   presetActivo === 'mes'
-                    ? 'bg-blue-100 text-blue-800 font-semibold'
+                    ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -281,7 +281,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 onClick={() => aplicarPreset('proximos30')}
                 className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
                   presetActivo === 'proximos30'
-                    ? 'bg-blue-100 text-blue-800 font-semibold'
+                    ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -291,15 +291,15 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
 
             {/* Indicador de estado de filtrado activo */}
             {hayFiltrosAplicados && (
-              <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                <FiCheck className="w-3.5 h-3.5 text-blue-600" />
+              <div className="flex items-center gap-2 text-xs text-primary bg-primary-50 px-3 py-1 rounded-full border border-primary-200">
+                <FiCheck className="w-3.5 h-3.5 text-primary" />
                 <span>
                   Filtro activo: {searchParams.get('startDate') || 'Inicio'} → {searchParams.get('endDate') || 'Fin'} ({totalResultados} {totalResultados === 1 ? 'mantenimiento' : 'mantenimientos'})
                 </span>
                 <button
                   type="button"
                   onClick={handleLimpiar}
-                  className="ml-1 text-blue-500 hover:text-blue-800 font-bold cursor-pointer"
+                  className="ml-1 text-primary/70 hover:text-primary font-bold cursor-pointer"
                   title="Quitar filtro"
                 >
                   ×

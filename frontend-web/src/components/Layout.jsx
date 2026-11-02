@@ -1,14 +1,47 @@
-import React, { useState } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate, useOutlet } from 'react-router-dom';
 import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar } from 'react-icons/fi';
+import { AnimatePresence, motion } from 'framer-motion';
 import SelectorTecnicoSesion from './SelectorTecnicoSesion';
 import NotificacionesDropdown from './NotificacionesDropdown';
 import CriticalAlertBanner from './CriticalAlertBanner';
 
+// Variantes de animación para transiciones fluidas de página
+const pageVariants = {
+  initial: {
+    opacity: 0,
+    y: 12,
+  },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.2,
+      ease: [0.25, 0.1, 0.25, 1],
+    },
+  },
+  exit: {
+    opacity: 0,
+    transition: {
+      duration: 0.1,
+      ease: 'easeOut',
+    },
+  },
+};
+
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const currentOutlet = useOutlet();
+  const mainContentRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Scroll al tope del contenedor principal al cambiar de ruta para evitar saltos visuales
+  useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTop = 0;
+    }
+  }, [location.pathname]);
 
   const getPageTitle = () => {
     if (location.pathname.startsWith('/incidencias/nueva') || location.pathname.startsWith('/incidencias/reportar')) {
@@ -68,8 +101,18 @@ const Layout = () => {
         fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
-          <h1 className="text-lg font-bold text-blue-600">InfraManager</h1>
+        <div className="h-16 flex items-center justify-between px-5 border-b border-gray-200">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-black text-xs shadow-sm ring-1 ring-primary/20">
+              UCT
+            </div>
+            <div className="flex flex-col">
+              <span className="text-base font-bold text-gray-900 tracking-tight leading-none">
+                Infra<span className="text-primary font-black">Manager</span>
+              </span>
+              <span className="text-[10px] text-gray-500 font-medium">Infraestructura TI</span>
+            </div>
+          </div>
           <button 
             type="button"
             className="lg:hidden text-gray-500 hover:text-gray-700"
@@ -92,9 +135,9 @@ const Layout = () => {
                   <NavLink
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${isItemActive
-                        ? 'bg-blue-50 text-blue-700 font-medium'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-all ${isItemActive
+                        ? 'bg-primary-50 text-primary font-semibold shadow-2xs border-l-4 border-primary'
+                        : 'text-gray-600 hover:bg-gray-100/70 hover:text-gray-900 font-medium'
                       }`}
                   >
                     <item.icon className="w-5 h-5" />
@@ -142,9 +185,20 @@ const Layout = () => {
         {/* TAL-122: Alertas Visuales (Mantenimientos Próximos) */}
         <CriticalAlertBanner />
 
-        {/* Dynamic Outlet */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
-          <Outlet />
+        {/* Dynamic Outlet con animación fluida entre vistas (TAL-147) */}
+        <main ref={mainContentRef} className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              className="w-full flex-1"
+            >
+              {currentOutlet || <Outlet />}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>

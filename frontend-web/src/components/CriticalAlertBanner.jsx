@@ -122,7 +122,7 @@ const CriticalAlertBanner = () => {
           <button
             type="button"
             onClick={handleVerListado}
-            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white text-red-700 hover:bg-red-50 text-xs font-semibold rounded-md shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-white text-red-700 hover:bg-red-50 text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
           >
             <span>Ver listado</span>
             <FiArrowRight className="w-3.5 h-3.5" />
@@ -131,7 +131,7 @@ const CriticalAlertBanner = () => {
           <button
             type="button"
             onClick={handleCerrar}
-            className="p-1 text-white/80 hover:text-white hover:bg-white/10 rounded-md transition-colors cursor-pointer"
+            className="p-1 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
             title="Cerrar alerta"
             aria-label="Cerrar alerta"
           >

@@ -319,7 +319,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
       <div className="bg-white rounded-xl shadow-lg border border-slate-200/90 p-5 sm:p-7 space-y-5 transition-shadow hover:shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center shadow-md shadow-primary/20 shrink-0">
               <FiBox className="w-5 h-5" />
             </div>
             <div>
@@ -336,10 +336,10 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
             type="button"
             onClick={cargarCatalogoActivos}
             disabled={cargandoActivos}
-            className="self-start sm:self-center text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200/60 rounded-lg px-3 py-1.5 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            className="self-start sm:self-center text-xs font-semibold text-primary hover:text-primary-hover bg-primary-50/70 hover:bg-primary-100/70 border border-primary-200/60 rounded-lg px-3 py-1.5 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
             title="Recargar catálogo de activos"
           >
-            <FiRefreshCw className={`w-3.5 h-3.5 ${cargandoActivos ? 'animate-spin text-blue-600' : ''}`} />
+            <FiRefreshCw className={`w-3.5 h-3.5 ${cargandoActivos ? 'animate-spin text-primary' : ''}`} />
             <span>Actualizar catálogo</span>
           </button>
         </div>
@@ -363,10 +363,10 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
               }}
               onBlur={() => handleBlur('idActivo')}
               disabled={cargandoActivos || isSubmitting}
-              className={`w-full pl-11 pr-10 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none appearance-none cursor-pointer hover:bg-slate-50/90 ${
+              className={`w-full pl-11 pr-10 py-3 bg-slate-50/70 border rounded-lg text-sm font-medium transition-all duration-200 outline-none appearance-none cursor-pointer hover:bg-slate-50/90 ${
                 errors.idActivo && touched.idActivo
                   ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
-                  : 'border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white text-slate-900'
+                  : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
               }`}
             >
               <option value="">-- Selecciona un equipo del inventario --</option>
@@ -390,17 +390,17 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
 
         {/* Ficha Técnica interactiva del activo seleccionado */}
         {activoSeleccionado && (
-          <div className="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-slate-50 border border-blue-200/90 rounded-xl p-4 sm:p-5 shadow-sm transition-all duration-200">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-200/60 pb-3">
+          <div className="bg-primary-50/60 border border-primary-200/80 rounded-xl p-4 sm:p-5 shadow-sm transition-all duration-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-primary-200/60 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-xs shrink-0">
                   <FiCpu className="w-4 h-4" />
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-slate-900 leading-tight">
                     {activoSeleccionado.nombre}
                   </h4>
-                  <p className="text-[11px] text-blue-700 font-mono font-medium">
+                  <p className="text-[11px] text-primary font-mono font-medium">
                     Código QR / ID: {activoSeleccionado.codigoQr || activoSeleccionado.id}
                   </p>
                 </div>
@@ -429,22 +429,22 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 text-xs">
-              <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-blue-100/80 shadow-2xs">
-                <FiLayers className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-primary-100/80 shadow-2xs">
+                <FiLayers className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Categoría</span>
                   <span className="font-semibold text-slate-800">{activoSeleccionado.categoria || 'Sin categoría'}</span>
                 </div>
               </div>
-              <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-blue-100/80 shadow-2xs">
-                <FiMapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-primary-100/80 shadow-2xs">
+                <FiMapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Ubicación</span>
                   <span className="font-semibold text-slate-800">{activoSeleccionado.ubicacion || 'No especificada'}</span>
                 </div>
               </div>
-              <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-blue-100/80 shadow-2xs">
-                <FiHash className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-primary-100/80 shadow-2xs">
+                <FiHash className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">N° Serie</span>
                   <span className="font-mono font-semibold text-slate-800">{activoSeleccionado.numeroSerie || activoSeleccionado.numero_serie || 'S/N'}</span>
@@ -458,7 +458,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
       {/* TARJETA 2: CALENDARIO Y TIPO DE INTERVENCIÓN */}
       <div className="bg-white rounded-xl shadow-lg border border-slate-200/90 p-5 sm:p-7 space-y-5 transition-shadow hover:shadow-xl">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-secondary text-white flex items-center justify-center shadow-md shadow-secondary/20 shrink-0">
             <FiCalendar className="w-5 h-5" />
           </div>
           <div>
@@ -501,7 +501,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                 className={`w-full pl-11 pr-4 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none hover:bg-slate-50/90 ${
                   errors.fechaProgramada && touched.fechaProgramada
                     ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
-                    : 'border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white text-slate-900'
+                    : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
                 }`}
               />
             </div>
@@ -513,7 +513,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                 Momento futuro posterior a la fecha actual.
               </span>
               {tiempoRestanteBadge && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-semibold border ${tiempoRestanteBadge.clase}`}>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-lg font-semibold border ${tiempoRestanteBadge.clase}`}>
                   {tiempoRestanteBadge.texto}
                 </span>
               )}
@@ -550,7 +550,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                 className={`w-full pl-11 pr-10 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none appearance-none cursor-pointer hover:bg-slate-50/90 ${
                   errors.tipo && touched.tipo
                     ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
-                    : 'border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white text-slate-900'
+                    : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
                 }`}
               >
                 {TIPOS_MANTENIMIENTO.map((t) => (
@@ -621,7 +621,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
               className={`w-full pl-11 pr-4 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none resize-y min-h-[110px] hover:bg-slate-50/90 ${
                 errors.descripcion && touched.descripcion
                   ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
-                  : 'border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white text-slate-900'
+                  : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
               }`}
             />
           </div>
@@ -638,7 +638,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                   type="button"
                   onClick={() => handleAgregarSugerencia(sug)}
                   disabled={isSubmitting}
-                  className="text-xs bg-slate-100 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300 text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1 transition-all cursor-pointer font-medium"
+                  className="text-xs bg-slate-100 hover:bg-primary-50 hover:text-primary hover:border-primary-300 text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1 transition-all cursor-pointer font-medium"
                 >
                   + {sug}
                 </button>
@@ -667,10 +667,10 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
 
       {/* TARJETA 4: RESUMEN CORPORATIVO EN TIEMPO REAL */}
       {(idActivo || fechaProgramada || descripcion.trim()) && (
-        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-xl shadow-lg border border-slate-700/80 p-5 sm:p-6 space-y-4">
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-xl shadow-lg border border-slate-700/80 p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/80 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-400/30">
+              <div className="p-1.5 rounded-lg bg-primary/30 text-sky-300 border border-primary/40">
                 <FiActivity className="w-4 h-4" />
               </div>
               <div>
@@ -682,7 +682,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                 </p>
               </div>
             </div>
-            <span className="self-start sm:self-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+            <span className="self-start sm:self-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/30 text-sky-300 border border-primary/40">
               Estado Inicial: Pendiente
             </span>
           </div>
@@ -708,7 +708,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                 {fechaPreview || 'Por programar...'}
               </p>
               {tiempoRestanteBadge && (
-                <span className={`inline-block mt-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${tiempoRestanteBadge.clase}`}>
+                <span className={`inline-block mt-1 px-2 py-0.5 rounded-lg text-[10px] font-bold border ${tiempoRestanteBadge.clase}`}>
                   {tiempoRestanteBadge.texto}
                 </span>
               )}
@@ -718,7 +718,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
               <span className="text-slate-400 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
                 Tipo de Servicio
               </span>
-              <p className="font-bold text-blue-300 text-sm">
+              <p className="font-bold text-sky-300 text-sm">
                 {tipo}
               </p>
               <p className="text-[11px] text-slate-400 mt-0.5 truncate">
@@ -738,7 +738,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
             else navigate('/inventario');
           }}
           disabled={isSubmitting}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 border border-slate-300 rounded-xl text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
         >
           <FiArrowLeft className="w-4 h-4" />
           <span>Volver al Inventario</span>
@@ -749,17 +749,17 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
             type="button"
             onClick={handleReset}
             disabled={isSubmitting}
-            className="w-full sm:w-auto px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-800 rounded-xl transition-colors disabled:opacity-50 cursor-pointer"
+            className="w-full sm:w-auto px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-800 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
           >
             Limpiar Formulario
           </button>
 
-          {/* Botón de Guardar con transition-all y hover:scale-105 según especificación */}
+          {/* Botón de Guardar (CTA Principal) */}
           <button
             type="submit"
             id="btn-guardar-planificacion"
             disabled={isSubmitting}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 hover:from-blue-700 hover:via-blue-800 hover:to-indigo-700 text-white font-semibold text-sm rounded-xl shadow-lg shadow-blue-600/30 hover:scale-105 transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-primary hover:bg-primary-hover text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
           >
             {isSubmitting ? (
               <>

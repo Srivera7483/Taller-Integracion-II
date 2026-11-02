@@ -75,7 +75,7 @@ const NotificacionesDropdown = () => {
       <button
         type="button"
         onClick={() => setAbierto(!abierto)}
-        className="relative p-2 rounded-xl text-gray-500 hover:text-blue-600 hover:bg-blue-50/70 transition-all duration-200 cursor-pointer focus:outline-none"
+        className="relative p-2 rounded-xl text-gray-500 hover:text-primary hover:bg-primary-50/70 transition-all duration-200 cursor-pointer focus:outline-none"
         title="Notificaciones"
         aria-label="Abrir notificaciones"
         aria-expanded={abierto}
@@ -93,7 +93,7 @@ const NotificacionesDropdown = () => {
 
       {/* Popover con efecto glassmorphism */}
       {abierto && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white/90 backdrop-blur-md border border-white/60 shadow-2xl ring-1 ring-black/5 z-50 overflow-hidden animate-fadeIn">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-xl bg-white/90 backdrop-blur-md border border-white/60 shadow-2xl ring-1 ring-black/5 z-50 overflow-hidden animate-fadeIn">
           {/* Cabecera del popover */}
           <div className="flex items-center justify-between px-4 py-3 bg-white/70 border-b border-gray-100 backdrop-blur-sm">
             <div className="flex items-center gap-2">
@@ -109,7 +109,7 @@ const NotificacionesDropdown = () => {
               <button
                 type="button"
                 onClick={marcarTodasLeidas}
-                className="text-[11px] text-blue-600 hover:text-blue-800 font-medium cursor-pointer transition-colors"
+                className="text-[11px] text-primary hover:text-primary-hover font-medium cursor-pointer transition-colors"
               >
                 Marcar leidas
               </button>
@@ -130,7 +130,7 @@ const NotificacionesDropdown = () => {
                   className={`group relative flex items-start gap-3 p-3 rounded-xl transition-all duration-150 cursor-pointer ${
                     item.leida
                       ? 'bg-transparent hover:bg-gray-50/80 opacity-75'
-                      : 'bg-blue-50/40 hover:bg-blue-50/80'
+                      : 'bg-primary-50/40 hover:bg-primary-50/80'
                   }`}
                 >
                   {/* Icono del tipo de alerta */}
@@ -139,7 +139,7 @@ const NotificacionesDropdown = () => {
                       item.tipo === 'incidencia'
                         ? 'bg-amber-100/80 text-amber-600 group-hover:bg-amber-200/80'
                         : item.tipo === 'activo'
-                        ? 'bg-indigo-100/80 text-indigo-600 group-hover:bg-indigo-200/80'
+                        ? 'bg-primary-50 text-primary group-hover:bg-primary-100'
                         : 'bg-emerald-100/80 text-emerald-600 group-hover:bg-emerald-200/80'
                     }`}
                   >
@@ -176,7 +176,7 @@ const NotificacionesDropdown = () => {
                   {/* Indicador de no leida */}
                   {!item.leida && (
                     <span
-                      className="w-2 h-2 rounded-full bg-blue-600 mt-2 flex-shrink-0"
+                      className="w-2 h-2 rounded-full bg-primary mt-2 flex-shrink-0"
                       title="No leida"
                     />
                   )}

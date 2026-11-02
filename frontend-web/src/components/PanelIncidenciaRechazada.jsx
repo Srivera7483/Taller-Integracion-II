@@ -20,14 +20,14 @@ const PanelIncidenciaRechazada = ({
     <div
       id="panel-incidencia-rechazada"
       data-testid="panel-incidencia-rechazada"
-      className="bg-red-50 text-red-800 border border-red-200 rounded-2xl p-5 sm:p-7 space-y-5 shadow-sm transition-all animate-fadeIn"
+      className="bg-red-50 text-red-800 border border-red-200 rounded-xl p-5 sm:p-7 space-y-5 shadow-sm transition-all animate-fadeIn"
       role="region"
       aria-label="Detalle de Rechazo de la Incidencia"
     >
       {/* Cabecera del Panel con Icono Representativo de Advertencia */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-red-200/80 pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-red-100 border border-red-300 flex items-center justify-center text-red-700 shadow-2xs flex-shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-red-100 border border-red-300 flex items-center justify-center text-red-700 shadow-2xs flex-shrink-0">
             <HiExclamationTriangle className="w-6 h-6 text-red-600" aria-hidden="true" />
           </div>
           <div>

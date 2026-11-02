@@ -9,7 +9,7 @@ const Toast = () => {
   const typeStyles = {
     success: 'bg-emerald-700 text-white',
     error: 'bg-red-700 text-white',
-    info: 'bg-blue-700 text-white',
+    info: 'bg-primary text-white',
   };
 
   const currentStyle = typeStyles[type] || typeStyles.info;
@@ -18,7 +18,7 @@ const Toast = () => {
     <div
       role="status"
       aria-live="polite"
-      className={`fixed bottom-4 right-4 z-50 px-6 py-3 rounded-md shadow-lg transition-all duration-300 ${currentStyle}`}
+      className={`fixed bottom-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transition-all duration-300 ${currentStyle}`}
     >
       <p className="font-medium">{message}</p>
     </div>

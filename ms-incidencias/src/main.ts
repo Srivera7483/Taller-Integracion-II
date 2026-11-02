@@ -4,11 +4,13 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { configureHttp } from './configure-http';
+import { SanitizeXssPipe } from './validators/sanitize-xss.pipe';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   configureHttp(app);
   app.useGlobalPipes(
+    new SanitizeXssPipe(),
     new ValidationPipe({
       whitelist: true,
       transform: true,
