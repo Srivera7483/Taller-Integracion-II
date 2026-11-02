@@ -372,4 +372,108 @@ describe('IncidenciasService notifications', () => {
       });
     });
   });
+
+  describe('TAL-11 Productor RabbitMQ de incidencias críticas', () => {
+    const rabbitmqMock = {
+      publicarIncidenciaCritica: jest.fn().mockResolvedValue(true),
+    };
+    const serviceConRabbitmq = new IncidenciasService(
+      prisma,
+      httpService,
+      undefined,
+      undefined,
+      rabbitmqMock as any,
+    );
+
+    beforeEach(() => {
+      rabbitmqMock.publicarIncidenciaCritica.mockClear();
+    });
+
+    it('publica mensaje a RabbitMQ cuando la prioridad explícita es Crítica', async () => {
+      transaction.incidencias.findUnique.mockResolvedValueOnce({
+        ...incidenciaCreada,
+        titulo: 'Corte eléctrico general',
+      });
+
+      await serviceConRabbitmq.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: 'Corte eléctrico general',
+          descripcion: 'Sin energía en toda el área',
+          prioridad: 'Crítica',
+        },
+        'reportante-1',
+        'reportante@example.com',
+      );
+
+      expect(rabbitmqMock.publicarIncidenciaCritica).toHaveBeenCalledTimes(1);
+      expect(rabbitmqMock.publicarIncidenciaCritica).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id_incidencia: 'incidencia-1',
+          titulo: 'Corte eléctrico general',
+          prioridad: 'Crítica',
+        }),
+      );
+    });
+
+    it('publica mensaje a RabbitMQ cuando el título contiene la palabra crítica', async () => {
+      transaction.incidencias.findUnique.mockResolvedValueOnce({
+        ...incidenciaCreada,
+        titulo: 'Falla crítica de base de datos',
+      });
+
+      await serviceConRabbitmq.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: 'Falla crítica de base de datos',
+          descripcion: 'Servicio detenido',
+        },
+        'reportante-1',
+        'reportante@example.com',
+      );
+
+      expect(rabbitmqMock.publicarIncidenciaCritica).toHaveBeenCalledTimes(1);
+      expect(rabbitmqMock.publicarIncidenciaCritica).toHaveBeenCalledWith(
+        expect.objectContaining({
+          titulo: 'Falla crítica de base de datos',
+        }),
+      );
+    });
+
+    it('no publica a RabbitMQ si la incidencia no es de prioridad crítica', async () => {
+      await serviceConRabbitmq.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: 'Mouse con rueda trabada',
+          descripcion: 'Limpieza de periférico',
+          prioridad: 'Baja',
+        },
+        'reportante-1',
+        'reportante@example.com',
+      );
+
+      expect(rabbitmqMock.publicarIncidenciaCritica).not.toHaveBeenCalled();
+    });
+
+    it('no bloquea la creación de incidencia si RabbitMQ falla', async () => {
+      rabbitmqMock.publicarIncidenciaCritica.mockRejectedValueOnce(
+        new Error('RabbitMQ connection lost'),
+      );
+
+      const resultado = await serviceConRabbitmq.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: 'Incidencia Crítica urgente',
+          descripcion: 'Falla',
+          prioridad: 'Crítica',
+        },
+        'reportante-1',
+        'reportante@example.com',
+      );
+
+      expect(resultado).toMatchObject({
+        id_incidencia: 'incidencia-1',
+      });
+    });
+  });
 });

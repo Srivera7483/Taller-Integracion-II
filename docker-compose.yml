@@ -40,13 +40,29 @@ services:
     volumes:
       - auth_db_data:/var/lib/postgresql/data
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
   ms-notificaciones:
     build:
       context: ./ms-notificaciones
     container_name: ms-notificaciones
     restart: unless-stopped
+    depends_on:
+      - rabbitmq
     environment:
       PORT: 3004
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
     ports:
       - "127.0.0.1:${NOTIFICACIONES_PORT:-3004}:3004"
 
@@ -54,3 +70,4 @@ volumes:
   auth_db_data:
   activos_db_data:
   incidencias_db_data:
+  rabbitmq_data:
