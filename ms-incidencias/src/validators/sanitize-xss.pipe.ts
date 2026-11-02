@@ -2,8 +2,9 @@ import {
   PipeTransform,
   Injectable,
   ArgumentMetadata,
+  Optional
 } from '@nestjs/common';
-import { Transform } from 'class-transformer';
+import { Transform } from 'class-transformer'
 
 export interface SanitizeXssPipeOptions {
   /**
@@ -136,7 +137,7 @@ export class SanitizeXssPipe implements PipeTransform<any, any> {
   private readonly deep: boolean;
   private readonly escapeResiduals: boolean;
 
-  constructor(options: SanitizeXssPipeOptions = {}) {
+  constructor(@Optional() options: SanitizeXssPipeOptions = {}) {
     this.mode = options.mode ?? 'strip';
     this.fields = (
       options.fields ?? ['descripcion', 'titulo', 'diagnostico_tecnico']

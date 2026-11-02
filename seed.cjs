@@ -40,8 +40,8 @@ async function main() {
       update: { passwordHash: hash },
       create: { rut_o_id: u.rut, nombre: u.nombre, apellido: u.apellido, email: u.email, passwordHash: hash, roleId: u.role },
     });
-    if (u.role === rolTecnico.id) tecnicosCreados.push(user.rut_o_id);
-    if (u.rut === '20123456-7') reportanteAdminId = user.rut_o_id;
+    if (u.role === rolTecnico.id) tecnicosCreados.push(user.id || user.userId);
+    if (u.rut === '20123456-7') reportanteAdminId = user.id || user.userId;
   }
   console.log('Usuarios reales creados.');
 
@@ -109,7 +109,7 @@ async function main() {
     await incidenciasPrisma.estadoIncidencia.upsert({ where: { id_estado: eb.id_estado }, update: {}, create: eb });
   }
 
-  await incidenciasPrisma.historialEstado.deleteMany();
+  await incidenciasPrisma.historialEstados.deleteMany();
   await incidenciasPrisma.incidencias.deleteMany();
 
   const problemasEscolares = [
