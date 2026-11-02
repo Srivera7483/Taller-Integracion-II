@@ -1,19 +1,6 @@
 name: inframanager
 
 services:
-  auth_db:
-    image: postgres:16
-    container_name: auth_db
-    restart: always
-    ports:
-      - "5435:5432"
-    environment:
-      - POSTGRES_DB=auth_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    volumes:
-      - auth_db_data:/var/lib/postgresql/data
-
   activos_db:
     image: postgres:16
     container_name: activos_db
@@ -39,6 +26,19 @@ services:
       - POSTGRES_PASSWORD=postgres
     volumes:
       - incidencias_db_data:/var/lib/postgresql/data
+
+  auth_db:
+    image: postgres:16
+    container_name: auth_db
+    restart: always
+    ports:
+      - "5435:5432"
+    environment:
+      - POSTGRES_DB=auth_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
 
   ms-notificaciones:
     build:
