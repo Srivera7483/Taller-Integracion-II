@@ -9,8 +9,7 @@ import {
   FiClock,
   FiArrowRight,
   FiBox,
-  FiActivity,
-  FiUser
+  FiActivity
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { fetchIncidencias } from '../services/incidenciasService';
@@ -68,14 +67,14 @@ const Dashboard = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900 tracking-tight">Panel de Control Operativo</h2>
-          <p className="text-xs text-gray-600 mt-0.5">
+          <p className="text-xs text-gray-500 mt-0.5">
             Monitoreo en tiempo real de órdenes de trabajo e indicadores del sistema.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             to="/trazabilidad"
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-primary-50 border border-primary-200 text-primary rounded-lg hover:bg-primary-100 transition shadow-2xs"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition shadow-2xs"
           >
             <FiActivity className="w-3.5 h-3.5" />
             <span>Trazabilidad Activos</span>
@@ -122,11 +121,11 @@ const Dashboard = () => {
           <div>
             <div className="flex items-center gap-3">
               <h3 className="font-semibold text-gray-900 text-sm">Órdenes de Trabajo e Incidencias Recientes</h3>
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary-50 text-primary border border-primary-200">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                 {incidencias.length} registros cargados
               </span>
             </div>
-            <p className="text-xs text-gray-600 mt-0.5">
+            <p className="text-xs text-gray-500 mt-0.5">
               Listado con desplazamiento infinito de reportes activos en la plataforma
             </p>
           </div>
@@ -134,7 +133,7 @@ const Dashboard = () => {
             <BotonExportarExcel variant="compact" />
             <Link
               to="/incidencias"
-              className="text-xs text-primary hover:text-primary-hover font-semibold flex items-center gap-1 transition-colors"
+              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
             >
               <span>Ver todas</span>
               <FiArrowRight className="w-3.5 h-3.5" />
@@ -147,120 +146,62 @@ const Dashboard = () => {
           onScroll={handleContainerScroll}
           className="overflow-x-auto overflow-y-auto max-h-[520px]"
         >
-          {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
-          <div className="md:hidden divide-y divide-gray-100 p-3 sm:p-4 space-y-3">
-            {loading && incidencias.length === 0 ? (
-              <div className="py-12 text-center text-sm text-gray-500">
-                <div className="flex justify-center items-center gap-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
-                  <span>Cargando incidencias iniciales...</span>
-                </div>
-              </div>
-            ) : incidencias.length === 0 ? (
-              <div className="py-12 text-center text-sm text-gray-500">
-                No hay incidencias registradas en el sistema.
-              </div>
-            ) : (
-              incidencias.map((inc, index) => {
-                const estadoTexto = typeof inc.estado === 'object' && inc.estado !== null
-                  ? inc.estado.nombre_estado
-                  : inc.estado || 'Reportada';
-                const idTexto = inc.id_incidencia || inc.id;
-                const fechaTexto = inc.fecha_creacion
-                  ? new Date(inc.fecha_creacion).toLocaleDateString()
-                  : inc.fecha || 'Reciente';
+          <table className="w-full text-left text-sm text-gray-600">
+            <thead className="bg-gray-50 text-gray-500 uppercase text-xs sticky top-0 z-10 shadow-xs">
+              <table className="w-full text-left text-sm text-gray-700">
+                <thead className="bg-gray-50 text-gray-700 uppercase text-xs sticky top-0 z-10 shadow-xs">
+                  <tr>
+                    <th className="px-6 py-3 font-semibold">ID / Asunto</th>
+                    <th className="px-6 py-3 font-semibold">Activo</th>
+                    <th className="px-6 py-3 font-semibold">Estado</th>
+                    <th className="px-6 py-3 font-semibold">Fecha / Asignación</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {loading && incidencias.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-500">
+                        <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-600">
+                          <div className="flex justify-center items-center gap-2">
+                            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                            <span>Cargando incidencias iniciales...</span>
+                          </div>
+                        </td>
+                    </tr>
+                  ) : incidencias.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-500">
+                        <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-600">
+                          No hay incidencias registradas en el sistema.
+                        </td>
+                    </tr>
+                  ) : (
+                    incidencias.map((inc, index) => {
+                      const isSentinel = index === sentinelIndex;
+                      const estadoTexto = typeof inc.estado === 'object' && inc.estado !== null
+                        ? inc.estado.nombre_estado
+                        : inc.estado || 'Reportada';
+                      const idTexto = inc.id_incidencia || inc.id;
+                      const fechaTexto = inc.fecha_creacion
+                        ? new Date(inc.fecha_creacion).toLocaleDateString()
+                        : inc.fecha || 'Reciente';
 
-                return (
-                  <div
-                    key={idTexto || `inc-card-${index}`}
-                    className="bg-white rounded-xl shadow-2xs border border-gray-200 p-4 space-y-2.5 hover:border-gray-300 transition-all"
-                  >
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md border border-gray-200">
-                          {idTexto ? idTexto.substring(0, 13) : 'INC-#'}
-                        </span>
-                        <StatusBadge status={estadoTexto} />
-                      </div>
-                      <span className="text-xs text-gray-400 font-medium">{fechaTexto}</span>
-                    </div>
-
-                    <h4 className="font-semibold text-sm text-gray-900 leading-snug">{inc.titulo}</h4>
-
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100 text-xs">
-                      {inc.id_activo ? (
-                        <Link
-                          to={`/trazabilidad/${encodeURIComponent(inc.id_activo)}`}
-                          className="inline-flex items-center gap-1.5 font-mono text-xs px-2.5 py-1 bg-gray-50 hover:bg-primary-50 text-gray-700 hover:text-primary rounded-lg border border-gray-200 hover:border-primary-300 transition-colors"
-                          title={`Ver trazabilidad de ${inc.id_activo}`}
-                        >
-                          <FiBox className="w-3.5 h-3.5 text-gray-400" />
-                          <span>{inc.id_activo}</span>
-                        </Link>
-                      ) : (
-                        <span className="font-mono text-xs text-gray-400 italic">Sin activo asociado</span>
-                      )}
-
-                      <div className="inline-flex items-center gap-1 text-gray-600 font-medium">
-                        <FiUser className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{inc.asignado || (inc.id_reportante ? `Reportante: ${inc.id_reportante.substring(0, 8)}` : 'Sin asignar')}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
-          <div className="hidden md:block">
-<table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-50 text-gray-600 uppercase text-xs sticky top-0 z-10 shadow-xs">
-              <tr>
-                <th className="px-6 py-3 font-semibold">ID / Asunto</th>
-                <th className="px-6 py-3 font-semibold">Activo</th>
-                <th className="px-6 py-3 font-semibold">Estado</th>
-                <th className="px-6 py-3 font-semibold">Fecha / Asignación</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 bg-white">
-              {loading && incidencias.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-500">
-                    <div className="flex justify-center items-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
-                      <span>Cargando incidencias iniciales...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : incidencias.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-500">
-                    No hay incidencias registradas en el sistema.
-                  </td>
-                </tr>
-              ) : (
-                incidencias.map((inc, index) => {
-                  const isSentinel = index === sentinelIndex;
-                  const estadoTexto = typeof inc.estado === 'object' && inc.estado !== null
-                    ? inc.estado.nombre_estado
-                    : inc.estado || 'Reportada';
-                  const idTexto = inc.id_incidencia || inc.id;
-                  const fechaTexto = inc.fecha_creacion
-                    ? new Date(inc.fecha_creacion).toLocaleDateString()
-                    : inc.fecha || 'Reciente';
-
-                  return (
+                      return (
                     <tr
-                      key={idTexto || `inc-dash-${index}`}
+                      key={idTexto || index}
                       ref={isSentinel ? sentinelRef : null}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="font-mono text-xs font-semibold text-gray-600">
+                          <span className="font-mono text-xs font-semibold text-gray-500">
+                          <Link
+                            to={`/incidencias/${encodeURIComponent(idTexto || 'INC-1042')}`}
+                            className="font-mono text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline w-fit"
+                          >
                             {idTexto ? idTexto.substring(0, 13) : 'INC-#'}
                           </span>
+                          </Link>
                           <span className="font-medium text-gray-900">{inc.titulo}</span>
                         </div>
                       </td>
@@ -268,49 +209,54 @@ const Dashboard = () => {
                         {inc.id_activo ? (
                           <Link
                             to={`/trazabilidad/${encodeURIComponent(inc.id_activo)}`}
-                            className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 bg-gray-100 hover:bg-primary-50 text-gray-800 hover:text-primary rounded-lg border border-gray-200 hover:border-primary-300 transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 bg-gray-100 hover:bg-blue-50 text-gray-800 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors shadow-2xs"
                             title={`Ver trazabilidad de ${inc.id_activo}`}
                           >
                             <FiBox className="w-3 h-3 text-gray-400" />
+                            <FiBox className="w-3 h-3 text-gray-600" aria-hidden="true" />
                             {inc.id_activo.substring(0, 8)}...
                           </Link>
                         ) : (
+                          <span className="font-mono text-xs text-gray-400">N/A</span>
                           <span className="font-mono text-xs text-gray-600">N/A</span>
                         )}
                       </td>
                       <td className="px-6 py-4">
                         <StatusBadge status={estadoTexto} />
                       </td>
-                      <td className="px-6 py-4 text-xs text-gray-600">
+                      <td className="px-6 py-4 text-xs text-gray-500">
+                      <td className="px-6 py-4 text-xs text-gray-700">
                         <div>{fechaTexto}</div>
-                        <div className="text-[11px] text-gray-500 font-medium">
+                        <div className="text-[11px] text-gray-400 font-medium">
+                        <div className="text-[11px] text-gray-600 font-medium">
                           {inc.asignado || (inc.id_reportante ? `Reportante: ${inc.id_reportante.substring(0, 8)}` : 'Sin asignar')}
                         </div>
                       </td>
                     </tr>
-                  );
-                })
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+
+              {loadingMore && (
+                <div className="flex justify-center items-center py-4 bg-gray-50/60 border-t border-gray-100">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                  <span className="ml-2.5 text-xs font-medium text-gray-600">Cargando siguientes incidencias...</span>
+                  <span className="ml-2.5 text-xs font-medium text-gray-700">Cargando siguientes incidencias...</span>
+                </div>
               )}
-            </tbody>
-          </table>
-          </div>
 
-          {loadingMore && (
-            <div className="flex justify-center items-center py-4 bg-gray-50/60 border-t border-gray-100">
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
-              <span className="ml-2.5 text-xs font-medium text-gray-600">Cargando siguientes incidencias...</span>
-            </div>
+              {!hasMore && incidencias.length > 0 && (
+                <div className="text-center py-3 text-xs text-gray-400 font-medium bg-gray-50/40 border-t border-gray-100">
+                  <div className="text-center py-3 text-xs text-gray-600 font-medium bg-gray-50/40 border-t border-gray-100">
+                    Se han cargado todas las incidencias disponibles ({incidencias.length})
+                  </div>
           )}
-
-          {!hasMore && incidencias.length > 0 && (
-            <div className="text-center py-3 text-xs text-gray-600 font-medium bg-gray-50/40 border-t border-gray-100">
-              Se han cargado todas las incidencias disponibles ({incidencias.length})
-            </div>
-          )}
-        </div>
+                </div>
       </div>
-    </div>
-  );
+        </div>
+        );
 };
 
-export default Dashboard;
+        export default Dashboard;

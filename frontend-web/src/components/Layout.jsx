@@ -1,48 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate, useOutlet } from 'react-router-dom';
+import React, { useState } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar } from 'react-icons/fi';
-import { AnimatePresence, motion } from 'framer-motion';
 import SelectorTecnicoSesion from './SelectorTecnicoSesion';
 import NotificacionesDropdown from './NotificacionesDropdown';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
 
-// Variantes de animación para transiciones fluidas de página
-const pageVariants = {
-  initial: {
-    opacity: 0,
-    y: 12,
-  },
-  animate: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.2,
-      ease: [0.25, 0.1, 0.25, 1],
-    },
-  },
-  exit: {
-    opacity: 0,
-    transition: {
-      duration: 0.1,
-      ease: 'easeOut',
-    },
-  },
-};
-
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const currentOutlet = useOutlet();
-  const mainContentRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Scroll al tope del contenedor principal al cambiar de ruta para evitar saltos visuales
-  useEffect(() => {
-    if (mainContentRef.current) {
-      mainContentRef.current.scrollTop = 0;
-    }
-  }, [location.pathname]);
 
   const getPageTitle = () => {
     if (location.pathname.startsWith('/incidencias/nueva') || location.pathname.startsWith('/incidencias/reportar')) {
@@ -72,7 +39,7 @@ const Layout = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token'); 
+    localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('usuario');
     navigate('/login');
@@ -91,7 +58,7 @@ const Layout = () => {
     <div className="flex h-screen bg-gray-50 overflow-hidden text-gray-900">
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-gray-900/50 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
@@ -124,90 +91,5 @@ const Layout = () => {
             <FiX className="w-6 h-6" aria-hidden="true" />
           </button>
         </div>
-        <nav className="flex-1 overflow-y-auto py-4">
-          <ul className="space-y-1 px-3">
-            {navItems.map((item) => {
-              const isItemActive =
-                location.pathname === item.path ||
-                (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
-
-              return (
-                <li key={item.path}>
-                  <NavLink
-                    to={item.path}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm transition-all ${isItemActive
-                        ? 'bg-primary-50 text-primary font-semibold shadow-2xs border-l-4 border-primary'
-                        : 'text-gray-600 hover:bg-gray-100/70 hover:text-gray-900 font-medium'
-                      }`}
-                  >
-                    <item.icon className="w-5 h-5" />
-                    {item.label}
-                  </NavLink>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      </aside>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden w-full">
-        {/* Topbar */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 flex-shrink-0">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <button 
-              type="button"
-              className="lg:hidden text-gray-500 hover:text-gray-700 p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded-lg"
-              onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Abrir menú de navegación"
-              title="Abrir menú de navegación"
-            >
-              <FiMenu className="w-6 h-6" aria-hidden="true" />
-            </button>
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 truncate">{getPageTitle()}</h2>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <NotificacionesDropdown />
-            <SelectorTecnicoSesion />
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 text-gray-600 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring"
-              title="Cerrar sesión"
-              aria-label="Salir - Cerrar sesión"
-            >
-              <FiLogOut className="w-5 h-5" aria-hidden="true" />
-              <span className="hidden md:inline text-xs font-medium">Salir</span>
-            </button>
-          </div>
-        </header>
-
-        {/* TAL-122: Alertas Visuales (Mantenimientos Próximos) */}
-        <CriticalAlertBanner />
-
-        {/* Dynamic Outlet con animación fluida entre vistas (TAL-147) */}
-        {/* pb-24 en móviles garantiza que el FAB flotante no tape elementos ni el scroll natural del usuario */}
-        <main ref={mainContentRef} className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-24 lg:pb-6">
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={location.pathname}
-              variants={pageVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              className="w-full flex-1"
-            >
-              {currentOutlet || <Outlet />}
-            </motion.div>
-          </AnimatePresence>
-        </main>
-      </div>
-
-      {/* TAL-172: Floating Action Button (FAB) en móviles para creación rápida de reportes */}
-      <FabNuevaIncidencia />
-    </div>
-  );
-};
-
-export default Layout;
+        <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto py-4">
+          <ul className="space-y

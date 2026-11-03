@@ -55,6 +55,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const fileInputRef = useRef(null);
 
   // Archivo adjunto y estados para previsualizador de imágenes (TAL-133 y TAL-136)
+  const fileInputRef = useRef(null);
   const [adjuntoNombre, setAdjuntoNombre] = useState('');
   const [archivoImagen, setArchivoImagen] = useState(null);
   const [imagenPreviewUrl, setImagenPreviewUrl] = useState(null);
