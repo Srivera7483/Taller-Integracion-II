@@ -14,11 +14,11 @@ const ReporteIncidencia = () => {
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-2 text-sm text-gray-500">
-        <Link to="/dashboard" className="hover:text-blue-600 transition-colors">
+        <Link to="/dashboard" className="hover:text-primary transition-colors">
           Inicio
         </Link>
         <FiChevronRight className="w-3.5 h-3.5" />
-        <Link to="/incidencias" className="hover:text-blue-600 transition-colors">
+        <Link to="/incidencias" className="hover:text-primary transition-colors">
           Incidencias
         </Link>
         <FiChevronRight className="w-3.5 h-3.5" />
@@ -35,7 +35,7 @@ const ReporteIncidencia = () => {
             Completa el formulario a continuación para notificar al equipo de infraestructura sobre una falla o anomalía operativa.
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-semibold rounded-lg border border-blue-100 self-start md:self-auto">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-50 text-primary text-xs font-semibold rounded-lg border border-primary-200 self-start md:self-auto">
           <FiShield className="w-4 h-4" /> Mesa de Ayuda Activa (24/7)
         </div>
       </div>
@@ -52,24 +52,24 @@ const ReporteIncidencia = () => {
           {/* Tarjeta: Recomendaciones para el reporte */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-4">
             <h3 className="font-semibold text-gray-800 text-sm flex items-center gap-2">
-              <FiHelpCircle className="text-blue-600 w-4 h-4" />
+              <FiHelpCircle className="text-primary w-4 h-4" />
               Buenas Prácticas para el Reporte
             </h3>
             <ul className="text-xs text-gray-600 space-y-3">
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
                 <span>
                   <strong>Identifica con precisión el activo:</strong> Puedes usar el número de serie (SN) o etiqueta de activo fijada en el chasis.
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
                 <span>
                   <strong>Describe síntomas, no solo conclusiones:</strong> Por ejemplo, menciona luces LED parpadeando, códigos HTTP 500 o caídas súbitas.
                 </span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
                 <span>
                   <strong>Adjunta capturas de pantalla o logs:</strong> Acelera en más de un 60% la resolución en el primer contacto.
                 </span>
@@ -103,7 +103,7 @@ const ReporteIncidencia = () => {
           {/* Tarjeta: Contacto de Emergencia */}
           <div className="bg-slate-900 text-slate-100 rounded-xl p-5 shadow-sm space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-primary-500/20 text-primary-300 flex items-center justify-center">
                 <FiPhoneCall className="w-4 h-4" />
               </div>
               <div>
@@ -114,7 +114,7 @@ const ReporteIncidencia = () => {
             <p className="text-xs text-slate-300 leading-relaxed">
               Si la falla paraliza completamente el centro de datos o la operación productiva, notifica de inmediato a la extensión de guardia:
             </p>
-            <div className="bg-slate-800/80 rounded-lg py-2 px-3 text-center font-mono text-sm font-bold text-blue-400 border border-slate-700">
+            <div className="bg-slate-800/80 rounded-lg py-2 px-3 text-center font-mono text-sm font-bold text-primary-300 border border-slate-700">
               Ext. 9911 / noc@infra.local
             </div>
           </div>

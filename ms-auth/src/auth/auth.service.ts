@@ -1,8 +1,9 @@
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { verify } from 'argon2';
+import { verify, hash } from 'argon2';
 import { UserRepository } from './user.repository.js';
 import { LoginDto } from './dto/login.dto.js';
+import { RegisterDto } from './dto/register.dto.js';
 import { UpdateRoleDto } from './dto/update-role.dto.js';
 
 interface RefreshTokenPayload {
@@ -26,6 +27,40 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly userRepository: UserRepository,
   ) {}
+
+  async register(registerDto: RegisterDto): Promise<any> {
+    const email = registerDto.email.trim().toLowerCase();
+
+    const existingUser = await this.userRepository.findByEmail(email);
+    if (existingUser) {
+      throw new ConflictException('El correo ya está registrado');
+    }
+
+    const passwordHash = await hash(registerDto.password);
+
+    const newUser = await this.userRepository.createUser({
+      rut_o_id: registerDto.rut_o_id,
+      nombre: registerDto.nombre,
+      apellido: registerDto.apellido,
+      email: email,
+      passwordHash: passwordHash,
+      role: {
+        connect: { nombreRol: 'REPORTANTE' },
+      }
+    });
+
+    return {
+      message: 'Usuario registrado exitosamente',
+      usuario: {
+        id_usuario: newUser.id,
+        rut_o_id: newUser.rut_o_id,
+        nombre: newUser.nombre,
+        apellido: newUser.apellido,
+        correo: newUser.email,
+        rol: newUser.role.nombreRol
+      }
+    };
+  }
 
   async login(loginDto: LoginDto): Promise<any> {
     const email = loginDto.email.trim().toLowerCase();
@@ -58,6 +93,7 @@ export class AuthService {
 
     return {
       token,
+      accessToken: token,
       refreshToken,
       usuario: {
         id_usuario: user.id,
@@ -120,6 +156,11 @@ export class AuthService {
     return { accessToken };
   }
 
+  // Alias por compatibilidad si alguna ruta o prueba llama a refreshToken
+  async refreshToken(refreshTokenStr: string): Promise<{ accessToken: string }> {
+    return this.refresh(refreshTokenStr);
+  }
+
   async updateUserRole(id: string, updateRoleDto: UpdateRoleDto) {
     const user = await this.userRepository.findById(id);
 
@@ -148,6 +189,39 @@ export class AuthService {
         nombre_rol: user.role.nombreRol
       },
       created_at: user.fechaCreacion.toISOString()
+    };
+  }
+
+  async listUsers(page: number = 1, limit: number = 15) {
+    const clampedLimit = Math.max(1, Math.min(50, limit));
+    const clampedPage = Math.max(1, page);
+    const { usuarios, total, totalPages } = await this.userRepository.findMany(clampedPage, clampedLimit);
+    return {
+      datos: usuarios.map((user: any) => ({
+        id_usuario: user.id,
+        rut_o_id: user.rut_o_id,
+        nombre: user.nombre,
+        apellido: user.apellido,
+        correo: user.email,
+        email: user.email,
+        rol: user.role.nombreRol,
+        rol_info: {
+          id_rol: user.role.id,
+          nombre_rol: user.role.nombreRol,
+        },
+        fecha_creacion: user.fechaCreacion.toISOString(),
+        fecha_eliminacion: user.fechaEliminacion ? user.fechaEliminacion.toISOString() : null,
+        estado: user.fechaEliminacion ? 'inactivo' : 'activo',
+      })),
+      total,
+      totalItems: total,
+      pagina: clampedPage,
+      currentPage: clampedPage,
+      page: clampedPage,
+      limite: clampedLimit,
+      limit: clampedLimit,
+      totalPaginas: totalPages,
+      totalPages: totalPages,
     };
   }
 }

@@ -17,7 +17,7 @@ import { RolesGuard } from './roles.guard';
         }
 
         return {
-          secret: secret ?? 'dev-secret-change-me',
+          secret: secret ?? 'super_secret_key_change_me',
           // ms-incidencias solo verifica tokens, no los crea. Esto es lo correcto.
           verifyOptions: { algorithms: ['HS256'] },
         };

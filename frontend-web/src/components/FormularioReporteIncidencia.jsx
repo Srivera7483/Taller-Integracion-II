@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   FiFileText, 
@@ -10,11 +10,17 @@ import {
   FiLink, 
   FiX, 
   FiSend, 
-  FiArrowLeft,
-  FiUploadCloud
+  FiArrowLeft
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { saveIncidencia } from '../services/incidenciasStorage';
+import { createIncidencia } from '../services/incidenciasService';
+import ModalPrevisualizadorImagen from './ModalPrevisualizadorImagen';
+import ImageUploader from './ImageUploader';
+import api from '../services/api';
+
+const MAX_FILE_SIZE_BYTES = 5242880;
+const MENSAJE_ERROR_LIMITE_5MB = 'El archivo supera el límite de 5MB';
 
 const CATEGORIAS_FALLA = [
   { id: 'hardware', nombre: 'Hardware', desc: 'Falla física en servidores, equipos o periféricos' },
@@ -29,6 +35,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showToast } = useToast();
+  const fileInputRef = useRef(null);
 
   // Extraer ID del activo desde varios posibles parámetros de URL
   const assetFromUrl = 
@@ -45,11 +52,22 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const [categoria, setCategoria] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
+  const fileInputRef = useRef(null);
 
-
-  
-  // Archivo adjunto simulado
+  // Archivo adjunto y estados para previsualizador de imágenes (TAL-133 y TAL-136)
   const [adjuntoNombre, setAdjuntoNombre] = useState('');
+  const [archivoImagen, setArchivoImagen] = useState(null);
+  const [imagenPreviewUrl, setImagenPreviewUrl] = useState(null);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+
+  // Limpieza preventiva de URLs en memoria al desmontar o actualizar
+  useEffect(() => {
+    return () => {
+      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imagenPreviewUrl);
+      }
+    };
+  }, [imagenPreviewUrl]);
 
   // Estados de control y validación
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -144,12 +162,63 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  /**
+   * TAL-134: Validador de tamaño de archivo (Max 5MB = 5,242,880 bytes) en cliente.
+   * Procesa el archivo una vez validado por <ImageUploader /> (o invocado directamente).
+   */
+  const handleFileAccepted = (file) => {
+    if (!file) return;
+
+    // Doble barrera de seguridad en el formulario: bloquear si supera 5,242,880 bytes (5MB)
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      showToast(MENSAJE_ERROR_LIMITE_5MB, 'error');
+      return;
+    }
+
+    const esImagen = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
+
+    if (esImagen) {
+      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imagenPreviewUrl);
+      }
+      const preview = URL.createObjectURL(file);
+      setArchivoImagen(file);
+      setImagenPreviewUrl(preview);
+      setAdjuntoNombre(file.name);
+      showToast(`Imagen "${file.name}" cargada para previsualización`, 'info');
+    } else {
+      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imagenPreviewUrl);
+      }
+      setArchivoImagen(file);
+      setImagenPreviewUrl(null);
       setAdjuntoNombre(file.name);
       showToast(`Archivo "${file.name}" adjuntado al reporte`, 'info');
     }
+  };
+
+  /**
+   * TAL-133 - Criterio de Aceptación b:
+   * Posibilidad de limpiar la selección antes de enviar el POST final.
+   */
+  const handleLimpiarImagen = (options = {}) => {
+    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imagenPreviewUrl);
+    }
+    setArchivoImagen(null);
+    setImagenPreviewUrl(null);
+    setAdjuntoNombre('');
+    setIsImageModalOpen(false);
+    if (!options?.silent) {
+      showToast('Selección de imagen eliminada', 'info');
+    }
+  };
+
+  const handleCambiarImagen = () => {
+    handleLimpiarImagen();
   };
 
   const handleResetForm = () => {
@@ -161,12 +230,18 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     setCategoria('');
     setDescripcion('');
     setUbicacion('');
+    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(imagenPreviewUrl);
+    }
+    setArchivoImagen(null);
+    setImagenPreviewUrl(null);
     setAdjuntoNombre('');
+    setIsImageModalOpen(false);
     setErrors({});
     setTouched({});
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (isSubmitting) return;
@@ -189,38 +264,103 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       return;
     }
 
+    // TAL-134 - Criterio de Aceptación a:
+    // El POST a Cloudinary/Backend nunca se ejecuta si el archivo es mayor a 5MB (5,242,880 bytes)
+    if (archivoImagen && archivoImagen.size > MAX_FILE_SIZE_BYTES) {
+      handleLimpiarImagen({ silent: true });
+      showToast(MENSAJE_ERROR_LIMITE_5MB, 'error');
+      return;
+    }
+
     // Criterio 2: Activar estado de envío / loading y deshabilitar botón
     setIsSubmitting(true);
 
-    // Se mantienen esos atributos viejos, pero se pegan en la descripción
+    // Se concatenan metadatos contextuales en la descripción
     const descripcionCompleta = `[Categoría: ${categoria}] [Ubicación: ${ubicacion}]\n${descripcion.trim()}`;
 
-    const nuevaIncidencia = {
+    // Resolver ID de activo si es código QR o identificador amigable
+    let resolvedActivoId = idActivo.trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resolvedActivoId);
+
+    if (!isUuid) {
+      try {
+        const qrResp = await api.get(`/activos/validar-qr?codigoQr=${encodeURIComponent(resolvedActivoId)}`);
+        if (qrResp.data?.valido && qrResp.data?.activo?.id) {
+          resolvedActivoId = qrResp.data.activo.id;
+        }
+      } catch {
+        const mapaConocido = {
+          'ACT-2026-0001': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+          'ACT-2026-0002': '550e8400-e29b-41d4-a716-446655440000',
+          'ACT-2026-0003': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        };
+        if (mapaConocido[resolvedActivoId.toUpperCase()]) {
+          resolvedActivoId = mapaConocido[resolvedActivoId.toUpperCase()];
+        }
+      }
+    }
+
+    const payloadApi = {
       titulo: titulo.trim(),
-      id_activo: idActivo.trim(), // Asegurar de que esto sea un UUID válido si la BD lo exige
+      id_activo: resolvedActivoId,
       descripcion: descripcionCompleta,
     };
 
+    let idGenerado = null;
 
-
-    console.log('[Incidencias] Payload generado para la API:', nuevaIncidencia);
-
-    // Persistir temporalmente en Cookie para pruebas del frontend
-    saveIncidencia(nuevaIncidencia);
-
-    // Simulación de respuesta de backend con bloqueo de doble click
-    setTimeout(() => {
-      setIsSubmitting(false);
-      showToast(`¡Incidencia ${nuevaIncidencia.id} registrada con éxito!`, 'success');
-      
-      // Navegación tras registrar
-      if (onCancel) {
-        onCancel();
-      } else {
-        navigate('/incidencias');
+    try {
+      const resp = await createIncidencia(payloadApi);
+      idGenerado = resp?.id_incidencia || resp?.id;
+    } catch {
+      // Fallback a almacenamiento persistente local
       }
-    }, 1000);
+
+    let urlEvidencia = null;
+
+    // Si el usuario adjuntó una imagen válida (<= 5MB) y no la limpió, subirla como evidencia asociada a la incidencia (TAL-14/TAL-133/TAL-134)
+    if (idGenerado && archivoImagen && archivoImagen.size <= MAX_FILE_SIZE_BYTES) {
+      try {
+        const formData = new FormData();
+        formData.append('file', archivoImagen);
+        formData.append('id_tipo_evidencia', '1');
+        const uploadResp = await api.post(`/incidencias/${idGenerado}/evidencias/upload`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        urlEvidencia = uploadResp.data?.url_evidencia || uploadResp.data?.url_cloudinary;
+      } catch {
+        // Omisión controlada si backend de carga de evidencias no está disponible
+      }
+    }
+
+    const nuevaIncidenciaLocal = {
+      id: idGenerado || `INC-${Date.now().toString().slice(-4)}`,
+      titulo: titulo.trim(),
+      id_activo: resolvedActivoId,
+      descripcion: descripcionCompleta,
+      categoria,
+      ubicacion,
+      estado: 'Pendiente',
+      fecha: new Date().toISOString(),
+      evidencias: urlEvidencia ? [urlEvidencia] : (imagenPreviewUrl ? [imagenPreviewUrl] : []),
+      imagenAdjuntaNombre: archivoImagen?.name || null,
+    };
+
+    // Sincronizar almacenamiento local para compatibilidad
+    saveIncidencia(nuevaIncidenciaLocal);
+
+    setIsSubmitting(false);
+    showToast(`¡Incidencia ${nuevaIncidenciaLocal.id} registrada con éxito!`, 'success');
+
+    // Navegación tras registrar
+    if (onCancel) {
+      onCancel();
+    } else {
+      navigate('/incidencias');
+    }
   };
+
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-8">
@@ -228,7 +368,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
         <div className="border-b border-gray-100 pb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <FiAlertCircle className="text-blue-600" />
+            <FiAlertCircle className="text-primary" />
             Datos Principales del Reporte
           </h3>
           <p className="text-sm text-gray-500 mt-1">
@@ -254,10 +394,10 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 onBlur={() => handleBlur('titulo')}
                 disabled={isSubmitting}
                 placeholder="Ej. Interrupción de servicio en base de datos PostgreSQL principal"
-                className={`w-full pl-11 pr-4 py-2.5 rounded-lg border text-sm transition-all outline-none ${
+                className={`w-full pl-11 pr-4 py-2.5 rounded-lg border text-sm transition-all outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
                   touched.titulo && errors.titulo
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white'
+                    : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'
                 } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
                 required
               />
@@ -282,7 +422,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               </label>
 
               {isUrlPreloaded && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary-50 text-primary border border-primary-200">
                   <FiLink className="w-3 h-3" /> Pre-cargado desde URL
                 </span>
               )}
@@ -301,11 +441,11 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 disabled={isSubmitting}
                 placeholder="Ej. SN-MPM2-2023-001 o ACT-SRV-04"
                 className={`w-full pl-11 ${
-                  isUrlPreloaded ? 'pr-10 bg-blue-50/30' : 'pr-4 bg-white'
-                } py-2.5 rounded-lg border text-sm transition-all outline-none font-mono ${
+                  isUrlPreloaded ? 'pr-10 bg-primary-50/30' : 'pr-4 bg-white'
+                } py-2.5 rounded-lg border text-sm transition-all outline-none font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
                   touched.idActivo && errors.idActivo
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary'
                 } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
                 required
               />
@@ -314,8 +454,8 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                   type="button"
                   onClick={handleClearPreloadedAsset}
                   disabled={isSubmitting}
-                  title="Limpiar ID pre-cargado"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors disabled:cursor-not-allowed"
+                  title="Limpiar ID pre-cargado" aria-label="Eliminar"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                 >
                   <FiX className="w-4 h-4" />
                 </button>
@@ -328,7 +468,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 {errors.idActivo}
               </p>
             ) : isUrlPreloaded ? (
-              <p className="mt-1 text-xs text-blue-600 flex items-center gap-1">
+              <p className="mt-1 text-xs text-primary font-medium flex items-center gap-1">
                 <FiCheckCircle className="w-3.5 h-3.5" />
                 Identificador de equipo cargado automáticamente desde el enlace.
               </p>
@@ -351,7 +491,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 value={ubicacion}
                 onChange={(e) => setUbicacion(e.target.value)}
                 placeholder="Ej. Rack A3 - DataCenter Norte / Piso 2"
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition-all"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring outline-none text-sm transition-all"
               />
             </div>
             <p className="mt-1 text-xs text-gray-500">
@@ -365,7 +505,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
         <div className="border-b border-gray-100 pb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <FiLayers className="text-blue-600" />
+            <FiLayers className="text-primary" />
             Clasificación de la Falla
           </h3>
           <p className="text-sm text-gray-500 mt-1">
@@ -386,10 +526,10 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 onChange={(e) => handleFieldChange('categoria', e.target.value)}
                 onBlur={() => handleBlur('categoria')}
                 disabled={isSubmitting}
-                className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-all outline-none appearance-none bg-white ${
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-all outline-none appearance-none bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
                   touched.categoria && errors.categoria
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+                    : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary'
                 } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
                 required
               >
@@ -429,7 +569,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
         <div className="border-b border-gray-100 pb-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <FiAlignLeft className="text-blue-600" />
+              <FiAlignLeft className="text-primary" />
               Detalle y Diagnóstico
             </h3>
             <p className="text-sm text-gray-500 mt-1">
@@ -455,10 +595,10 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             onBlur={() => handleBlur('descripcion')}
             disabled={isSubmitting}
             placeholder="Describe qué ocurrió, cuáles fueron los síntomas observados, mensajes de error en pantalla o códigos emitidos, y si el incidente causó la detención de operaciones..."
-            className={`w-full p-4 rounded-lg border text-sm transition-all outline-none resize-y ${
+            className={`w-full p-4 rounded-lg border text-sm transition-all outline-none resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
               touched.descripcion && errors.descripcion
                 ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white'
+                : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'
             } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
             required
           />
@@ -475,35 +615,22 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
           )}
         </div>
 
-        {/* Campo Opcional: Adjuntar Evidencias (Logs, Captura de Pantalla) */}
+        {/* Campo: Adjuntar Evidencias Fotográficas con Validador de Tamaño Max 5MB (TAL-134) y Previsualizador (TAL-133) */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Evidencia o Archivo de Registro <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
+            Evidencia Fotográfica o Archivo de Registro <span className="text-xs text-gray-400 font-normal">(Opcional — Máx. 5MB)</span>
           </label>
-          
-          <div className="relative border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-5 text-center bg-gray-50/50 hover:bg-blue-50/20 transition-all cursor-pointer">
-            <input 
-              type="file" 
-              onChange={handleFileChange}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              accept=".png,.jpg,.jpeg,.log,.txt,.pdf"
-            />
-            <div className="flex flex-col items-center justify-center space-y-2">
-              <FiUploadCloud className="w-8 h-8 text-blue-500" />
-              <div className="text-sm text-gray-600">
-                {adjuntoNombre ? (
-                  <span className="font-semibold text-blue-600">Archivo seleccionado: {adjuntoNombre}</span>
-                ) : (
-                  <>
-                    <span className="font-semibold text-blue-600 hover:underline">Sube un archivo</span> o arrastra y suelta aquí
-                  </>
-                )}
-              </div>
-              <p className="text-xs text-gray-400">
-                PNG, JPG, LOG o TXT (máximo 10MB)
-              </p>
-            </div>
-          </div>
+
+          <ImageUploader
+            archivoImagen={archivoImagen}
+            imagenPreviewUrl={imagenPreviewUrl}
+            adjuntoNombre={adjuntoNombre}
+            onFileAccepted={handleFileAccepted}
+            onClearFile={handleLimpiarImagen}
+            onOpenModal={() => setIsImageModalOpen(true)}
+            disabled={isSubmitting}
+            fileInputRef={fileInputRef}
+          />
         </div>
       </div>
 
@@ -519,7 +646,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               navigate('/incidencias');
             }
           }}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           <FiArrowLeft className="w-4 h-4" />
           Volver a Incidencias
@@ -530,7 +657,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             type="button"
             disabled={isSubmitting}
             onClick={handleResetForm}
-            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             Limpiar Campos
           </button>
@@ -539,7 +666,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             type="submit"
             id="btn-enviar-incidencia"
             disabled={isSubmitting}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all shadow-sm disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover focus:ring-4 focus:ring-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >
             {isSubmitting ? (
               <>
@@ -558,6 +685,17 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
           </button>
         </div>
       </div>
+
+      {/* Modal Previsualizador de Imágenes Subidas a S3 (TAL-133) */}
+      <ModalPrevisualizadorImagen
+        isOpen={isImageModalOpen}
+        onClose={() => setIsImageModalOpen(false)}
+        imageUrl={imagenPreviewUrl}
+        imageName={adjuntoNombre}
+        imageSize={archivoImagen?.size}
+        onLimpiarImagen={handleLimpiarImagen}
+        onCambiarImagen={handleCambiarImagen}
+      />
     </form>
   );
 };

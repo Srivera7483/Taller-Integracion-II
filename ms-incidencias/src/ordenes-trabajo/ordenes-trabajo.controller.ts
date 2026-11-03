@@ -27,7 +27,7 @@ import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 @Controller('ordenes-trabajo')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrdenesTrabajoController {
-  constructor(private readonly ordenesService: OrdenesTrabajoService) {}
+  constructor(private readonly ordenesService: OrdenesTrabajoService) { }
 
   @Post('asignar')
   @HttpCode(HttpStatus.CREATED)

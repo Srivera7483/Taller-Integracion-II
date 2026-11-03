@@ -1,4 +1,5 @@
 import { HttpService } from '@nestjs/axios';
+import { UnsupportedMediaTypeException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { IncidenciasService } from './incidencias.service';
 import { of, throwError } from 'rxjs';
@@ -132,5 +133,243 @@ describe('IncidenciasService notifications', () => {
         cuerpoMensaje: 'La incidencia "Falla de proyector" fue resuelta.',
       },
     );
+  });
+
+  describe('TAL-115: Prioridad Dinámica en IncidenciasService', () => {
+    it('incluye campos de prioridad relativa y escalamiento al consultar o crear incidencia', async () => {
+      const resultado = await service.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: 'Falla de proyector',
+          descripcion: 'No enciende',
+        },
+        'reportante-1',
+        'reportante@example.com',
+      );
+
+      expect(resultado).toHaveProperty('prioridad');
+      expect(resultado).toHaveProperty('prioridad_original');
+      expect(resultado).toHaveProperty('prioridad_relativa');
+      expect(resultado).toHaveProperty('escalada');
+      expect(resultado).toHaveProperty('tiempo_inactividad_horas');
+    });
+
+    it('retorna el calculo individual de prioridad dinamica con obtenerPrioridadDinamica', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.incidencias = {
+        findUnique: jest.fn().mockResolvedValue({
+          ...incidenciaCreada,
+          fecha_creacion: new Date(Date.now() - 72 * 3600 * 1000), // 72 horas (> 48h)
+        }),
+      };
+
+      const resultado = await service.obtenerPrioridadDinamica('incidencia-1');
+
+      expect(resultado.valido).toBe(true);
+      expect(resultado.escalada).toBe(true);
+      expect(resultado.tiempo_inactividad_horas).toBeGreaterThanOrEqual(72);
+      expect(resultado.prioridad_relativa).toBe('Alta'); // Base Media -> Alta
+      expect(resultado.motivo_escalamiento).toContain('Inactividad superior a 48h');
+    });
+  });
+
+  describe('TAL-117: Exportación de Incidencias a Excel y CSV', () => {
+    it('exporta el listado completo a Excel (.xlsx) por defecto', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.incidencias = {
+        findMany: jest.fn().mockResolvedValue([incidenciaCreada]),
+      };
+
+      const resultado = await service.exportarIncidencias();
+
+      expect(resultado).toBeDefined();
+      expect(resultado.contentType).toBe(
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      expect(resultado.filename).toContain('.xlsx');
+      expect(resultado.totalFilas).toBe(1);
+      expect(resultado.buffer).toBeInstanceOf(Buffer);
+      expect(resultado.buffer.length).toBeGreaterThan(0);
+    });
+
+    it('exporta a CSV cuando se especifica el formato csv', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.incidencias = {
+        findMany: jest.fn().mockResolvedValue([incidenciaCreada]),
+      };
+
+      const resultado = await service.exportarIncidencias({ formato: 'csv' });
+
+      expect(resultado).toBeDefined();
+      expect(resultado.contentType).toBe('text/csv; charset=utf-8');
+      expect(resultado.filename).toContain('.csv');
+      expect(resultado.totalFilas).toBe(1);
+      expect(resultado.buffer).toBeInstanceOf(Buffer);
+      expect(resultado.buffer.toString('utf-8')).toContain('Falla de proyector');
+    });
+
+    it('aplica filtros de activo y estado al exportar', async () => {
+      const mockPrisma = prisma as any;
+      const findManyMock = jest.fn().mockResolvedValue([incidenciaCreada]);
+      mockPrisma.incidencias = { findMany: findManyMock };
+
+      await service.exportarIncidencias({
+        id_activo: 'activo-1',
+        id_estado: 1,
+      });
+
+      expect(findManyMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ id_activo: 'activo-1' }),
+        }),
+      );
+    });
+  });
+
+  describe('TAL-127: Validación de extensiones en crearEvidencia', () => {
+    it('rechaza evidencias con extensión .exe lanzando UnsupportedMediaTypeException', async () => {
+      await expect(
+        service.crearEvidencia('incidencia-1', {
+          id_tipo_evidencia: 1,
+          url_evidencia: 'https://evil.com/malware.exe',
+        }),
+      ).rejects.toThrow(UnsupportedMediaTypeException);
+    });
+
+    it('rechaza evidencias con extensión .pdf lanzando UnsupportedMediaTypeException', async () => {
+      await expect(
+        service.crearEvidencia('incidencia-1', {
+          id_tipo_evidencia: 1,
+          url_evidencia: 'https://servidor.com/documento.pdf',
+        }),
+      ).rejects.toThrow(UnsupportedMediaTypeException);
+    });
+
+    it('acepta evidencias con extensiones válidas como .jpg, .png o .webp', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.incidencias = {
+        findUnique: jest.fn().mockResolvedValue(incidenciaCreada),
+      };
+      mockPrisma.tipoEvidencia = {
+        findUnique: jest.fn().mockResolvedValue({ id_tipo_evidencia: 1, nombre_tipo: 'Foto' }),
+      };
+      mockPrisma.evidencia = {
+        create: jest.fn().mockResolvedValue({
+          id_evidencia: 'ev-1',
+          id_incidencia: 'incidencia-1',
+          url_cloudinary: 'https://cloudinary.com/foto.jpg',
+          fecha_creacion: new Date(),
+          tipo_evidencia: { id_tipo_evidencia: 1, nombre_tipo: 'Foto' },
+        }),
+      };
+
+      const resultado = await service.crearEvidencia('incidencia-1', {
+        id_tipo_evidencia: 1,
+        url_evidencia: 'https://cloudinary.com/foto.jpg',
+      });
+
+      expect(resultado.url_evidencia).toBe('https://cloudinary.com/foto.jpg');
+    });
+  });
+
+  describe('TAL-139: Optimización y paginación forzada de Queries grandes', () => {
+    it('retorna metadatos de paginación (totalItems, totalPages, currentPage, limit, data) con defaults', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.$queryRaw = jest
+        .fn()
+        .mockResolvedValueOnce([{ count: 1n }])
+        .mockResolvedValueOnce([{ id_incidencia: 'incidencia-1' }]);
+      mockPrisma.incidencias = {
+        findMany: jest.fn().mockResolvedValue([incidenciaCreada]),
+      };
+
+      const resultado = await service.listar({});
+
+      expect(resultado).toBeDefined();
+      expect(resultado.totalItems).toBe(1);
+      expect(resultado.totalPages).toBe(1);
+      expect(resultado.currentPage).toBe(1);
+      expect(resultado.limit).toBe(20);
+      expect(resultado.data).toHaveLength(1);
+      expect(resultado.data[0].id_incidencia).toBe('incidencia-1');
+      expect(mockPrisma.incidencias.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 20 }),
+      );
+    });
+
+    it('fuerza un tope máximo de 50 registros aunque se solicite un límite mayor', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.$queryRaw = jest
+        .fn()
+        .mockResolvedValueOnce([{ count: 100n }])
+        .mockResolvedValueOnce([{ id_incidencia: 'incidencia-1' }]);
+      mockPrisma.incidencias = {
+        findMany: jest.fn().mockResolvedValue([incidenciaCreada]),
+      };
+
+      const resultado = await service.listar({ limit: 100 as any, page: 2 });
+
+      expect(resultado.limit).toBe(50);
+      expect(resultado.currentPage).toBe(2);
+      expect(resultado.totalItems).toBe(100);
+      expect(resultado.totalPages).toBe(2);
+      expect(mockPrisma.incidencias.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 50 }),
+      );
+    });
+
+    it('maneja respuestas vacías retornando metadatos coherentes sin consultar findMany', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.$queryRaw = jest.fn().mockResolvedValueOnce([{ count: 0 }]);
+      mockPrisma.incidencias = { findMany: jest.fn() };
+
+      const resultado = await service.listar({ limit: 20, page: 1 });
+
+      expect(resultado.totalItems).toBe(0);
+      expect(resultado.totalPages).toBe(0);
+      expect(resultado.currentPage).toBe(1);
+      expect(resultado.data).toEqual([]);
+      expect(mockPrisma.incidencias.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('TAL-140: Sanitización de Entradas en MS Incidencias (XSS)', () => {
+    it('sanitiza intentos de inyección XSS en titulo y descripcion al crear una incidencia', async () => {
+      await service.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: '<script>alert("hack")</script>Proyector averiado',
+          descripcion: 'Falla <script>alert(1)</script>',
+        },
+        'reportante-1',
+        'reportante@example.com',
+      );
+
+      expect(transaction.incidencias.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          titulo: 'alert("hack")Proyector averiado',
+          descripcion: 'Falla alert(1)',
+        }),
+      });
+    });
+
+    it('elimina etiquetas img con onerror e iframes antes de guardar en base de datos', async () => {
+      await service.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: 'Pantalla azul <img src=x onerror=alert(document.cookie)>',
+          descripcion: 'Ver detalle <iframe src="http://evil.com">malware</iframe> fin',
+        },
+        'reportante-1',
+        'reportante@example.com',
+      );
+
+      expect(transaction.incidencias.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          titulo: 'Pantalla azul',
+          descripcion: 'Ver detalle fin',
+        }),
+      });
+    });
   });
 });

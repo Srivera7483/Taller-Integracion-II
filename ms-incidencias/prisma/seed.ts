@@ -11,6 +11,7 @@ async function main() {
     { id_estado: 3, nombre_estado: 'Resuelta' },
     { id_estado: 4, nombre_estado: 'Cerrada' },
     { id_estado: 5, nombre_estado: 'Rechazada' },
+    { id_estado: 6, nombre_estado: 'Completada' },
   ];
 
   for (const estado of estados) {
