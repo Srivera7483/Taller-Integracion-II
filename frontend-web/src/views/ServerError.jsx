@@ -101,7 +101,7 @@ const ServerError = () => {
             id="btn-500-reintentar"
             onClick={handleReintentar}
             disabled={reintentando}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm transition shadow-md hover:shadow-lg hover:-translate-y-0.5 cursor-pointer min-h-[44px] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-primary hover:bg-primary-hover text-white font-bold text-sm transition shadow-md hover:shadow-lg hover:-translate-y-0.5 cursor-pointer min-h-[44px] disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             <FiRefreshCw className={`w-4 h-4 ${reintentando ? 'animate-spin' : ''}`} />
             <span>{reintentando ? 'Reconectando...' : 'Reintentar Conexión'}</span>

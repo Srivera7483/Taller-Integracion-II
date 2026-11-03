@@ -134,14 +134,15 @@ const Inventario = () => {
             value={terminoBusqueda}
             onChange={(e) => setTerminoBusqueda(e.target.value)}
             placeholder="Buscar por equipo, serie, QR o ubicación..."
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm bg-white shadow-2xs"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring outline-none transition-all text-sm bg-white shadow-2xs"
           />
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={cargarEquipos}
             disabled={cargando}
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium text-xs shadow-2xs disabled:opacity-50 cursor-pointer"
+            aria-label="Actualizar inventario"
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium text-xs shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring disabled:opacity-50 cursor-pointer"
             title="Recargar inventario desde el microservicio"
           >
             <FiRefreshCw className={`w-3.5 h-3.5 ${cargando ? 'animate-spin text-primary' : ''}`} />
@@ -162,7 +163,7 @@ const Inventario = () => {
             <FiActivity className="w-3.5 h-3.5 text-primary" />
             <span>Módulo de Trazabilidad</span>
           </Link>
-          <button className="flex items-center justify-center gap-2 px-3.5 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all font-semibold text-xs shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 cursor-pointer">
+          <button className="flex items-center justify-center gap-2 px-3.5 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all font-semibold text-xs shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring">
             <FiPlus className="w-3.5 h-3.5" /> Añadir Equipo
           </button>
         </div>

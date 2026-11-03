@@ -42,7 +42,7 @@ const SelectorTecnicoSesion = () => {
         <button
           type="button"
           onClick={() => setDesplegado(!desplegado)}
-          className="text-primary-700 hover:text-primary-900 p-1 rounded-lg transition-colors cursor-pointer"
+          className="text-primary-700 hover:text-primary-900 p-1 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           title="Cambiar perfil técnico para pruebas de permisos"
           aria-label="Cambiar perfil técnico para pruebas de permisos"
           aria-expanded={desplegado}
@@ -72,7 +72,7 @@ const SelectorTecnicoSesion = () => {
                   tec.nombre === tecnico?.nombre
                     ? 'bg-primary-50 text-primary-950 font-semibold border border-primary-200'
                     : 'text-gray-700 hover:bg-gray-50'
-                }`}
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
               >
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg bg-gray-100 text-gray-700 flex items-center justify-center font-bold text-[10px]">

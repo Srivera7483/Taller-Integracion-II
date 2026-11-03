@@ -336,7 +336,8 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
             type="button"
             onClick={cargarCatalogoActivos}
             disabled={cargandoActivos}
-            className="self-start sm:self-center text-xs font-semibold text-primary hover:text-primary-hover bg-primary-50/70 hover:bg-primary-100/70 border border-primary-200/60 rounded-lg px-3 py-1.5 transition-all inline-flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            aria-label="Actualizar catálogo de activos"
+            className="self-start sm:self-center text-xs font-semibold text-primary hover:text-primary-hover bg-primary-50/70 hover:bg-primary-100/70 border border-primary-200/60 rounded-lg px-3 py-1.5 transition-all inline-flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring disabled:opacity-50 cursor-pointer"
             title="Recargar catálogo de activos"
           >
             <FiRefreshCw className={`w-3.5 h-3.5 ${cargandoActivos ? 'animate-spin text-primary' : ''}`} />
@@ -363,7 +364,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
               }}
               onBlur={() => handleBlur('idActivo')}
               disabled={cargandoActivos || isSubmitting}
-              className={`w-full pl-11 pr-10 py-3 bg-slate-50/70 border rounded-lg text-sm font-medium transition-all duration-200 outline-none appearance-none cursor-pointer hover:bg-slate-50/90 ${
+              className={`w-full pl-11 pr-10 py-3 bg-slate-50/70 border rounded-lg text-sm font-medium transition-all duration-200 outline-none appearance-none cursor-pointer hover:bg-slate-50/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring ${
                 errors.idActivo && touched.idActivo
                   ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
                   : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
@@ -419,7 +420,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                     }
                   }}
                   disabled={isSubmitting}
-                  className="text-xs text-slate-500 hover:text-slate-800 font-medium px-2 py-1 rounded-lg hover:bg-slate-200/60 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                  className="text-xs text-slate-500 hover:text-slate-800 font-medium px-2 py-1 rounded-lg hover:bg-slate-200/60 transition-colors inline-flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                   title="Cambiar activo seleccionado"
                 >
                   <FiX className="w-3.5 h-3.5" />
@@ -498,7 +499,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                 }}
                 onBlur={() => handleBlur('fechaProgramada')}
                 disabled={isSubmitting}
-                className={`w-full pl-11 pr-4 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none hover:bg-slate-50/90 ${
+                className={`w-full pl-11 pr-4 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none hover:bg-slate-50/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring ${
                   errors.fechaProgramada && touched.fechaProgramada
                     ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
                     : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
@@ -547,7 +548,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                 }}
                 onBlur={() => handleBlur('tipo')}
                 disabled={isSubmitting}
-                className={`w-full pl-11 pr-10 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none appearance-none cursor-pointer hover:bg-slate-50/90 ${
+                className={`w-full pl-11 pr-10 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none appearance-none cursor-pointer hover:bg-slate-50/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring ${
                   errors.tipo && touched.tipo
                     ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
                     : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
@@ -618,7 +619,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
               onBlur={() => handleBlur('descripcion')}
               disabled={isSubmitting}
               placeholder="Especifica detalladamente las tareas requeridas (ej: Reemplazo de pasta térmica, limpieza de disipador y verificación de voltajes en fuente de poder)..."
-              className={`w-full pl-11 pr-4 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none resize-y min-h-[110px] hover:bg-slate-50/90 ${
+              className={`w-full pl-11 pr-4 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none resize-y min-h-[110px] hover:bg-slate-50/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring ${
                 errors.descripcion && touched.descripcion
                   ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
                   : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
@@ -638,7 +639,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                   type="button"
                   onClick={() => handleAgregarSugerencia(sug)}
                   disabled={isSubmitting}
-                  className="text-xs bg-slate-100 hover:bg-primary-50 hover:text-primary hover:border-primary-300 text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1 transition-all cursor-pointer font-medium"
+                  className="text-xs bg-slate-100 hover:bg-primary-50 hover:text-primary hover:border-primary-300 text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1 transition-all cursor-pointer font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                 >
                   + {sug}
                 </button>
@@ -738,7 +739,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
             else navigate('/inventario');
           }}
           disabled={isSubmitting}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
         >
           <FiArrowLeft className="w-4 h-4" />
           <span>Volver al Inventario</span>
@@ -749,7 +750,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
             type="button"
             onClick={handleReset}
             disabled={isSubmitting}
-            className="w-full sm:w-auto px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-800 rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+            className="w-full sm:w-auto px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-800 rounded-lg transition-colors disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             Limpiar Formulario
           </button>
@@ -757,9 +758,9 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
           {/* Botón de Guardar (CTA Principal) */}
           <button
             type="submit"
-            id="btn-guardar-planificacion"
+            id="btn-guardar-planificacion" aria-label="Guardar planificación de mantenimiento"
             disabled={isSubmitting}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-primary hover:bg-primary-hover text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3 bg-primary hover:bg-primary-hover text-white font-bold text-sm rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             {isSubmitting ? (
               <>

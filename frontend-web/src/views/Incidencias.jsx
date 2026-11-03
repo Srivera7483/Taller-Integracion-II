@@ -155,7 +155,7 @@ const Incidencias = () => {
             onChange={(e) => setTerminoBusqueda(e.target.value)}
             placeholder="Buscar por título, ID, activo o técnico..."
             aria-label="Buscar incidencias por título, ID, activo o técnico"
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm bg-white shadow-2xs"
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring outline-none transition-all text-sm bg-white shadow-2xs"
           />
         </div>
 
@@ -164,7 +164,8 @@ const Incidencias = () => {
             <button
               onClick={handleLimpiarPruebas}
               title="Borrar las incidencias almacenadas en la cookie temporal"
-              className="flex items-center justify-center gap-1.5 px-3 py-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 transition-colors bg-white shadow-2xs cursor-pointer"
+              aria-label="Eliminar"
+              className="flex items-center justify-center gap-1.5 px-3 py-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring transition-colors bg-white shadow-2xs cursor-pointer"
             >
               <FiTrash2 className="w-3.5 h-3.5" />
               Limpiar Pruebas
@@ -283,7 +284,7 @@ const Incidencias = () => {
                         <button
                           type="button"
                           onClick={() => abrirModalParaIncidencia(inc)}
-                          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs shadow-xs flex items-center gap-1 transition-all cursor-pointer min-h-[38px]"
+                          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs shadow-xs flex items-center gap-1 transition-all cursor-pointer min-h-[38px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring"
                         >
                           <FiCheckCircle className="w-3.5 h-3.5" />
                           <span>Finalizar Tarea</span>
@@ -446,7 +447,7 @@ const Incidencias = () => {
                           <button
                             type="button"
                             onClick={() => abrirModalParaIncidencia(inc)}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer min-h-[40px]"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring"
                             title="Confirmar mantenimiento o rechazar incidencia"
                           >
                             <FiCheckCircle className="w-3.5 h-3.5" />

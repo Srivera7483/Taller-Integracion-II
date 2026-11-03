@@ -95,7 +95,7 @@ const Trazabilidad = () => {
               id="selector-activo-trazabilidad"
               value={activoSeleccionado}
               onChange={(e) => handleCambiarActivo(e.target.value)}
-              className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none transition shadow-2xs pr-8"
+              className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition shadow-2xs pr-8"
             >
               {listaActivos.map((item) => (
                 <option key={item.id} value={item.id}>
@@ -110,7 +110,7 @@ const Trazabilidad = () => {
             type="button"
             onClick={cargarDatos}
             title="Refrescar trazabilidad" aria-label="Refrescar trazabilidad"
-            className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition border border-gray-200 cursor-pointer"
+            className="p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition border border-gray-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             <FiRefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin' : ''}`} />
           </button>
@@ -258,7 +258,7 @@ const Trazabilidad = () => {
                 filtroTipo === 'todos'
                   ? 'bg-gray-900 text-white shadow-xs'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
             >
               Todos ({resumen?.totalHitos || 0})
             </button>
@@ -271,7 +271,7 @@ const Trazabilidad = () => {
                 filtroTipo === 'fallo'
                   ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
                   : 'bg-rose-50/70 text-rose-800 border-rose-200 hover:bg-rose-100'
-              }`}
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
             >
               <FiAlertTriangle className="w-3.5 h-3.5" />
               <span>Fallos ({resumen?.totalFallos || 0})</span>
@@ -285,7 +285,7 @@ const Trazabilidad = () => {
                 filtroTipo === 'mantenimiento'
                   ? 'bg-primary text-white border-primary shadow-xs'
                   : 'bg-primary-50/70 text-primary border-primary-200 hover:bg-primary-100'
-              }`}
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
             >
               <FiTool className="w-3.5 h-3.5" />
               <span>Mantenimientos ({resumen?.totalMantenimientos || 0})</span>
@@ -299,7 +299,7 @@ const Trazabilidad = () => {
                 filtroTipo === 'resolucion'
                   ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
                   : 'bg-emerald-50/70 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-              }`}
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
             >
               <FiCheckCircle className="w-3.5 h-3.5" />
               <span>Resoluciones ({resumen?.totalResoluciones || 0})</span>

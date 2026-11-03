@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   FiFileText, 
@@ -51,9 +51,8 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const [categoria, setCategoria] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [ubicacion, setUbicacion] = useState('');
+  const fileInputRef = useRef(null);
 
-
-  
   // Archivo adjunto y estados para previsualizador de imágenes (TAL-133 y TAL-136)
   const [adjuntoNombre, setAdjuntoNombre] = useState('');
   const [archivoImagen, setArchivoImagen] = useState(null);
@@ -394,7 +393,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 onBlur={() => handleBlur('titulo')}
                 disabled={isSubmitting}
                 placeholder="Ej. Interrupción de servicio en base de datos PostgreSQL principal"
-                className={`w-full pl-11 pr-4 py-2.5 rounded-lg border text-sm transition-all outline-none ${
+                className={`w-full pl-11 pr-4 py-2.5 rounded-lg border text-sm transition-all outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
                   touched.titulo && errors.titulo
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
                     : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'
@@ -442,7 +441,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 placeholder="Ej. SN-MPM2-2023-001 o ACT-SRV-04"
                 className={`w-full pl-11 ${
                   isUrlPreloaded ? 'pr-10 bg-primary-50/30' : 'pr-4 bg-white'
-                } py-2.5 rounded-lg border text-sm transition-all outline-none font-mono ${
+                } py-2.5 rounded-lg border text-sm transition-all outline-none font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
                   touched.idActivo && errors.idActivo
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
                     : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary'
@@ -454,8 +453,8 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                   type="button"
                   onClick={handleClearPreloadedAsset}
                   disabled={isSubmitting}
-                  title="Limpiar ID pre-cargado" aria-label="Limpiar ID de activo pre-cargado"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors disabled:cursor-not-allowed"
+                  title="Limpiar ID pre-cargado" aria-label="Eliminar"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                 >
                   <FiX className="w-4 h-4" />
                 </button>
@@ -491,7 +490,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 value={ubicacion}
                 onChange={(e) => setUbicacion(e.target.value)}
                 placeholder="Ej. Rack A3 - DataCenter Norte / Piso 2"
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none text-sm transition-all"
+                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring outline-none text-sm transition-all"
               />
             </div>
             <p className="mt-1 text-xs text-gray-500">
@@ -526,7 +525,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 onChange={(e) => handleFieldChange('categoria', e.target.value)}
                 onBlur={() => handleBlur('categoria')}
                 disabled={isSubmitting}
-                className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-all outline-none appearance-none bg-white ${
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-all outline-none appearance-none bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
                   touched.categoria && errors.categoria
                     ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
                     : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary'
@@ -595,7 +594,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             onBlur={() => handleBlur('descripcion')}
             disabled={isSubmitting}
             placeholder="Describe qué ocurrió, cuáles fueron los síntomas observados, mensajes de error en pantalla o códigos emitidos, y si el incidente causó la detención de operaciones..."
-            className={`w-full p-4 rounded-lg border text-sm transition-all outline-none resize-y ${
+            className={`w-full p-4 rounded-lg border text-sm transition-all outline-none resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
               touched.descripcion && errors.descripcion
                 ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
                 : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'
@@ -646,7 +645,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               navigate('/incidencias');
             }
           }}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           <FiArrowLeft className="w-4 h-4" />
           Volver a Incidencias
@@ -657,7 +656,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             type="button"
             disabled={isSubmitting}
             onClick={handleResetForm}
-            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             Limpiar Campos
           </button>
@@ -666,7 +665,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             type="submit"
             id="btn-enviar-incidencia"
             disabled={isSubmitting}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover focus:ring-4 focus:ring-primary/20 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover focus:ring-4 focus:ring-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >
             {isSubmitting ? (
               <>

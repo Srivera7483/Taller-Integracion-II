@@ -225,7 +225,7 @@ const HitoTimelineCard = ({ evento, _index, isLast }) => {
               <button
                 type="button"
                 onClick={() => setExpandido(!expandido)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-primary py-1 px-2.5 rounded-lg hover:bg-gray-100 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-primary py-1 px-2.5 rounded-lg hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
               >
                 <span>{expandido ? 'Ocultar campos del registro' : 'Ver campos del registro (BD)'}</span>
                 {expandido ? <FiChevronUp className="w-3.5 h-3.5" /> : <FiChevronDown className="w-3.5 h-3.5" />}
@@ -379,7 +379,8 @@ const TimelineActivo = ({
               type="button"
               disabled={paginacion.pagina <= 1}
               onClick={() => onCambiarPagina && onCambiarPagina(paginacion.pagina - 1)}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Página anterior"
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             >
               Anterior
             </button>
@@ -390,7 +391,8 @@ const TimelineActivo = ({
               type="button"
               disabled={paginacion.pagina >= paginacion.totalPaginas}
               onClick={() => onCambiarPagina && onCambiarPagina(paginacion.pagina + 1)}
-              className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Página siguiente"
+              className="px-3.5 py-1.5 text-xs font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             >
               Siguiente
             </button>

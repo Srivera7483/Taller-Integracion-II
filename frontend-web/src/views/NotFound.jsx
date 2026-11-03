@@ -82,7 +82,7 @@ const NotFound = () => {
             type="button"
             onClick={() => navigate(-1)}
             id="btn-404-volver"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-white border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 hover:text-gray-900 transition shadow-2xs cursor-pointer min-h-[44px]"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-white border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 hover:text-gray-900 transition shadow-2xs cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             <FiArrowLeft className="w-4 h-4" />
             <span>Regresar a la página anterior</span>
