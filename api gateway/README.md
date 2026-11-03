@@ -4,14 +4,14 @@ API Gateway construido con **Fastify**, **@fastify/http-proxy** y **dotenv**.
 
 ## Requisitos
 
-- Node.js y npm instalados.
+- Node.js y pnpm instalados.
 
 ## Instalación
 
 Desde esta carpeta (`api gateway/`), ejecutar:
 
 ```bash
-npm install
+pnpm install
 ```
 
 ## Variables de entorno
@@ -35,7 +35,7 @@ MS_NOTIFICACIONES_URL=http://127.0.0.1:3004
 ## Ejecución
 
 ```bash
-npm run dev
+pnpm run dev
 ```
 
 El servidor queda disponible en:
@@ -44,11 +44,11 @@ El servidor queda disponible en:
 http://localhost:3000
 ```
 
-Desde PowerShell se puede usar `npm.cmd` si la política de ejecución bloquea `npm.ps1`:
+Desde PowerShell en Windows se puede usar `pnpm.cmd` si la política de ejecución bloquea `pnpm.ps1`:
 
 ```powershell
-npm.cmd install
-npm.cmd run dev
+pnpm.cmd install
+pnpm.cmd run dev
 ```
 
 ## Endpoint disponible
@@ -111,7 +111,7 @@ La solicitud válida de notificaciones responde `201 Created`. Si falta un campo
 
 ## Resultado de la prueba
 
-Se inició el servidor con `npm run dev` y se consultó `GET /`.
+Se inició el servidor con `pnpm run dev` y se consultó `GET /`.
 
 ```text
 HTTP/1.1 200 OK

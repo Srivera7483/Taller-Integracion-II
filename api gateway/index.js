@@ -47,6 +47,7 @@ const buildGateway = (options = {}) => {
     fastify.register(fastifyCors, {
         origin: true,
         credentials: true,
+        exposedHeaders: ['Content-Disposition'],
     });
 
     fastify.register(proxy, {
@@ -57,9 +58,37 @@ const buildGateway = (options = {}) => {
     });
 
     fastify.register(proxy, {
+        upstream: options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3003',
+        prefix: '/api/v1/mantenimientos',
+        rewritePrefix: '/api/v1/mantenimientos',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
         upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
         prefix: '/api/v1/incidencias',
         rewritePrefix: '/api/v1/incidencias',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
+        prefix: '/api/v1/ordenes-trabajo',
+        rewritePrefix: '/api/v1/ordenes-trabajo',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
+        prefix: '/api/v1/estados-incidencia',
+        rewritePrefix: '/api/v1/estados-incidencia',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
+        prefix: '/api/v1/tipos-evidencia',
+        rewritePrefix: '/api/v1/tipos-evidencia',
         replyOptions: { onError: handleProxyError }
     });
 
@@ -83,7 +112,21 @@ const buildGateway = (options = {}) => {
     fastify.register(proxy, {
         upstream: authUrl,
         prefix: '/api/v1/auth',
-        rewritePrefix: '/auth', // ESTÁNDAR! Los otros deben seguir este
+        rewritePrefix: '/auth',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: authUrl,
+        prefix: '/api/v1/autenticacion',
+        rewritePrefix: '/autenticacion',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: authUrl,
+        prefix: '/api/v1/usuarios',
+        rewritePrefix: '/auth/usuarios',
         replyOptions: { onError: handleProxyError }
     });
 

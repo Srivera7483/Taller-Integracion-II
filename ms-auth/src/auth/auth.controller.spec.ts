@@ -20,7 +20,7 @@ describe('AuthController', () => {
   });
 
   describe('login', () => {
-    it('debe retornar el token emitido por AuthService', async () => {
+    it('debe retornar el token emitido por AuthService y fijar la cookie HttpOnly', async () => {
       const dto = { email: 'admin@test.com', password: 'pass' };
       const response = { header: vi.fn() };
       vi.spyOn(authServiceMock, 'login').mockResolvedValue({
@@ -67,19 +67,39 @@ describe('AuthController', () => {
 
       const result = await authController.refresh(
         'other=value; refresh_token=valid-refresh-token',
+        {}
       );
 
-      expect(authServiceMock.refresh).toHaveBeenCalledWith(
-        'valid-refresh-token',
-      );
+      expect(authServiceMock.refresh).toHaveBeenCalledWith('valid-refresh-token');
       expect(result).toEqual({ accessToken: 'new-access-token' });
     });
 
-    it('debe responder 401 si no se envía la cookie de refresh', async () => {
-      await expect(authController.refresh(undefined)).rejects.toThrow(
+    it('debe renovar el token si se proporciona refreshToken en el body (fallback)', async () => {
+      vi.spyOn(authServiceMock, 'refresh').mockResolvedValue({
+        accessToken: 'new-token-from-body',
+      });
+
+      const result = await authController.refresh(
+        undefined,
+        { refreshToken: 'valid-body-refresh' }
+      );
+
+      expect(authServiceMock.refresh).toHaveBeenCalledWith('valid-body-refresh');
+      expect(result).toEqual({ accessToken: 'new-token-from-body' });
+    });
+
+    it('debe responder 401 si no se envía la cookie ni el body', async () => {
+      await expect(authController.refresh(undefined, {})).rejects.toThrow(
         UnauthorizedException,
       );
       expect(authServiceMock.refresh).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('logout', () => {
+    it('debe retornar confirmación de sesión cerrada', async () => {
+      const result = await authController.logout();
+      expect(result).toEqual({ message: 'Sesión cerrada exitosamente' });
     });
   });
 

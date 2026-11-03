@@ -1,67 +1,81 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import StatusBadge from '../components/StatusBadge';
+import BotonExportarExcel from '../components/BotonExportarExcel';
 import {
   FiAlertTriangle,
   FiCheckCircle,
   FiClock,
   FiArrowRight,
   FiBox,
-  FiActivity
+  FiActivity,
+  FiUser
 } from 'react-icons/fi';
-import DataTable from '../components/DataTable';
 import { useToast } from '../context/ToastContext';
-import { getIncidencias } from '../services/incidenciasStorage';
+import { fetchIncidencias } from '../services/incidenciasService';
+import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 
 const Dashboard = () => {
   const { showToast } = useToast();
-  const incidencias = useMemo(() => getIncidencias(), []);
 
-  // Métricas reactivas calculadas a partir de las incidencias locales
+  const fetchIncidenciasCallback = useCallback(async (page, limit) => {
+    try {
+      const data = await fetchIncidencias({ page, limit });
+      return data;
+    } catch (error) {
+      showToast('Error de conexión con el servidor API Gateway', 'error');
+      throw error;
+    }
+  }, [showToast]);
+
+  const {
+    items: incidencias,
+    loading,
+    loadingMore,
+    hasMore,
+    containerRef,
+    sentinelRef,
+    sentinelIndex,
+    handleContainerScroll,
+  } = useInfiniteScroll({
+    fetchFunction: fetchIncidenciasCallback,
+    limit: 15,
+  });
+
   const resumenMetricas = useMemo(() => {
     let resueltas = 0;
     let pendientes = 0;
     let criticas = 0;
 
     incidencias.forEach((item) => {
-      const est = (item.estado || '').toLowerCase();
-      if (est === 'resuelta' || est === 'completado') resueltas++;
-      if (est === 'pendiente' || est === 'reportada') pendientes++;
-      if (est === 'crítica' || est === 'alta') criticas++;
+      const estadoNombre = (
+        typeof item.estado === 'object' && item.estado !== null
+          ? item.estado.nombre_estado
+          : item.estado || ''
+      ).toLowerCase();
+
+      if (estadoNombre === 'resuelta' || estadoNombre === 'completada' || estadoNombre === 'completado') resueltas++;
+      if (estadoNombre === 'pendiente' || estadoNombre === 'reportada') pendientes++;
+      if (estadoNombre === 'crítica' || estadoNombre === 'alta') criticas++;
     });
 
     return { resueltas, pendientes, criticas };
   }, [incidencias]);
 
-  const columns = [
-    { header: 'ID', accessorKey: 'id', cell: (row) => <span className="font-mono font-medium text-gray-500">{row.id}</span> },
-    { header: 'Descripción', accessorKey: 'descripcion', cell: (row) => <span className="font-medium text-gray-900">{row.descripcion}</span> },
-    { header: 'Estado', accessorKey: 'estado', cell: (row) => <StatusBadge status={row.estado} /> },
-    { header: 'Fecha', accessorKey: 'fecha' }
-  ];
-
-  const recentIncidents = [
-    { id: '#1042', descripcion: 'Caída de servidor principal', estado: 'Crítica', fecha: 'Hace 2 horas' },
-    { id: '#1041', descripcion: 'Actualización de base de datos', estado: 'Pendiente', fecha: 'Hace 5 horas' },
-    { id: '#1040', descripcion: 'Falla en router principal', estado: 'Resuelta', fecha: 'Hace 1 día' },
-    { id: '#1039', descripcion: 'Mantenimiento preventivo de rack', estado: 'En Progreso', fecha: 'Hace 2 días' }
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Encabezado y Acciones Rápidas */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900 tracking-tight">Panel de Control Operativo</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-gray-600 mt-0.5">
             Monitoreo en tiempo real de órdenes de trabajo e indicadores del sistema.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Link
             to="/trazabilidad"
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-100 transition shadow-2xs"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold bg-primary-50 border border-primary-200 text-primary rounded-lg hover:bg-primary-100 transition shadow-2xs"
           >
             <FiActivity className="w-3.5 h-3.5" />
             <span>Trazabilidad Activos</span>
@@ -75,14 +89,13 @@ const Dashboard = () => {
           </Link>
           <button
             onClick={() => showToast('Sistema de notificaciones operativo y listo para integración.', 'success')}
-            className="px-3.5 py-2 bg-blue-600 text-white font-semibold text-xs rounded-lg hover:bg-blue-700 transition shadow-2xs"
+            className="px-3.5 py-2 bg-primary hover:bg-primary-hover text-white font-semibold text-xs rounded-lg transition shadow-sm hover:shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             Probar Notificación
           </button>
         </div>
       </div>
 
-      {/* Tarjetas Principales de Métricas Operativas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <MetricCard
           title="Incidencias Pendientes"
@@ -104,27 +117,105 @@ const Dashboard = () => {
         />
       </div>
 
-      {/* Tabla de Órdenes e Incidencias Recientes */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Órdenes de Trabajo e Incidencias Recientes</h3>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Listado general de reportes activos en la plataforma
+            <div className="flex items-center gap-3">
+              <h3 className="font-semibold text-gray-900 text-sm">Órdenes de Trabajo e Incidencias Recientes</h3>
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-primary-50 text-primary border border-primary-200">
+                {incidencias.length} registros cargados
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Listado con desplazamiento infinito de reportes activos en la plataforma
             </p>
           </div>
-          <Link
-            to="/incidencias"
-            className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
-          >
-            <span>Ver todas</span>
-            <FiArrowRight className="w-3.5 h-3.5" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <BotonExportarExcel variant="compact" />
+            <Link
+              to="/incidencias"
+              className="text-xs text-primary hover:text-primary-hover font-semibold flex items-center gap-1 transition-colors"
+            >
+              <span>Ver todas</span>
+              <FiArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+        <div
+          ref={containerRef}
+          onScroll={handleContainerScroll}
+          className="overflow-x-auto overflow-y-auto max-h-[520px]"
+        >
+          {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
+          <div className="md:hidden divide-y divide-gray-100 p-3 sm:p-4 space-y-3">
+            {loading && incidencias.length === 0 ? (
+              <div className="py-12 text-center text-sm text-gray-500">
+                <div className="flex justify-center items-center gap-2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+                  <span>Cargando incidencias iniciales...</span>
+                </div>
+              </div>
+            ) : incidencias.length === 0 ? (
+              <div className="py-12 text-center text-sm text-gray-500">
+                No hay incidencias registradas en el sistema.
+              </div>
+            ) : (
+              incidencias.map((inc, index) => {
+                const estadoTexto = typeof inc.estado === 'object' && inc.estado !== null
+                  ? inc.estado.nombre_estado
+                  : inc.estado || 'Reportada';
+                const idTexto = inc.id_incidencia || inc.id;
+                const fechaTexto = inc.fecha_creacion
+                  ? new Date(inc.fecha_creacion).toLocaleDateString()
+                  : inc.fecha || 'Reciente';
+
+                return (
+                  <div
+                    key={idTexto || `inc-card-${index}`}
+                    className="bg-white rounded-xl shadow-2xs border border-gray-200 p-4 space-y-2.5 hover:border-gray-300 transition-all"
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md border border-gray-200">
+                          {idTexto ? idTexto.substring(0, 13) : 'INC-#'}
+                        </span>
+                        <StatusBadge status={estadoTexto} />
+                      </div>
+                      <span className="text-xs text-gray-400 font-medium">{fechaTexto}</span>
+                    </div>
+
+                    <h4 className="font-semibold text-sm text-gray-900 leading-snug">{inc.titulo}</h4>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100 text-xs">
+                      {inc.id_activo ? (
+                        <Link
+                          to={`/trazabilidad/${encodeURIComponent(inc.id_activo)}`}
+                          className="inline-flex items-center gap-1.5 font-mono text-xs px-2.5 py-1 bg-gray-50 hover:bg-primary-50 text-gray-700 hover:text-primary rounded-lg border border-gray-200 hover:border-primary-300 transition-colors"
+                          title={`Ver trazabilidad de ${inc.id_activo}`}
+                        >
+                          <FiBox className="w-3.5 h-3.5 text-gray-400" />
+                          <span>{inc.id_activo}</span>
+                        </Link>
+                      ) : (
+                        <span className="font-mono text-xs text-gray-400 italic">Sin activo asociado</span>
+                      )}
+
+                      <div className="inline-flex items-center gap-1 text-gray-600 font-medium">
+                        <FiUser className="w-3.5 h-3.5 text-gray-400" />
+                        <span>{inc.asignado || (inc.id_reportante ? `Reportante: ${inc.id_reportante.substring(0, 8)}` : 'Sin asignar')}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
+          <div className="hidden md:block">
+<table className="w-full text-left text-sm text-gray-600">
+            <thead className="bg-gray-50 text-gray-600 uppercase text-xs sticky top-0 z-10 shadow-xs">
               <tr>
                 <th className="px-6 py-3 font-semibold">ID / Asunto</th>
                 <th className="px-6 py-3 font-semibold">Activo</th>
@@ -132,50 +223,91 @@ const Dashboard = () => {
                 <th className="px-6 py-3 font-semibold">Fecha / Asignación</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {incidencias.slice(0, 5).map((inc) => (
-                <tr key={inc.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="font-mono text-xs font-semibold text-gray-500">{inc.id}</span>
-                      <span className="font-medium text-gray-900">{inc.titulo}</span>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {loading && incidencias.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-500">
+                    <div className="flex justify-center items-center gap-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+                      <span>Cargando incidencias iniciales...</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    {inc.id_activo ? (
-                      <Link
-                        to={`/trazabilidad/${encodeURIComponent(inc.id_activo)}`}
-                        className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 bg-gray-100 hover:bg-blue-50 text-gray-800 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors shadow-2xs"
-                        title={`Ver trazabilidad y ciclo de vida de ${inc.id_activo}`}
-                      >
-                        <FiBox className="w-3 h-3 text-gray-400" />
-                        {inc.id_activo}
-                      </Link>
-                    ) : (
-                      <span className="font-mono text-xs text-gray-400">N/A</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <StatusBadge status={inc.estado || 'Pendiente'} />
-                  </td>
-                  <td className="px-6 py-4 text-xs text-gray-500">
-                    <div>{inc.fecha || 'Reciente'}</div>
-                    <div className="text-[11px] text-gray-400 font-medium">{inc.asignado || 'Sin asignar'}</div>
+                </tr>
+              ) : incidencias.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-500">
+                    No hay incidencias registradas en el sistema.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                incidencias.map((inc, index) => {
+                  const isSentinel = index === sentinelIndex;
+                  const estadoTexto = typeof inc.estado === 'object' && inc.estado !== null
+                    ? inc.estado.nombre_estado
+                    : inc.estado || 'Reportada';
+                  const idTexto = inc.id_incidencia || inc.id;
+                  const fechaTexto = inc.fecha_creacion
+                    ? new Date(inc.fecha_creacion).toLocaleDateString()
+                    : inc.fecha || 'Reciente';
+
+                  return (
+                    <tr
+                      key={idTexto || `inc-dash-${index}`}
+                      ref={isSentinel ? sentinelRef : null}
+                      className="hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-mono text-xs font-semibold text-gray-600">
+                            {idTexto ? idTexto.substring(0, 13) : 'INC-#'}
+                          </span>
+                          <span className="font-medium text-gray-900">{inc.titulo}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {inc.id_activo ? (
+                          <Link
+                            to={`/trazabilidad/${encodeURIComponent(inc.id_activo)}`}
+                            className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 bg-gray-100 hover:bg-primary-50 text-gray-800 hover:text-primary rounded-lg border border-gray-200 hover:border-primary-300 transition-colors shadow-2xs"
+                            title={`Ver trazabilidad de ${inc.id_activo}`}
+                          >
+                            <FiBox className="w-3 h-3 text-gray-400" />
+                            {inc.id_activo.substring(0, 8)}...
+                          </Link>
+                        ) : (
+                          <span className="font-mono text-xs text-gray-600">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusBadge status={estadoTexto} />
+                      </td>
+                      <td className="px-6 py-4 text-xs text-gray-600">
+                        <div>{fechaTexto}</div>
+                        <div className="text-[11px] text-gray-500 font-medium">
+                          {inc.asignado || (inc.id_reportante ? `Reportante: ${inc.id_reportante.substring(0, 8)}` : 'Sin asignar')}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
-        </div>
-      </div>
+          </div>
 
-      <div className="mt-8">
-        <DataTable 
-          title="Últimas Incidencias" 
-          description="Listado rápido de los últimos eventos reportados en la red."
-          columns={columns} 
-          data={recentIncidents} 
-        />
+          {loadingMore && (
+            <div className="flex justify-center items-center py-4 bg-gray-50/60 border-t border-gray-100">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
+              <span className="ml-2.5 text-xs font-medium text-gray-600">Cargando siguientes incidencias...</span>
+            </div>
+          )}
+
+          {!hasMore && incidencias.length > 0 && (
+            <div className="text-center py-3 text-xs text-gray-600 font-medium bg-gray-50/40 border-t border-gray-100">
+              Se han cargado todas las incidencias disponibles ({incidencias.length})
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

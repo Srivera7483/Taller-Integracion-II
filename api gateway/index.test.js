@@ -95,10 +95,13 @@ test('redirige activos e incidencias a sus microservicios', async (t) => {
     });
 
     const activosResponse = await app.inject({ method: 'GET', url: '/api/v1/activos' });
+    const mantenimientosResponse = await app.inject({ method: 'GET', url: '/api/v1/mantenimientos' });
     const incidenciasResponse = await app.inject({ method: 'GET', url: '/api/v1/incidencias' });
 
     assert.equal(activosResponse.statusCode, 200);
     assert.deepEqual(activosResponse.json(), { service: 'activos', path: '/api/v1/activos' });
+    assert.equal(mantenimientosResponse.statusCode, 200);
+    assert.deepEqual(mantenimientosResponse.json(), { service: 'activos', path: '/api/v1/mantenimientos' });
     assert.equal(incidenciasResponse.statusCode, 200);
     assert.deepEqual(incidenciasResponse.json(), { service: 'incidencias', path: '/api/v1/incidencias' });
 });

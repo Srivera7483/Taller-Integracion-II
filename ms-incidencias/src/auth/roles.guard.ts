@@ -26,7 +26,7 @@ export class RolesGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<Request & { user?: JwtUser }>();
     const user = request.user;
 
-    const rolUsuario = user?.rol || user?.role;
+    const rolUsuario = (user?.rol || user?.role)?.toString().toUpperCase();
 
     if (!user || !rolUsuario) {
       throw new ForbiddenException(
@@ -34,9 +34,14 @@ export class RolesGuard implements CanActivate {
       );
     }
 
-    const hasRole = requiredRoles.some(
-      (rolRequerido) => rolRequerido.toUpperCase() === rolUsuario.toUpperCase(),
-    );
+    const hasRole = requiredRoles.some((rolRequerido) => {
+      const req = rolRequerido.toUpperCase();
+      if (req === rolUsuario) return true;
+      if (req === 'ADMINISTRADOR' && (rolUsuario === 'ADMIN' || rolUsuario === 'ADMINISTRADOR')) return true;
+      if (req === 'REPORTANTE' && (rolUsuario === 'USUARIO' || rolUsuario === 'REPORTANTE')) return true;
+      if (req === 'TECNICO' && (rolUsuario === 'TÉCNICO' || rolUsuario === 'TECNICO')) return true;
+      return false;
+    });
 
     if (!hasRole) {
       throw new ForbiddenException(

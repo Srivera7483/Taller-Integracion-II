@@ -17,8 +17,7 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
       await api.patch(`/incidencias/${incidenciaId}/estado`, { id_estado: 4 });
       showToast('Solución aprobada. La incidencia ha sido cerrada.', 'success');
       if (onAprobacionCompletada) onAprobacionCompletada('Aprobada');
-    } catch (error) {
-      console.error('Error al aprobar', error);
+    } catch {
       showToast('Error al aprobar la solución.', 'error');
     } finally {
       setIsSubmitting(false);
@@ -42,8 +41,7 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
       setMostrarRechazo(false);
       setMotivoRechazo('');
       if (onAprobacionCompletada) onAprobacionCompletada('Rechazada');
-    } catch (error) {
-      console.error('Error al rechazar', error);
+    } catch {
       showToast('Error al enviar el rechazo.', 'error');
     } finally {
       setIsSubmitting(false);
@@ -52,7 +50,7 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mt-6">
-      <h3 className="text-lg font-bold text-gray-900 mb-2">Validar Solución</h3>
+      <h2 className="text-lg font-bold text-gray-900 mb-2">Validar Solución</h2>
       <p className="text-gray-600 text-sm mb-5">
         El equipo técnico ha marcado esta incidencia como resuelta. Por favor revisa la solución y confirma si tu problema ha sido solucionado.
       </p>
@@ -62,7 +60,7 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
           <button
             onClick={handleAprobar}
             disabled={isSubmitting}
-            className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             <FiCheck className="w-5 h-5" />
             Aprobar Solución
@@ -70,7 +68,7 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
           <button
             onClick={() => setMostrarRechazo(true)}
             disabled={isSubmitting}
-            className="flex-1 flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-medium py-2.5 rounded-lg transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             <FiX className="w-5 h-5" />
             Rechazar
@@ -78,29 +76,30 @@ const AprobacionReportante = ({ incidenciaId, onAprobacionCompletada }) => {
         </div>
       ) : (
         <div className="animate-fadeIn">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="motivo-rechazo-reportante" className="block text-sm font-medium text-gray-700 mb-2">
             Motivo del rechazo (obligatorio)
           </label>
           <textarea
+            id="motivo-rechazo-reportante"
             value={motivoRechazo}
             onChange={(e) => setMotivoRechazo(e.target.value)}
             disabled={isSubmitting}
             placeholder="Explica por qué la solución no resolvió tu problema..."
             rows={4}
-            className="w-full border border-gray-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-all resize-y"
+            className="w-full border border-gray-300 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring transition-all resize-y"
           />
           <div className="flex justify-end gap-3 mt-4">
             <button
               onClick={() => setMostrarRechazo(false)}
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             >
               Cancelar
             </button>
             <button
               onClick={handleRechazar}
               disabled={isSubmitting || !motivoRechazo.trim()}
-              className="flex items-center gap-2 px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2 bg-red-700 hover:bg-red-800 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             >
               <FiSend className="w-4 h-4" />
               Enviar Rechazo
