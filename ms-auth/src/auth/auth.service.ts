@@ -1,9 +1,8 @@
-import { Injectable, UnauthorizedException, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { verify, hash } from 'argon2';
+import { verify } from 'argon2';
 import { UserRepository } from './user.repository.js';
 import { LoginDto } from './dto/login.dto.js';
-import { RegisterDto } from './dto/register.dto.js';
 import { UpdateRoleDto } from './dto/update-role.dto.js';
 
 interface RefreshTokenPayload {

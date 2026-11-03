@@ -21,7 +21,6 @@ describe('AuthService', () => {
       findByEmail: vi.fn(),
       findById: vi.fn(),
       updateRole: vi.fn(),
-      findMany: vi.fn(),
     };
 
     jwtMock = {
