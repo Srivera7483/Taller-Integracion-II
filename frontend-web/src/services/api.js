@@ -1,26 +1,20 @@
 import axios from 'axios';
 
 /**
- * Instancia global de Axios configurada con soporte de credenciales (cookies HttpOnly)
- * y cola de reintentos concurrentes para renovación silenciosa de tokens (TAL-131).
+ * Instancia global de Axios configurada con soporte de cookies HttpOnly (TAL-125)
+ * y reintento único ante respuestas 401 en rutas protegidas.
  */
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1',
-  withCredentials: true,
+  withCredentials: true, // Vital para que el navegador envíe/reciba la cookie HttpOnly del refresh token
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Variables para gestión de concurrencia y cola de reintentos
 let isRefreshing = false;
 let failedQueue = [];
 
-/**
- * Resuelve o rechaza las peticiones que quedaron pausadas durante el refresh del token.
- * @param {Error|null} error Error si el refresh falló, null si fue exitoso
- * @param {string|null} token Nuevo Access Token para inyectar en las peticiones encoladas
- */
 const processQueue = (error, token = null) => {
   failedQueue.forEach((promise) => {
     if (error) {
@@ -33,8 +27,7 @@ const processQueue = (error, token = null) => {
 };
 
 /**
- * Interceptor de Solicitud:
- * Inyecta el Access Token actual en la cabecera Authorization Bearer si existe en el almacenamiento.
+ * Interceptor de Solicitud: Inyecta el Access Token en cada petición.
  */
 api.interceptors.request.use(
   (config) => {
@@ -48,17 +41,18 @@ api.interceptors.request.use(
 );
 
 /**
- * Interceptor de Respuesta (TAL-131):
- * Detecta respuestas HTTP 401 Unauthorized en peticiones protegidas y ejecuta la renovación
- * silenciosa (Silent Refresh).
+ * Interceptor de Respuesta (TAL-125):
+ * Si una petición protegida falla con 401, intenta renovar el access token
+ * usando POST /auth/refresh (donde viaja la cookie HttpOnly automáticamente).
  */
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
+    // Evitamos bucles infinitos si el 401 viene de endpoints de autenticación
     const isAuthEndpoint =
-      /\/(?:autenticacion|auth)\/(?:inicio-sesion|usuario-actual|renovar-token|refrescar-token|refrescar|renovar|registro|login|register|refresh)(?:\?|$)/i.test(
+      /\/(?:auth|autenticacion)\/(?:login|inicio-sesion|refresh|renovar)(?:\?|$)/i.test(
         originalRequest?.url || '',
       );
 
@@ -88,53 +82,25 @@ api.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const localRefreshToken = localStorage.getItem('refreshToken');
-      const payload = localRefreshToken ? { refreshToken: localRefreshToken } : {};
-
-      let refreshResponse;
-      try {
-        refreshResponse = await axios.post(
-          `${api.defaults.baseURL}/autenticacion/renovar-token`,
-          payload,
-          {
-            withCredentials: true,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        );
-      } catch (err) {
-        if (err.response?.status === 404) {
-          refreshResponse = await axios.post(
-            `${api.defaults.baseURL}/auth/refresh`,
-            payload,
-            {
-              withCredentials: true,
-              headers: { 'Content-Type': 'application/json' },
-            },
-          );
-        } else {
-          throw err;
-        }
-      }
+      // Llamada al endpoint definido en la TAL-125
+      const refreshResponse = await axios.post(
+        `${api.defaults.baseURL}/auth/refresh`,
+        {}, // El refresh token viaja seguro en la cookie HttpOnly, no en el body
+        {
+          withCredentials: true,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
 
       const data = refreshResponse.data || {};
-      const newAccessToken = data.accessToken || data.token || data.access_token;
+      const newAccessToken = data.accessToken || data.token;
 
       if (!newAccessToken) {
         throw new Error('El endpoint de refresh no retornó un access token válido.');
       }
 
+      // Guardamos el nuevo access token de 15 minutos
       localStorage.setItem('token', newAccessToken);
-
-      if (data.refreshToken || data.refresh_token) {
-        localStorage.setItem(
-          'refreshToken',
-          data.refreshToken || data.refresh_token,
-        );
-      }
-
-      window.dispatchEvent(
-        new CustomEvent('token-renovado', { detail: { token: newAccessToken } }),
-      );
 
       processQueue(null, newAccessToken);
 
@@ -144,8 +110,8 @@ api.interceptors.response.use(
     } catch (refreshError) {
       processQueue(refreshError, null);
 
+      // Si el refresh falla (expiró la cookie de 7 días o es inválida), limpiamos y botamos al login
       localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
       localStorage.removeItem('usuario');
 
       window.dispatchEvent(

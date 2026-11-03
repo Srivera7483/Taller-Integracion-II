@@ -24,6 +24,7 @@ import { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
 import { IncidenciasService } from './incidencias.service';
 import { FileMimeValidationPipe } from '../validators/file-mime.pipe';
 import { SanitizeXssPipe } from '../validators/sanitize-xss.pipe';
+import { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 
 @Controller('incidencias')
 @UseGuards(JwtAuthGuard, RolesGuard)

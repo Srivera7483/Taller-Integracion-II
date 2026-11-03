@@ -13,15 +13,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
 import type { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
 import type { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
-import sharp from 'sharp';
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import { v4 as uuidv4 } from 'uuid';
 import { PrioridadDinamicaService } from './prioridad-dinamica.service';
 import type { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 import { ExportarIncidenciasService } from './exportar-incidencias.service';
 import type { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
-import { validarExtensionEvidencia } from '../validators/file-mime.pipe';
 import { sanitizeStringXss } from '../validators/sanitize-xss.pipe';
 
 const incidenciaConEstadoActual = {
@@ -37,6 +32,7 @@ const incidenciaConEstadoActual = {
 type IncidenciaConEstadoActual = Prisma.IncidenciasGetPayload<
   typeof incidenciaConEstadoActual
 >;
+
 @Injectable()
 export class IncidenciasService {
   private readonly logger = new Logger(IncidenciasService.name);
@@ -47,6 +43,12 @@ export class IncidenciasService {
     process.env.MS_ACTIVOS_URL ?? 'http://localhost:3003';
   private readonly authUrl =
     process.env.MS_AUTH_URL ?? 'http://localhost:3001';
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly httpService: HttpService,
+    private readonly prioridadDinamicaService: PrioridadDinamicaService,
+  ) {}
 
   async listar(query: ListarIncidenciasQueryDto) {
     const limite = query.limite ?? 20;
@@ -73,17 +75,29 @@ export class IncidenciasService {
     if (ids.length === 0) return [];
 
     const incidencias = await this.prisma.incidencias.findMany({
-      where: { id_incidencia: { in: ids.map((row) => row.id_incidencia) } },
+      where: { id_incidencia: { in: ids.map((row: any) => row.id_incidencia) } },
       ...incidenciaConEstadoActual,
     });
     
     const porId = new Map(
-      incidencias.map((incidencia) => [incidencia.id_incidencia, incidencia]),
+      incidencias.map((incidencia: IncidenciaConEstadoActual) => [incidencia.id_incidencia, incidencia]),
     );
     
-    return ids.flatMap((row) => {
+    return ids.flatMap((row: any) => {
       const incidencia = porId.get(row.id_incidencia);
       return incidencia ? [this.toApiIncidencia(incidencia)] : [];
+    });
+  }
+
+  async obtenerPrioridadDinamica(id: string, query: PrioridadDinamicaQueryDto) {
+    const incidencia = await this.prisma.incidencias.findUnique({
+      where: { id_incidencia: id },
+      ...incidenciaConEstadoActual,
+    });
+    if (!incidencia) throw new NotFoundException('Incidencia no encontrada');
+
+    return this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia, {
+      excluirFinesDeSemana: query.excluir_fines_de_semana,
     });
   }
 
@@ -92,7 +106,7 @@ export class IncidenciasService {
     usuarioId: string,
     emailUsuario?: string,
   ) {
-    const creada = await this.prisma.$transaction(async (transaction) => {
+    const creada = await this.prisma.$transaction(async (transaction: any) => {
       const estadoInicial = await transaction.estadoIncidencia.findFirst({
         where: { nombre_estado: 'Reportada' },
       });
@@ -118,13 +132,13 @@ export class IncidenciasService {
         },
       });
 
-      const creada = await transaction.incidencias.findUnique({
+      const incidenciaCreada = await transaction.incidencias.findUnique({
         where: { id_incidencia: incidencia.id_incidencia },
         ...incidenciaConEstadoActual,
       });
 
-      if (!creada) throw new InternalServerErrorException();
-      return this.toApiIncidencia(creada);
+      if (!incidenciaCreada) throw new InternalServerErrorException();
+      return this.toApiIncidencia(incidenciaCreada);
     });
 
     await this.notificarIncidencia(
@@ -150,7 +164,7 @@ export class IncidenciasService {
     usuarioId: string,
     rolUsuario: string,
     emailUsuario?: string,
-    motivoRechazo?: string,
+    motivoRechazo?: string
   ) {
     if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
       throw new BadRequestException('El ID del estado es obligatorio y debe ser numérico');
@@ -160,7 +174,7 @@ export class IncidenciasService {
       throw new BadRequestException('El usuario es obligatorio');
     }
 
-    const resultado = await this.prisma.$transaction(async (transaction) => {
+    const resultado = await this.prisma.$transaction(async (transaction: any) => {
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: incidenciaId },
         ...incidenciaConEstadoActual,
@@ -232,7 +246,7 @@ export class IncidenciasService {
       include: { estado: { select: { id_estado: true, nombre_estado: true } } },
       orderBy: [{ fecha_creacion: 'asc' }, { id_historial: 'asc' }],
     });
-    return historial.map((evento) => ({
+    return historial.map((evento: any) => ({
       id_historial: evento.id_historial,
       id_incidencia: evento.id_incidencia,
       estado: evento.estado,
@@ -248,7 +262,7 @@ export class IncidenciasService {
       include: { tipo_evidencia: { select: { id_tipo_evidencia: true, nombre_tipo: true } } },
       orderBy: [{ fecha_creacion: 'asc' }, { id_evidencia: 'asc' }],
     });
-    return evidencias.map((evidencia) => this.toApiEvidencia(evidencia));
+    return evidencias.map((evidencia: any) => this.toApiEvidencia(evidencia));
   }
 
   async crearEvidencia(id: string, body: CrearEvidenciaDto) {
@@ -304,7 +318,7 @@ export class IncidenciasService {
       );
     }
 
-    const resultado = await this.prisma.$transaction(async (transaction) => {
+    const resultado = await this.prisma.$transaction(async (transaction: any) => {
       const ultimoHistorial = await transaction.historialEstados.findFirst({
         where: { id_incidencia: idIncidencia },
         orderBy: { fecha_creacion: 'desc' },

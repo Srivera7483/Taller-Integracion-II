@@ -91,5 +91,83 @@ const Layout = () => {
             <FiX className="w-6 h-6" aria-hidden="true" />
           </button>
         </div>
-        <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto py-4">
-          <ul className="space-y
+
+        <nav aria-label="Navegación principal" className="flex-1 overflow-y-auto py-4 px-3">
+          <ul className="space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <li key={item.path}>
+                  <NavLink
+                    to={item.path}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={({ isActive }) => `
+                      flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all
+                      ${isActive 
+                        ? 'bg-primary text-white shadow-md shadow-primary/25' 
+                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                      }
+                    `}
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        {/* User Session Selector / Footer info */}
+        <div className="p-4 border-t border-gray-200 bg-gray-50/50 space-y-3">
+          <SelectorTecnicoSesion />
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors cursor-pointer border border-red-200"
+          >
+            <FiLogOut className="w-4 h-4" />
+            <span>Cerrar Sesión</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Wrapper */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top bar */}
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 z-30">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="lg:hidden text-gray-600 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg p-1"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Abrir menú de navegación"
+            >
+              <FiMenu className="w-6 h-6" />
+            </button>
+            <h1 className="text-lg font-bold text-gray-900 tracking-tight truncate">
+              {getPageTitle()}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <NotificacionesDropdown />
+          </div>
+        </header>
+
+        {/* Critical Critical Alert Banner if needed */}
+        <CriticalAlertBanner />
+
+        {/* Main View Area */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
+          <Outlet />
+        </main>
+      </div>
+
+      {/* Floating Action Button for New Incidents */}
+      <FabNuevaIncidencia />
+    </div>
+  );
+};
+
+export default Layout;
