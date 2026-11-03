@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   FiFileText, 
@@ -35,6 +35,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showToast } = useToast();
+  const fileInputRef = useRef(null);
 
   // Extraer ID del activo desde varios posibles parámetros de URL
   const assetFromUrl = 
