@@ -148,7 +148,7 @@ const EvidenciaUploader = ({
         accept=".png,.jpg,.jpeg,.webp"
         onChange={handleInputChange}
         disabled={disabled || isUploading}
-        className="hidden"
+        className="hidden focus-visible:ring focus-visible:ring-2 focus-visible:ring-primary"
       />
 
       {/* RENDERIZADO CONDICIONAL CON TRANSICIONES SUAVES: BASE vs CARGA vs FINAL */}
@@ -302,7 +302,7 @@ const EvidenciaUploader = ({
                       type="button"
                       id="btn-ampliar-evidencia"
                       onClick={onOpenPreview}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary bg-white border border-primary-300 hover:bg-primary-50 transition-colors shadow-2xs cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary bg-white border border-primary-300 hover:bg-primary-50 transition-colors shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                     >
                       <FiMaximize2 className="w-3.5 h-3.5" />
                       <span>Ver en grande</span>
@@ -314,7 +314,8 @@ const EvidenciaUploader = ({
                     id="btn-cambiar-evidencia"
                     onClick={triggerSelect}
                     disabled={disabled}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Cambiar foto"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Seleccionar otra imagen"
                   >
                     <FiRefreshCw className="w-3.5 h-3.5 text-gray-500" />
@@ -327,7 +328,8 @@ const EvidenciaUploader = ({
                       id="btn-limpiar-evidencia"
                       onClick={onClear}
                       disabled={disabled}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-700 bg-white border border-red-300 hover:bg-red-50 transition-colors shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      aria-label="Eliminar"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-700 bg-white border border-red-300 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring transition-colors shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       title="Quitar esta evidencia"
                     >
                       <FiTrash2 className="w-3.5 h-3.5 text-red-500" />
@@ -346,6 +348,7 @@ const EvidenciaUploader = ({
             id="uploader-zona-drop"
             role="button"
             tabIndex={0}
+            aria-label="Subir evidencia fotográfica"
             onClick={triggerSelect}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -356,7 +359,7 @@ const EvidenciaUploader = ({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`border-2 border-dashed rounded-xl p-6 sm:p-7 text-center transition-all cursor-pointer group select-none ${
+            className={`border-2 border-dashed rounded-xl p-6 sm:p-7 text-center transition-all cursor-pointer group select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring ${
               isDragging
                 ? 'border-primary bg-primary-50/60 scale-[1.01] shadow-md'
                 : 'border-gray-300 hover:border-primary bg-gray-50/50 hover:bg-primary-50/20 shadow-2xs'

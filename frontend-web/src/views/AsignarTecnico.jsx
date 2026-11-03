@@ -280,7 +280,7 @@ const AsignarTecnico = () => {
                 type="button"
                 id="btn-cerrar-banner-emitida"
                 onClick={() => setOrdenEmitida(null)}
-                className="text-xs px-3.5 py-2 rounded-lg bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-medium transition-colors cursor-pointer w-full sm:w-auto text-center"
+                className="text-xs px-3.5 py-2 rounded-lg bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-medium transition-colors cursor-pointer w-full sm:w-auto text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
               >
                 Cerrar aviso
               </button>
@@ -312,7 +312,7 @@ const AsignarTecnico = () => {
             type="button"
             id="btn-simular-201"
             onClick={handleSimular201}
-            className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg font-semibold text-xs transition-colors cursor-pointer flex-shrink-0"
+            className="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-800 rounded-lg font-semibold text-xs transition-colors cursor-pointer flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             title="Permite simular el comportamiento 201 Created localmente"
           >
             Simular respuesta 201 Created
@@ -338,7 +338,7 @@ const AsignarTecnico = () => {
                 value={selectedIncidenciaId}
                 onChange={(e) => setSelectedIncidenciaId(e.target.value)}
                 required
-                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring outline-none transition-all cursor-pointer"
               >
                 <option value="">-- Selecciona una incidencia --</option>
                 {incidenciasDisponibles.length === 0 ? (
@@ -405,7 +405,7 @@ const AsignarTecnico = () => {
                 value={selectedTecnicoId}
                 onChange={(e) => setSelectedTecnicoId(e.target.value)}
                 required
-                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all cursor-pointer font-medium"
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring outline-none transition-all cursor-pointer font-medium"
               >
                 <option value="">-- Seleccionar técnico disponible --</option>
                 {TECNICOS_EXISTENTES.map((tec) => (
@@ -461,7 +461,7 @@ const AsignarTecnico = () => {
                 value={notasInstrucciones}
                 onChange={(e) => setNotasInstrucciones(e.target.value)}
                 placeholder="Ejemplo: Priorizar la revisión del cableado de red antes del cambio de módulo..."
-                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all placeholder:text-gray-400"
+                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring outline-none transition-all placeholder:text-gray-400"
               />
             </div>
 
@@ -476,12 +476,12 @@ const AsignarTecnico = () => {
 
               <button
                 type="submit"
-                id="btn-asignar-orden"
+                id="btn-asignar-orden" aria-label="Asignar orden de trabajo a técnico"
                 disabled={!isFormValid || isSubmitting}
                 className={`w-full sm:w-auto px-6 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2 ${isFormValid && !isSubmitting
                     ? 'bg-primary hover:bg-primary-hover text-white cursor-pointer hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0'
                     : 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300'
-                  }`}
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 title={
                   !isFormValid
                     ? 'Debes seleccionar una incidencia y un técnico existente para continuar'

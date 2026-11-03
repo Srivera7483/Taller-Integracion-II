@@ -75,7 +75,7 @@ const NotificacionesDropdown = () => {
       <button
         type="button"
         onClick={() => setAbierto(!abierto)}
-        className="relative p-2 rounded-xl text-gray-500 hover:text-primary hover:bg-primary-50/70 transition-all duration-200 cursor-pointer focus:outline-none"
+        className="relative p-2 rounded-xl text-gray-500 hover:text-primary hover:bg-primary-50/70 transition-all duration-200 cursor-pointer focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
         title="Notificaciones"
         aria-label="Abrir notificaciones"
         aria-expanded={abierto}
@@ -109,7 +109,7 @@ const NotificacionesDropdown = () => {
               <button
                 type="button"
                 onClick={marcarTodasLeidas}
-                className="text-[11px] text-primary hover:text-primary-hover font-medium cursor-pointer transition-colors"
+                className="text-[11px] text-primary hover:text-primary-hover font-medium cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
               >
                 Marcar leidas
               </button>

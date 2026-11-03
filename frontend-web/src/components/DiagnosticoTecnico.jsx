@@ -49,7 +49,7 @@ const DiagnosticoTecnico = ({ idOrden }) => {
           placeholder="Escribe el diagnóstico detallado aquí..."
           rows={6}
           disabled={isSubmitting}
-          className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white outline-none transition-all text-sm resize-y"
+          className="w-full p-3.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring outline-none transition-all text-sm resize-y"
         />
       </div>
 
@@ -57,7 +57,8 @@ const DiagnosticoTecnico = ({ idOrden }) => {
         <button
           onClick={handleGuardar}
           disabled={isSubmitting || !diagnostico.trim()}
-          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-hover transition-all font-bold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+          aria-label="Guardar diagnóstico"
+          className="flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-all font-bold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         >
           <FiSave className="w-4 h-4" />
           {isSubmitting ? 'Guardando...' : 'Guardar Diagnóstico'}

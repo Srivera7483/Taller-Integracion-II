@@ -330,8 +330,8 @@ const ModalCierreMantenimiento = ({
             type="button"
             onClick={onClose}
             disabled={isSubmitting}
-            aria-label="Cerrar modal"
-            className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors disabled:opacity-50 cursor-pointer"
+            aria-label="Cerrar"
+            className="w-9 h-9 rounded-lg bg-white/10 hover:bg-white/25 text-white flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring disabled:opacity-50 cursor-pointer"
           >
             <FiX className="w-5 h-5" />
           </button>
@@ -372,7 +372,7 @@ const ModalCierreMantenimiento = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-sm font-medium transition-colors shadow-xs cursor-pointer"
+                  className="px-5 py-2.5 bg-amber-700 hover:bg-amber-800 text-white rounded-lg text-sm font-medium transition-colors shadow-xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                 >
                   Entendido, volver
                 </button>
@@ -432,7 +432,7 @@ const ModalCierreMantenimiento = ({
                     modoAccion === 'COMPLETAR'
                       ? 'bg-white text-emerald-800 shadow-xs border border-gray-200'
                       : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   <FiCheckCircle className={`w-4 h-4 ${modoAccion === 'COMPLETAR' ? 'text-emerald-600' : 'text-gray-400'}`} />
                   <span>Completar Mantenimiento</span>
@@ -450,7 +450,7 @@ const ModalCierreMantenimiento = ({
                     modoAccion === 'RECHAZAR'
                       ? 'bg-red-50 text-red-800 shadow-xs border border-red-200'
                       : 'text-gray-600 hover:text-red-700'
-                  }`}
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   <LuTriangleAlert className={`w-4 h-4 ${modoAccion === 'RECHAZAR' ? 'text-red-600' : 'text-gray-400'}`} />
                   <span>Rechazar Incidencia</span>
@@ -505,7 +505,7 @@ const ModalCierreMantenimiento = ({
                       }}
                       disabled={isSubmitting}
                       placeholder="Ej: No es falla técnica del equipo, se constató en terreno que el cable de poder se encontraba desconectado de la toma eléctrica de pared..."
-                      className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 focus:bg-white outline-none text-sm text-gray-900 transition-all resize-y min-h-[120px]"
+                      className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring outline-none text-sm text-gray-900 transition-all resize-y min-h-[120px]"
                     />
                   </div>
 
@@ -524,7 +524,7 @@ const ModalCierreMantenimiento = ({
                             if (errorValidacion) setErrorValidacion(null);
                           }}
                           disabled={isSubmitting}
-                          className="px-2.5 py-1.5 rounded-lg text-xs bg-white border border-gray-200 text-gray-700 hover:border-red-400 hover:text-red-800 hover:bg-red-50 active:scale-95 transition-all text-left cursor-pointer shadow-2xs"
+                          className="px-2.5 py-1.5 rounded-lg text-xs bg-white border border-gray-200 text-gray-700 hover:border-red-400 hover:text-red-800 hover:bg-red-50 active:scale-95 transition-all text-left cursor-pointer shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                         >
                           {motivo}
                         </button>
@@ -562,7 +562,7 @@ const ModalCierreMantenimiento = ({
                       }}
                       disabled={isSubmitting}
                       placeholder="Ej: Se realizó el desmontaje y limpieza de los disipadores. Se reemplazó el cable de señal dañado y se realizaron pruebas de funcionamiento durante 45 minutos sin presentar fallas..."
-                      className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white outline-none text-sm text-gray-900 transition-all resize-y min-h-[110px]"
+                      className="w-full p-3.5 bg-gray-50 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring outline-none text-sm text-gray-900 transition-all resize-y min-h-[110px]"
                     />
                   </div>
 
@@ -586,7 +586,8 @@ const ModalCierreMantenimiento = ({
                           id="btn-decrementar-horas"
                           onClick={() => decrementarHoras(0.5)}
                           disabled={isSubmitting || horasInvertidas <= 0.5}
-                          className="w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs transition-colors disabled:opacity-40 cursor-pointer"
+                          aria-label="Restar 0.5 horas"
+                          className="w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors disabled:opacity-40 cursor-pointer"
                           title="Restar 0.5 horas"
                         >
                           -
@@ -602,7 +603,7 @@ const ModalCierreMantenimiento = ({
                             value={horasInvertidas}
                             onChange={(e) => setHorasInvertidas(Math.max(0, Number(e.target.value) || 0))}
                             disabled={isSubmitting}
-                            className="w-full text-center font-bold text-xl text-gray-900 bg-transparent outline-none py-1"
+                            className="w-full text-center font-bold text-xl text-gray-900 bg-transparent outline-none py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded-lg"
                           />
                           <span className="text-[11px] text-gray-500 block -mt-1 font-medium">horas</span>
                         </div>
@@ -611,7 +612,8 @@ const ModalCierreMantenimiento = ({
                           id="btn-incrementar-horas"
                           onClick={() => incrementarHoras(0.5)}
                           disabled={isSubmitting || horasInvertidas >= 24}
-                          className="w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs transition-colors disabled:opacity-40 cursor-pointer"
+                          aria-label="Sumar 0.5 horas"
+                          className="w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors disabled:opacity-40 cursor-pointer"
                           title="Sumar 0.5 horas"
                         >
                           +
@@ -630,7 +632,7 @@ const ModalCierreMantenimiento = ({
                               Number(horasInvertidas) === h
                                 ? 'bg-primary text-white border-primary shadow-xs'
                                 : 'bg-white hover:bg-primary-50 text-gray-700 border-gray-300'
-                            }`}
+                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                           >
                             {h}h
                           </button>
@@ -653,7 +655,7 @@ const ModalCierreMantenimiento = ({
                           checked={sinMateriales}
                           onChange={toggleSinMateriales}
                           disabled={isSubmitting}
-                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300 cursor-pointer"
+                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring border-gray-300 cursor-pointer"
                         />
                         <span>Solo mano de obra (sin materiales adicionales)</span>
                       </label>
@@ -672,7 +674,7 @@ const ModalCierreMantenimiento = ({
                                 type="button"
                                 onClick={() => agregarMaterialPreset(mat)}
                                 disabled={isSubmitting}
-                                className="px-2.5 py-1.5 rounded-lg text-xs bg-white border border-gray-300 text-gray-700 hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 active:scale-95 transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                                className="px-2.5 py-1.5 rounded-lg text-xs bg-white border border-gray-300 text-gray-700 hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 active:scale-95 transition-all shadow-2xs flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                               >
                                 <FiPlus className="w-3 h-3 text-emerald-600" />
                                 <span>{mat}</span>
@@ -690,7 +692,7 @@ const ModalCierreMantenimiento = ({
                             onChange={(e) => setNuevoMaterialTexto(e.target.value)}
                             placeholder="Otro material (ej. Adaptador HDMI, Canaleta 2m)..."
                             disabled={isSubmitting}
-                            className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                           />
                           <input
                             type="number"
@@ -699,14 +701,14 @@ const ModalCierreMantenimiento = ({
                             value={cantidadMaterial}
                             onChange={(e) => setCantidadMaterial(Math.max(1, Number(e.target.value) || 1))}
                             disabled={isSubmitting}
-                            className="w-16 px-2 py-2 bg-white border border-gray-300 rounded-lg text-xs text-center text-gray-900 outline-none"
                             title="Cantidad"
                             aria-label="Cantidad de material"
+                            className="w-16 px-2 py-2 bg-white border border-gray-300 rounded-lg text-xs text-center text-gray-900 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                           />
                           <button
                             type="submit"
                             disabled={isSubmitting || !nuevoMaterialTexto.trim()}
-                            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                            className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                           >
                             <FiPlus className="w-3.5 h-3.5" />
                             <span>Añadir</span>
@@ -734,9 +736,9 @@ const ModalCierreMantenimiento = ({
                                     type="button"
                                     onClick={() => eliminarMaterial(idx)}
                                     disabled={isSubmitting}
-                                    className="text-gray-400 hover:text-red-600 p-1 rounded-lg transition-colors cursor-pointer"
+                                    className="text-gray-400 hover:text-red-600 p-1 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring cursor-pointer"
                                     title="Eliminar material"
-                                    aria-label={`Eliminar material ${m.nombre}`}
+                                    aria-label="Eliminar"
                                   >
                                     <FiTrash2 className="w-3.5 h-3.5" />
                                   </button>
@@ -781,7 +783,7 @@ const ModalCierreMantenimiento = ({
                 id="btn-cancelar-cierre"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="flex-1 sm:flex-none px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 font-medium text-sm transition-colors disabled:opacity-50 cursor-pointer min-h-[44px]"
+                className="flex-1 sm:flex-none px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 font-medium text-sm transition-colors disabled:opacity-50 cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
               >
                 Cancelar
               </button>
@@ -791,13 +793,14 @@ const ModalCierreMantenimiento = ({
                 <button
                   type="button"
                   id="btn-confirmar-rechazo-incidencia"
+                  aria-label="Confirmar rechazo de incidencia"
                   onClick={handleGuardarRechazo}
                   disabled={isSubmitting || !motivoRechazoValido}
                   className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
                     isSubmitting || !motivoRechazoValido
                       ? 'bg-gray-400 cursor-not-allowed opacity-60'
                       : 'bg-red-700 hover:bg-red-800 active:scale-98 shadow-red-700/20'
-                  }`}
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   {isSubmitting ? (
                     <>
@@ -818,13 +821,14 @@ const ModalCierreMantenimiento = ({
                 <button
                   type="button"
                   id="btn-confirmar-cierre-mantenimiento"
+                  aria-label="Confirmar cierre de mantenimiento"
                   onClick={handleGuardarCierre}
                   disabled={isSubmitting || !isFormCompletarValido}
                   className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
                     isSubmitting || !isFormCompletarValido
                       ? 'bg-gray-400 cursor-not-allowed opacity-60'
                       : 'bg-primary hover:bg-primary-hover active:scale-98 shadow-primary/20'
-                  }`}
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   {isSubmitting ? (
                     <>

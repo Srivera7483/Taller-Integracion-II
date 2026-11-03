@@ -119,8 +119,8 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
             type="button"
             onClick={() => onAmpliar(url, nombre)}
             title="Ampliar en tamaño completo"
-            aria-label="Ampliar imagen en tamaño completo"
-            className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-white shadow-md transition-all cursor-pointer"
+            aria-label="Ampliar imagen"
+            className="absolute bottom-2 right-2 p-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-900 text-white shadow-md transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             <FiMaximize2 className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -154,7 +154,7 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
           <button
             type="button"
             onClick={() => onAmpliar(url, nombre)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover active:scale-95 transition-all shadow-md hover:shadow-lg cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover active:scale-95 transition-all shadow-md hover:shadow-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             <FiMaximize2 className="w-3.5 h-3.5" />
             <span>Ver en Alta Resolución</span>
@@ -427,7 +427,7 @@ const DetalleIncidencia = () => {
               <button
                 type="button"
                 onClick={() => setMostrarSubidorNuevo(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
               >
                 <FiPlusCircle className="w-3.5 h-3.5" />
                 <span>Agregar Foto</span>
@@ -444,7 +444,8 @@ const DetalleIncidencia = () => {
               <button
                 type="button"
                 onClick={() => setMostrarSubidorNuevo(false)}
-                className="text-xs text-gray-500 hover:text-gray-800"
+                aria-label="Cancelar"
+                className="text-xs text-gray-500 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded"
               >
                 Cancelar
               </button>
@@ -478,7 +479,7 @@ const DetalleIncidencia = () => {
             <button
               type="button"
               onClick={() => setMostrarSubidorNuevo(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all shadow-sm hover:shadow cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all shadow-sm hover:shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             >
               <FiUploadCloud className="w-4 h-4" />
               <span>Subir Evidencia a Cloudinary</span>
@@ -558,7 +559,7 @@ const DetalleIncidencia = () => {
               <button
                 type="button"
                 onClick={() => setIsModalOpen(true)}
-                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px]"
+                className="w-full sm:w-auto px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
               >
                 <FiCheckCircle className="w-4 h-4" />
                 <span>Confirmar y Finalizar Mantenimiento</span>

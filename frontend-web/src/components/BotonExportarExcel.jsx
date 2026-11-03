@@ -70,7 +70,7 @@ const BotonExportarExcel = ({
             <button
               type="button"
               onClick={() => ejecutarDescarga('xlsx')}
-              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-700 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             >
               <span className="flex items-center gap-2">
                 <RiFileExcel2Line className="w-4 h-4 text-emerald-600" />
@@ -83,7 +83,7 @@ const BotonExportarExcel = ({
             <button
               type="button"
               onClick={() => ejecutarDescarga('csv')}
-              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             >
               <FiDownload className="w-3.5 h-3.5 text-gray-500" />
               Texto CSV (.csv UTF-8)
@@ -94,11 +94,11 @@ const BotonExportarExcel = ({
         <div className="flex items-center gap-1 bg-emerald-700 text-white rounded-full shadow-lg hover:shadow-emerald-700/30 hover:bg-emerald-800 transition-all duration-200">
           <button
             type="button"
-            id="btn-exportar-excel-floating"
+            id="btn-exportar-excel-floating" aria-label="Exportar catálogo de incidencias a Excel"
             onClick={() => ejecutarDescarga('xlsx')}
             disabled={cargando}
             title="Exportar catálogo de incidencias a Excel (.xlsx)"
-            className="flex items-center gap-2.5 px-5 py-3.5 font-semibold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            className="flex items-center gap-2.5 px-5 py-3.5 font-semibold text-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring rounded-lg"
           >
             {cargando ? (
               <>
@@ -126,7 +126,7 @@ const BotonExportarExcel = ({
             title="Opciones de formato"
             aria-label="Opciones de formato"
             aria-expanded={menuAbierto}
-            className="px-2.5 py-3.5 border-l border-emerald-500/60 hover:bg-emerald-800/40 rounded-r-full transition-colors cursor-pointer"
+            className="px-2.5 py-3.5 border-l border-emerald-500/60 hover:bg-emerald-800/40 rounded-r-full transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             <FiChevronDown className={`w-4 h-4 transition-transform ${menuAbierto ? 'rotate-180' : ''}`} />
           </button>
@@ -145,7 +145,7 @@ const BotonExportarExcel = ({
         disabled={cargando}
         title="Exportar a Excel (.xlsx)"
         aria-label="Exportar a Excel"
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${className}`}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors shadow-2xs disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer ${className} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
       >
         {cargando ? (
           <>
@@ -168,11 +168,11 @@ const BotonExportarExcel = ({
       <div className="inline-flex rounded-xl shadow-xs overflow-hidden border border-emerald-700 bg-emerald-700 hover:bg-emerald-800 transition-all">
         <button
           type="button"
-          id="btn-exportar-excel"
+          id="btn-exportar-excel" aria-label="Descargar reporte histórico en Excel"
           onClick={() => ejecutarDescarga('xlsx')}
           disabled={cargando}
           title="Descargar reporte histórico en formato Excel (.xlsx)"
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-white font-medium text-sm transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px]"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-white font-medium text-sm transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring rounded-lg"
         >
           {cargando ? (
             <>
@@ -200,7 +200,7 @@ const BotonExportarExcel = ({
           title="Seleccionar formato de exportación"
           aria-label="Seleccionar formato de exportación"
           aria-expanded={menuAbierto}
-          className="px-2 border-l border-emerald-600 text-white hover:bg-emerald-900 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-h-[44px]"
+          className="px-2 border-l border-emerald-600 text-white hover:bg-emerald-900 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
         >
           <FiChevronDown className={`w-3.5 h-3.5 transition-transform ${menuAbierto ? 'rotate-180' : ''}`} />
         </button>
@@ -218,7 +218,7 @@ const BotonExportarExcel = ({
           <button
             type="button"
             onClick={() => ejecutarDescarga('xlsx')}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-800 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-gray-800 hover:text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             <span className="flex items-center gap-2">
               <RiFileExcel2Line className="w-4 h-4 text-emerald-600" />
@@ -231,7 +231,7 @@ const BotonExportarExcel = ({
           <button
             type="button"
             onClick={() => ejecutarDescarga('csv')}
-            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer"
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             <FiDownload className="w-3.5 h-3.5 text-gray-500" />
             Separado por comas (.csv)

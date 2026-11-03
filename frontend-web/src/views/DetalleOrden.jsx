@@ -353,7 +353,7 @@ const DetalleOrden = () => {
                 type="button"
                 id="btn-abrir-modal-cierre"
                 onClick={() => setIsModalOpen(true)}
-                className="w-full sm:w-auto px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 active:scale-98 text-white rounded-lg font-bold text-sm shadow-md hover:shadow-lg shadow-emerald-700/25 flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[48px]"
+                className="w-full sm:w-auto px-6 py-3.5 bg-emerald-700 hover:bg-emerald-800 active:scale-98 text-white rounded-lg font-bold text-sm shadow-md hover:shadow-lg shadow-emerald-700/25 flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[48px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring"
               >
                 <FiCheckCircle className="w-5 h-5" />
                 <span>Gestionar Cierre / Rechazo</span>

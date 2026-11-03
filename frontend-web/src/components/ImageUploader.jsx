@@ -143,7 +143,7 @@ const ImageUploader = ({
         id="input-archivo-evidencia"
         onChange={handleInputChange}
         disabled={disabled}
-        className="hidden"
+        className="hidden focus-visible:ring focus-visible:ring-2 focus-visible:ring-primary"
         accept=".png,.jpg,.jpeg,.webp,.gif,.log,.txt,.pdf"
       />
 
@@ -175,7 +175,8 @@ const ImageUploader = ({
               setErrorTamano(null);
               setArchivoRechazadoInfo(null);
             }}
-            className="text-xs font-semibold text-red-700 hover:text-red-900 px-2 py-1 rounded hover:bg-red-100 transition-colors flex-shrink-0 cursor-pointer"
+            aria-label="Cerrar"
+            className="text-xs font-semibold text-red-700 hover:text-red-900 px-2 py-1 rounded hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring transition-colors flex-shrink-0 cursor-pointer"
           >
             Cerrar
           </button>
@@ -202,7 +203,8 @@ const ImageUploader = ({
                 }
               }}
               title="Clic sobre la miniatura para abrir en tamaño grande (Modal UI)"
-              className="group relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-primary shadow-md cursor-pointer hover:border-primary-hover hover:shadow-lg transition-all flex-shrink-0 bg-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              aria-label="Ampliar imagen de evidencia"
+              className="group relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-primary shadow-md cursor-pointer hover:border-primary-hover hover:shadow-lg transition-all flex-shrink-0 bg-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             >
               {/* TAL-133 Criterio a: El thumbnail utiliza la propiedad object-cover para no deformar la foto */}
               <img
@@ -248,7 +250,8 @@ const ImageUploader = ({
                   type="button"
                   id="btn-abrir-modal-desde-formulario"
                   onClick={onOpenModal}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary bg-white border border-primary-300 hover:bg-primary-50 transition-colors shadow-2xs cursor-pointer"
+                  aria-label="Ver en tamaño grande"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary bg-white border border-primary-300 hover:bg-primary-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors shadow-2xs cursor-pointer"
                 >
                   <FiMaximize2 className="w-3.5 h-3.5" />
                   <span>Ver en tamaño grande</span>
@@ -258,7 +261,8 @@ const ImageUploader = ({
                   type="button"
                   id="btn-limpiar-seleccion-imagen"
                   onClick={handleLimpiarSeleccion}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-700 bg-white border border-red-300 hover:bg-red-50 transition-colors shadow-2xs cursor-pointer"
+                  aria-label="Eliminar"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-700 bg-white border border-red-300 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring transition-colors shadow-2xs cursor-pointer"
                   title="Limpiar la selección antes de enviar el POST final"
                 >
                   <FiTrash2 className="w-3.5 h-3.5 text-red-500" />
@@ -269,7 +273,8 @@ const ImageUploader = ({
                   type="button"
                   id="btn-cambiar-imagen-formulario"
                   onClick={handleTriggerSelector}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition-colors shadow-2xs cursor-pointer"
+                  aria-label="Cambiar foto"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors shadow-2xs cursor-pointer"
                   title="Cambiar por otra foto"
                 >
                   <FiRefreshCw className="w-3.5 h-3.5 text-gray-500" />
@@ -295,7 +300,8 @@ const ImageUploader = ({
           <button
             type="button"
             onClick={handleLimpiarSeleccion}
-            className="text-xs font-semibold text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 transition-colors cursor-pointer"
+            aria-label="Eliminar"
+            className="text-xs font-semibold text-red-600 hover:text-red-700 px-3 py-1.5 rounded-lg border border-red-200 bg-white hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring transition-colors cursor-pointer"
           >
             Limpiar archivo
           </button>
@@ -304,11 +310,20 @@ const ImageUploader = ({
         /* Dropzone inicial cuando no hay archivo seleccionado o tras cancelar carga > 5MB */
         <div
           id="dropzone-image-uploader"
+          tabIndex={0}
+          role="button"
+          aria-label="Subir evidencia fotográfica"
           onClick={handleTriggerSelector}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleTriggerSelector();
+            }
+          }}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
-          className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer group ${
+          className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring ${
             errorTamano
               ? 'border-red-300 hover:border-red-500 bg-red-50/20 hover:bg-red-50/40'
               : isDragging

@@ -145,7 +145,8 @@ const Mantenimientos = () => {
           <button
             onClick={cargarMantenimientos}
             disabled={cargando}
-            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm cursor-pointer"
+            aria-label="Actualizar mantenimientos"
+            className="inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors shadow-sm cursor-pointer"
             title="Actualizar listado"
           >
             <FiRefreshCw className={`w-4 h-4 ${cargando ? 'animate-spin text-primary' : ''}`} />
@@ -223,7 +224,7 @@ const Mantenimientos = () => {
           </div>
           <button
             onClick={cargarMantenimientos}
-            className="px-3 py-1 bg-red-100 hover:bg-red-200 rounded-lg text-xs font-semibold cursor-pointer"
+            className="px-3 py-1 bg-red-100 hover:bg-red-200 rounded-lg text-xs font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring"
           >
             Reintentar
           </button>
@@ -251,7 +252,7 @@ const Mantenimientos = () => {
               value={filtroTexto}
               onChange={(e) => setFiltroTexto(e.target.value)}
               placeholder="Buscar por activo, código o tipo..."
-              className="w-full pl-9 pr-3 py-1.5 text-xs text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              className="w-full pl-9 pr-3 py-1.5 text-xs text-gray-900 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring outline-none transition-all"
             />
           </div>
         </div>

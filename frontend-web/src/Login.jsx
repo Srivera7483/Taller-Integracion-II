@@ -183,7 +183,7 @@ const Login = () => {
                       onChange={(e) => setRutOId(e.target.value)}
                       placeholder="12.345.678-9"
                       required
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring transition-all"
                     />
                   </div>
                 </div>
@@ -202,7 +202,7 @@ const Login = () => {
                         onChange={(e) => setNombre(e.target.value)}
                         placeholder="Juan"
                         required
-                        className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        className="w-full pl-10 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring transition-all"
                       />
                     </div>
                   </div>
@@ -217,7 +217,7 @@ const Login = () => {
                       onChange={(e) => setApellido(e.target.value)}
                       placeholder="Pérez"
                       required
-                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring transition-all"
                     />
                   </div>
                 </div>
@@ -238,7 +238,7 @@ const Login = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={mode === 'register' ? 'usuario@uct.cl' : 'usuario@empresa.com'}
                   required
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring transition-all"
                 />
               </div>
               {mode === 'register' && email.length > 0 && !isUctEmail(email) && (
@@ -262,15 +262,16 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring transition-all"
                 />
 
                 {/* Botón interactivo para visualizar/ocultar contraseña */}
                 <button
                   type="button"
                   id="toggle-password-btn"
+                  tabIndex={-1}
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none flex items-center justify-center p-1 cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded flex items-center justify-center p-1 cursor-pointer"
                   title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                 >
@@ -298,7 +299,7 @@ const Login = () => {
               type="submit"
               id="submit-btn"
               disabled={!isFormValid || isSubmitting}
-              className={`w-full mt-3 bg-primary hover:bg-primary-hover text-white px-5 py-3 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${isFormValid && !isSubmitting ? 'hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0' : ''
+              className={`w-full mt-3 bg-primary hover:bg-primary-hover text-white px-5 py-3 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${isFormValid && !isSubmitting ? 'hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0' : ''
                 }`}
             >
               <span id="btn-text">
@@ -328,7 +329,7 @@ const Login = () => {
               type="button"
               id="toggle-view-btn"
               onClick={handleToggleMode}
-              className="text-primary hover:text-primary-hover font-medium transition-colors ml-1 outline-none cursor-pointer"
+              className="text-primary hover:text-primary-hover font-medium transition-colors ml-1 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded-md p-0.5 cursor-pointer"
             >
               {mode === 'login' ? 'Crear cuenta' : 'Iniciar sesión'}
             </button>

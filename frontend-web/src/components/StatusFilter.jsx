@@ -11,13 +11,11 @@ const StatusFilter = ({ options, activeFilter, onFilterChange, counts }) => {
           <button
             key={option}
             onClick={() => onFilterChange(option)}
-            className={`
-              relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 whitespace-nowrap
+            className={`relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 whitespace-nowrap
               ${isActive 
                 ? 'bg-primary text-white shadow-md shadow-primary/20' 
                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-gray-900'
-              }
-            `}
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
           >
             <span>{option}</span>
             {count > 0 && (

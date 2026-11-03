@@ -99,8 +99,8 @@ const ModalPrevisualizadorImagen = ({
             type="button"
             id="btn-cerrar-modal-preview"
             onClick={onClose}
-            aria-label="Cerrar previsualizador"
-            className="w-8 h-8 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Cerrar"
+            className="w-8 h-8 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             title="Cerrar modal (Esc)"
           >
             <FiX className="w-5 h-5" />
@@ -129,7 +129,8 @@ const ModalPrevisualizadorImagen = ({
                     type="button"
                     id="btn-eliminar-cambiar-imagen"
                     onClick={onCambiarImagen}
-                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-primary hover:bg-primary-hover text-white shadow-md transition-all cursor-pointer"
+                    aria-label="Cambiar foto"
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-primary hover:bg-primary-hover text-white shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-all cursor-pointer"
                     title="Cambiar por otra foto o seleccionar una nueva imagen"
                   >
                     <FiRefreshCw className="w-4 h-4" />
@@ -143,7 +144,8 @@ const ModalPrevisualizadorImagen = ({
                     type="button"
                     id="btn-superpuesto-limpiar-imagen"
                     onClick={onLimpiarImagen}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-red-600/90 hover:bg-red-600 text-white shadow-md transition-all cursor-pointer"
+                    aria-label="Eliminar"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-red-600/90 hover:bg-red-600 text-white shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring transition-all cursor-pointer"
                     title="Limpiar y remover esta imagen del formulario"
                   >
                     <FiTrash2 className="w-4 h-4 text-red-100" />
@@ -170,7 +172,7 @@ const ModalPrevisualizadorImagen = ({
                 <button
                   type="button"
                   onClick={onLimpiarImagen}
-                  className="text-red-400 hover:text-red-300 underline font-medium cursor-pointer"
+                  className="text-red-400 hover:text-red-300 underline font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                 >
                   Descartar foto
                 </button>
@@ -180,7 +182,7 @@ const ModalPrevisualizadorImagen = ({
             <button
               type="button"
               onClick={onClose}
-              className="text-slate-300 hover:text-white font-medium cursor-pointer"
+              className="text-slate-300 hover:text-white font-medium cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             >
               Cerrar visor
             </button>

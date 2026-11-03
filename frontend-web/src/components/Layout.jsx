@@ -115,7 +115,7 @@ const Layout = () => {
           </div>
           <button 
             type="button"
-            className="lg:hidden text-gray-500 hover:text-gray-700"
+            className="lg:hidden text-gray-500 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded-lg p-1"
             onClick={() => setIsMobileMenuOpen(false)}
             aria-label="Cerrar menú de navegación"
             title="Cerrar menú de navegación"
@@ -157,7 +157,7 @@ const Layout = () => {
           <div className="flex items-center gap-3 sm:gap-4">
             <button 
               type="button"
-              className="lg:hidden text-gray-500 hover:text-gray-700 p-1"
+              className="lg:hidden text-gray-500 hover:text-gray-700 p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded-lg"
               onClick={() => setIsMobileMenuOpen(true)}
               aria-label="Abrir menú de navegación"
               title="Abrir menú de navegación"
@@ -172,7 +172,7 @@ const Layout = () => {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-1.5 text-gray-600 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer"
+              className="flex items-center gap-1.5 text-gray-600 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-gray-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring"
               title="Cerrar sesión"
               aria-label="Salir - Cerrar sesión"
             >

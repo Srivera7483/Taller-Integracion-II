@@ -167,7 +167,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                       setErrorValidacion('');
                       setPresetActivo('');
                     }}
-                    className="block w-full pl-10 pr-3 py-2 text-sm text-gray-900 bg-gray-50/70 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-colors"
+                    className="block w-full pl-10 pr-3 py-2 text-sm text-gray-900 bg-gray-50/70 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors"
                     placeholder="YYYY-MM-DD"
                   />
                 </div>
@@ -195,7 +195,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                       setErrorValidacion('');
                       setPresetActivo('');
                     }}
-                    className="block w-full pl-10 pr-3 py-2 text-sm text-gray-900 bg-gray-50/70 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white transition-colors"
+                    className="block w-full pl-10 pr-3 py-2 text-sm text-gray-900 bg-gray-50/70 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors"
                     placeholder="YYYY-MM-DD"
                   />
                 </div>
@@ -208,7 +208,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 type="submit"
                 id="btn-filtrar-mantenimientos"
                 disabled={cargando}
-                className="inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-bold text-white bg-primary hover:bg-primary-hover active:bg-primary-900 rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2 text-sm font-bold text-white bg-primary hover:bg-primary-hover active:bg-primary-900 rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
               >
                 <FiFilter className="w-4 h-4" />
                 <span>{cargando ? 'Filtrando...' : 'Filtrar'}</span>
@@ -220,7 +220,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 onClick={handleLimpiar}
                 disabled={cargando || (!startDate && !endDate && !hayFiltrosAplicados)}
                 title="Limpiar rango y volver al listado original"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 rounded-lg transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
               >
                 <FiRotateCcw className="w-4 h-4" />
                 <span>Limpiar</span>
@@ -250,7 +250,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                   presetActivo === 'hoy'
                     ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
               >
                 Hoy
               </button>
@@ -261,7 +261,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                   presetActivo === 'semana'
                     ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
               >
                 Esta semana
               </button>
@@ -272,7 +272,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                   presetActivo === 'mes'
                     ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
               >
                 Este mes
               </button>
@@ -283,7 +283,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                   presetActivo === 'proximos30'
                     ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
               >
                 Próximos 30 días
               </button>
@@ -299,7 +299,7 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
                 <button
                   type="button"
                   onClick={handleLimpiar}
-                  className="ml-1 text-primary/70 hover:text-primary font-bold cursor-pointer"
+                  className="ml-1 text-primary/70 hover:text-primary font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
                   title="Quitar filtro"
                 >
                   ×

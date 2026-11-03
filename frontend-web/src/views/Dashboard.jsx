@@ -89,7 +89,7 @@ const Dashboard = () => {
           </Link>
           <button
             onClick={() => showToast('Sistema de notificaciones operativo y listo para integración.', 'success')}
-            className="px-3.5 py-2 bg-primary hover:bg-primary-hover text-white font-semibold text-xs rounded-lg transition shadow-sm hover:shadow cursor-pointer"
+            className="px-3.5 py-2 bg-primary hover:bg-primary-hover text-white font-semibold text-xs rounded-lg transition shadow-sm hover:shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
           >
             Probar Notificación
           </button>
