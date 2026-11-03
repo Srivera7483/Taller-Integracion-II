@@ -16,7 +16,7 @@ const Toast = () => {
 
   return (
     <div
-      role="status"
+      role="status" id="toast-notification" data-cy="toast-notification" data-toast-type={type || 'info'}
       aria-live="polite"
       className={`fixed bottom-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transition-all duration-300 ${currentStyle}`}
     >

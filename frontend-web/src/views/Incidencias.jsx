@@ -180,7 +180,7 @@ const Incidencias = () => {
           </Link>
 
           <Link
-            to="/incidencias/nueva"
+            to="/incidencias/nueva" id="btn-registrar-incidencia" data-cy="btn-registrar-incidencia"
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all font-semibold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 min-h-[44px]"
           >
             <FiPlus className="w-4 h-4" /> Reportar Incidencia

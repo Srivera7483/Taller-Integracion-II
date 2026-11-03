@@ -7,7 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cypress:open": "node cypress/run-cypress.mjs open",
+    "cypress:run": "node cypress/run-cypress.mjs run",
+    "test:e2e": "node cypress/run-cypress.mjs run --spec cypress/e2e/flujo-critico-incidencia.cy.js"
   },
   "dependencies": {
     "axios": "^1.20.0",
@@ -23,6 +26,7 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "autoprefixer": "^10.6.0",
+    "cypress": "^16.2.1",
     "oxlint": "^1.81.0",
     "postcss": "^8.5.28",
     "tailwindcss": "^4.3.3",
