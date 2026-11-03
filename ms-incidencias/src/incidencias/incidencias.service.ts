@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
   InternalServerErrorException,
+  Optional,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { Prisma } from '@prisma/client';
@@ -23,6 +24,7 @@ import { ExportarIncidenciasService } from './exportar-incidencias.service';
 import type { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { validarExtensionEvidencia } from '../validators/file-mime.pipe';
 import { sanitizeStringXss } from '../validators/sanitize-xss.pipe';
+import { RabbitmqProducerService } from '../rabbitmq/rabbitmq-producer.service';
 
 const incidenciaConEstadoActual = {
   include: {
@@ -60,6 +62,7 @@ export class IncidenciasService {
     private readonly httpService: HttpService,
     private readonly prioridadDinamicaService: PrioridadDinamicaService = new PrioridadDinamicaService(),
     private readonly exportarIncidenciasService: ExportarIncidenciasService = new ExportarIncidenciasService(),
+    @Optional() private readonly rabbitmqProducer?: RabbitmqProducerService,
   ) {}
 
   async listar(query?: ListarIncidenciasQueryDto) {
@@ -202,8 +205,27 @@ export class IncidenciasService {
       });
 
       if (!creada) throw new InternalServerErrorException();
-      return this.toApiIncidencia(creada);
+      return this.toApiIncidencia(creada, body.prioridad);
     });
+
+    // TAL-11: Publicación asíncrona a RabbitMQ para incidencias críticas
+    if (this.esIncidenciaCritica(creada, body) && this.rabbitmqProducer) {
+      try {
+        await this.rabbitmqProducer.publicarIncidenciaCritica({
+          id_incidencia: creada.id_incidencia,
+          id_activo: creada.id_activo,
+          id_reportante: creada.id_reportante,
+          titulo: creada.titulo,
+          descripcion: creada.descripcion,
+          prioridad: creada.prioridad || body.prioridad || 'Crítica',
+          fecha_creacion: creada.fecha_creacion,
+          estado: (creada as any).estado?.nombre_estado ?? 'Reportada',
+        });
+      } catch (error) {
+        const detalle = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Error al publicar evento crítico en RabbitMQ: ${detalle}`);
+      }
+    }
 
     await this.notificarIncidencia(
       emailUsuario,
@@ -535,10 +557,39 @@ export class IncidenciasService {
       .toUpperCase();
   }
 
-  private toApiIncidencia(incidencia: IncidenciaConEstadoActual) {
+  private normalizarTexto(texto?: string | null): string {
+    if (!texto) return '';
+    return texto
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+
+  private esIncidenciaCritica(incidencia: any, dto?: CrearIncidenciaDto): boolean {
+    const prioridad1 = this.normalizarTexto(dto?.prioridad);
+    const prioridad2 = this.normalizarTexto(incidencia?.prioridad);
+    const titulo1 = this.normalizarTexto(dto?.titulo);
+    const titulo2 = this.normalizarTexto(incidencia?.titulo);
+    const desc1 = this.normalizarTexto(dto?.descripcion);
+    const desc2 = this.normalizarTexto(incidencia?.descripcion);
+
+    return (
+      prioridad1.includes('crit') ||
+      prioridad2.includes('crit') ||
+      titulo1.includes('crit') ||
+      titulo2.includes('crit') ||
+      desc1.includes('crit') ||
+      desc2.includes('crit')
+    );
+  }
+
+  private toApiIncidencia(incidencia: IncidenciaConEstadoActual, prioridadOverride?: string) {
     const estado = incidencia.historial_estados?.[0]?.estado;
     const orden = incidencia.ordenes_trabajo?.[0];
-    const calculo = this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia);
+    const calculo = this.prioridadDinamicaService.calcularPrioridadRelativa({
+      ...incidencia,
+      prioridad: prioridadOverride || (incidencia as any).prioridad,
+    });
 
     return {
       id_incidencia: incidencia.id_incidencia,

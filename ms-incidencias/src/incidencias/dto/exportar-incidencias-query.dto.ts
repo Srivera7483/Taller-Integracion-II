@@ -3,7 +3,7 @@ import { Transform, Type } from 'class-transformer';
 
 export class ExportarIncidenciasQueryDto {
   @IsOptional()
-  @IsString()
+  @IsString({ message: 'formato debe ser una cadena de texto' })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
   @IsIn(['xlsx', 'excel', 'csv'], {
     message: 'El formato debe ser "xlsx", "excel" o "csv"',
@@ -11,7 +11,7 @@ export class ExportarIncidenciasQueryDto {
   formato?: 'xlsx' | 'excel' | 'csv' = 'xlsx';
 
   @IsOptional()
-  @IsUUID('4', { message: 'id_activo debe ser un UUID v4 válido' })
+  @IsUUID(undefined, { message: 'id_activo debe ser un UUID válido' })
   id_activo?: string;
 
   @IsOptional()
