@@ -7,15 +7,13 @@ const Toast = () => {
   if (!isVisible) return null;
 
   const typeStyles = {
-    success: 'bg-green-500 text-white',
-    error: 'bg-red-500 text-white',
-    info: 'bg-blue-500 text-white',
+    error: 'bg-red-700 text-white',
+    info: 'bg-primary text-white',
   };
-
-  const currentStyle = typeStyles[type] || typeStyles.info;
-
-  return (
-    <div className={`fixed bottom-4 right-4 z-50 px-6 py-3 rounded-md shadow-lg transition-all duration-300 ${currentStyle}`}>
+      role="status" id="toast-notification" data-cy="toast-notification" data-toast-type={type || 'info'}
+      aria-live="polite"
+      className={`fixed bottom-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transition-all duration-300 ${currentStyle}`}
+    >
       <p className="font-medium">{message}</p>
     </div>
   );

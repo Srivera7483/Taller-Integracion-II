@@ -7,7 +7,6 @@ import { AuthModule } from './auth/auth.module';
 import { IncidenciasModule } from './incidencias/incidencias.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { OrdenesTrabajoModule } from './ordenes-trabajo/ordenes-trabajo.module';
-import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 
@@ -16,7 +15,6 @@ import { RolesGuard } from './auth/roles.guard';
     ConfigModule.forRoot({ isGlobal: true }),
     AuthModule,
     PrismaModule,
-    AuthModule,
     IncidenciasModule,
     OrdenesTrabajoModule,
   ],

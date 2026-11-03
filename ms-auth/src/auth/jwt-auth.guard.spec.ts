@@ -48,4 +48,17 @@ describe('JwtAuthGuard', () => {
     expect(verify).toHaveBeenCalledWith('signed-token');
     expect(request.user).toEqual(expect.objectContaining({ userId: 'user-123', role: 'admin' }));
   });
+
+  it('rejects refresh tokens for protected access-token routes', () => {
+    const verify = vi.fn().mockReturnValue({
+      sub: 'user-123',
+      role: 'admin',
+      tokenUse: 'refresh',
+    });
+    const jwtService = { verify } as unknown as JwtService;
+    const guard = new JwtAuthGuard(jwtService);
+    const { context } = createContext('bearer refresh-token');
+
+    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+  });
 });

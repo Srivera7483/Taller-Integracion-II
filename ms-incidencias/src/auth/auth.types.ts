@@ -6,4 +6,5 @@ export interface JwtUser {
   exp?: number;
   userId?: string;
   role?: string;
+  email?: string;
 }

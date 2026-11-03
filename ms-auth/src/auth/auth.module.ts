@@ -9,9 +9,15 @@ import { UserRepository } from './user.repository.js';
 
 @Module({
   imports: [
-    JwtModule.register({
-      secret: process.env.JWT_SECRET ?? 'dev-secret-change-me',
-      signOptions: { expiresIn: '1h' },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET') ?? 'super_secret_key_change_me',
+        signOptions: {
+          expiresIn: (configService.get<string>('JWT_EXPIRATION') ?? '15m') as any,
+        },
+      }),
     }),
   ],
   controllers: [AuthController],

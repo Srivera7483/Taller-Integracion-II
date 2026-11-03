@@ -98,11 +98,29 @@ Respuesta exitosa (`200 OK`):
 
 ```json
 {
-  "accessToken": "<token-jwt>"
+  "token": "<access-token>",
+  "usuario": { "...": "..." }
 }
 ```
 
-Las credenciales inexistentes o incorrectas producen `401 Unauthorized`. El servicio no revela si falló el correo o la contraseña.
+El access token está disponible en el campo `token` y expira en 15 minutos. El
+refresh token se entrega en una cookie `HttpOnly`, no en el JSON. Las
+credenciales inexistentes o incorrectas producen `401 Unauthorized`.
+
+### `POST /auth/refresh`
+
+Envía automáticamente la cookie `refresh_token` obtenida durante el login.
+La cookie tiene una vigencia de 7 días. Si el token es válido y el usuario no
+ha sido eliminado, la respuesta es `200 OK`:
+
+```json
+{
+  "accessToken": "<nuevo-access-token>"
+}
+```
+
+Un refresh token inválido, expirado o asociado a un usuario eliminado produce
+`401 Unauthorized`.
 
 ## Ruta protegida por JWT
 
@@ -153,7 +171,9 @@ const payload = {
 };
 ```
 
-No se incluyen contraseñas, correos electrónicos ni otros datos personales. La expiración está configurada en una hora.
+El JWT contiene claims de identidad/rol y un claim `tokenUse` para distinguir
+access tokens de refresh tokens. Los access tokens expiran en 15 minutos; los
+refresh tokens expiran en 7 días y usan `JWT_REFRESH_SECRET`.
 
 ## Variables de entorno
 
@@ -163,9 +183,11 @@ Copia `.env.example` como `.env` dentro de `ms-auth`:
 DATABASE_URL=postgresql://postgres:postgres@localhost:5435/auth_db
 AUTH_PORT=3001
 JWT_SECRET=super_secret_key_change_me
+JWT_REFRESH_SECRET=use_a_different_long_random_secret
 ```
 
-En producción, `JWT_SECRET` debe ser largo, aleatorio y administrado fuera del repositorio. No se debe publicar `.env`.
+En producción, ambos secretos deben ser largos, aleatorios, diferentes entre
+sí y administrados fuera del repositorio. No se debe publicar `.env`.
 
 ## Instalación y configuración
 

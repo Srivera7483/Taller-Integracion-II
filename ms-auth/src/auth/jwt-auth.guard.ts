@@ -24,6 +24,10 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const payload = this.jwtService.verify<JwtUser>(token);
 
+      if (payload.tokenUse === 'refresh') {
+        throw new Error('Refresh tokens cannot authenticate requests');
+      }
+
       const userId = payload.sub || payload.userId;
       const role = payload.rol || payload.role;
 

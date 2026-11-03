@@ -2,12 +2,15 @@ import {
   Body,
   Controller,
   Get,
+  UnauthorizedException,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
   UseGuards,
+  UseInterceptors,
+  UsePipes,
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -19,6 +22,8 @@ import { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
 import { ActualizarEstadoDto } from './dto/actualizar-estado.dto';
 import { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
 import { IncidenciasService } from './incidencias.service';
+import { FileMimeValidationPipe } from '../validators/file-mime.pipe';
+import { SanitizeXssPipe } from '../validators/sanitize-xss.pipe';
 
 @Controller('incidencias')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -31,12 +36,22 @@ export class IncidenciasController {
   }
 
   @Post()
+  @UsePipes(new SanitizeXssPipe())
   crear(
-    @Body() body: CrearIncidenciaDto,
+    @Body(SanitizeXssPipe) body: CrearIncidenciaDto,
     @CurrentUser() usuario: JwtUser,
   ) {
     const idUsuario = usuario.sub || usuario.userId;
-    return this.incidenciasService.crear(body, idUsuario);
+    if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
+    return this.incidenciasService.crear(body, idUsuario, usuario.email);
+  }
+
+  @Get(':id_incidencia/prioridad-dinamica')
+  obtenerPrioridadDinamica(
+    @Param('id_incidencia', ParseUUIDPipe) id: string,
+    @Query() query: PrioridadDinamicaQueryDto,
+  ) {
+    return this.incidenciasService.obtenerPrioridadDinamica(id, query);
   }
 
   @Get(':id_incidencia')
@@ -45,7 +60,7 @@ export class IncidenciasController {
   }
 
   @Patch(':id_incidencia/estado')
-  @Roles('SUPERVISOR', 'TECNICO', 'REPORTANTE', 'ADMINISTRADOR')
+  @Roles('SUPERVISOR', 'TECNICO', 'TÉCNICO', 'REPORTANTE', 'ADMINISTRADOR')
   async actualizarEstado(
     @Param('id_incidencia', ParseUUIDPipe) incidenciaId: string,
     @Body() body: ActualizarEstadoDto,
@@ -53,28 +68,37 @@ export class IncidenciasController {
   ) {
     const idUsuario = usuario.sub || usuario.userId;
     const rolUsuario = usuario.rol || usuario.role;
+    if (!idUsuario || !rolUsuario) {
+      throw new UnauthorizedException('Usuario autenticado inválido');
+    }
     
     return this.incidenciasService.actualizarEstado(
       incidenciaId,
       body.id_estado, 
       idUsuario,
       rolUsuario,
+      usuario.email,
+      body.motivo_rechazo,
     );
   }
 
   @Patch(':id_incidencia/resolver')
-  @Roles('TECNICO')
+  @Roles('TECNICO', 'TÉCNICO')
   async resolverIncidencia(
     @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
     @CurrentUser() usuario: JwtUser,
   ) {
     const idUsuario = usuario.sub || usuario.userId;
     const rolUsuario = usuario.rol || usuario.role;
+    if (!idUsuario || !rolUsuario) {
+      throw new UnauthorizedException('Usuario autenticado inválido');
+    }
     
     return this.incidenciasService.resolverIncidencia(
       idIncidencia,
       idUsuario,
       rolUsuario,
+      usuario.email,
     );
   }
 
