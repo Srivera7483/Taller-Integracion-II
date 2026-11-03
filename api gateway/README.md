@@ -30,6 +30,7 @@ MS_NOTIFICACIONES_URL=http://127.0.0.1:3004
 
 `MS_ACTIVOS_URL` y `MS_INCIDENCIAS_URL` definen los servicios destino de los proxies. Si el servicio de Activos no utiliza el puerto `3001`, cambia ese valor para no colisionar con MS Auth.
 `MS_NOTIFICACIONES_URL` define el destino interno de las notificaciones; por defecto apunta a `127.0.0.1:3004`, expuesto sólo en loopback por Docker.
+`GATEWAY_TRUST_PROXY` es opcional y acepta una IP/CIDR o una lista separada por comas con las direcciones de los proxies inversos confiables. Por defecto no se confía en cabeceras reenviadas. No lo configures como `true` si el Gateway también puede recibir tráfico directo no confiable.
 
 ## Ejecución
 
@@ -78,6 +79,12 @@ Reenvía el cuerpo de la petición a `POST /notificar` en `MS_NOTIFICACIONES_URL
 
 Si el destino no está disponible, el gateway responde `502 Bad Gateway` y permanece activo.
 
+### `POST /api/v1/auth/login`
+
+Reenvía el inicio de sesión a MS Auth y permite hasta **5 peticiones por IP en 15 minutos**. La sexta petición dentro de la ventana responde `429 Too Many Requests`. El límite sólo se aplica a esta ruta; las demás rutas no comparten esta cuota.
+
+El Gateway utiliza la IP de la conexión como clave. Si hay un proxy inverso delante del Gateway, configura `GATEWAY_TRUST_PROXY` con la IP/CIDR exacta del proxy para que Fastify resuelva la IP real del cliente desde las cabeceras reenviadas de un emisor confiable.
+
 ## Verificación rápida
 
 ```bash
@@ -112,3 +119,19 @@ HTTP/1.1 200 OK
 ```
 
 La prueba confirmó que el servidor inicia correctamente y responde con el código HTTP y el JSON esperados.
+
+## Prueba de límite de login
+
+Con MS Auth y el Gateway en ejecución, envía seis solicitudes desde el mismo cliente:
+
+```bash
+for i in {1..6}; do
+  status=$(curl -sS -o /dev/null -w "%{http_code}" \
+    -X POST http://localhost:3000/api/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"admin@test.com","password":"pass123"}')
+  printf 'Intento %s: HTTP %s\n' "$i" "$status"
+done
+```
+
+Las primeras cinco respuestas dependen de las credenciales (por ejemplo, `200` o `401`); la sexta debe ser `429`. Para repetir la prueba antes de que pasen 15 minutos, reinicia el Gateway para limpiar el contador en memoria.
