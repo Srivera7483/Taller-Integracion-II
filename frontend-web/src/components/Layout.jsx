@@ -60,6 +60,9 @@ const Layout = () => {
     if (location.pathname.includes('/trazabilidad')) {
       return 'Trazabilidad y Ciclo de Vida del Activo';
     }
+    if (location.pathname.startsWith('/design-system')) {
+      return 'Guía de Estilo y Sistema de Diseño';
+    }
     switch (location.pathname) {
       case '/dashboard': return 'Dashboard';
       case '/incidencias': return 'Incidencias';

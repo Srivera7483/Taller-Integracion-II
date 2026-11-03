@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ToastProvider } from './context/ToastContext';
 import Toast from './components/Toast';
 import PublicRoute from './components/PublicRoute';
-import ProtectedRoute from './components/ProtectedRoute'
+import ProtectedRoute from './components/ProtectedRoute';
 import AxiosInterceptor from './components/AxiosInterceptor';
 
 // Componentes Estructurales y Vistas
@@ -22,7 +22,7 @@ import PlanificarMantenimiento from './views/PlanificarMantenimiento';
 import Mantenimientos from './views/Mantenimientos';
 import NotFound from './views/NotFound';
 import ServerError from './views/ServerError';
-
+import DesignSystem from './views/DesignSystem';
 
 function App() {
   return (
@@ -33,6 +33,9 @@ function App() {
             {/* Rutas globales de error */}
             <Route path="/500" element={<ServerError />} />
             <Route path="/error" element={<ServerError />} />
+
+            {/* TAL-171: Ruta secreta temporal de Guía de Estilo / Design System (accesible directamente) */}
+            <Route path="/design-system" element={<div className="min-h-screen bg-gray-50 p-4 sm:p-6"><DesignSystem /></div>} />
 
             {/* Ruta pública sin Layout */}
             <Route element={<PublicRoute />}>
@@ -61,6 +64,8 @@ function App() {
                 <Route path="trazabilidad/:idActivo" element={<Trazabilidad />} />
                 <Route path="activos/:idActivo/trazabilidad" element={<Trazabilidad />} />
                 <Route path="usuarios" element={<Usuarios />} />
+                {/* Ruta del Design System integrada al Layout si se navega con sesión activa */}
+                <Route path="design-system" element={<DesignSystem />} />
               </Route>
             </Route>
 
