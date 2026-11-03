@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import SelectorTecnicoSesion from './SelectorTecnicoSesion';
 import NotificacionesDropdown from './NotificacionesDropdown';
 import CriticalAlertBanner from './CriticalAlertBanner';
+import FabNuevaIncidencia from './FabNuevaIncidencia';
 
 // Variantes de animación para transiciones fluidas de página
 const pageVariants = {
@@ -186,7 +187,8 @@ const Layout = () => {
         <CriticalAlertBanner />
 
         {/* Dynamic Outlet con animación fluida entre vistas (TAL-147) */}
-        <main ref={mainContentRef} className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
+        {/* pb-24 en móviles garantiza que el FAB flotante no tape elementos ni el scroll natural del usuario */}
+        <main ref={mainContentRef} className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6 pb-24 lg:pb-6">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}
@@ -201,6 +203,9 @@ const Layout = () => {
           </AnimatePresence>
         </main>
       </div>
+
+      {/* TAL-172: Floating Action Button (FAB) en móviles para creación rápida de reportes */}
+      <FabNuevaIncidencia />
     </div>
   );
 };

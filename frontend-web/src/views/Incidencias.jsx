@@ -37,19 +37,26 @@ const Incidencias = () => {
   const [ordenSeleccionadaParaCierre, setOrdenSeleccionadaParaCierre] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Escuchar cambios de perfil técnico para actualizar ownership en tiempo real
-  useEffect(() => {
-    const handleCambio = () => {
-      setTecnicoActual(getTecnicoActual());
-    };
-    window.addEventListener('tecnico-cambiado', handleCambio);
-    return () => window.removeEventListener('tecnico-cambiado', handleCambio);
-  }, []);
-
   const recargarIncidencias = () => {
     const data = getIncidencias();
     setIncidencias(data);
   };
+
+  // Escuchar cambios de perfil técnico y nuevas incidencias en tiempo real
+  useEffect(() => {
+    const handleCambio = () => {
+      setTecnicoActual(getTecnicoActual());
+    };
+    const handleIncidenciaCreada = () => {
+      recargarIncidencias();
+    };
+    window.addEventListener('tecnico-cambiado', handleCambio);
+    window.addEventListener('incidencia-creada', handleIncidenciaCreada);
+    return () => {
+      window.removeEventListener('tecnico-cambiado', handleCambio);
+      window.removeEventListener('incidencia-creada', handleIncidenciaCreada);
+    };
+  }, []);
 
   // Calcular contadores por estado
   const counts = incidencias.reduce(
@@ -500,7 +507,7 @@ const Incidencias = () => {
       )}
 
       {/* BOTÓN FLOTANTE ESTÉTICO EXPORTAR A EXCEL */}
-      <BotonExportarExcel variant="floating" />
+      <BotonExportarExcel variant="floating" className="hidden lg:flex" />
     </div>
   );
 };
