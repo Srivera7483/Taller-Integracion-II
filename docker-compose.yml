@@ -45,6 +45,8 @@ services:
       context: ./ms-notificaciones
     container_name: ms-notificaciones
     restart: unless-stopped
+    env_file:
+      - ./ms-notificaciones/.env
     environment:
       PORT: 3004
     ports:

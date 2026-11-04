@@ -11,7 +11,10 @@ import {
   UseGuards,
   UseInterceptors,
   UsePipes,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -25,11 +28,26 @@ import { IncidenciasService } from './incidencias.service';
 import { FileMimeValidationPipe } from '../validators/file-mime.pipe';
 import { SanitizeXssPipe } from '../validators/sanitize-xss.pipe';
 import { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
+import { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 
 @Controller('incidencias')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class IncidenciasController {
   constructor(private readonly incidenciasService: IncidenciasService) {}
+
+  @Get('exportar')
+  async exportar(
+    @Query() query: ExportarIncidenciasQueryDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const resultado = await this.incidenciasService.exportarIncidencias(query);
+    response.setHeader('Content-Type', resultado.contentType);
+    response.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${resultado.filename}"`,
+    );
+    return new StreamableFile(resultado.buffer);
+  }
 
   @Get()
   listar(@Query() query: ListarIncidenciasQueryDto) {
