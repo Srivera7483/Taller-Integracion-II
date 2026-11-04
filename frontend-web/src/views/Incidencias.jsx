@@ -7,11 +7,9 @@ import BotonExportarExcel from '../components/BotonExportarExcel';
 import {
   FiSearch,
   FiPlus,
-  FiTrash2,
   FiBox,
   FiClock,
   FiUser,
-  FiInfo,
   FiUserCheck,
   FiCheckCircle,
   FiLock,
@@ -19,62 +17,76 @@ import {
   FiAlertTriangle
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
-import {
-  getIncidencias,
-  clearTempIncidencias,
-  getTecnicoActual
-} from '../services/incidenciasStorage';
+import api from '../services/api';
 
 const Incidencias = () => {
   const { showToast } = useToast();
-  // Cargar incidencias desde cookies y datos base al montar
-  const [incidencias, setIncidencias] = useState(() => getIncidencias());
+  
+  // Estados para datos reales de la BD
+  const [incidencias, setIncidencias] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('Todas');
-  const [tecnicoActual, setTecnicoActual] = useState(() => getTecnicoActual());
-
+  
   // Estado para el modal de cierre / rechazo de mantenimiento
   const [ordenSeleccionadaParaCierre, setOrdenSeleccionadaParaCierre] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const recargarIncidencias = () => {
-    const data = getIncidencias();
-    setIncidencias(data);
+  // Obtener el rol y datos del usuario actual desde localStorage
+  const obtenerUsuarioActual = () => {
+    try {
+      const usuarioStr = localStorage.getItem('usuario');
+      if (!usuarioStr) return null;
+      return JSON.parse(usuarioStr);
+    } catch {
+      return null;
+    }
   };
 
-  // Escuchar cambios de perfil técnico y nuevas incidencias en tiempo real
+  const usuarioAutenticado = obtenerUsuarioActual();
+  const rolUsuario = usuarioAutenticado?.rol?.nombre_rol || usuarioAutenticado?.rol || null;
+  const idUsuarioActual = usuarioAutenticado?.id_usuario;
+  const esAdmin = rolUsuario === 'ADMINISTRADOR';
+  const esSupervisor = rolUsuario === 'SUPERVISOR' || esAdmin;
+
+  const cargarIncidenciasReales = async () => {
+    try {
+      setLoading(true);
+      // Asume soporte de paginación TAL-112 o límite OpenAPI
+      const response = await api.get('/incidencias?limite=50');
+      const datos = response.data.datos || response.data.data || response.data || [];
+      setIncidencias(Array.isArray(datos) ? datos : []);
+    } catch (error) {
+      console.error('Error obteniendo incidencias:', error);
+      showToast('Error al conectar con la base de datos de incidencias', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const handleCambio = () => {
-      setTecnicoActual(getTecnicoActual());
-    };
-    const handleIncidenciaCreada = () => {
-      recargarIncidencias();
-    };
-    window.addEventListener('tecnico-cambiado', handleCambio);
-    window.addEventListener('incidencia-creada', handleIncidenciaCreada);
-    return () => {
-      window.removeEventListener('tecnico-cambiado', handleCambio);
-      window.removeEventListener('incidencia-creada', handleIncidenciaCreada);
-    };
+    cargarIncidenciasReales();
   }, []);
+
+  // Función auxiliar para obtener el nombre del estado
+  const getNombreEstado = (estado) => {
+    if (!estado) return 'Pendiente';
+    return typeof estado === 'object' ? (estado.nombre_estado || estado.nombre) : estado;
+  };
 
   // Calcular contadores por estado
   const counts = incidencias.reduce(
     (acc, inc) => {
-      const estado = inc.estado || 'Pendiente';
-      acc[estado] = (acc[estado] || 0) + 1;
+      const estadoStr = getNombreEstado(inc.estado);
+      acc[estadoStr] = (acc[estadoStr] || 0) + 1;
       
-      // Conteo específico si el estado es RECHAZADO
-      if (estado === 'RECHAZADO' || estado.toLowerCase() === 'rechazado' || estado.toLowerCase() === 'rechazada') {
+      if (estadoStr.toLowerCase() === 'rechazado' || estadoStr.toLowerCase() === 'rechazada') {
         acc['Rechazado'] = (acc['Rechazado'] || 0) + 1;
       }
-
       acc['Todas'] = (acc['Todas'] || 0) + 1;
 
-      // Conteo para Mis Asignadas
-      const asignado = (inc.asignado || '').trim().toLowerCase();
-      const actual = (tecnicoActual?.nombre || '').trim().toLowerCase();
-      if (asignado && actual && (asignado === actual || asignado.includes(actual) || actual.includes(asignado))) {
+      // Mis Asignadas (Basado en el id del reportante o asignación de backend)
+      if (inc.id_reportante === idUsuarioActual || inc.tecnico_asignado === idUsuarioActual) {
         acc['Mis Asignadas'] = (acc['Mis Asignadas'] || 0) + 1;
       }
       return acc;
@@ -84,27 +96,25 @@ const Incidencias = () => {
 
   // Filtrado reactivo en tiempo real
   const incidenciasFiltradas = incidencias.filter((inc) => {
-    // Filtro por texto
     const texto = terminoBusqueda.toLowerCase();
+    const idActivo = inc.id_activo || '';
+    const idInc = inc.id_incidencia || '';
+    
     const coincideTitulo = inc.titulo?.toLowerCase().includes(texto);
-    const coincideActivo = inc.id_activo?.toLowerCase().includes(texto);
-    const coincideId = inc.id?.toLowerCase().includes(texto);
-    const coincideCategoria = inc.categoria?.toLowerCase().includes(texto);
-    const coincideAsignado = inc.asignado?.toLowerCase().includes(texto);
-    const matchBusqueda = coincideTitulo || coincideActivo || coincideId || coincideCategoria || coincideAsignado;
+    const coincideActivo = idActivo.toLowerCase().includes(texto);
+    const coincideId = idInc.toLowerCase().includes(texto);
+    
+    const matchBusqueda = coincideTitulo || coincideActivo || coincideId;
 
-    // Filtro por estado / Mis Asignadas
-    const incEstado = inc.estado || 'Pendiente';
+    const incEstado = getNombreEstado(inc.estado);
     let matchEstado = true;
 
     if (filtroEstado === 'Todas') {
       matchEstado = true;
     } else if (filtroEstado === 'Mis Asignadas') {
-      const asignado = (inc.asignado || '').trim().toLowerCase();
-      const actual = (tecnicoActual?.nombre || '').trim().toLowerCase();
-      matchEstado = Boolean(asignado && actual && (asignado === actual || asignado.includes(actual) || actual.includes(asignado)));
+      matchEstado = (inc.id_reportante === idUsuarioActual || inc.tecnico_asignado === idUsuarioActual);
     } else if (filtroEstado.toLowerCase() === 'rechazado') {
-      matchEstado = incEstado === 'RECHAZADO' || incEstado.toLowerCase() === 'rechazado' || incEstado.toLowerCase() === 'rechazada';
+      matchEstado = incEstado.toLowerCase() === 'rechazado' || incEstado.toLowerCase() === 'rechazada';
     } else {
       matchEstado = incEstado.toLowerCase() === filtroEstado.toLowerCase();
     }
@@ -112,47 +122,30 @@ const Incidencias = () => {
     return matchBusqueda && matchEstado;
   });
 
-  const tieneTemporales = incidencias.some((inc) => inc.esTemporal);
-
-  const handleLimpiarPruebas = () => {
-    clearTempIncidencias();
-    recargarIncidencias();
-    showToast('Se han eliminado los reportes temporales de prueba (cookies limpiadas)', 'info');
-  };
-
   const getPriorityStyle = (prioridad) => {
     const p = (prioridad || '').toLowerCase();
-    if (p === 'critica' || p === 'crítica') return 'text-red-800 bg-red-50 border-red-200';
-    if (p === 'alta') return 'text-orange-800 bg-orange-50 border-orange-200';
+    if (p === 'critica' || p === 'crítica' || p === 'alta') return 'text-red-800 bg-red-50 border-red-200';
     if (p === 'media') return 'text-yellow-700 bg-yellow-50 border-yellow-200';
     return 'text-emerald-700 bg-emerald-50 border-emerald-200';
   };
 
   const abrirModalParaIncidencia = (inc) => {
     setOrdenSeleccionadaParaCierre({
-      id_orden: inc.ordenId || `ORD-${inc.id}`,
-      incidencia_id: inc.id,
-      id: inc.id,
+      id_orden: inc.id_orden || `ORD-${inc.id_incidencia}`,
+      incidencia_id: inc.id_incidencia,
       titulo: inc.titulo,
       id_activo: inc.id_activo,
-      tecnico_nombre: inc.asignado,
-      tecnico_id: inc.tecnico_id,
-      resolucion: inc.resolucion,
-      horasInvertidas: inc.horasInvertidas,
-      materialesUsados: inc.materialesUsados,
-      motivoRechazo: inc.motivoRechazo || inc.motivo_rechazo,
-      estado: inc.estado,
+      estado: getNombreEstado(inc.estado),
     });
     setIsModalOpen(true);
   };
 
   const handleCierreExitoso = () => {
-    recargarIncidencias();
+    cargarIncidenciasReales();
   };
 
   return (
     <div className="space-y-6">
-      {/* Barra de Búsqueda y Acciones */}
       <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4">
         <div className="relative flex-1 max-w-md">
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -160,45 +153,32 @@ const Incidencias = () => {
             type="text"
             value={terminoBusqueda}
             onChange={(e) => setTerminoBusqueda(e.target.value)}
-            placeholder="Buscar por título, ID, activo o técnico..."
-            aria-label="Buscar incidencias por título, ID, activo o técnico"
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring outline-none transition-all text-sm bg-white shadow-2xs"
+            placeholder="Buscar por título, ID o activo..."
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary outline-none transition-all text-sm bg-white shadow-2xs"
           />
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          {tieneTemporales && (
-            <button
-              onClick={handleLimpiarPruebas}
-              title="Borrar las incidencias almacenadas en la cookie temporal"
-              aria-label="Eliminar"
-              className="flex items-center justify-center gap-1.5 px-3 py-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring transition-colors bg-white shadow-2xs cursor-pointer"
+          {esSupervisor && (
+            <Link
+              to="/incidencias/asignar"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-50 text-primary border border-primary-200 rounded-lg hover:bg-primary-100 transition-all font-semibold text-sm shadow-2xs min-h-[44px]"
             >
-              <FiTrash2 className="w-3.5 h-3.5" />
-              Limpiar Pruebas
-            </button>
+              <FiUserCheck className="w-4 h-4" /> Asignar Técnico
+            </Link>
           )}
 
           <Link
-            to="/incidencias/asignar"
-            id="btn-abrir-asignar-tecnico"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-50 text-primary border border-primary-200 rounded-lg hover:bg-primary-100 transition-all font-semibold text-sm shadow-2xs min-h-[44px]"
-          >
-            <FiUserCheck className="w-4 h-4" /> Asignar Técnico
-          </Link>
-
-          <Link
-            to="/incidencias/nueva" id="btn-registrar-incidencia" data-cy="btn-registrar-incidencia"
+            to="/incidencias/nueva"
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all font-semibold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 min-h-[44px]"
           >
             <FiPlus className="w-4 h-4" /> Reportar Incidencia
           </Link>
 
-          <BotonExportarExcel variant="button" />
+          {esAdmin && <BotonExportarExcel variant="button" />}
         </div>
       </div>
 
-      {/* Filtros visuales por estado */}
       <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
         <StatusFilter
           options={['Todas', 'Mis Asignadas', 'Pendiente', 'Asignada', 'En Progreso', 'Completada', 'Resuelta', 'Rechazado', 'Cerrada']}
@@ -208,51 +188,35 @@ const Incidencias = () => {
         />
       </div>
 
-      {/* Banner Informativo sobre Cookies Temporales */}
-      {tieneTemporales && (
-        <div className="bg-primary-50 border border-primary-200 rounded-xl p-4 flex items-start gap-3 text-sm text-primary-950">
-          <FiInfo className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="font-semibold text-primary">Modo de Pruebas con Cookies Activo</p>
-            <p className="text-xs text-primary-900 mt-0.5">
-              Las incidencias, confirmaciones y rechazos de mantenimiento se sincronizan automáticamente en la cookie (`temp_incidencias`) y en la base de datos PostgreSQL.
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Vista de Tarjetas (Móvil y Tablet Portrait) */}
       <div className="grid grid-cols-1 gap-4 md:hidden">
-        {incidenciasFiltradas.length > 0 ? (
+        {loading ? (
+          <div className="p-8 text-center bg-white rounded-xl shadow-sm border border-gray-200">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent mx-auto"></div>
+            <p className="font-medium text-gray-500 mt-2">Cargando base de datos...</p>
+          </div>
+        ) : incidenciasFiltradas.length > 0 ? (
           incidenciasFiltradas.map((inc) => {
-            const asignado = (inc.asignado || '').trim().toLowerCase();
-            const actual = (tecnicoActual?.nombre || '').trim().toLowerCase();
-            const esMio = Boolean(asignado && actual && (asignado === actual || asignado.includes(actual) || actual.includes(asignado)));
-            const estaCompletada = inc.estado?.toLowerCase() === 'completada' || inc.estado?.toLowerCase() === 'resuelta' || inc.estado?.toLowerCase() === 'cerrada';
-            const esRechazado = inc.estado === 'RECHAZADO' || inc.estado?.toLowerCase() === 'rechazado' || inc.estado?.toLowerCase() === 'rechazada';
+            const estadoTexto = getNombreEstado(inc.estado);
+            const idTexto = inc.id_incidencia;
+            const esMio = (inc.id_reportante === idUsuarioActual || inc.tecnico_asignado === idUsuarioActual);
+            const estaCompletada = ['completada', 'resuelta', 'cerrada'].includes(estadoTexto.toLowerCase());
+            const esRechazado = ['rechazado', 'rechazada'].includes(estadoTexto.toLowerCase());
 
             return (
-              <div key={inc.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
+              <div key={idTexto} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-3">
                 <div className="flex justify-between items-start gap-2">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <Link
-                        to={`/incidencias/${inc.id}`}
-                        className="font-mono text-xs font-bold text-primary hover:text-primary-hover hover:underline flex items-center gap-1"
-                        title="Ver detalles de la incidencia"
-                      >
-                        <span>{inc.id}</span>
-                        <FiExternalLink className="w-3 h-3" />
-                      </Link>
-                      {inc.esTemporal && (
-                        <span className="px-1.5 py-0.5 rounded-lg text-[10px] font-semibold bg-primary-50 text-primary border border-primary-200">
-                          Temporal
-                        </span>
-                      )}
-                    </div>
+                    <Link
+                      to={`/incidencias/${idTexto}`}
+                      className="font-mono text-xs font-bold text-primary hover:text-primary-hover hover:underline flex items-center gap-1"
+                    >
+                      <span>{idTexto.substring(0, 13)}...</span>
+                      <FiExternalLink className="w-3 h-3" />
+                    </Link>
                     <h3 className="font-semibold text-gray-900 mt-1">{inc.titulo}</h3>
                   </div>
-                  <StatusBadge status={inc.estado || 'Pendiente'} />
+                  <StatusBadge status={estadoTexto} />
                 </div>
 
                 {inc.descripcion && (
@@ -262,7 +226,7 @@ const Incidencias = () => {
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
                   <div className="inline-flex items-center gap-1.5 font-mono text-xs px-2 py-1 bg-gray-50 text-gray-600 rounded-lg border border-gray-200">
                     <FiBox className="w-3 h-3" />
-                    {inc.id_activo || 'Sin activo'}
+                    {inc.id_activo ? inc.id_activo.substring(0, 8) : 'Sin activo'}
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getPriorityStyle(inc.prioridad)}`}>
                     {inc.prioridad ? inc.prioridad.toUpperCase() : 'MEDIA'}
@@ -273,54 +237,28 @@ const Incidencias = () => {
                   <div className="flex items-center justify-between gap-1.5">
                     <div className="flex items-center gap-1.5">
                       <FiUser className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="font-medium text-gray-800">{inc.asignado || 'Sin asignar'}</span>
+                      <span className="font-medium text-gray-800">
+                        {inc.tecnico_asignado ? `Técnico: ${inc.tecnico_asignado.substring(0, 8)}` : 'Sin asignar'}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* ACCIÓN RÁPIDA SEGÚN ESTADO Y OWNERSHIP */}
                       {esRechazado ? (
-                        <Link
-                          to={`/incidencias/${inc.id}`}
-                          className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg font-semibold text-xs shadow-2xs flex items-center gap-1 transition-all cursor-pointer min-h-[38px]"
-                          title="Ver motivo del rechazo ingresado por el técnico"
-                        >
-                          <FiAlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                          <span>Ver Rechazo</span>
+                        <Link to={`/incidencias/${idTexto}`} className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg font-semibold text-xs shadow-2xs flex items-center gap-1">
+                          <FiAlertTriangle className="w-3.5 h-3.5" /> Rechazo
                         </Link>
                       ) : esMio && !estaCompletada ? (
-                        <button
-                          type="button"
-                          onClick={() => abrirModalParaIncidencia(inc)}
-                          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs shadow-xs flex items-center gap-1 transition-all cursor-pointer min-h-[38px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring"
-                        >
-                          <FiCheckCircle className="w-3.5 h-3.5" />
-                          <span>Finalizar Tarea</span>
+                        <button onClick={() => abrirModalParaIncidencia(inc)} className="px-3 py-1.5 bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1">
+                          <FiCheckCircle className="w-3.5 h-3.5" /> Tarea
                         </button>
                       ) : null}
 
-                      {(!inc.asignado || inc.asignado === 'Sin asignar' || inc.estado === 'Pendiente') && (
-                        <Link
-                          to={`/incidencias/asignar?incidenciaId=${inc.id}`}
-                          className="text-primary hover:text-primary-hover font-semibold"
-                        >
+                      {esSupervisor && (estadoTexto.toLowerCase() === 'pendiente') && (
+                        <Link to={`/incidencias/asignar?incidenciaId=${idTexto}`} className="text-primary hover:text-primary-hover font-semibold">
                           Asignar
                         </Link>
                       )}
-
-                      <Link
-                        to={`/incidencias/${inc.id}`}
-                        className="p-1.5 text-gray-600 hover:text-primary"
-                        title="Ver detalle de la incidencia"
-                        aria-label={`Ver detalle de la incidencia ${inc.id}`}
-                      >
-                        <FiExternalLink className="w-4 h-4" />
-                      </Link>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <FiClock className="w-3.5 h-3.5" />
-                    {inc.fecha || 'Reciente'}
                   </div>
                 </div>
               </div>
@@ -333,70 +271,53 @@ const Incidencias = () => {
         )}
       </div>
 
-      {/* Tabla de Incidencias (Escritorio y Tablet Landscape) */}
+      {/* Tabla de Incidencias (Escritorio) */}
       <div className="hidden md:block bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-600">
             <thead className="bg-gray-50/80 text-gray-500 uppercase text-xs border-b border-gray-200">
               <tr>
                 <th className="px-6 py-3.5 font-semibold">ID / Asunto</th>
-                <th className="px-6 py-3.5 font-semibold">Activo Afectado</th>
+                <th className="px-6 py-3.5 font-semibold">Activo</th>
                 <th className="px-6 py-3.5 font-semibold">Prioridad</th>
                 <th className="px-6 py-3.5 font-semibold">Estado</th>
-                <th className="px-6 py-3.5 font-semibold">Asignación / Técnico</th>
-                <th className="px-6 py-3.5 font-semibold text-right">Acción Técnica</th>
+                <th className="px-6 py-3.5 font-semibold">Asignación</th>
+                <th className="px-6 py-3.5 font-semibold text-right">Acción</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {incidenciasFiltradas.length > 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                     <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent mx-auto"></div>
+                  </td>
+                </tr>
+              ) : incidenciasFiltradas.length > 0 ? (
                 incidenciasFiltradas.map((inc) => {
-                  const asignado = (inc.asignado || '').trim().toLowerCase();
-                  const actual = (tecnicoActual?.nombre || '').trim().toLowerCase();
-                  const esMio = Boolean(asignado && actual && (asignado === actual || asignado.includes(actual) || actual.includes(asignado)));
-                  const estaCompletada = inc.estado?.toLowerCase() === 'completada' || inc.estado?.toLowerCase() === 'resuelta' || inc.estado?.toLowerCase() === 'cerrada';
-                  const esRechazado = inc.estado === 'RECHAZADO' || inc.estado?.toLowerCase() === 'rechazado' || inc.estado?.toLowerCase() === 'rechazada';
+                  const estadoTexto = getNombreEstado(inc.estado);
+                  const idTexto = inc.id_incidencia;
+                  const esMio = (inc.id_reportante === idUsuarioActual || inc.tecnico_asignado === idUsuarioActual);
+                  const estaCompletada = ['completada', 'resuelta', 'cerrada'].includes(estadoTexto.toLowerCase());
+                  const esRechazado = ['rechazado', 'rechazada'].includes(estadoTexto.toLowerCase());
 
                   return (
-                    <tr key={inc.id} className="hover:bg-gray-50/70 transition-colors">
+                    <tr key={idTexto} className="hover:bg-gray-50/70 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <div className="flex items-center gap-2">
-                            {/* ACCESO A LA INCIDENCIA PRESIONANDO EL NÚMERO DE ID */}
-                            <Link
-                              to={`/incidencias/${inc.id}`}
-                              className="font-mono text-xs font-bold text-primary hover:text-primary-hover hover:underline flex items-center gap-1"
-                              title="Ver detalles de la incidencia"
-                            >
-                              <span>{inc.id}</span>
-                              <FiExternalLink className="w-3 h-3" />
-                            </Link>
-                            {inc.esTemporal && (
-                              <span className="px-1.5 py-0.5 rounded-lg text-[10px] font-semibold bg-primary-50 text-primary border border-primary-200">
-                                Cookie
-                              </span>
-                            )}
-                            <Link
-                              to={`/ordenes/${inc.id}`}
-                              className="text-[11px] text-gray-600 hover:text-primary ml-1 font-mono hover:underline"
-                              title="Ver orden de trabajo asociada"
-                            >
-                              (Orden)
-                            </Link>
-                          </div>
+                          <Link to={`/incidencias/${idTexto}`} className="font-mono text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                            <span>{idTexto.substring(0, 13)}...</span> <FiExternalLink className="w-3 h-3" />
+                          </Link>
                           <span className="font-semibold text-gray-900 mt-0.5">{inc.titulo}</span>
-                          {inc.descripcion && (
-                            <span className="text-xs text-gray-500 line-clamp-1 mt-0.5">
-                              {inc.descripcion}
-                            </span>
-                          )}
+                          {inc.descripcion && <span className="text-xs text-gray-500 line-clamp-1 mt-0.5">{inc.descripcion}</span>}
                         </div>
                       </td>
 
                       <td className="px-6 py-4">
-                        <div className="inline-flex items-center gap-1.5 font-mono text-xs px-2.5 py-1 bg-gray-100 text-gray-800 rounded-lg border border-gray-200">
-                          <FiBox className="w-3.5 h-3.5 text-gray-500" />
-                          {inc.id_activo || 'Sin activo'}
-                        </div>
+                        {inc.id_activo ? (
+                          <div className="inline-flex items-center gap-1.5 font-mono text-xs px-2.5 py-1 bg-gray-100 text-gray-800 rounded-lg border border-gray-200">
+                            <FiBox className="w-3.5 h-3.5 text-gray-500" /> {inc.id_activo.substring(0, 8)}
+                          </div>
+                        ) : <span className="text-xs text-gray-400">N/A</span>}
                       </td>
 
                       <td className="px-6 py-4">
@@ -405,72 +326,41 @@ const Incidencias = () => {
                         </span>
                       </td>
 
-                      <td className="px-6 py-4">
-                        <StatusBadge status={inc.estado || 'Pendiente'} />
-                      </td>
+                      <td className="px-6 py-4"><StatusBadge status={estadoTexto} /></td>
 
                       <td className="px-6 py-4">
                         <div className="flex flex-col text-xs text-gray-500">
                           <span className="flex items-center gap-1.5 text-gray-800 font-medium">
                             <FiUser className="w-3 h-3 text-gray-400" />
-                            <span>{inc.asignado || 'Sin asignar'}</span>
-                            {(!inc.asignado || inc.asignado === 'Sin asignar' || inc.estado === 'Pendiente') && (
-                              <Link
-                                to={`/incidencias/asignar?incidenciaId=${inc.id}`}
-                                className="ml-1 text-[11px] text-primary hover:text-primary-hover font-semibold underline"
-                                title="Asignar técnico a esta orden"
-                              >
-                                Asignar
-                              </Link>
+                            <span>{inc.tecnico_asignado ? `Técnico: ${inc.tecnico_asignado.substring(0, 8)}` : 'Sin asignar'}</span>
+                            {esSupervisor && (estadoTexto.toLowerCase() === 'pendiente') && (
+                              <Link to={`/incidencias/asignar?incidenciaId=${idTexto}`} className="ml-1 text-[11px] text-primary hover:underline">Asignar</Link>
                             )}
                           </span>
                           <span className="flex items-center gap-1 text-gray-600 mt-0.5">
-                            <FiClock className="w-3 h-3" />
-                            {inc.fecha || 'Reciente'}
+                            <FiClock className="w-3 h-3" /> {inc.fecha_creacion ? new Date(inc.fecha_creacion).toLocaleDateString() : 'Reciente'}
                           </span>
                         </div>
                       </td>
 
                       <td className="px-6 py-4 text-right">
-                        {/* BOTÓN ERGONÓMICO SEGÚN ESTADO Y OWNERSHIP */}
                         {esRechazado ? (
-                          <Link
-                            to={`/incidencias/${inc.id}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-semibold hover:bg-red-100 transition-colors"
-                            title="Ver motivo del rechazo ingresado por el técnico"
-                          >
-                            <FiAlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                            <span>Ver Rechazo</span>
+                          <Link to={`/incidencias/${idTexto}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs font-semibold">
+                            <FiAlertTriangle className="w-3.5 h-3.5" /> Ver Rechazo
                           </Link>
                         ) : estaCompletada ? (
-                          <Link
-                            to={`/incidencias/${inc.id}`}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold hover:bg-emerald-100 transition-colors"
-                          >
-                            <FiCheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Ver Cierre</span>
+                          <Link to={`/incidencias/${idTexto}`} className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold">
+                            <FiCheckCircle className="w-3.5 h-3.5" /> Ver Cierre
                           </Link>
                         ) : esMio ? (
-                          <button
-                            type="button"
-                            onClick={() => abrirModalParaIncidencia(inc)}
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs hover:shadow transition-all cursor-pointer min-h-[40px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring"
-                            title="Confirmar mantenimiento o rechazar incidencia"
-                          >
-                            <FiCheckCircle className="w-3.5 h-3.5" />
-                            <span>Finalizar Tarea</span>
+                          <button onClick={() => abrirModalParaIncidencia(inc)} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs">
+                            <FiCheckCircle className="w-3.5 h-3.5" /> Finalizar Tarea
                           </button>
-                        ) : inc.asignado && inc.asignado !== 'Sin asignar' ? (
-                          <span
-                            className="inline-flex items-center gap-1 text-[11px] text-gray-400 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-200"
-                            title={`Esta tarea está asignada a ${inc.asignado}. Solo dicho técnico puede cerrarla.`}
-                          >
-                            <FiLock className="w-3 h-3 text-gray-400" />
-                            <span>De otro técnico</span>
+                        ) : inc.tecnico_asignado ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-200">
+                            <FiLock className="w-3 h-3" /> De otro técnico
                           </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">Por asignar</span>
-                        )}
+                        ) : <span className="text-xs text-gray-400 italic">Por asignar</span>}
                       </td>
                     </tr>
                   );
@@ -479,11 +369,6 @@ const Incidencias = () => {
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                     <p className="font-medium">No se encontraron incidencias</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {terminoBusqueda
-                        ? 'Prueba con otro término de búsqueda.'
-                        : 'Crea una nueva incidencia o asigna una orden para comenzar.'}
-                    </p>
                   </td>
                 </tr>
               )}
@@ -492,7 +377,6 @@ const Incidencias = () => {
         </div>
       </div>
 
-      {/* MODAL DE CIERRE / RECHAZO DE MANTENIMIENTO TÉCNICO */}
       {ordenSeleccionadaParaCierre && (
         <ModalCierreMantenimiento
           isOpen={isModalOpen}
@@ -501,13 +385,12 @@ const Incidencias = () => {
             setOrdenSeleccionadaParaCierre(null);
           }}
           orden={ordenSeleccionadaParaCierre}
-          tecnicoActual={tecnicoActual}
+          tecnicoActual={usuarioAutenticado}
           onCierreExitoso={handleCierreExitoso}
         />
       )}
 
-      {/* BOTÓN FLOTANTE ESTÉTICO EXPORTAR A EXCEL */}
-      <BotonExportarExcel variant="floating" className="hidden lg:flex" />
+      {esAdmin && <BotonExportarExcel variant="floating" className="hidden lg:flex" />}
     </div>
   );
 };

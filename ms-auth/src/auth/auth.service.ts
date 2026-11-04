@@ -4,6 +4,9 @@ import { verify } from 'argon2';
 import { UserRepository } from './user.repository.js';
 import { LoginDto } from './dto/login.dto.js';
 import { UpdateRoleDto } from './dto/update-role.dto.js';
+import { ConflictException } from '@nestjs/common';
+import { RegisterDto } from './dto/register.dto.js';
+import * as argon2 from 'argon2';
 
 interface RefreshTokenPayload {
   sub: string;
@@ -35,7 +38,7 @@ export class AuthService {
       throw new ConflictException('El correo ya está registrado');
     }
 
-    const passwordHash = await hash(registerDto.password);
+    const passwordHash = await argon2.hash(registerDto.password);
 
     const newUser = await this.userRepository.createUser({
       rut_o_id: registerDto.rut_o_id,
