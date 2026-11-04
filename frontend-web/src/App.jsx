@@ -50,13 +50,8 @@ function App() {
                 <Route path="incidencias" element={<Incidencias />} />
                 <Route path="incidencias/nueva" element={<ReporteIncidencia />} />
                 <Route path="incidencias/reportar" element={<ReporteIncidencia />} />
-                <Route path="incidencias/asignar" element={<AsignarTecnico />} />
                 <Route path="incidencias/:idIncidencia" element={<DetalleIncidencia />} />
                 <Route path="ordenes/:idOrden" element={<DetalleOrden />} />
-                <Route path="inventario" element={<Inventario />} />
-                <Route path="mantenimientos" element={<Mantenimientos />} />
-                <Route path="mantenimientos/planificar" element={<PlanificarMantenimiento />} />
-                <Route path="mantenimientos/nuevo" element={<PlanificarMantenimiento />} />
                 <Route path="trazabilidad" element={<Trazabilidad />} />
                 <Route path="trazabilidad/:idActivo" element={<Trazabilidad />} />
                 <Route path="activos/:idActivo/trazabilidad" element={<Trazabilidad />} />
@@ -67,6 +62,14 @@ function App() {
                 </Route>
                 <Route element={<ProtectedRoute allowedRoles={['ADMINISTRADOR']} />}>
                   <Route path="usuarios" element={<Usuarios />} />
+                </Route>
+                <Route element={<ProtectedRoute allowedRoles={['ADMINISTRADOR', 'SUPERVISOR', 'TECNICO', 'TÉCNICO']} />}>
+                  <Route path="mantenimientos" element={<Mantenimientos />} />
+                </Route>
+                <Route element={<ProtectedRoute allowedRoles={['SUPERVISOR']} />}>
+                  <Route path="mantenimientos/planificar" element={<PlanificarMantenimiento />} />
+                  <Route path="mantenimientos/nuevo" element={<PlanificarMantenimiento />} />
+                  <Route path="incidencias/asignar" element={<AsignarTecnico />} />
                 </Route>
               </Route>
             </Route>

@@ -23,4 +23,4 @@ export class MantenimientosController {
   async planificar(@Body() dto: CrearMantenimientoDto) {
     return this.activosService.crearMantenimiento(dto);
   }
-}
+}

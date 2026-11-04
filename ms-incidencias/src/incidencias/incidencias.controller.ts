@@ -47,6 +47,7 @@ export class IncidenciasController {
   }
 
   @Get('exportar')
+  @Roles('ADMINISTRADOR')
   async exportar(
     @Query() query: ExportarIncidenciasQueryDto,
     @Res({ passthrough: true }) res: Response,

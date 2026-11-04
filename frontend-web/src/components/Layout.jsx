@@ -65,7 +65,7 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
     { path: '/inventario', label: 'Inventario', icon: FiBox, allowedRoles: ['ADMINISTRADOR']},
-    { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar },
+    { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar, allowedRoles: ['ADMINISTRADOR','SUPERVISOR','TECNICO','TÉCNICO'] },
     { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
     { path: '/usuarios', label: 'Usuarios', icon: FiUsers, allowedRoles: ['ADMINISTRADOR'] },
   ];

@@ -18,6 +18,21 @@ import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
 const Dashboard = () => {
   const { showToast } = useToast();
 
+  // Obtener el rol del usuario actual desde localStorage
+  const obtenerRolUsuario = () => {
+    try {
+      const usuarioStr = localStorage.getItem('usuario');
+      if (!usuarioStr) return null;
+      const usuario = JSON.parse(usuarioStr);
+      return usuario.rol?.nombre_rol || usuario.rol || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const rolUsuario = obtenerRolUsuario();
+  const esAdmin = rolUsuario === 'ADMINISTRADOR';
+
   const fetchIncidenciasCallback = useCallback(async (page, limit) => {
     try {
       const data = await fetchIncidencias({ page, limit });
@@ -131,7 +146,8 @@ const Dashboard = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <BotonExportarExcel variant="compact" />
+            {/* Renderizado condicional: Solo visible para ADMINISTRADOR */}
+            {esAdmin && <BotonExportarExcel variant="compact" />}
             <Link
               to="/incidencias"
               className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"

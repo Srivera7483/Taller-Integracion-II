@@ -37,6 +37,22 @@ const Incidencias = () => {
   const [ordenSeleccionadaParaCierre, setOrdenSeleccionadaParaCierre] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Obtener el rol del usuario actual desde localStorage
+  const obtenerRolUsuario = () => {
+    try {
+      const usuarioStr = localStorage.getItem('usuario');
+      if (!usuarioStr) return null;
+      const usuario = JSON.parse(usuarioStr);
+      return usuario.rol?.nombre_rol || usuario.rol || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const rolUsuario = obtenerRolUsuario();
+  const esAdmin = rolUsuario === 'ADMINISTRADOR';
+  const esSupervisor = rolUsuario === 'SUPERVISOR' || esAdmin; // Restricción para asignación
+
   const recargarIncidencias = () => {
     const data = getIncidencias();
     setIncidencias(data);
@@ -179,13 +195,16 @@ const Incidencias = () => {
             </button>
           )}
 
-          <Link
-            to="/incidencias/asignar"
-            id="btn-abrir-asignar-tecnico"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-50 text-primary border border-primary-200 rounded-lg hover:bg-primary-100 transition-all font-semibold text-sm shadow-2xs min-h-[44px]"
-          >
-            <FiUserCheck className="w-4 h-4" /> Asignar Técnico
-          </Link>
+          {/* Renderizado condicional: Solo visible para SUPERVISOR (o Admin) */}
+          {esSupervisor && (
+            <Link
+              to="/incidencias/asignar"
+              id="btn-abrir-asignar-tecnico"
+              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-50 text-primary border border-primary-200 rounded-lg hover:bg-primary-100 transition-all font-semibold text-sm shadow-2xs min-h-[44px]"
+            >
+              <FiUserCheck className="w-4 h-4" /> Asignar Técnico
+            </Link>
+          )}
 
           <Link
             to="/incidencias/nueva" id="btn-registrar-incidencia" data-cy="btn-registrar-incidencia"
@@ -194,7 +213,8 @@ const Incidencias = () => {
             <FiPlus className="w-4 h-4" /> Reportar Incidencia
           </Link>
 
-          <BotonExportarExcel variant="button" />
+          {/* Renderizado condicional: Solo visible para ADMINISTRADOR */}
+          {esAdmin && <BotonExportarExcel variant="button" />}
         </div>
       </div>
 
@@ -277,7 +297,6 @@ const Incidencias = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* ACCIÓN RÁPIDA SEGÚN ESTADO Y OWNERSHIP */}
                       {esRechazado ? (
                         <Link
                           to={`/incidencias/${inc.id}`}
@@ -298,7 +317,8 @@ const Incidencias = () => {
                         </button>
                       ) : null}
 
-                      {(!inc.asignado || inc.asignado === 'Sin asignar' || inc.estado === 'Pendiente') && (
+                      {/* Asignación condicional a Supervisor */}
+                      {esSupervisor && (!inc.asignado || inc.asignado === 'Sin asignar' || inc.estado === 'Pendiente') && (
                         <Link
                           to={`/incidencias/asignar?incidenciaId=${inc.id}`}
                           className="text-primary hover:text-primary-hover font-semibold"
@@ -361,7 +381,6 @@ const Incidencias = () => {
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">
-                            {/* ACCESO A LA INCIDENCIA PRESIONANDO EL NÚMERO DE ID */}
                             <Link
                               to={`/incidencias/${inc.id}`}
                               className="font-mono text-xs font-bold text-primary hover:text-primary-hover hover:underline flex items-center gap-1"
@@ -414,7 +433,8 @@ const Incidencias = () => {
                           <span className="flex items-center gap-1.5 text-gray-800 font-medium">
                             <FiUser className="w-3 h-3 text-gray-400" />
                             <span>{inc.asignado || 'Sin asignar'}</span>
-                            {(!inc.asignado || inc.asignado === 'Sin asignar' || inc.estado === 'Pendiente') && (
+                            {/* Asignación condicional a Supervisor en Tabla */}
+                            {esSupervisor && (!inc.asignado || inc.asignado === 'Sin asignar' || inc.estado === 'Pendiente') && (
                               <Link
                                 to={`/incidencias/asignar?incidenciaId=${inc.id}`}
                                 className="ml-1 text-[11px] text-primary hover:text-primary-hover font-semibold underline"
@@ -432,7 +452,6 @@ const Incidencias = () => {
                       </td>
 
                       <td className="px-6 py-4 text-right">
-                        {/* BOTÓN ERGONÓMICO SEGÚN ESTADO Y OWNERSHIP */}
                         {esRechazado ? (
                           <Link
                             to={`/incidencias/${inc.id}`}
@@ -506,8 +525,8 @@ const Incidencias = () => {
         />
       )}
 
-      {/* BOTÓN FLOTANTE ESTÉTICO EXPORTAR A EXCEL */}
-      <BotonExportarExcel variant="floating" className="hidden lg:flex" />
+      {/* BOTÓN FLOTANTE ESTÉTICO EXPORTAR A EXCEL (Solo visible para Administradores) */}
+      {esAdmin && <BotonExportarExcel variant="floating" className="hidden lg:flex" />}
     </div>
   );
 };
