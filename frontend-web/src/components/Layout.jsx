@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar } from 'react-icons/fi';
-import SelectorTecnicoSesion from './SelectorTecnicoSesion';
+import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser } from 'react-icons/fi';
 import NotificacionesDropdown from './NotificacionesDropdown';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
@@ -11,20 +10,20 @@ const Layout = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Obtener el rol del usuario actual desde localStorage
-  const obtenerRolUsuario = () => {
+  // Obtener la información del usuario autenticado desde localStorage
+  const obtenerUsuarioActual = () => {
     try {
       const usuarioStr = localStorage.getItem('usuario');
       if (!usuarioStr) return null;
-      const usuario = JSON.parse(usuarioStr);
-      // Soporta tanto si viene como objeto (ej: { nombre_rol: 'ADMINISTRADOR' }) o como string directo
-      return usuario.rol?.nombre_rol || usuario.rol || null;
+      return JSON.parse(usuarioStr);
     } catch {
       return null;
     }
   };
 
-  const rolUsuario = obtenerRolUsuario();
+  const usuario = obtenerUsuarioActual();
+  const rolUsuario = usuario?.rol?.nombre_rol || usuario?.rol || null;
+  const nombreUsuario = usuario ? `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || usuario.correo : 'Usuario';
 
   const getPageTitle = () => {
     if (location.pathname.startsWith('/incidencias/nueva') || location.pathname.startsWith('/incidencias/reportar')) {
@@ -60,7 +59,7 @@ const Layout = () => {
     navigate('/login');
   };
 
-// Definición completa de las opciones del menú
+  // Definición completa de las opciones del menú
   const allNavItems = [
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
@@ -142,9 +141,22 @@ const Layout = () => {
           </ul>
         </nav>
 
-        {/* User Session Selector / Footer info */}
+        {/* User Session Footer / Datos de usuario real */}
         <div className="p-4 border-t border-gray-200 bg-gray-50/50 space-y-3">
-          <SelectorTecnicoSesion />
+          <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-gray-200 shadow-2xs">
+            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
+              <FiUser className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-xs font-bold text-gray-900 truncate">
+                {nombreUsuario}
+              </span>
+              <span className="text-[10px] font-semibold text-primary uppercase tracking-wider truncate">
+                {rolUsuario || 'USUARIO'}
+              </span>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={handleLogout}

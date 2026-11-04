@@ -23,6 +23,7 @@ import { UpdateRoleDto } from './dto/update-role.dto.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { RolesGuard } from './roles.guard.js';
 import { Roles } from './roles.decorator.js';
+import { RegisterDto } from './dto/register.dto.js';
 
 interface CookieResponse {
   header(name: string, value: string): unknown;
@@ -122,4 +123,12 @@ export class AuthController {
     const limitNum = Math.max(1, Math.min(50, parseInt(limit || '15', 10) || 15));
     return await this.authService.listUsers(pageNum, limitNum);
   }
+
+  @Post(['register', 'registro'])
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() body: RegisterDto) {
+    return await this.authService.register(body);
+  }
+
 }
+

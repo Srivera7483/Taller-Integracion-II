@@ -3,6 +3,7 @@ import axios from 'axios';
 
 /**
  * Servicio de gestión de autenticación, almacenamiento de tokens y control de sesión (TAL-131).
+ * Cumple estrictamente con la especificación OpenAPI v1.2.0 (SCGI API).
  */
 
 /**
@@ -70,6 +71,51 @@ export const limpiarSesion = () => {
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('usuario');
   window.dispatchEvent(new Event('tecnico-cambiado'));
+};
+
+/**
+ * Inicia sesión en la plataforma utilizando las credenciales acordadas en el contrato OpenAPI.
+ * Endpoint principal: POST /autenticacion/inicio-sesion (con fallback a /auth/login).
+ * 
+ * @param {Object} credenciales
+ * @param {string} credenciales.correo Correo electrónico del usuario
+ * @param {string} credenciales.contrasena Contraseña del usuario
+ * @returns {Promise<Object>} Datos devueltos por el servidor (token y usuario)
+ */
+export const iniciarSesion = async ({ correo, contrasena }) => {
+  let response;
+  try {
+    // 1. Petición al endpoint oficial del contrato OpenAPI
+    response = await api.post('/autenticacion/inicio-sesion', {
+      correo,
+      contrasena,
+    });
+  } catch (err) {
+    // Fallback en caso de que el Gateway esté ruteando la API heredada en inglés
+    if (err.response?.status === 404) {
+      response = await api.post('/auth/login', {
+        email: correo,
+        password: contrasena,
+      });
+    } else {
+      throw err;
+    }
+  }
+
+  const data = response.data || {};
+  const token = data.token || data.accessToken || data.access_token;
+  const usuario = data.usuario || data.user;
+
+  // Guardar la sesión automáticamente en localStorage si se recibe el token
+  if (token) {
+    guardarSesion({
+      accessToken: token,
+      refreshToken: data.refreshToken || data.refresh_token,
+      usuario,
+    });
+  }
+
+  return data;
 };
 
 /**
@@ -156,5 +202,26 @@ export const cerrarSesion = async () => {
     });
   } finally {
     limpiarSesion();
+  }
+};
+
+
+/**
+ * Registra un nuevo usuario en el sistema.
+ * @param {Object} datosUsuario - Datos del usuario a registrar (ej: correo, contrasena, nombre, rut, etc.)
+ * @returns {Promise<Object>} Respuesta del servidor
+ */
+export const registrarUsuario = async (datosUsuario) => {
+  try {
+    // Intenta con la ruta en inglés
+    const response = await api.post('/auth/register', datosUsuario);
+    return response.data;
+  } catch (err) {
+    // Fallback a la ruta en español por si el Gateway lo requiere así
+    if (err.response?.status === 404) {
+      const responseFallback = await api.post('/autenticacion/registro', datosUsuario);
+      return responseFallback.data;
+    }
+    throw err;
   }
 };
