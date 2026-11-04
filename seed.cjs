@@ -12,53 +12,62 @@ async function main() {
   console.log('Iniciando carga de datos reales UCT para la Demo (con Mantenimientos)...');
 
   // ==========================================
-  // 1. ROLES Y USUARIOS (3 Admins, 5 Técnicos)
+  // 1. ROLES Y USUARIOS
   // ==========================================
   const rolAdmin = await authPrisma.role.upsert({ where: { nombreRol: 'ADMINISTRADOR' }, update: {}, create: { nombreRol: 'ADMINISTRADOR' } });
+  const rolSupervisor = await authPrisma.role.upsert({ where: { nombreRol: 'SUPERVISOR' }, update: {}, create: { nombreRol: 'SUPERVISOR' } }); // <-- AGREGADO
   const rolTecnico = await authPrisma.role.upsert({ where: { nombreRol: 'TECNICO' }, update: {}, create: { nombreRol: 'TECNICO' } });
-  const rolUsuario = await authPrisma.role.upsert({ where: { nombreRol: 'REPORTANTE' }, update: {}, create: { nombreRol: 'REPORTANTE' } });
+  const rolReportante = await authPrisma.role.upsert({ where: { nombreRol: 'REPORTANTE' }, update: {}, create: { nombreRol: 'REPORTANTE' } });
 
   const hash = await argon2.hash('password123');
 
   const usuariosData = [
+    // Administradores
     { rut: '20123456-7', nombre: 'Diego Antonio', apellido: 'Hernández Martínez', email: 'dhernandez2020@alu.uct.cl', role: rolAdmin.id },
     { rut: '15234567-8', nombre: 'Carlos', apellido: 'Sanhueza', email: 'csanhueza@uct.cl', role: rolAdmin.id },
     { rut: '16987654-3', nombre: 'Loreto', apellido: 'Paredes', email: 'lparedes@uct.cl', role: rolAdmin.id },
+    
+    // Supervisor
+    { rut: '17777777-7', nombre: 'Andrea', apellido: 'Méndez', email: 'amendez@uct.cl', role: rolSupervisor.id },
+    
+    // Técnicos
     { rut: '18765432-1', nombre: 'Felipe', apellido: 'Gutiérrez', email: 'fgutierrez@uct.cl', role: rolTecnico.id },
     { rut: '19876543-2', nombre: 'Camila', apellido: 'Rojas', email: 'crojas@uct.cl', role: rolTecnico.id },
     { rut: '17654321-0', nombre: 'Sebastián', apellido: 'Valenzuela', email: 'svalenzuela@uct.cl', role: rolTecnico.id },
     { rut: '21345678-9', nombre: 'Macarena', apellido: 'Flores', email: 'mflores@uct.cl', role: rolTecnico.id },
     { rut: '19456789-K', nombre: 'Rodrigo', apellido: 'Vergara', email: 'rvergara@uct.cl', role: rolTecnico.id },
+    
+    // Reportantes (Nuevos)
+    { rut: '22111222-3', nombre: 'Estudiante', apellido: 'Prueba', email: 'eprueba@alu.uct.cl', role: rolReportante.id },
+    { rut: '14555666-7', nombre: 'Profesor', apellido: 'Invitado', email: 'pinvitado@uct.cl', role: rolReportante.id },
   ];
 
   const tecnicosCreados = [];
-  let reportanteAdminId = '';
+  const reportantesCreados = []; // <-- Arreglo para guardar los IDs de los reportantes reales
 
   for (const u of usuariosData) {
     const user = await authPrisma.user.upsert({
       where: { rut_o_id: u.rut },
-      update: { passwordHash: hash },
+      update: { passwordHash: hash, roleId: u.role },
       create: { rut_o_id: u.rut, nombre: u.nombre, apellido: u.apellido, email: u.email, passwordHash: hash, roleId: u.role },
     });
+    
     if (u.role === rolTecnico.id) tecnicosCreados.push(user.id || user.userId);
-    if (u.rut === '20123456-7') reportanteAdminId = user.id || user.userId;
+    if (u.role === rolReportante.id) reportantesCreados.push(user.id || user.userId);
   }
-  console.log('Usuarios reales creados.');
+  console.log('Usuarios reales creados, incluyendo Supervisor y Reportantes.');
 
   // ==========================================
   // 2. ACTIVOS Y MANTENIMIENTOS
   // ==========================================
-  // POR REGLA DE LLAVES FORÁNEAS: Primero se borran los mantenimientos, luego los activos
   await activosPrisma.mantenimiento.deleteMany();
   await activosPrisma.activo.deleteMany();
 
   const activosData = [
-    // Proyectores
     { id: crypto.randomUUID(), qr: 'UCT-PRJ-01', nombre: 'Proyector Epson PowerLite', cat: 'AUDIOVISUAL', mod: 'L210W', ubi: 'Edificio C - Sala C101' },
     { id: crypto.randomUUID(), qr: 'UCT-PRJ-02', nombre: 'Proyector Epson PowerLite', cat: 'AUDIOVISUAL', mod: 'L210W', ubi: 'Edificio C - Sala C102' },
     { id: crypto.randomUUID(), qr: 'UCT-PRJ-03', nombre: 'Proyector ViewSonic', cat: 'AUDIOVISUAL', mod: 'PA503S', ubi: 'Edificio E - Auditorio' },
     { id: crypto.randomUUID(), qr: 'UCT-PRJ-04', nombre: 'Proyector Sony', cat: 'AUDIOVISUAL', mod: 'VPL-EX450', ubi: 'Biblioteca San Francisco - Sala Estudio 1' },
-    // Computadores
     { id: crypto.randomUUID(), qr: 'UCT-PC-01', nombre: 'Computador Dell OptiPlex', cat: 'COMPUTO', mod: '7000 MFF', ubi: 'Laboratorio TI 1 - Módulo 1' },
     { id: crypto.randomUUID(), qr: 'UCT-PC-02', nombre: 'Computador Dell OptiPlex', cat: 'COMPUTO', mod: '7000 MFF', ubi: 'Laboratorio TI 1 - Módulo 2' },
     { id: crypto.randomUUID(), qr: 'UCT-PC-06', nombre: 'HP ProDesk 400', cat: 'COMPUTO', mod: 'G7 SFF', ubi: 'Biblioteca San Francisco - Recepción' },
@@ -74,15 +83,11 @@ async function main() {
   }
   console.log('✅ Activos (Computadores, Proyectores, Redes) creados.');
 
-  // --> INYECCIÓN DE MANTENIMIENTOS PREVENTIVOS <--
   const fechaHoy = new Date();
   
   const mantenimientosBase = [
-    // Mantenimiento en 5 días para el primer proyector
     { id_activo: activosCreados[0].id, dias: 5 },
-    // Mantenimiento en 12 días para el Switch
     { id_activo: activosCreados[7].id, dias: 12 },
-    // Mantenimiento urgente (mañana) para un PC de laboratorio
     { id_activo: activosCreados[4].id, dias: 1 }
   ];
 
@@ -124,6 +129,9 @@ async function main() {
     const problema = problemasEscolares[Math.floor(Math.random() * problemasEscolares.length)];
     const tecnicoResp = tecnicosCreados[Math.floor(Math.random() * tecnicosCreados.length)];
     
+    // <-- Seleccionamos un reportante aleatorio del nuevo arreglo en lugar del Admin
+    const idReportanteAleatorio = reportantesCreados[Math.floor(Math.random() * reportantesCreados.length)];
+    
     const diasAtras = Math.floor(Math.random() * 30);
     const fechaCreacion = new Date(Date.now() - (diasAtras * 24 * 60 * 60 * 1000));
     const estadoSimulado = Math.floor(Math.random() * 4) + 1; 
@@ -132,13 +140,13 @@ async function main() {
       data: {
         id_incidencia: crypto.randomUUID(),
         id_activo: activo.id,
-        id_reportante: reportanteAdminId,
+        id_reportante: idReportanteAleatorio,
         titulo: problema.t,
         descripcion: `[Generado Demo] ${problema.d}`,
         fecha_creacion: fechaCreacion,
         historial_estados: {
           create: [
-            { id_historial: crypto.randomUUID(), id_estado: 1, id_usuario_cambio: reportanteAdminId, fecha_creacion: fechaCreacion },
+            { id_historial: crypto.randomUUID(), id_estado: 1, id_usuario_cambio: idReportanteAleatorio, fecha_creacion: fechaCreacion },
             ...(estadoSimulado > 1 ? [{ 
               id_historial: crypto.randomUUID(), id_estado: estadoSimulado, id_usuario_cambio: tecnicoResp, 
               fecha_creacion: new Date(fechaCreacion.getTime() + (2 * 60 * 60 * 1000)) 
@@ -148,7 +156,7 @@ async function main() {
       }
     });
   }
-  console.log('20 Incidencias interconectadas.');
+  console.log('20 Incidencias interconectadas registradas a nombre de los Reportantes.');
   console.log('SISTEMA UCT LISTO PARA LA DEFENSA.');
 }
 

@@ -60,7 +60,14 @@ function App() {
                 <Route path="trazabilidad" element={<Trazabilidad />} />
                 <Route path="trazabilidad/:idActivo" element={<Trazabilidad />} />
                 <Route path="activos/:idActivo/trazabilidad" element={<Trazabilidad />} />
-                <Route path="usuarios" element={<Usuarios />} />
+
+                {/* RUTA PROTEGIDAS POR ROLES */}
+                <Route element={<ProtectedRoute allowedRoles={['ADMINISTRADOR']} />}>
+                  <Route path="inventario" element={<Inventario />} />
+                </Route>
+                <Route element={<ProtectedRoute allowedRoles={['ADMINISTRADOR']} />}>
+                  <Route path="usuarios" element={<Usuarios />} />
+                </Route>
               </Route>
             </Route>
 

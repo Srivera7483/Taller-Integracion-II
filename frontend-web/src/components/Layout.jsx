@@ -11,6 +11,21 @@ const Layout = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Obtener el rol del usuario actual desde localStorage
+  const obtenerRolUsuario = () => {
+    try {
+      const usuarioStr = localStorage.getItem('usuario');
+      if (!usuarioStr) return null;
+      const usuario = JSON.parse(usuarioStr);
+      // Soporta tanto si viene como objeto (ej: { nombre_rol: 'ADMINISTRADOR' }) o como string directo
+      return usuario.rol?.nombre_rol || usuario.rol || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const rolUsuario = obtenerRolUsuario();
+
   const getPageTitle = () => {
     if (location.pathname.startsWith('/incidencias/nueva') || location.pathname.startsWith('/incidencias/reportar')) {
       return 'Reportar Incidencia';
@@ -45,14 +60,23 @@ const Layout = () => {
     navigate('/login');
   };
 
-  const navItems = [
+// Definición completa de las opciones del menú
+  const allNavItems = [
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
-    { path: '/inventario', label: 'Inventario', icon: FiBox },
+    { path: '/inventario', label: 'Inventario', icon: FiBox, allowedRoles: ['ADMINISTRADOR']},
     { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar },
     { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
-    { path: '/usuarios', label: 'Usuarios', icon: FiUsers },
+    { path: '/usuarios', label: 'Usuarios', icon: FiUsers, allowedRoles: ['ADMINISTRADOR'] },
   ];
+
+  // Filtrar los elementos según el rol actual del usuario
+  const navItems = allNavItems.filter((item) => {
+    if (item.allowedRoles) {
+      return item.allowedRoles.includes(rolUsuario);
+    }
+    return true;
+  });
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden text-gray-900">
@@ -155,7 +179,7 @@ const Layout = () => {
           </div>
         </header>
 
-        {/* Critical Critical Alert Banner if needed */}
+        {/* Critical Alert Banner if needed */}
         <CriticalAlertBanner />
 
         {/* Main View Area */}

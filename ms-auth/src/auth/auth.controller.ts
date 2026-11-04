@@ -112,7 +112,8 @@ export class AuthController {
   }
 
   @Get('usuarios')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMINISTRADOR')
   async listUsers(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
