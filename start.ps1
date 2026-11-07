@@ -38,6 +38,19 @@ foreach ($carpeta in $carpetasEnv) {
 }
 
 
+# Sincronización preventiva de JWT_SECRET
+if (Test-Path "ms-auth\.env") {
+    $lineaAuth = Get-Content "ms-auth\.env" | Where-Object { $_ -match "^JWT_SECRET=(.+)" }
+    if ($lineaAuth -and ($lineaAuth -match "^JWT_SECRET=(.+)")) {
+        $secretAuth = $matches[1].Trim()
+        if (Test-Path "ms-incidencias\.env") {
+            $contenido = Get-Content "ms-incidencias\.env"
+            $contenido -replace "^JWT_SECRET=.*", "JWT_SECRET=$secretAuth" | Set-Content "ms-incidencias\.env"
+            Write-Host "  [OK] JWT_SECRET sincronizado en ms-incidencias." -ForegroundColor Green
+        }
+    }
+}
+
 Write-Host "`n[3/7] Levantando contenedores..." -ForegroundColor Yellow
 
 # Evitar conflictos de directorios/nombres

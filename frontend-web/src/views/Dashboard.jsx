@@ -12,18 +12,38 @@ import {
   FiActivity
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
-import { fetchIncidencias } from '../services/incidenciasService';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import api from '../services/api';
 
 const Dashboard = () => {
   const { showToast } = useToast();
 
+  // Obtener el rol del usuario actual desde localStorage
+  const obtenerRolUsuario = () => {
+    try {
+      const usuarioStr = localStorage.getItem('usuario');
+      if (!usuarioStr) return null;
+      const usuario = JSON.parse(usuarioStr);
+      return usuario.rol?.nombre_rol || usuario.rol || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const rolUsuario = obtenerRolUsuario();
+  const esAdmin = rolUsuario === 'ADMINISTRADOR';
+
+  // LLamada HTTP alineada a la especificación de la tarea TAL-112
   const fetchIncidenciasCallback = useCallback(async (page, limit) => {
     try {
-      const data = await fetchIncidencias({ page, limit });
-      return data;
+      // Usar los parámetros page y limit incorporados en TAL-112
+      const response = await api.get(`/incidencias?page=${page}&limit=${limit}`);
+      
+      // Dependiendo de si tu backend devuelve el array directo o paginado tipo { datos: [], total: ... }
+      const data = response.data.datos || response.data.data || response.data;
+      return Array.isArray(data) ? data : [];
     } catch (error) {
-      showToast('Error de conexión con el servidor API Gateway', 'error');
+      showToast('Error de conexión con el servidor de Incidencias', 'error');
       throw error;
     }
   }, [showToast]);
@@ -39,7 +59,7 @@ const Dashboard = () => {
     handleContainerScroll,
   } = useInfiniteScroll({
     fetchFunction: fetchIncidenciasCallback,
-    limit: 15,
+    limit: 15, // Límite estipulado en TAL-112
   });
 
   const resumenMetricas = useMemo(() => {
@@ -48,15 +68,19 @@ const Dashboard = () => {
     let criticas = 0;
 
     incidencias.forEach((item) => {
+      // Manejo seguro del estado (puede ser objeto o string según la BD)
       const estadoNombre = (
         typeof item.estado === 'object' && item.estado !== null
-          ? item.estado.nombre_estado
+          ? item.estado.nombre_estado || item.estado.nombre
           : item.estado || ''
       ).toLowerCase();
+      
+      // Manejo seguro de prioridad
+      const prioridadNombre = (item.prioridad || '').toLowerCase();
 
-      if (estadoNombre === 'resuelta' || estadoNombre === 'completada' || estadoNombre === 'completado') resueltas++;
+      if (estadoNombre === 'resuelta' || estadoNombre === 'completada' || estadoNombre === 'cerrada') resueltas++;
       if (estadoNombre === 'pendiente' || estadoNombre === 'reportada') pendientes++;
-      if (estadoNombre === 'crítica' || estadoNombre === 'alta') criticas++;
+      if (prioridadNombre === 'crítica' || prioridadNombre === 'alta') criticas++;
     });
 
     return { resueltas, pendientes, criticas };
@@ -86,13 +110,6 @@ const Dashboard = () => {
             <span>Explorar Órdenes</span>
             <FiArrowRight className="w-3.5 h-3.5" />
           </Link>
-          <button
-            type="button"
-            onClick={() => showToast('Sistema de notificaciones operativo y listo para integración.', 'success')}
-            className="px-3.5 py-2 bg-primary hover:bg-primary-hover text-white font-semibold text-xs rounded-lg transition shadow-sm hover:shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          >
-            Probar Notificación
-          </button>
         </div>
       </div>
 
@@ -131,7 +148,7 @@ const Dashboard = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <BotonExportarExcel variant="compact" />
+            {esAdmin && <BotonExportarExcel variant="compact" />}
             <Link
               to="/incidencias"
               className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
@@ -175,29 +192,37 @@ const Dashboard = () => {
               ) : (
                 incidencias.map((inc, index) => {
                   const isSentinel = index === sentinelIndex;
+                  
+                  // Mapeos reales basados en las tablas PostgreSQL de la tarea TAL-112
                   const estadoTexto = typeof inc.estado === 'object' && inc.estado !== null
-                    ? inc.estado.nombre_estado
+                    ? inc.estado.nombre_estado || inc.estado.nombre
                     : inc.estado || 'Reportada';
+                  
+                  // Leer la ID real (id_incidencia)
                   const idTexto = inc.id_incidencia || inc.id;
+                  
                   const fechaTexto = inc.fecha_creacion
                     ? new Date(inc.fecha_creacion).toLocaleDateString()
-                    : inc.fecha || 'Reciente';
+                    : (inc.fecha || 'Reciente');
+
+                  // Mapeo seguro para el reportante o técnico asignado
+                  const usuarioAsignado = inc.asignado || inc.tecnico_asignado || (inc.id_reportante ? `Reportante: ${inc.id_reportante.substring(0, 8)}` : 'Sin asignar');
 
                   return (
                     <tr
-                      key={idTexto || index}
+                      key={idTexto || `inc-${index}`}
                       ref={isSentinel ? sentinelRef : null}
                       className="hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <Link
-                            to={`/incidencias/${encodeURIComponent(idTexto || 'INC-1042')}`}
+                            to={`/incidencias/${encodeURIComponent(idTexto || '')}`}
                             className="font-mono text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline w-fit"
                           >
                             {idTexto ? idTexto.substring(0, 13) : 'INC-#'}
                           </Link>
-                          <span className="font-medium text-gray-900">{inc.titulo}</span>
+                          <span className="font-medium text-gray-900 mt-0.5">{inc.titulo || 'Sin título'}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -219,8 +244,8 @@ const Dashboard = () => {
                       </td>
                       <td className="px-6 py-4 text-xs text-gray-700">
                         <div>{fechaTexto}</div>
-                        <div className="text-[11px] text-gray-600 font-medium">
-                          {inc.asignado || (inc.id_reportante ? `Reportante: ${inc.id_reportante.substring(0, 8)}` : 'Sin asignar')}
+                        <div className="text-[11px] text-gray-600 font-medium mt-0.5">
+                          {usuarioAsignado}
                         </div>
                       </td>
                     </tr>

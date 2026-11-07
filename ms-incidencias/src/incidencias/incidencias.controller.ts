@@ -2,12 +2,17 @@ import {
   Body,
   Controller,
   Get,
+  HttpStatus,
   UnauthorizedException,
   Param,
+  ParseFilePipeBuilder,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  Res,
+  StreamableFile,
+  UploadedFile,
   UseGuards,
   UseInterceptors,
   UsePipes,
@@ -15,6 +20,7 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -24,16 +30,14 @@ import { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
 import { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
 import { ActualizarEstadoDto } from './dto/actualizar-estado.dto';
 import { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
-import { IncidenciasService } from './incidencias.service';
-import { FileMimeValidationPipe } from '../validators/file-mime.pipe';
-import { SanitizeXssPipe } from '../validators/sanitize-xss.pipe';
 import { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 import { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
+import { IncidenciasService } from './incidencias.service';
 
 @Controller('incidencias')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class IncidenciasController {
-  constructor(private readonly incidenciasService: IncidenciasService) {}
+  constructor(private readonly incidenciasService: IncidenciasService) { }
 
   @Get('exportar')
   async exportar(
@@ -54,10 +58,34 @@ export class IncidenciasController {
     return this.incidenciasService.listar(query);
   }
 
+  @Get('prioridades-dinamicas')
+  obtenerReportePrioridades(@Query() query: PrioridadDinamicaQueryDto) {
+    return this.incidenciasService.obtenerReportePrioridades(query);
+  }
+
+  @Get('exportar')
+  @Roles('ADMINISTRADOR')
+  async exportar(
+    @Query() query: ExportarIncidenciasQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const resultado = await this.incidenciasService.exportarIncidencias(query);
+
+    res.setHeader('Content-Type', resultado.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${resultado.filename}"`,
+    );
+
+    return new StreamableFile(resultado.buffer, {
+      type: resultado.contentType,
+      disposition: `attachment; filename="${resultado.filename}"`,
+    });
+  }
+
   @Post()
-  @UsePipes(new SanitizeXssPipe())
   crear(
-    @Body(SanitizeXssPipe) body: CrearIncidenciaDto,
+    @Body() body: CrearIncidenciaDto,
     @CurrentUser() usuario: JwtUser,
   ) {
     const idUsuario = usuario.sub || usuario.userId;
@@ -90,14 +118,13 @@ export class IncidenciasController {
     if (!idUsuario || !rolUsuario) {
       throw new UnauthorizedException('Usuario autenticado inválido');
     }
-    
+
     return this.incidenciasService.actualizarEstado(
       incidenciaId,
-      body.id_estado, 
+      body.id_estado,
       idUsuario,
       rolUsuario,
       usuario.email,
-      body.motivo_rechazo,
     );
   }
 
@@ -112,7 +139,7 @@ export class IncidenciasController {
     if (!idUsuario || !rolUsuario) {
       throw new UnauthorizedException('Usuario autenticado inválido');
     }
-    
+
     return this.incidenciasService.resolverIncidencia(
       idIncidencia,
       idUsuario,
@@ -137,5 +164,24 @@ export class IncidenciasController {
     @Body() body: CrearEvidenciaDto,
   ) {
     return this.incidenciasService.crearEvidencia(id, body);
+  }
+
+  @Post(':id_incidencia/evidencias/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadEvidencia(
+    @Param('id_incidencia', ParseUUIDPipe) id: string,
+    @Body('id_tipo_evidencia') id_tipo_evidencia: string,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /(jpg|jpeg|png)$/,
+        })
+        .build({
+          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        }),
+    )
+    file: any,
+  ) {
+    return this.incidenciasService.procesarYGuardarEvidencia(id, Number(id_tipo_evidencia), file);
   }
 }
