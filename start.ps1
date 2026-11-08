@@ -1,4 +1,4 @@
-# Script de Inicialización Automatizado de Microservicios
+﻿# Script de Inicialización Automatizado de Microservicios
 # ------------------------------------------------------------------------------
 $ErrorActionPreference = "Stop"
 
@@ -115,24 +115,61 @@ foreach ($srv in $serviciosPrisma) {
 $ErrorActionPreference = $OldPreference
 
 # sixseven xddxdxd
+# [6/7] Agregando datos de prueba...
 Write-Host "`n[6/7] Agregando datos de prueba..." -ForegroundColor Yellow
 
-Push-Location "ms-incidencias"
+# Seed de MS Auth
+Push-Location "ms-auth"
 try {
-    Write-Host "Ingreso a ms-incidencias" -ForegroundColor Cyan
-    pnpm.cmd exec prisma db seed | Out-Null
-    Write-Host "  -> Estados de incidencia ingresados correctamente." -ForegroundColor Green
-} catch {
-    Write-Host "  [AVISO] No se pudo ejecutar prisma db seed en ms-incidencias: $_" -ForegroundColor Yellow
-} finally {
+    Write-Host "Ingreso a ms-auth" -ForegroundColor Cyan
+
+    node prisma/seed.cjs
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "El seed de ms-auth terminó con código $LASTEXITCODE"
+    }
+
+    Write-Host "  -> Permisos y asociaciones de roles ingresados correctamente." -ForegroundColor Green
+}
+catch {
+    Write-Host "  [AVISO] No se pudo ejecutar el seed de ms-auth: $_" -ForegroundColor Yellow
+}
+finally {
     Pop-Location
 }
 
+# Seed de MS Incidencias
+Push-Location "ms-incidencias"
+try {
+    Write-Host "Ingreso a ms-incidencias" -ForegroundColor Cyan
+
+    pnpm.cmd exec prisma db seed
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "El seed de ms-incidencias terminó con código $LASTEXITCODE"
+    }
+
+    Write-Host "  -> Estados de incidencia ingresados correctamente." -ForegroundColor Green
+}
+catch {
+    Write-Host "  [AVISO] No se pudo ejecutar prisma db seed en ms-incidencias: $_" -ForegroundColor Yellow
+}
+finally {
+    Pop-Location
+}
+
+# Seed raíz: incidencias de prueba
 if (Test-Path "seed.cjs") {
     try {
-        node seed.cjs | Out-Null
-        Write-Host "  -> 40 incidencias de pruebas ingresadas a la DB (seed.cjs)." -ForegroundColor Green
-    } catch {
+        node seed.cjs
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "El seed raíz terminó con código $LASTEXITCODE"
+        }
+
+        Write-Host "  -> Incidencias de prueba ingresadas correctamente." -ForegroundColor Green
+    }
+    catch {
         Write-Host "  [AVISO] No se pudo ejecutar seed.cjs: $_" -ForegroundColor Yellow
     }
 }

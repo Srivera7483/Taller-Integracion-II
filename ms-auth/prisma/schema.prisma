@@ -34,10 +34,9 @@ model User {
   @@map("USUARIOS")
 }
 
-// AÚN NO USAMOS PERMISOS, PERO DEJARLO
 model Permiso {
   id            Int           @id @default(autoincrement()) @map("id_permiso")
-  nombrePermiso String        @map("nombre_permiso")
+  nombrePermiso String        @unique @map("nombre_permiso")
   descripcion   String?       @db.Text
   
   roles         RolePermiso[]
@@ -45,7 +44,6 @@ model Permiso {
   @@map("PERMISOS")
 }
 
-// AÚN NO USAMOS PERMISOS, PERO DEJARLO
 model RolePermiso {
   roleId    Int      @map("id_rol")
   permisoId Int      @map("id_permiso")

@@ -13,6 +13,13 @@ interface RefreshTokenPayload {
   tokenUse: 'refresh';
 }
 
+function getRolePermissions(user: any): string[] {
+  const permissions = (user?.role?.permisos ?? [])
+    .map((rolePermission: any) => rolePermission?.permiso?.nombrePermiso)
+    .filter((permission: unknown): permission is string => typeof permission === 'string');
+  return Array.from(new Set<string>(permissions));
+}
+
 function getRefreshTokenSecret(): string {
   const refreshSecret = process.env.JWT_REFRESH_SECRET;
 
@@ -65,7 +72,8 @@ export class AuthService {
   }
 
   async login(loginDto: LoginDto): Promise<any> {
-    const email = loginDto.email.trim().toLowerCase();
+    const email = (loginDto.email ?? loginDto.correo ?? '').trim().toLowerCase();
+    const password = loginDto.password ?? loginDto.contrasena ?? '';
 
     const user = await this.userRepository.findByEmail(email);
 
@@ -73,7 +81,7 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
 
-    const passwordMatches = await verify(user.passwordHash, loginDto.password);
+    const passwordMatches = await verify(user.passwordHash, password);
 
     if (!passwordMatches) {
       throw new UnauthorizedException('Credenciales inválidas');
@@ -85,6 +93,7 @@ export class AuthService {
       userId: user.id,
       role: user.role.nombreRol,
       email: user.email,
+      permissions: getRolePermissions(user),
     };
 
     const token = this.jwtService.sign({ ...payload, tokenUse: 'access' });
@@ -107,12 +116,13 @@ export class AuthService {
           id_rol: user.role.id,
           nombre_rol: user.role.nombreRol
         },
+        permissions: getRolePermissions(user),
         created_at: user.fechaCreacion.toISOString()
       }
     };
   }
 
-  async refresh(refreshToken: string): Promise<{ accessToken: string }> {
+  async refresh(refreshToken: string): Promise<{ accessToken: string; permissions: string[] }> {
     let payload: RefreshTokenPayload;
 
     try {
@@ -152,10 +162,11 @@ export class AuthService {
       userId: user.id,
       role: user.role.nombreRol,
       email: user.email,
+      permissions: getRolePermissions(user),
       tokenUse: 'access',
     });
 
-    return { accessToken };
+    return { accessToken, permissions: getRolePermissions(user) };
   }
 
   // Alias por compatibilidad si alguna ruta o prueba llama a refreshToken
@@ -190,6 +201,7 @@ export class AuthService {
         id_rol: user.role.id,
         nombre_rol: user.role.nombreRol
       },
+      permissions: getRolePermissions(user),
       created_at: user.fechaCreacion.toISOString()
     };
   }

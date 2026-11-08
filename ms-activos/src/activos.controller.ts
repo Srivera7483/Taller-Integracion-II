@@ -7,7 +7,10 @@ import {
   Query,
   NotFoundException,
   BadRequestException,
+  UseGuards,
 } from '@nestjs/common';
+import { PermissionsGuard } from './permissions.guard';
+import { RequirePermissions } from './permissions.decorator';
 import { ActivosService } from './activos.service';
 import {
   RespuestaValidacionQR,
@@ -20,6 +23,7 @@ import { RespuestaTrazabilidadActivo } from './interfaces/trazabilidad.interface
 import { TrazabilidadQueryDto } from './dto/trazabilidad-query.dto';
 
 @Controller('activos')
+@UseGuards(PermissionsGuard)
 export class ActivosController {
   constructor(private readonly activosService: ActivosService) {}
 
@@ -50,6 +54,7 @@ export class ActivosController {
   }
 
   @Get('estadisticas')
+  @RequirePermissions('estadisticas:ver')
   async obtenerEstadisticas(@Query() filtros?: FiltroEstadisticasDto): Promise<RespuestaEstadisticas> {
     return this.activosService.obtenerEstadisticas(filtros);
   }
@@ -63,6 +68,7 @@ export class ActivosController {
   }
 
   @Get()
+  @RequirePermissions('activos:gestionar')
   async listarActivos(
     @Query('page') page?: string,
     @Query('limit') limit?: string,

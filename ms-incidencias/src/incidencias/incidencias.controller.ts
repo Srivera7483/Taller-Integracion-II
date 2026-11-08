@@ -15,6 +15,10 @@ import {
   UploadedFile,
   UseGuards,
   UseInterceptors,
+<<<<<<< HEAD
+=======
+  UsePipes,
+>>>>>>> d7ee7bd (feat(auth): refactorizar RBAC de roles a permisos granulares según MER TAL-97 #time 3h 30m #close #comment Se poblaron las tablas PERMISOS y ROLES_PERMISOS mediante semilla. Se actualizó el payload del JWT y respuestas de sesión para incluir los permisos del usuario, y se ajustaron los Guards y vistas frontend.)
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';

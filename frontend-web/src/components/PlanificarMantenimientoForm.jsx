@@ -633,9 +633,9 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
               Plantillas de Tareas Frecuentes:
             </span>
             <div className="flex flex-wrap gap-1.5">
-              {SUGERENCIAS_TAREAS.map((sug, idx) => (
+              {SUGERENCIAS_TAREAS.map((sug) => (
                 <button
-                  key={idx}
+                  key={sug}
                   type="button"
                   onClick={() => handleAgregarSugerencia(sug)}
                   disabled={isSubmitting}
