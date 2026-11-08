@@ -16,8 +16,6 @@ import {
   UseGuards,
   UseInterceptors,
   UsePipes,
-  Res,
-  StreamableFile,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -33,38 +31,29 @@ import { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
 import { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 import { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { IncidenciasService } from './incidencias.service';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { RequirePermissions } from '../auth/permissions.decorator';
 
 @Controller('incidencias')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class IncidenciasController {
   constructor(private readonly incidenciasService: IncidenciasService) { }
 
-  @Get('exportar')
-  async exportar(
-    @Query() query: ExportarIncidenciasQueryDto,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const resultado = await this.incidenciasService.exportarIncidencias(query);
-    response.setHeader('Content-Type', resultado.contentType);
-    response.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${resultado.filename}"`,
-    );
-    return new StreamableFile(resultado.buffer);
-  }
-
   @Get()
+  @RequirePermissions('incidencias:ver')
   listar(@Query() query: ListarIncidenciasQueryDto) {
     return this.incidenciasService.listar(query);
   }
 
   @Get('prioridades-dinamicas')
+  @RequirePermissions('estadisticas:ver')
   obtenerReportePrioridades(@Query() query: PrioridadDinamicaQueryDto) {
     return this.incidenciasService.obtenerReportePrioridades(query);
   }
 
   @Get('exportar')
   @Roles('ADMINISTRADOR')
+  @RequirePermissions('incidencias:ver')
   async exportar(
     @Query() query: ExportarIncidenciasQueryDto,
     @Res({ passthrough: true }) res: Response,
@@ -84,6 +73,7 @@ export class IncidenciasController {
   }
 
   @Post()
+  @RequirePermissions('incidencias:crear')
   crear(
     @Body() body: CrearIncidenciaDto,
     @CurrentUser() usuario: JwtUser,
@@ -94,6 +84,7 @@ export class IncidenciasController {
   }
 
   @Get(':id_incidencia/prioridad-dinamica')
+  @RequirePermissions('incidencias:ver')
   obtenerPrioridadDinamica(
     @Param('id_incidencia', ParseUUIDPipe) id: string,
     @Query() query: PrioridadDinamicaQueryDto,
@@ -102,11 +93,13 @@ export class IncidenciasController {
   }
 
   @Get(':id_incidencia')
+  @RequirePermissions('incidencias:ver')
   obtener(@Param('id_incidencia', ParseUUIDPipe) id: string) {
     return this.incidenciasService.obtener(id);
   }
 
   @Patch(':id_incidencia/estado')
+  @RequirePermissions('incidencias:resolver')
   @Roles('SUPERVISOR', 'TECNICO', 'TÉCNICO', 'REPORTANTE', 'ADMINISTRADOR')
   async actualizarEstado(
     @Param('id_incidencia', ParseUUIDPipe) incidenciaId: string,
@@ -129,6 +122,7 @@ export class IncidenciasController {
   }
 
   @Patch(':id_incidencia/resolver')
+  @RequirePermissions('incidencias:resolver')
   @Roles('TECNICO', 'TÉCNICO')
   async resolverIncidencia(
     @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
@@ -149,16 +143,19 @@ export class IncidenciasController {
   }
 
   @Get(':id_incidencia/historial')
+  @RequirePermissions('incidencias:ver')
   listarHistorial(@Param('id_incidencia', ParseUUIDPipe) id: string) {
     return this.incidenciasService.listarHistorial(id);
   }
 
   @Get(':id_incidencia/evidencias')
+  @RequirePermissions('incidencias:ver')
   listarEvidencias(@Param('id_incidencia', ParseUUIDPipe) id: string) {
     return this.incidenciasService.listarEvidencias(id);
   }
 
   @Post(':id_incidencia/evidencias')
+  @RequirePermissions('evidencias:subir')
   crearEvidencia(
     @Param('id_incidencia', ParseUUIDPipe) id: string,
     @Body() body: CrearEvidenciaDto,
@@ -167,6 +164,7 @@ export class IncidenciasController {
   }
 
   @Post(':id_incidencia/evidencias/upload')
+  @RequirePermissions('evidencias:subir')
   @UseInterceptors(FileInterceptor('file'))
   async uploadEvidencia(
     @Param('id_incidencia', ParseUUIDPipe) id: string,

@@ -24,6 +24,8 @@ import { JwtAuthGuard } from './jwt-auth.guard.js';
 import { RolesGuard } from './roles.guard.js';
 import { Roles } from './roles.decorator.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { PermissionsGuard } from './permissions.guard.js';
+import { RequirePermissions } from './permissions.decorator.js';
 
 interface CookieResponse {
   header(name: string, value: string): unknown;
@@ -104,6 +106,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMINISTRADOR')
+  @UseGuards(PermissionsGuard)
+  @RequirePermissions('usuarios:gestionar')
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async updateUserRole(
     @Param('id') id: string,
@@ -131,4 +135,3 @@ export class AuthController {
   }
 
 }
-

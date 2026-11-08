@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { FiPlus } from 'react-icons/fi';
 import ModalNuevaIncidenciaMobile from './ModalNuevaIncidenciaMobile';
+import { hasPermission } from '../services/authService';
 
 /**
  * TAL-172: Floating Action Button (FAB) estilo Material Design para dispositivos móviles.
@@ -26,6 +27,10 @@ const FabNuevaIncidencia = () => {
     location.pathname.startsWith('/incidencias/reportar');
 
   if (isEnVistaCreacion) {
+    return null;
+  }
+
+  if (!hasPermission('incidencias:crear')) {
     return null;
   }
 
@@ -58,4 +63,3 @@ const FabNuevaIncidencia = () => {
 };
 
 export default FabNuevaIncidencia;
-

@@ -60,45 +60,6 @@ export class IncidenciasService {
     private readonly exportarIncidenciasService: ExportarIncidenciasService = new ExportarIncidenciasService(),
   ) {}
 
-  async exportarIncidencias(query: ExportarIncidenciasQueryDto = {}) {
-    const formato = query.formato ?? 'xlsx';
-    const incidencias = await this.prisma.incidencias.findMany({
-      where: {
-        ...(query.id_activo ? { id_activo: query.id_activo } : {}),
-        ...(query.id_estado
-          ? {
-              historial_estados: {
-                some: {
-                  id_estado: query.id_estado,
-                  es_actual: true,
-                },
-              },
-            }
-          : {}),
-        ...(query.fecha_inicio || query.fecha_fin
-          ? {
-              fecha_creacion: {
-                ...(query.fecha_inicio ? { gte: new Date(query.fecha_inicio) } : {}),
-                ...(query.fecha_fin ? { lte: new Date(query.fecha_fin) } : {}),
-              },
-            }
-          : {}),
-      },
-      include: {
-        historial_estados: {
-          orderBy: [{ fecha_creacion: 'desc' }, { id_historial: 'desc' }],
-          take: 1,
-          include: { estado: true },
-        },
-        ordenes_trabajo: true,
-      },
-      orderBy: { fecha_creacion: 'desc' },
-    });
-
-    const filas = this.exportarIncidenciasService.construirFilas(incidencias);
-    return this.exportarIncidenciasService.generarArchivo(filas, formato);
-  }
-
   async listar(query: ListarIncidenciasQueryDto) {
     const limite = query.limit ?? query.limite ?? 15;
     const pagina = query.page ?? query.pagina ?? 1;

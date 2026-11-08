@@ -118,6 +118,7 @@ describe('Auth refresh flow (e2e)', () => {
 
     expect(refreshResponse.body).toEqual({
       accessToken: expect.any(String),
+      permissions: expect.any(Array),
     });
     const accessPayload = app.get(JwtService).verify(
       refreshResponse.body.accessToken,
@@ -125,6 +126,7 @@ describe('Auth refresh flow (e2e)', () => {
     expect(accessPayload).toMatchObject({
       sub: user.id,
       tokenUse: 'access',
+      permissions: expect.any(Array),
     });
     expect(accessPayload.exp - accessPayload.iat).toBe(15 * 60);
   });

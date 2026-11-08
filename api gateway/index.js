@@ -104,6 +104,15 @@ const buildGateway = (options = {}) => {
         upstream: authUrl,
         prefix: '/api/v1/auth',
         routes: ['/login'],
+        httpMethods: ['GET'],
+        rewritePrefix: '/auth',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: authUrl,
+        prefix: '/api/v1/auth',
+        routes: ['/login'],
         httpMethods: ['POST'],
         rewritePrefix: '/auth',
         config: {
@@ -118,6 +127,7 @@ const buildGateway = (options = {}) => {
     fastify.register(proxy, {
         upstream: authUrl,
         prefix: '/api/v1/auth',
+        routes: ['/login/*', '/me', '/refresh', '/logout', '/register', '/renovar-token', '/usuarios/:id/rol', '/usuarios'],
         rewritePrefix: '/auth',
         replyOptions: { onError: handleProxyError }
     });

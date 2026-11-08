@@ -37,7 +37,7 @@ model User {
 // AÚN NO USAMOS PERMISOS, PERO DEJARLO
 model Permiso {
   id            Int           @id @default(autoincrement()) @map("id_permiso")
-  nombrePermiso String        @map("nombre_permiso")
+  nombrePermiso String        @unique @map("nombre_permiso")
   descripcion   String?       @db.Text
   
   roles         RolePermiso[]
