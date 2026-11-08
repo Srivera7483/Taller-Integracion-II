@@ -73,7 +73,7 @@ describe('TAL-180: Monitoreo de Estado de Red y Disponibilidad de Gateway', () =
   it('Criterio 3: Provee useNetworkStatus y expone contexto accesible globalmente', () => {
     cy.window().then((win) => {
       // Verificar que el contexto o eventos nativos responden a eventos del sistema
-      expect(win.navigator.onLine).to.be.true;
+      expect(win.navigator.onLine).to.equal(true);
     });
   });
 });

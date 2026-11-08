@@ -77,11 +77,8 @@ async function main() {
   }
 
   for (const [roleName, rolePermissionNames] of Object.entries(rolePermissions)) {
-    const role = await prisma.role.upsert({
-      where: { nombreRol: roleName },
-      update: {},
-      create: { nombreRol: roleName },
-    });
+    const role = await prisma.role.findUnique({ where: { nombreRol: roleName } });
+    if (!role) throw new Error(`Rol requerido no encontrado: ${roleName}`);
 
     await prisma.rolePermiso.deleteMany({ where: { roleId: role.id } });
     for (const permissionName of rolePermissionNames) {
