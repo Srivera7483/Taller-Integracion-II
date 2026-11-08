@@ -5,6 +5,7 @@ const proxy = require('@fastify/http-proxy');
 const fastifyCors = require('@fastify/cors');
 const rateLimit = require('@fastify/rate-limit');
 const RateLimitStore = require('./rate-limit-store');
+const KillSwitchManager = require('./kill-switch');
 
 const getTrustProxy = (value) => {
     if (typeof value !== 'string') {
@@ -29,12 +30,79 @@ const buildGateway = (options = {}) => {
         trustProxy: getTrustProxy(options.trustProxy ?? process.env.GATEWAY_TRUST_PROXY),
     });
 
+    const killSwitch = options.killSwitchManager || new KillSwitchManager(options);
+    fastify.killSwitch = killSwitch;
+
+    // TAL-4: Middleware / Hook de Kill Switch para interceptar operaciones mutantes
+    fastify.addHook('onRequest', async (request, reply) => {
+        if (killSwitch.isBlocked(request.method, request.url)) {
+            const status = killSwitch.getStatus();
+            reply
+                .code(503)
+                .header('X-Kill-Switch', 'true')
+                .send({
+                    statusCode: 503,
+                    error: 'Service Unavailable',
+                    mensaje: status.motivo,
+                    motivo: status.motivo,
+                    killSwitch: true,
+                    servicios_afectados: status.servicios_afectados,
+                    fecha_activacion: status.fecha_activacion,
+                });
+            return reply;
+        }
+    });
+
     fastify.register(rateLimit, {
         global: false,
         store: RateLimitStore,
     });
 
     fastify.get('/', async () => ({ status: 'OK' }));
+
+    // TAL-4: Endpoint de consulta de estado del Kill Switch para Frontend (TAL-188)
+    const getKillSwitchStatus = async (request, reply) => {
+        const status = killSwitch.getStatus();
+        if (status.activo) {
+            reply.header('X-Kill-Switch', 'true');
+        }
+        return status;
+    };
+    fastify.get('/api/v1/kill-switch', getKillSwitchStatus);
+    fastify.get('/api/v1/kill-switch/status', getKillSwitchStatus);
+
+    // TAL-4: Endpoint de control para ADMINISTRADOR
+    const updateKillSwitchStatus = async (request, reply) => {
+        const auth = killSwitch.verifyAdminAuth(request);
+        if (!auth.authorized) {
+            return reply.code(403).send({
+                statusCode: 403,
+                error: 'Forbidden',
+                mensaje: auth.error,
+            });
+        }
+
+        const body = request.body || {};
+        const nuevoEstado = killSwitch.setKillSwitch({
+            activo: body.activo,
+            motivo: body.motivo,
+            servicios_afectados: body.servicios_afectados,
+        });
+
+        fastify.log.warn(
+            { killSwitch: nuevoEstado },
+            `[KILL-SWITCH] Estado modificado por administrador: activo=${nuevoEstado.activo}`
+        );
+
+        return reply.code(200).send({
+            statusCode: 200,
+            message: 'Estado del Kill Switch actualizado exitosamente',
+            status: nuevoEstado,
+        });
+    };
+    fastify.post('/api/v1/kill-switch', updateKillSwitchStatus);
+    fastify.post('/api/v1/admin/kill-switch', updateKillSwitchStatus);
+    fastify.put('/api/v1/kill-switch', updateKillSwitchStatus);
 
     const handleProxyError = (reply, error) => {
         fastify.log.error(error, 'Fallo al conectar con el microservicio de destino');
@@ -47,7 +115,7 @@ const buildGateway = (options = {}) => {
     fastify.register(fastifyCors, {
         origin: true,
         credentials: true,
-        exposedHeaders: ['Content-Disposition'],
+        exposedHeaders: ['Content-Disposition', 'X-Kill-Switch'],
     });
 
     fastify.register(proxy, {

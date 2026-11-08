@@ -1,9 +1,15 @@
 import { IncidenciasController } from './incidencias.controller';
 import { IncidenciasService } from './incidencias.service';
-import { StreamableFile } from '@nestjs/common';
+import { KillSwitchGuard } from '../common/guards/kill-switch.guard';
+import {
+  ExecutionContext,
+  HttpException,
+  HttpStatus,
+  StreamableFile,
+} from '@nestjs/common';
 import type { Response } from 'express';
 
-describe('IncidenciasController - TAL-117, TAL-127 & TAL-140', () => {
+describe('IncidenciasController - TAL-4, TAL-117, TAL-127 & TAL-140', () => {
   let controller: IncidenciasController;
   let service: jest.Mocked<Partial<IncidenciasService>>;
 
@@ -146,6 +152,85 @@ describe('IncidenciasController - TAL-117, TAL-127 & TAL-140', () => {
 
       expect(service.crear).toHaveBeenCalledWith(mockBody, 'user-1', 'user@test.com');
       expect(resultado).toBe(mockCreada);
+    });
+  });
+
+  describe('Integración con KillSwitchGuard (TAL-4)', () => {
+    let guard: KillSwitchGuard;
+    const originalEnv = process.env.KILL_SWITCH_INCIDENCIAS_ENABLED;
+
+    beforeEach(() => {
+      guard = new KillSwitchGuard();
+      delete process.env.KILL_SWITCH_INCIDENCIAS_ENABLED;
+      delete process.env.KILL_SWITCH_ENABLED;
+    });
+
+    afterEach(() => {
+      if (originalEnv !== undefined) {
+        process.env.KILL_SWITCH_INCIDENCIAS_ENABLED = originalEnv;
+      } else {
+        delete process.env.KILL_SWITCH_INCIDENCIAS_ENABLED;
+      }
+    });
+
+    const mockExecutionContext = (method: string) => {
+      const setHeader = jest.fn();
+      return {
+        switchToHttp: () => ({
+          getRequest: () => ({ method, url: '/api/v1/incidencias' }),
+          getResponse: () => ({ setHeader }),
+        }),
+      } as unknown as ExecutionContext;
+    };
+
+    it('permite operaciones de lectura (GET) en incidencias con Kill Switch activo', () => {
+      process.env.KILL_SWITCH_INCIDENCIAS_ENABLED = 'true';
+      const context = mockExecutionContext('GET');
+
+      expect(guard.canActivate(context)).toBe(true);
+    });
+
+    it('bloquea creación de incidencias (POST) con HTTP 503 y cabecera X-Kill-Switch cuando está activo', () => {
+      process.env.KILL_SWITCH_INCIDENCIAS_ENABLED = 'true';
+      const context = mockExecutionContext('POST');
+
+      try {
+        guard.canActivate(context);
+        fail('Debería haber lanzado una excepción HTTP 503');
+      } catch (error) {
+        expect(error).toBeInstanceOf(HttpException);
+        const httpError = error as HttpException;
+        expect(httpError.getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
+        expect((httpError.getResponse() as any).killSwitch).toBe(true);
+      }
+    });
+
+    it('permite crear incidencias con el controlador cuando el Kill Switch está inactivo', async () => {
+      process.env.KILL_SWITCH_INCIDENCIAS_ENABLED = 'false';
+      const context = mockExecutionContext('POST');
+
+      expect(guard.canActivate(context)).toBe(true);
+
+      const mockBody = {
+        id_activo: 'activo-1',
+        titulo: 'Incidencia permitida',
+        descripcion: 'Todo normal',
+      };
+      const mockUser = { sub: 'user-1', email: 'user@test.com' } as any;
+      (service.crear as jest.Mock).mockResolvedValue({
+        id_incidencia: 'inc-99',
+        ...mockBody,
+      });
+
+      const resultado = await controller.crear(mockBody, mockUser);
+      expect(resultado).toEqual(
+        expect.objectContaining({ id_incidencia: 'inc-99' }),
+      );
+      expect(service.crear).toHaveBeenCalledWith(
+        mockBody,
+        'user-1',
+        'user@test.com',
+      );
     });
   });
 });
