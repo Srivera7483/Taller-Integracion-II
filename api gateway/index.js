@@ -59,6 +59,16 @@ const buildGateway = (options = {}) => {
     });
 
     fastify.get('/', async () => ({ status: 'OK' }));
+    fastify.get('/health', async () => ({
+        status: 'UP',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+    }));
+    fastify.get('/api/v1/health', async () => ({
+        status: 'UP',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+    }));
 
     // TAL-4: Endpoint de consulta de estado del Kill Switch para Frontend (TAL-188)
     const getKillSwitchStatus = async (request, reply) => {
