@@ -80,6 +80,22 @@ test('GET / responde 200 OK', async (t) => {
     assert.deepEqual(response.json(), { status: 'OK' });
 });
 
+test('TAL-180: GET /api/v1/health y GET /health responden 200 UP para heartbeat ping', async (t) => {
+    const app = buildGateway(unavailableServices);
+    t.after(() => app.close());
+
+    const resApiHealth = await app.inject({ method: 'GET', url: '/api/v1/health' });
+    assert.equal(resApiHealth.statusCode, 200);
+    const bodyApi = resApiHealth.json();
+    assert.equal(bodyApi.status, 'UP');
+    assert.ok(typeof bodyApi.uptime === 'number');
+    assert.ok(typeof bodyApi.timestamp === 'string');
+
+    const resHealth = await app.inject({ method: 'GET', url: '/health' });
+    assert.equal(resHealth.statusCode, 200);
+    assert.equal(resHealth.json().status, 'UP');
+});
+
 test('redirige activos e incidencias a sus microservicios', async (t) => {
     const activos = await startTarget({ service: 'activos' });
     const incidencias = await startTarget({ service: 'incidencias' });

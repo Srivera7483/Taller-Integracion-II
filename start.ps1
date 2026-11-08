@@ -1,4 +1,4 @@
-﻿# Script de Inicialización Automatizado de Microservicios
+# Script de Inicialización Automatizado de Microservicios
 # ------------------------------------------------------------------------------
 $ErrorActionPreference = "Stop"
 
@@ -19,7 +19,7 @@ try {
 
 
 Write-Host "`n[2/7] Verificando variables de entorno (.env)..." -ForegroundColor Yellow
-$carpetasEnv = @(".", "api gateway", "ms-auth", "ms-activos", "ms-incidencias")
+$carpetasEnv = @(".", "api gateway", "ms-auth", "ms-activos", "ms-incidencias", "ms-notificaciones")
 
 foreach ($carpeta in $carpetasEnv) {
     $rutaEnv = Join-Path $carpeta ".env"

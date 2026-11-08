@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser } from 'react-icons/fi';
 import NotificacionesDropdown from './NotificacionesDropdown';
 import CriticalAlertBanner from './CriticalAlertBanner';
+import NetworkStatusIndicator from './NetworkStatusIndicator';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
 import { hasPermission } from '../services/authService';
 
@@ -191,6 +192,7 @@ const Layout = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <NetworkStatusIndicator />
             <NotificacionesDropdown />
           </div>
         </header>

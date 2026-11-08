@@ -35,6 +35,16 @@ const buildGateway = (options = {}) => {
     });
 
     fastify.get('/', async () => ({ status: 'OK' }));
+    fastify.get('/health', async () => ({
+        status: 'UP',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+    }));
+    fastify.get('/api/v1/health', async () => ({
+        status: 'UP',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+    }));
 
     const handleProxyError = (reply, error) => {
         fastify.log.error(error, 'Fallo al conectar con el microservicio de destino');
