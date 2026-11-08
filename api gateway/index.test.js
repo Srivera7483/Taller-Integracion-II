@@ -373,3 +373,207 @@ test('los proxies devuelven 502 y el Gateway sigue disponible', async (t) => {
     assert.equal(incidencias.statusCode, 502);
     assert.equal(health.statusCode, 200);
 });
+
+// TAL-4: Pruebas del Middleware / Guardián de Kill Switch
+const createMockJwt = (role) => {
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const payload = Buffer.from(JSON.stringify({ userId: 'u-admin-1', rol: role, email: 'admin@uct.cl' })).toString('base64url');
+    return `${header}.${payload}.mockSignature`;
+};
+
+test('TAL-4: GET /api/v1/kill-switch expone el estado actual para frontend (TAL-188)', async (t) => {
+    const app = buildGateway({
+        ...unavailableServices,
+        killSwitchEnabled: false,
+    });
+    t.after(() => app.close());
+
+    const res = await app.inject({ method: 'GET', url: '/api/v1/kill-switch' });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.activo, false);
+    assert.ok(body.motivo);
+    assert.equal(res.headers['x-kill-switch'], undefined);
+});
+
+test('TAL-4: Kill Switch activo deniega operaciones de escritura con HTTP 503, cabecera X-Kill-Switch y motivo', async (t) => {
+    const customReason = 'Mantenimiento crítico de emergencia en base de datos PostgreSQL.';
+    const app = buildGateway({
+        ...unavailableServices,
+        killSwitchEnabled: true,
+        killSwitchReason: customReason,
+    });
+    t.after(() => app.close());
+
+    // 1. POST debe ser denegado con 503
+    const postRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/incidencias',
+        payload: { titulo: 'Falla', descripcion: 'Prueba' },
+    });
+    assert.equal(postRes.statusCode, 503);
+    assert.equal(postRes.headers['x-kill-switch'], 'true');
+    const postBody = JSON.parse(postRes.body);
+    assert.equal(postBody.error, 'Service Unavailable');
+    assert.equal(postBody.killSwitch, true);
+    assert.equal(postBody.motivo, customReason);
+
+    // 2. PUT debe ser denegado con 503
+    const putRes = await app.inject({
+        method: 'PUT',
+        url: '/api/v1/incidencias/123/estado',
+        payload: { id_estado: 2 },
+    });
+    assert.equal(putRes.statusCode, 503);
+    assert.equal(putRes.headers['x-kill-switch'], 'true');
+
+    // 3. PATCH debe ser denegado con 503
+    const patchRes = await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/ordenes-trabajo/456',
+        payload: { diagnostico: 'test' },
+    });
+    assert.equal(patchRes.statusCode, 503);
+    assert.equal(patchRes.headers['x-kill-switch'], 'true');
+
+    // 4. DELETE debe ser denegado con 503
+    const deleteRes = await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/incidencias/789',
+    });
+    assert.equal(deleteRes.statusCode, 503);
+    assert.equal(deleteRes.headers['x-kill-switch'], 'true');
+});
+
+test('TAL-4: Kill Switch activo permite operaciones de lectura segura (GET)', async (t) => {
+    const incidenciasTarget = await startTarget({ servicio: 'incidencias', status: 'OK' });
+    const app = buildGateway({
+        ...unavailableServices,
+        incidenciasUrl: incidenciasTarget.url,
+        killSwitchEnabled: true,
+    });
+    t.after(async () => {
+        await app.close();
+        incidenciasTarget.server.close();
+    });
+
+    // Petición GET pasa a través del proxy sin ser bloqueada por el Kill Switch
+    const getRes = await app.inject({ method: 'GET', url: '/api/v1/incidencias' });
+    assert.equal(getRes.statusCode, 200);
+    const body = JSON.parse(getRes.body);
+    assert.equal(body.servicio, 'incidencias');
+});
+
+test('TAL-4: Rutas de autenticación (login) no son bloqueadas para permitir acceso administrativo', async (t) => {
+    const authTarget = await startTarget({ token: 'mock-jwt-token' });
+    const app = buildGateway({
+        ...unavailableServices,
+        authUrl: authTarget.url,
+        killSwitchEnabled: true,
+    });
+    t.after(async () => {
+        await app.close();
+        authTarget.server.close();
+    });
+
+    const loginRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/auth/login',
+        payload: { email: 'admin@uct.cl', password: 'password123' },
+    });
+    // Pasa al upstream de Auth (no es bloqueado con 503)
+    assert.equal(loginRes.statusCode, 200);
+});
+
+test('TAL-4: Endpoint de control administrativo requiere rol ADMINISTRADOR o clave de emergencia', async (t) => {
+    const app = buildGateway({
+        ...unavailableServices,
+        killSwitchEnabled: false,
+        adminApiKey: 'secret-key-123',
+    });
+    t.after(() => app.close());
+
+    // 1. Intento sin credenciales -> 403 Forbidden
+    const unauthRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/kill-switch',
+        payload: { activo: true },
+    });
+    assert.equal(unauthRes.statusCode, 403);
+
+    // 2. Intento con rol TECNICO (no admin) -> 403 Forbidden
+    const tecnicoRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/kill-switch',
+        headers: { authorization: `Bearer ${createMockJwt('TECNICO')}` },
+        payload: { activo: true },
+    });
+    assert.equal(tecnicoRes.statusCode, 403);
+
+    // 3. Con rol ADMINISTRADOR -> 200 OK
+    const adminRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/admin/kill-switch',
+        headers: { authorization: `Bearer ${createMockJwt('ADMINISTRADOR')}` },
+        payload: { activo: true, motivo: 'Suspensión manual por administrador' },
+    });
+    assert.equal(adminRes.statusCode, 200);
+    const adminBody = JSON.parse(adminRes.body);
+    assert.equal(adminBody.status.activo, true);
+    assert.equal(adminBody.status.motivo, 'Suspensión manual por administrador');
+
+    // 4. Con clave administrativa de emergencia en cabecera -> 200 OK
+    const apiKeyRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/kill-switch',
+        headers: { 'x-admin-key': 'secret-key-123' },
+        payload: { activo: false },
+    });
+    assert.equal(apiKeyRes.statusCode, 200);
+    const apiKeyBody = JSON.parse(apiKeyRes.body);
+    assert.equal(apiKeyBody.status.activo, false);
+});
+
+test('TAL-4: Desactivar el Kill Switch reanuda inmediatamente las operaciones de escritura', async (t) => {
+    const incidenciasTarget = await startTarget({ creada: true });
+    const app = buildGateway({
+        ...unavailableServices,
+        incidenciasUrl: incidenciasTarget.url,
+        killSwitchEnabled: true,
+    });
+    t.after(async () => {
+        await app.close();
+        incidenciasTarget.server.close();
+    });
+
+    // 1. Inicialmente activo -> POST bloqueado con 503
+    const blockedRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/incidencias',
+        payload: { titulo: 'Falla' },
+    });
+    assert.equal(blockedRes.statusCode, 503);
+
+    // 2. Desactivar Kill Switch vía endpoint de control con JWT ADMINISTRADOR
+    const deactRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/kill-switch',
+        headers: { authorization: `Bearer ${createMockJwt('ADMINISTRADOR')}` },
+        payload: { activo: false },
+    });
+    assert.equal(deactRes.statusCode, 200);
+
+    // 3. Verificar estado expuesto para frontend -> activo: false
+    const statusRes = await app.inject({ method: 'GET', url: '/api/v1/kill-switch' });
+    const statusBody = JSON.parse(statusRes.body);
+    assert.equal(statusBody.activo, false);
+
+    // 4. Reanuda automáticamente: POST ahora pasa exitosamente al upstream
+    const allowedRes = await app.inject({
+        method: 'POST',
+        url: '/api/v1/incidencias',
+        payload: { titulo: 'Falla' },
+    });
+    assert.equal(allowedRes.statusCode, 200);
+    assert.equal(JSON.parse(allowedRes.body).creada, true);
+});
