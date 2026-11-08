@@ -1,3 +1,4 @@
+/* oxlint-disable react/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
 const NetworkStatusContext = createContext(null);
@@ -34,7 +35,9 @@ export const NetworkStatusProvider = ({
   const [isOnline, setIsOnline] = useState(() =>
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
-  const [isServerReachable, setIsServerReachable] = useState(true);
+  const [isServerReachable, setIsServerReachable] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
   const [consecutiveFailures, setConsecutiveFailures] = useState(0);
   const [lastHeartbeat, setLastHeartbeat] = useState(null);
   const [gatewayStatus, setGatewayStatus] = useState(200);
