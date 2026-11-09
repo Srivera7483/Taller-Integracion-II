@@ -23,9 +23,11 @@ import { AsignarOrdenDto } from './dto/asignar-orden.dto';
 import { FiltrarOrdenesDto } from './dto/filtrar-ordenes.dto';
 import { ActualizarDiagnosticoDto } from '../incidencias/dto/actualizar-diagnostico.dto';
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { RequirePermissions } from '../auth/permissions.decorator';
 
 @Controller('ordenes-trabajo')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class OrdenesTrabajoController {
   constructor(private readonly ordenesService: OrdenesTrabajoService) { }
 
@@ -33,6 +35,7 @@ export class OrdenesTrabajoController {
   @HttpCode(HttpStatus.CREATED)
 
   @Roles('SUPERVISOR', 'ADMINISTRADOR')
+  @RequirePermissions('ordenes:asignar')
   async asignarOrden(
     @Body() body: AsignarOrdenDto,
     @CurrentUser() user: JwtUser,
@@ -44,6 +47,7 @@ export class OrdenesTrabajoController {
 
   @Get('mis-ordenes')
   @Roles('TECNICO', 'SUPERVISOR', 'ADMINISTRADOR')
+  @RequirePermissions('ordenes:diagnosticar')
   async listarMisOrdenes(
     @CurrentUser() user: JwtUser,
     @Query() filtros: FiltrarOrdenesDto,
@@ -55,6 +59,7 @@ export class OrdenesTrabajoController {
 
   @Get('tecnico/:idTecnico')
   @Roles('TECNICO', 'SUPERVISOR', 'ADMINISTRADOR')
+  @RequirePermissions('ordenes:diagnosticar')
   async listarPorTecnico(
     @Param('idTecnico', ParseUUIDPipe) idTecnico: string,
     @CurrentUser() user: JwtUser,
@@ -75,6 +80,7 @@ export class OrdenesTrabajoController {
 
   @Get()
   @Roles('SUPERVISOR', 'ADMINISTRADOR')
+  @RequirePermissions('ordenes:asignar')
   async listarTodas(@Query() filtros: FiltrarOrdenesDto) {
     return this.ordenesService.listarTodas(filtros);
   }
@@ -86,6 +92,7 @@ export class OrdenesTrabajoController {
 
   @Patch(':id_orden/diagnostico')
   @Roles('TECNICO', 'SUPERVISOR', 'ADMINISTRADOR')
+  @RequirePermissions('ordenes:diagnosticar')
   async actualizarDiagnostico(
     @Param('id_orden', ParseUUIDPipe) id_orden: string,
     @Body() body: ActualizarDiagnosticoDto,

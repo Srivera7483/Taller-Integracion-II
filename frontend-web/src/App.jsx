@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
+import { NetworkStatusProvider } from './context/NetworkStatusContext';
+import NetworkStatusBanner from './components/NetworkStatusBanner';
 import Toast from './components/Toast';
 import PublicRoute from './components/PublicRoute';
 import ProtectedRoute from './components/ProtectedRoute'
@@ -27,7 +29,9 @@ import ServerError from './views/ServerError';
 function App() {
   return (
     <Router>
-      <ToastProvider>
+      <NetworkStatusProvider>
+        <ToastProvider>
+          <NetworkStatusBanner />
         <AxiosInterceptor>
           <Routes>
             {/* Rutas globales de error */}
@@ -48,8 +52,10 @@ function App() {
                 {/* Rutas hijas que se renderizan en el <Outlet /> del Layout */}
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="incidencias" element={<Incidencias />} />
-                <Route path="incidencias/nueva" element={<ReporteIncidencia />} />
-                <Route path="incidencias/reportar" element={<ReporteIncidencia />} />
+                <Route element={<ProtectedRoute requiredPermission="incidencias:crear" />}>
+                  <Route path="incidencias/nueva" element={<ReporteIncidencia />} />
+                  <Route path="incidencias/reportar" element={<ReporteIncidencia />} />
+                </Route>
                 <Route path="incidencias/:idIncidencia" element={<DetalleIncidencia />} />
                 <Route path="ordenes/:idOrden" element={<DetalleOrden />} />
                 <Route path="trazabilidad" element={<Trazabilidad />} />
@@ -57,18 +63,20 @@ function App() {
                 <Route path="activos/:idActivo/trazabilidad" element={<Trazabilidad />} />
 
                 {/* RUTA PROTEGIDAS POR ROLES */}
-                <Route element={<ProtectedRoute allowedRoles={['ADMINISTRADOR']} />}>
+                <Route element={<ProtectedRoute requiredPermission="activos:gestionar" />}>
                   <Route path="inventario" element={<Inventario />} />
                 </Route>
-                <Route element={<ProtectedRoute allowedRoles={['ADMINISTRADOR']} />}>
+                <Route element={<ProtectedRoute requiredPermission="usuarios:gestionar" />}>
                   <Route path="usuarios" element={<Usuarios />} />
                 </Route>
-                <Route element={<ProtectedRoute allowedRoles={['ADMINISTRADOR', 'SUPERVISOR', 'TECNICO', 'TÉCNICO']} />}>
+                <Route element={<ProtectedRoute requiredPermission="mantenimientos:crear" />}>
                   <Route path="mantenimientos" element={<Mantenimientos />} />
                 </Route>
-                <Route element={<ProtectedRoute allowedRoles={['SUPERVISOR']} />}>
+                <Route element={<ProtectedRoute requiredPermission="mantenimientos:crear" />}>
                   <Route path="mantenimientos/planificar" element={<PlanificarMantenimiento />} />
                   <Route path="mantenimientos/nuevo" element={<PlanificarMantenimiento />} />
+                </Route>
+                <Route element={<ProtectedRoute requiredPermission="ordenes:asignar" />}>
                   <Route path="incidencias/asignar" element={<AsignarTecnico />} />
                 </Route>
               </Route>
@@ -83,6 +91,7 @@ function App() {
           <Toast />
         </AxiosInterceptor>
       </ToastProvider>
+      </NetworkStatusProvider>
     </Router>
   );
 }

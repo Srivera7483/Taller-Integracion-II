@@ -3,7 +3,9 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser } from 'react-icons/fi';
 import NotificacionesDropdown from './NotificacionesDropdown';
 import CriticalAlertBanner from './CriticalAlertBanner';
+import NetworkStatusIndicator from './NetworkStatusIndicator';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
+import { hasPermission } from '../services/authService';
 
 const Layout = () => {
   const location = useLocation();
@@ -64,13 +66,16 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
     { path: '/inventario', label: 'Inventario', icon: FiBox, allowedRoles: ['ADMINISTRADOR']},
-    { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar, allowedRoles: ['ADMINISTRADOR','SUPERVISOR','TECNICO','TÉCNICO'] },
+    { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar, requiredPermission: 'mantenimientos:crear' },
     { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
     { path: '/usuarios', label: 'Usuarios', icon: FiUsers, allowedRoles: ['ADMINISTRADOR'] },
   ];
 
   // Filtrar los elementos según el rol actual del usuario
   const navItems = allNavItems.filter((item) => {
+    if (item.requiredPermission) {
+      return hasPermission(item.requiredPermission);
+    }
     if (item.allowedRoles) {
       return item.allowedRoles.includes(rolUsuario);
     }
@@ -187,6 +192,7 @@ const Layout = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <NetworkStatusIndicator />
             <NotificacionesDropdown />
           </div>
         </header>

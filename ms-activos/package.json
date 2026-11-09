@@ -13,6 +13,7 @@
     "@nestjs/axios": "^12.0.1",
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
+    "@nestjs/jwt": "^10.2.0",
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/schedule": "^12.0.2",
     "@prisma/client": "6.19.3",

@@ -1,12 +1,21 @@
 import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
+import { hasAllPermissions, hasPermission } from '../services/authService';
 
-const ProtectedRoute = ({ children, allowedRoles }) => {
+const ProtectedRoute = ({ children, allowedRoles, requiredPermission, requiredPermissions }) => {
   const token = localStorage.getItem('token');
   
   // 1. Validar si está autenticado
   if (!token) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requiredPermission && !hasPermission(requiredPermission)) {
+    return <Navigate to="/incidencias" replace />;
+  }
+
+  if (requiredPermissions && !hasAllPermissions(requiredPermissions)) {
+    return <Navigate to="/incidencias" replace />;
   }
   
   // 2. Validar roles si se especificaron

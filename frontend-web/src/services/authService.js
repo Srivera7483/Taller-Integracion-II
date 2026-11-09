@@ -35,6 +35,34 @@ export const getUsuarioActual = () => {
   }
 };
 
+const decodeTokenPayload = (token) => {
+  try {
+    const encodedPayload = token.split('.')[1];
+    return JSON.parse(window.atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/')));
+  } catch {
+    return {};
+  }
+};
+
+export const getPermissions = () => {
+  const usuario = getUsuarioActual();
+  const responsePermissions = Array.isArray(usuario?.permissions) ? usuario.permissions : [];
+  if (responsePermissions.length > 0) return responsePermissions;
+
+  const tokenPermissions = decodeTokenPayload(getAccessToken())?.permissions;
+  return Array.isArray(tokenPermissions) ? tokenPermissions : [];
+};
+
+export const hasPermission = (permission) => {
+  return Array.isArray(permission)
+    ? permission.some((required) => getPermissions().includes(required))
+    : getPermissions().includes(permission);
+};
+
+export const hasAllPermissions = (permissions) =>
+  Array.isArray(permissions) &&
+  permissions.every((permission) => getPermissions().includes(permission));
+
 /**
  * Comprueba si existe una sesión activa válida en el cliente.
  * @returns {boolean}
@@ -58,7 +86,13 @@ export const guardarSesion = ({ accessToken, refreshToken, usuario }) => {
     localStorage.setItem('refreshToken', refreshToken);
   }
   if (usuario) {
-    localStorage.setItem('usuario', JSON.stringify(usuario));
+    const permissions = Array.isArray(usuario.permissions)
+      ? usuario.permissions
+      : decodeTokenPayload(accessToken)?.permissions;
+    localStorage.setItem('usuario', JSON.stringify({
+      ...usuario,
+      permissions: Array.isArray(permissions) ? permissions : [],
+    }));
     window.dispatchEvent(new Event('tecnico-cambiado'));
   }
 };
@@ -164,6 +198,11 @@ export const renovarTokenManualmente = async () => {
   }
 
   localStorage.setItem('token', newAccessToken);
+  const usuario = getUsuarioActual();
+  if (usuario) {
+    const permissions = data.permissions || decodeTokenPayload(newAccessToken)?.permissions || [];
+    localStorage.setItem('usuario', JSON.stringify({ ...usuario, permissions }));
+  }
   if (data.refreshToken || data.refresh_token) {
     localStorage.setItem('refreshToken', data.refreshToken || data.refresh_token);
   }

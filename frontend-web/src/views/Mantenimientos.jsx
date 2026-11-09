@@ -14,6 +14,7 @@ import {
 } from 'react-icons/fi';
 import FiltrosRangoFechasMantenimientos from '../components/FiltrosRangoFechasMantenimientos';
 import { fetchMantenimientos } from '../services/mantenimientosService';
+import { hasPermission } from '../services/authService';
 
 const Mantenimientos = () => {
   const [searchParams] = useSearchParams();
@@ -38,7 +39,7 @@ const Mantenimientos = () => {
   const rolLimpio = rolUsuario ? String(rolUsuario).toUpperCase() : '';
   
   // Exclusivo para el botón de Planificar: Solo SUPERVISOR
-  const esSupervisor = rolLimpio === 'SUPERVISOR';
+  const puedeCrearMantenimientos = hasPermission('mantenimientos:crear');
 
   // Leer rango de fechas desde la URL Query String
   const startDate = searchParams.get('startDate') || '';
@@ -171,7 +172,7 @@ const Mantenimientos = () => {
           </button>
 
           {/* Botón de Planificación exclusivo para el SUPERVISOR */}
-          {esSupervisor && (
+          {puedeCrearMantenimientos && (
             <Link
               to="/mantenimientos/planificar"
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-primary hover:bg-primary-hover rounded-lg shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-150"
@@ -458,7 +459,7 @@ const Mantenimientos = () => {
                 </Link>
               )}
 
-              {esSupervisor && (
+              {puedeCrearMantenimientos && (
                 <Link
                   to="/mantenimientos/planificar"
                   className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-lg transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiAlertTriangle, FiArrowRight, FiX } from 'react-icons/fi';
 import { fetchMantenimientos } from '../services/mantenimientosService';
+import { hasPermission } from '../services/authService';
 
 /**
  * TAL-122: Alertas Visuales (Mantenimientos Próximos)
@@ -15,6 +16,10 @@ const CriticalAlertBanner = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!hasPermission('mantenimientos:crear')) {
+      return undefined;
+    }
+
     let isMounted = true;
 
     const verificarMantenimientosCriticos = async () => {

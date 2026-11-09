@@ -4,4 +4,5 @@ export interface JwtUser {
   userId?: string;
   role?: string;
   tokenUse?: 'access' | 'refresh';
+  permissions?: string[];
 }

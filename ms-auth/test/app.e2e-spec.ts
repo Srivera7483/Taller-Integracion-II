@@ -112,6 +112,7 @@ describe('AppController (e2e)', () => {
         apellido: 'Pruebas',
         correo: 'admin@test.com',
         rol: { id_rol: 1, nombre_rol: 'Administrador' },
+        permissions: [],
         created_at: '2026-01-01T00:00:00.000Z',
       });
   });
