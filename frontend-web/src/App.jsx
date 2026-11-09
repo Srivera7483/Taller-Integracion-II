@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ToastProvider } from './context/ToastContext';
 import { NetworkStatusProvider } from './context/NetworkStatusContext';
 import NetworkStatusBanner from './components/NetworkStatusBanner';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 import Toast from './components/Toast';
 import PublicRoute from './components/PublicRoute';
 import ProtectedRoute from './components/ProtectedRoute'
@@ -87,8 +88,9 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
           
-          {/* Componente global para notificaciones */}
+          {/* Componente global para notificaciones y PWA */}
           <Toast />
+          <PWAInstallPrompt />
         </AxiosInterceptor>
       </ToastProvider>
       </NetworkStatusProvider>
