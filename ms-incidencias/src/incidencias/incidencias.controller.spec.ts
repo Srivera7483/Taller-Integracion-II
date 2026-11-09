@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 
-describe('IncidenciasController - TAL-4, TAL-117, TAL-127 & TAL-140', () => {
+describe('IncidenciasController - TAL-4, TAL-117, TAL-127, TAL-140 & TAL-194', () => {
   let controller: IncidenciasController;
   let service: jest.Mocked<Partial<IncidenciasService>>;
 
@@ -23,6 +23,8 @@ describe('IncidenciasController - TAL-4, TAL-117, TAL-127 & TAL-140', () => {
       procesarYGuardarEvidencia: jest.fn(),
       crearEvidencia: jest.fn(),
       crear: jest.fn(),
+      clasificarPrioridad: jest.fn(),
+      resolverIncidencia: jest.fn(),
     };
 
     controller = new IncidenciasController(service as IncidenciasService);
@@ -231,6 +233,51 @@ describe('IncidenciasController - TAL-4, TAL-117, TAL-127 & TAL-140', () => {
         'user-1',
         'user@test.com',
       );
+    });
+  });
+
+  describe('PATCH /incidencias/:id/prioridad (TAL-194)', () => {
+    it('delega la clasificación de prioridad al servicio', async () => {
+      const mockResultado = {
+        id_incidencia: 'inc-123',
+        prioridad: 'alta',
+      } as any;
+
+      (service.clasificarPrioridad as jest.Mock).mockResolvedValue(mockResultado);
+
+      const resultado = await controller.clasificarPrioridad('inc-123', {
+        prioridad: 'Alta',
+      });
+
+      expect(service.clasificarPrioridad).toHaveBeenCalledWith('inc-123', 'Alta');
+      expect(resultado).toBe(mockResultado);
+    });
+  });
+
+  describe('PATCH /incidencias/:id/resolver (TAL-194)', () => {
+    it('delega la resolución de la incidencia al servicio con rol y usuario', async () => {
+      const mockResultado = {
+        id_historial: 'hist-1',
+        id_estado: 4,
+      } as any;
+
+      (service.resolverIncidencia as jest.Mock).mockResolvedValue(mockResultado);
+
+      const mockUser = {
+        sub: 'tec-1',
+        rol: 'TECNICO',
+        email: 'tecnico@test.com',
+      } as any;
+
+      const resultado = await controller.resolverIncidencia('inc-123', mockUser);
+
+      expect(service.resolverIncidencia).toHaveBeenCalledWith(
+        'inc-123',
+        'tec-1',
+        'TECNICO',
+        'tecnico@test.com',
+      );
+      expect(resultado).toBe(mockResultado);
     });
   });
 });

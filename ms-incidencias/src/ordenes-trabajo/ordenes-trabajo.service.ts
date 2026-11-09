@@ -153,7 +153,12 @@ export class OrdenesTrabajoService {
     return orden;
   }
 
-  async actualizarDiagnostico(idOrden: string, diagnostico_tecnico: string, idTecnicoPeticion: string) {
+  async actualizarDiagnostico(
+    idOrden: string,
+    diagnostico_tecnico: string,
+    idTecnicoPeticion: string,
+    rolUsuario?: string,
+  ) {
     const orden = await this.prisma.ordenTrabajo.findUnique({
       where: { id_orden: idOrden },
     });
@@ -162,9 +167,12 @@ export class OrdenesTrabajoService {
       throw new NotFoundException('Orden de trabajo no encontrada');
     }
 
-    if (orden.id_tecnico !== idTecnicoPeticion) {
+    const rolNorm = (rolUsuario || '').toUpperCase();
+    const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm);
+
+    if (orden.id_tecnico !== idTecnicoPeticion && !esSupervisorOAdmin) {
       throw new ForbiddenException(
-        'Acceso denegado: Solo el técnico asignado puede registrar el diagnóstico.',
+        'Acceso denegado: Solo el técnico asignado, un supervisor o un administrador pueden registrar el diagnóstico.',
       );
     }
 

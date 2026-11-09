@@ -99,11 +99,13 @@ export class OrdenesTrabajoController {
     @CurrentUser() user: JwtUser,
   ) {
     const idUsuario = user.sub || user.userId;
+    const rolUsuario = user.rol || user.role;
     if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
     return this.ordenesService.actualizarDiagnostico(
       id_orden,
       body.diagnostico_tecnico,
       idUsuario,
+      rolUsuario,
     );
   }
 }
