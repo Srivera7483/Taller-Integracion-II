@@ -3,7 +3,7 @@ import { FiWifiOff, FiAlertTriangle, FiCheckCircle, FiRefreshCw } from 'react-ic
 import { useNetworkStatus } from '../context/NetworkStatusContext';
 
 /**
- * TAL-180: Banner Global de Estado de Red y Conectividad con API Gateway.
+ * Banner Global de Estado de Red y Conectividad con API Gateway.
  * Alerta de forma inmediata si el dispositivo pierde la señal de red (isOnline = false)
  * o si el Gateway responde de manera sostenida con 502/503 (isServerReachable = false).
  */

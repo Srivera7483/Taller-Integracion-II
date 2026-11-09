@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsDateString, IsUUID } from 'class-validator';
 
 export class CrearMantenimientoDto {
   @IsUUID()
@@ -6,16 +6,4 @@ export class CrearMantenimientoDto {
 
   @IsDateString()
   fecha_programada: string;
-
-  @IsOptional()
-  @IsString()
-  descripcion?: string;
-
-  @IsOptional()
-  @IsString()
-  tipo?: string;
-
-  @IsOptional()
-  @IsString()
-  estado?: string;
 }

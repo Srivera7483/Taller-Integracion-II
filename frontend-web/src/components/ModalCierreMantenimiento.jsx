@@ -16,7 +16,7 @@ import {
 } from 'react-icons/fi';
 import { LuTriangleAlert, LuCircleAlert, LuInfo } from 'react-icons/lu';
 import { useToast } from '../context/ToastContext';
-import { completarMantenimientoTecnico, rechazarIncidenciaTecnico } from '../services/incidenciasStorage';
+import { completarMantenimientoTecnico, rechazarIncidenciaTecnico } from '../services/incidenciasService';
 import api from '../services/api';
 
 // Lista de materiales e insumos comunes para selección rápida táctil en tablets

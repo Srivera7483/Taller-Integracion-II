@@ -18,8 +18,7 @@ import {
   FiFileText
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
-import { createIncidencia } from '../services/incidenciasService';
-import { saveIncidencia } from '../services/incidenciasStorage';
+import { createIncidencia, saveIncidencia } from '../services/incidenciasService';
 import api from '../services/api';
 
 const MAX_FILE_SIZE_BYTES = 5242880; // 5MB

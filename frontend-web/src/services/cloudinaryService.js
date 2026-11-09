@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 /**
- * Servicio de Integración para Cloudinary (TAL-136)
+ * Servicio de Integración para Cloudinary
  * 
  * Prepara la arquitectura para la subida de evidencias fotográficas a Cloudinary.
  * Cuando las variables de entorno estén presentes, realiza el POST directo a Cloudinary API.
@@ -63,7 +63,7 @@ export const uploadImageToCloudinary = async (file, { onProgress, latencyMs = 16
     };
   }
 
-  // 2. Modo Preparado / Simulado de Latencia (Criterio TAL-136)
+  // 2. Modo Preparado / Simulado de Latencia (Criterio de aceptación)
   // Permite evaluar las transiciones fluidas de "Subir Evidencia" -> "Procesando..." -> "Subido"
   return new Promise((resolve, reject) => {
     let progress = 10;

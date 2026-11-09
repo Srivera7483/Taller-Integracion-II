@@ -2,7 +2,7 @@ import api from './api';
 import axios from 'axios';
 
 /**
- * Servicio de gestión de autenticación, almacenamiento de tokens y control de sesión (TAL-131).
+ * Servicio de gestión de autenticación, almacenamiento de tokens y control de sesión.
  * Cumple estrictamente con la especificación OpenAPI v1.2.0 (SCGI API).
  */
 

@@ -157,7 +157,7 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Notificación de sesión expirada por inactividad (TAL-131) */}
+          {/* Notificación de sesión expirada por inactividad */}
           {sesionExpirada && mode === 'login' && (
             <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2 animate-fadeIn">
               <IoAlertCircleOutline className="w-5 h-5 text-amber-600 flex-shrink-0" />

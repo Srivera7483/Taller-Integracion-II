@@ -433,12 +433,11 @@ export class ActivosService {
 
   private mantenimientosEnMemoria: any[] = [
     {
-      id: 'mant-001', id_mantenimiento: 'mant-001', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
+      id: 'mant-001',
+      id_mantenimiento: 'mant-001',
       id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       fecha_programada: new Date('2026-10-15T10:00:00.000Z'),
-      descripcion: 'Mantenimiento preventivo semestral de lámpara y calibración óptico-láser',
-      tipo: 'Preventivo',
-      estado: 'Pendiente',
+      fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
       activo: {
         id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
         nombre: 'Proyector Láser Epson PowerLite',
@@ -448,12 +447,11 @@ export class ActivosService {
       },
     },
     {
-      id: 'mant-002', id_mantenimiento: 'mant-002', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
+      id: 'mant-002',
+      id_mantenimiento: 'mant-002',
       id_activo: '550e8400-e29b-41d4-a716-446655440000',
       fecha_programada: new Date('2026-10-20T14:30:00.000Z'),
-      descripcion: 'Limpieza de ventiladores, cambio de pasta térmica y diagnóstico de RAM',
-      tipo: 'Correctivo',
-      estado: 'En Proceso',
+      fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
       activo: {
         id: '550e8400-e29b-41d4-a716-446655440000',
         nombre: 'Computador Docente All-in-One Dell',
@@ -463,12 +461,11 @@ export class ActivosService {
       },
     },
     {
-      id: 'mant-003', id_mantenimiento: 'mant-003', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
+      id: 'mant-003',
+      id_mantenimiento: 'mant-003',
       id_activo: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
       fecha_programada: new Date('2026-10-28T09:00:00.000Z'),
-      descripcion: 'Inspección de hardware dado de baja y rescate de componentes reutilizables',
-      tipo: 'Preventivo',
-      estado: 'Pendiente',
+      fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
       activo: {
         id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
         nombre: 'Estación de Trabajo Desincorporada',
@@ -478,12 +475,11 @@ export class ActivosService {
       },
     },
     {
-      id: 'mant-004', id_mantenimiento: 'mant-004', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
+      id: 'mant-004',
+      id_mantenimiento: 'mant-004',
       id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       fecha_programada: new Date('2026-11-05T11:00:00.000Z'),
-      descripcion: 'Revisión trimestral de filtros de aire y pruebas térmicas',
-      tipo: 'Preventivo',
-      estado: 'Pendiente',
+      fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
       activo: {
         id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
         nombre: 'Proyector Láser Epson PowerLite',
@@ -493,12 +489,11 @@ export class ActivosService {
       },
     },
     {
-      id: 'mant-005', id_mantenimiento: 'mant-005', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
+      id: 'mant-005',
+      id_mantenimiento: 'mant-005',
       id_activo: 'SW-CORE-01',
       fecha_programada: new Date('2026-11-12T16:00:00.000Z'),
-      descripcion: 'Actualización preventiva de firmware y verificación de redundancia PoE',
-      tipo: 'Preventivo',
-      estado: 'Pendiente',
+      fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
       activo: {
         id: 'SW-CORE-01',
         nombre: 'Switch de Distribución Cisco Catalyst 9300',
@@ -663,13 +658,13 @@ export class ActivosService {
     }
 
     if (!nuevoMantenimiento) {
+      const idGenerado = `mant-${Date.now()}`;
       nuevoMantenimiento = {
-        id: `mant-${Date.now()}`,
+        id: idGenerado,
+        id_mantenimiento: idGenerado,
         id_activo: dto.id_activo,
         fecha_programada: new Date(dto.fecha_programada),
-        descripcion: dto.descripcion,
-        tipo: dto.tipo,
-        estado: dto.estado || 'Pendiente',
+        fecha_creacion: new Date(),
         activo: {
           id: activoExiste.id,
           nombre: activoExiste.nombre,
@@ -1039,27 +1034,27 @@ export class ActivosService {
     // Si existen mantenimientos en Prisma, se mapean a eventos si no estaban registrados
     if (mantenimientosPrisma.length > 0) {
       for (const m of mantenimientosPrisma) {
-        const existeEvento = todosLosEventos.some((e) => e.detalles?.id_mantenimiento === m.id);
-        if (!existeEvento) {
-          const esCompletado = m.estado === 'Completado';
+        const idMant = String(m.id_mantenimiento || m.id || '');
+        const existeEvento = todosLosEventos.some((e) => e.detalles?.id_mantenimiento === idMant);
+        if (!existeEvento && idMant) {
           todosLosEventos.push({
-            id: `MNT-${m.id.substring(0, 8)}`,
+            id: `MNT-${idMant.substring(0, 8)}`,
             fecha: new Date(m.fecha_programada).toISOString(),
-            tipo: esCompletado ? 'resolucion' : 'mantenimiento',
-            tipoLabel: esCompletado ? 'Mantenimiento Completado' : 'Mantenimiento Programado',
-            titulo: `${m.tipo}: ${m.descripcion}`,
-            descripcion: m.descripcion,
+            tipo: 'mantenimiento',
+            tipoLabel: 'Mantenimiento Preventivo Programado',
+            titulo: 'Mantenimiento Preventivo Programado',
+            descripcion: `Mantenimiento preventivo programado en cronograma (Ref: ${idMant.substring(0, 8)}).`,
             estadoAnterior: EstadoActivo.EN_REVISION,
-            estadoNuevo: esCompletado ? EstadoActivo.OPERATIVO : EstadoActivo.EN_MANTENIMIENTO,
+            estadoNuevo: EstadoActivo.EN_MANTENIMIENTO,
             responsable: {
               nombre: 'Área de Mantenimiento',
               rol: 'Técnico',
               avatar: 'MNT',
             },
             detalles: {
-              id_mantenimiento: m.id,
-              estado: m.estado,
-              tipo: m.tipo,
+              id_mantenimiento: idMant,
+              fecha_programada: new Date(m.fecha_programada).toISOString(),
+              fecha_creacion: m.fecha_creacion ? new Date(m.fecha_creacion).toISOString() : undefined,
             },
           });
         }

@@ -2,7 +2,7 @@ import React from 'react';
 import { useNetworkStatus } from '../context/NetworkStatusContext';
 
 /**
- * TAL-180: Indicador visual compacto para la barra superior (Header)
+ * Indicador visual compacto para la barra superior (Header)
  * que refleja el estado de red del cliente y del API Gateway.
  */
 const NetworkStatusIndicator = () => {

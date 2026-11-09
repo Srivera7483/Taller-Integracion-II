@@ -3,14 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   FiCalendar,
   FiBox,
-  FiFileText,
   FiAlertCircle,
   FiArrowLeft,
   FiSave,
   FiRefreshCw,
-  FiInfo,
   FiChevronDown,
-  FiSliders,
   FiCpu,
   FiMapPin,
   FiHash,
@@ -22,24 +19,6 @@ import {
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { planificarMantenimiento, fetchActivosParaMantenimiento } from '../services/mantenimientosService';
-
-const TIPOS_MANTENIMIENTO = [
-  { id: 'Preventivo', label: 'Mantenimiento Preventivo Periódico', desc: 'Revisión integral según manual del fabricante' },
-  { id: 'Calibración', label: 'Calibración y Ajuste de Precisión', desc: 'Ajuste de parámetros y verificación de tolerancia' },
-  { id: 'Inspección', label: 'Inspección Técnica de Rutina', desc: 'Chequeo visual y funcional preventivo' },
-  { id: 'Limpieza', label: 'Limpieza y Acondicionamiento de Hardware', desc: 'Desempolvado, pasta térmica y ventilación' },
-  { id: 'Actualización', label: 'Actualización de Firmware / Componentes', desc: 'Parches críticos y renovación de firmware' },
-  { id: 'Revisión Eléctrica', label: 'Revisión de Suministro y Baterías (UPS)', desc: 'Testeo de voltajes, baterías y fuentes de poder' },
-  { id: 'Otro', label: 'Otro Servicio Técnico Programado', desc: 'Intervención técnica especializada' },
-];
-
-const SUGERENCIAS_TAREAS = [
-  'Limpieza interna profunda y reemplazo de pasta térmica',
-  'Calibración de sensores y prueba de precisión',
-  'Actualización preventiva de firmware y BIOS del sistema',
-  'Inspección de voltajes, cableado y estado de batería/UPS',
-  'Diagnóstico integral de ventilación y temperaturas',
-];
 
 const calcularFechaMinima = () => {
   const ahora = new Date(Date.now() + 5 * 60 * 1000);
@@ -67,11 +46,9 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
   const [activos, setActivos] = useState([]);
   const [cargandoActivos, setCargandoActivos] = useState(true);
 
-  // Estados del formulario
+  // Estados del formulario alineados con la tabla MANTENIMIENTOS_PREVENTIVOS del MER
   const [idActivo, setIdActivo] = useState(assetFromParam);
   const [fechaProgramada, setFechaProgramada] = useState('');
-  const [tipo, setTipo] = useState('Preventivo');
-  const [descripcion, setDescripcion] = useState('');
 
   // Control y validación
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -135,7 +112,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
       }
     };
 
-    cargar();
+    void cargar();
 
     return () => {
       cancel = true;
@@ -189,7 +166,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
     };
   }, [fechaProgramada, fechaMinima]);
 
-  // Validación individual de campos
+  // Validación individual de campos según esquema NuevoMantenimiento (OpenAPI v1.3.0)
   const validateField = (field, value) => {
     const val = typeof value === 'string' ? value.trim() : value;
     switch (field) {
@@ -206,20 +183,13 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
         }
         return '';
       }
-      case 'tipo':
-        if (!val) return 'Selecciona el tipo de mantenimiento a programar.';
-        return '';
-      case 'descripcion':
-        if (!val) return 'El detalle del trabajo a realizar es obligatorio.';
-        if (val.length < 10) return 'Describe el trabajo con mayor detalle (mínimo 10 caracteres).';
-        return '';
       default:
         return '';
     }
   };
 
   const validateForm = () => {
-    const values = { idActivo, fechaProgramada, tipo, descripcion };
+    const values = { idActivo, fechaProgramada };
     const newErrors = {};
     Object.keys(values).forEach((field) => {
       const errorMsg = validateField(field, values[field]);
@@ -230,7 +200,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
 
   const handleBlur = (field) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
-    const errorMsg = validateField(field, { idActivo, fechaProgramada, tipo, descripcion }[field]);
+    const errorMsg = validateField(field, { idActivo, fechaProgramada }[field]);
     setErrors((prev) => ({ ...prev, [field]: errorMsg }));
   };
 
@@ -239,22 +209,8 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
       setIdActivo('');
     }
     setFechaProgramada('');
-    setTipo('Preventivo');
-    setDescripcion('');
     setErrors({});
     setTouched({});
-  };
-
-  const handleAgregarSugerencia = (sugerencia) => {
-    setDescripcion((prev) => {
-      const limpia = prev.trim();
-      if (!limpia) return sugerencia;
-      if (limpia.includes(sugerencia)) return prev;
-      return `${limpia}\n• ${sugerencia}`;
-    });
-    if (touched.descripcion) {
-      setErrors((prev) => ({ ...prev, descripcion: '' }));
-    }
   };
 
   const handleSubmit = async (e) => {
@@ -266,8 +222,6 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
     setTouched({
       idActivo: true,
       fechaProgramada: true,
-      tipo: true,
-      descripcion: true,
     });
 
     if (Object.keys(formErrors).length > 0) {
@@ -280,12 +234,10 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
     try {
       const fechaIso = new Date(fechaProgramada).toISOString();
 
+      // Payload estrictamente alineado con NuevoMantenimiento (MANTENIMIENTOS_PREVENTIVOS)
       const payload = {
         id_activo: idActivo,
         fecha_programada: fechaIso,
-        tipo,
-        descripcion: descripcion.trim(),
-        estado: 'Pendiente',
       };
 
       const respuesta = await planificarMantenimiento(payload);
@@ -300,7 +252,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
       if (onCancel) {
         onCancel();
       } else {
-        navigate('/inventario');
+        navigate('/mantenimientos');
       }
     } catch (err) {
       const mensajeError =
@@ -456,7 +408,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
         )}
       </div>
 
-      {/* TARJETA 2: CALENDARIO Y TIPO DE INTERVENCIÓN */}
+      {/* TARJETA 2: PLANIFICACIÓN TEMPORAL (FECHA PROGRAMADA) */}
       <div className="bg-white rounded-xl shadow-lg border border-slate-200/90 p-5 sm:p-7 space-y-5 transition-shadow hover:shadow-xl">
         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
           <div className="w-9 h-9 rounded-xl bg-secondary text-white flex items-center justify-center shadow-md shadow-secondary/20 shrink-0">
@@ -464,210 +416,70 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
           </div>
           <div>
             <h3 className="font-bold text-slate-900 text-base tracking-tight">
-              2. Planificación Temporal y Clasificación
+              2. Fecha Programada de Intervención
             </h3>
             <p className="text-xs text-slate-500">
-              Establece el momento exacto y la naturaleza del servicio técnico
-            </p>
-          </div>
-        </div>
-
-        {/* Columnas adaptables: apiladas en móvil (grid-cols-1) y 2 columnas en escritorio (md:grid-cols-2) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Selector de Fecha y Hora Futura */}
-          <div>
-            <label htmlFor="fechaProgramada" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Fecha y Hora de Intervención <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <FiCalendar className="w-5 h-5" />
-              </div>
-              <input
-                type="datetime-local"
-                id="fechaProgramada"
-                min={fechaMinima}
-                value={fechaProgramada}
-                onChange={(e) => {
-                  setFechaProgramada(e.target.value);
-                  if (touched.fechaProgramada) {
-                    setErrors((prev) => ({
-                      ...prev,
-                      fechaProgramada: validateField('fechaProgramada', e.target.value),
-                    }));
-                  }
-                }}
-                onBlur={() => handleBlur('fechaProgramada')}
-                disabled={isSubmitting}
-                className={`w-full pl-11 pr-4 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none hover:bg-slate-50/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring ${
-                  errors.fechaProgramada && touched.fechaProgramada
-                    ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
-                    : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
-                }`}
-              />
-            </div>
-
-            {/* Microcopy e indicador contextual */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-500 mt-2">
-              <span className="flex items-center gap-1">
-                <FiClock className="w-3.5 h-3.5 text-slate-400" />
-                Momento futuro posterior a la fecha actual.
-              </span>
-              {tiempoRestanteBadge && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-lg font-semibold border ${tiempoRestanteBadge.clase}`}>
-                  {tiempoRestanteBadge.texto}
-                </span>
-              )}
-            </div>
-
-            {errors.fechaProgramada && touched.fechaProgramada && (
-              <p className="mt-2 text-xs text-rose-600 flex items-center gap-1.5 font-medium animate-fadeIn">
-                <FiAlertCircle className="w-4 h-4 shrink-0" />
-                <span>{errors.fechaProgramada}</span>
-              </p>
-            )}
-          </div>
-
-          {/* Tipo de Mantenimiento con alineación perfecta */}
-          <div>
-            <label htmlFor="tipoMantenimiento" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-              Tipo de Servicio <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <FiSliders className="w-5 h-5" />
-              </div>
-              <select
-                id="tipoMantenimiento"
-                value={tipo}
-                onChange={(e) => {
-                  setTipo(e.target.value);
-                  if (touched.tipo) {
-                    setErrors((prev) => ({ ...prev, tipo: validateField('tipo', e.target.value) }));
-                  }
-                }}
-                onBlur={() => handleBlur('tipo')}
-                disabled={isSubmitting}
-                className={`w-full pl-11 pr-10 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none appearance-none cursor-pointer hover:bg-slate-50/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring ${
-                  errors.tipo && touched.tipo
-                    ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
-                    : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
-                }`}
-              >
-                {TIPOS_MANTENIMIENTO.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400">
-                <FiChevronDown className="w-4 h-4" />
-              </div>
-            </div>
-
-            <p className="text-[11px] text-slate-500 mt-2">
-              Clasificación estándar para reportes e indicadores de fiabilidad técnica.
-            </p>
-
-            {errors.tipo && touched.tipo && (
-              <p className="mt-2 text-xs text-rose-600 flex items-center gap-1.5 font-medium animate-fadeIn">
-                <FiAlertCircle className="w-4 h-4 shrink-0" />
-                <span>{errors.tipo}</span>
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* TARJETA 3: DESCRIPCIÓN Y NOTAS TÉCNICAS */}
-      <div className="bg-white rounded-xl shadow-lg border border-slate-200/90 p-5 sm:p-7 space-y-5 transition-shadow hover:shadow-xl">
-        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 shrink-0">
-            <FiFileText className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="font-bold text-slate-900 text-base tracking-tight">
-              3. Alcance y Tareas a Desarrollar
-            </h3>
-            <p className="text-xs text-slate-500">
-              Instrucciones técnicas y procedimientos que ejecutará el personal de soporte
+              Establece el momento exacto en el que el sistema activará el mantenimiento preventivo del activo
             </p>
           </div>
         </div>
 
         <div>
-          <label htmlFor="descripcion" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-            Descripción Detallada del Mantenimiento <span className="text-rose-500">*</span>
+          <label htmlFor="fechaProgramada" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+            Fecha y Hora Programada <span className="text-rose-500">*</span>
           </label>
           <div className="relative">
-            <div className="absolute top-3.5 left-3.5 pointer-events-none text-slate-400">
-              <FiFileText className="w-5 h-5" />
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <FiCalendar className="w-5 h-5" />
             </div>
-            <textarea
-              id="descripcion"
-              rows={4}
-              value={descripcion}
+            <input
+              type="datetime-local"
+              id="fechaProgramada"
+              min={fechaMinima}
+              value={fechaProgramada}
               onChange={(e) => {
-                setDescripcion(e.target.value);
-                if (touched.descripcion) {
+                setFechaProgramada(e.target.value);
+                if (touched.fechaProgramada) {
                   setErrors((prev) => ({
                     ...prev,
-                    descripcion: validateField('descripcion', e.target.value),
+                    fechaProgramada: validateField('fechaProgramada', e.target.value),
                   }));
                 }
               }}
-              onBlur={() => handleBlur('descripcion')}
+              onBlur={() => handleBlur('fechaProgramada')}
               disabled={isSubmitting}
-              placeholder="Especifica detalladamente las tareas requeridas (ej: Reemplazo de pasta térmica, limpieza de disipador y verificación de voltajes en fuente de poder)..."
-              className={`w-full pl-11 pr-4 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none resize-y min-h-[110px] hover:bg-slate-50/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring ${
-                errors.descripcion && touched.descripcion
+              className={`w-full pl-11 pr-4 py-3 bg-slate-50/70 border rounded-xl text-sm font-medium transition-all duration-200 outline-none hover:bg-slate-50/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring ${
+                errors.fechaProgramada && touched.fechaProgramada
                   ? 'border-rose-300 focus:ring-2 focus:ring-rose-400 focus:border-rose-500 bg-rose-50/30 text-rose-900'
                   : 'border-slate-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:bg-white text-slate-900'
               }`}
             />
           </div>
 
-          {/* Chips de sugerencias rápidas corporativas */}
-          <div className="mt-3">
-            <span className="text-[11px] font-bold text-slate-600 block mb-1.5 uppercase tracking-wider">
-              Plantillas de Tareas Frecuentes:
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {SUGERENCIAS_TAREAS.map((sug) => (
-                <button
-                  key={sug}
-                  type="button"
-                  onClick={() => handleAgregarSugerencia(sug)}
-                  disabled={isSubmitting}
-                  className="text-xs bg-slate-100 hover:bg-primary-50 hover:text-primary hover:border-primary-300 text-slate-700 border border-slate-200 rounded-lg px-2.5 py-1 transition-all cursor-pointer font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
-                >
-                  + {sug}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] text-slate-500 mt-2">
+          {/* Microcopy e indicador contextual */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-500 mt-2">
             <span className="flex items-center gap-1">
-              <FiInfo className="w-3.5 h-3.5 text-slate-400" />
-              Mínimo 10 caracteres explicativos.
+              <FiClock className="w-3.5 h-3.5 text-slate-400" />
+              Momento futuro posterior a la fecha y hora actual.
             </span>
-            <span className={`font-mono font-medium ${descripcion.trim().length >= 10 ? 'text-emerald-600' : 'text-slate-400'}`}>
-              {descripcion.trim().length} caracteres ingresados
-            </span>
+            {tiempoRestanteBadge && (
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-lg font-semibold border ${tiempoRestanteBadge.clase}`}>
+                {tiempoRestanteBadge.texto}
+              </span>
+            )}
           </div>
 
-          {errors.descripcion && touched.descripcion && (
+          {errors.fechaProgramada && touched.fechaProgramada && (
             <p className="mt-2 text-xs text-rose-600 flex items-center gap-1.5 font-medium animate-fadeIn">
               <FiAlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errors.descripcion}</span>
+              <span>{errors.fechaProgramada}</span>
             </p>
           )}
         </div>
       </div>
 
-      {/* TARJETA 4: RESUMEN CORPORATIVO EN TIEMPO REAL */}
-      {(idActivo || fechaProgramada || descripcion.trim()) && (
+      {/* TARJETA 3: RESUMEN CORPORATIVO EN TIEMPO REAL */}
+      {(idActivo || fechaProgramada) && (
         <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-xl shadow-lg border border-slate-700/80 p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/80 pb-3">
             <div className="flex items-center gap-2.5">
@@ -684,14 +496,14 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
               </div>
             </div>
             <span className="self-start sm:self-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/30 text-sky-300 border border-primary/40">
-              Estado Inicial: Pendiente
+              Registro en Cronograma
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
             <div className="bg-slate-800/70 rounded-lg p-3 border border-slate-700/60">
               <span className="text-slate-400 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
-                Activo Asignado
+                Activo Seleccionado (id_activo)
               </span>
               <p className="font-bold text-slate-100 truncate text-sm">
                 {activoSeleccionado ? activoSeleccionado.nombre : 'Por seleccionar...'}
@@ -703,7 +515,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
 
             <div className="bg-slate-800/70 rounded-lg p-3 border border-slate-700/60">
               <span className="text-slate-400 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
-                Fecha Prevista
+                Fecha Programada (fecha_programada)
               </span>
               <p className="font-bold text-slate-100 text-sm capitalize">
                 {fechaPreview || 'Por programar...'}
@@ -713,18 +525,6 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                   {tiempoRestanteBadge.texto}
                 </span>
               )}
-            </div>
-
-            <div className="bg-slate-800/70 rounded-lg p-3 border border-slate-700/60">
-              <span className="text-slate-400 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
-                Tipo de Servicio
-              </span>
-              <p className="font-bold text-sky-300 text-sm">
-                {tipo}
-              </p>
-              <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                {descripcion.trim() ? `${descripcion.trim().length} caracteres de alcance` : 'Sin descripción aún'}
-              </p>
             </div>
           </div>
         </div>
@@ -736,13 +536,13 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
           type="button"
           onClick={() => {
             if (onCancel) onCancel();
-            else navigate('/inventario');
+            else navigate('/mantenimientos');
           }}
           disabled={isSubmitting}
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
         >
           <FiArrowLeft className="w-4 h-4" />
-          <span>Volver al Inventario</span>
+          <span>Volver a Mantenimientos</span>
         </button>
 
         <div className="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
