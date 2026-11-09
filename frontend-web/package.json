@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "test:unit": "node --test src/services/api.test.mjs src/context/NetworkStatusContext.test.mjs",
     "cypress:open": "node cypress/run-cypress.mjs open",
     "cypress:run": "node cypress/run-cypress.mjs run",
     "test:e2e": "node cypress/run-cypress.mjs run --spec cypress/e2e/flujo-critico-incidencia.cy.js"
