@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import api from '../services/api';
+import axios from 'axios';
+import api, { cancelPendingRetries } from '../services/api';
 import { useToast } from '../context/ToastContext';
 
 const AxiosInterceptor = ({ children }) => {
@@ -9,12 +10,20 @@ const AxiosInterceptor = ({ children }) => {
   const location = useLocation();
 
   useEffect(() => {
+    // TAL-181: Cancelar reintentos en curso si el usuario navega a otra pantalla
+    cancelPendingRetries(location.pathname);
+
     const resInterceptor = api.interceptors.response.use(
       (response) => {
         window.dispatchEvent(new CustomEvent('gateway-success'));
         return response;
       },
       (error) => {
+        // TAL-181: Ignorar peticiones canceladas explícitamente (por navegación u orden de usuario)
+        if (axios.isCancel(error) || error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+          return Promise.reject(error);
+        }
+
         // Ignorar verificaciones de salud en segundo plano
         if (error.config?.url?.includes('/health')) {
           return Promise.reject(error);
