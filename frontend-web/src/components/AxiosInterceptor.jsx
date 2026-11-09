@@ -10,8 +10,21 @@ const AxiosInterceptor = ({ children }) => {
 
   useEffect(() => {
     const resInterceptor = api.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        window.dispatchEvent(new CustomEvent('gateway-success'));
+        return response;
+      },
       (error) => {
+        // Ignorar verificaciones de salud en segundo plano
+        if (error.config?.url?.includes('/health')) {
+          return Promise.reject(error);
+        }
+
+        // TAL-180: Notificar al contexto de red ante 502/503 del Gateway
+        if (error.response?.status === 502 || error.response?.status === 503) {
+          window.dispatchEvent(new CustomEvent('gateway-error', { detail: { status: error.response.status } }));
+        }
+
         // TAL-169: Si el servidor devuelve error 5xx (500, 502, 503, 504)
         if (error.response && error.response.status >= 500 && error.response.status < 600) {
           const errorMessage =

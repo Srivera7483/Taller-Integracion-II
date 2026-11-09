@@ -1,6 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastProvider } from './context/ToastContext';
+import { NetworkStatusProvider } from './context/NetworkStatusContext';
+import NetworkStatusBanner from './components/NetworkStatusBanner';
 import Toast from './components/Toast';
 import PublicRoute from './components/PublicRoute';
 import ProtectedRoute from './components/ProtectedRoute'
@@ -27,7 +29,9 @@ import ServerError from './views/ServerError';
 function App() {
   return (
     <Router>
-      <ToastProvider>
+      <NetworkStatusProvider>
+        <ToastProvider>
+          <NetworkStatusBanner />
         <AxiosInterceptor>
           <Routes>
             {/* Rutas globales de error */}
@@ -87,6 +91,7 @@ function App() {
           <Toast />
         </AxiosInterceptor>
       </ToastProvider>
+      </NetworkStatusProvider>
     </Router>
   );
 }
