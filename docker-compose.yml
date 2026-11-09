@@ -40,6 +40,39 @@ services:
     volumes:
       - auth_db_data:/var/lib/postgresql/data
 
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-inframanager}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-inframanager-local}
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  rabbitmq-setup:
+    image: curlimages/curl:8.12.1
+    container_name: rabbitmq-setup
+    restart: "no"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-inframanager}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-inframanager-local}
+    volumes:
+      - ./rabbitmq/init-queues.sh:/init-queues.sh:ro
+    entrypoint: ["/bin/sh", "/init-queues.sh"]
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
   ms-notificaciones:
     build:
       context: ./ms-notificaciones
@@ -49,6 +82,13 @@ services:
       - ./ms-notificaciones/.env
     environment:
       PORT: 3004
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-inframanager}:${RABBITMQ_DEFAULT_PASS:-inframanager-local}@rabbitmq:5672
+      RABBITMQ_QUEUE_CRITICAS: incidencias_criticas
+      RABBITMQ_DLQ_EXCHANGE: incidencias_criticas.dlx
+      RABBITMQ_DLQ_ROUTING_KEY: incidencias_criticas
+    depends_on:
+      rabbitmq-setup:
+        condition: service_completed_successfully
     ports:
       - "127.0.0.1:${NOTIFICACIONES_PORT:-3004}:3004"
 
@@ -56,3 +96,4 @@ volumes:
   auth_db_data:
   activos_db_data:
   incidencias_db_data:
+  rabbitmq_data:

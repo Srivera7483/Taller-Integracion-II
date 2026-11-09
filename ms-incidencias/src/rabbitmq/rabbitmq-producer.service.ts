@@ -14,6 +14,12 @@ export class RabbitmqProducerService implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     const rmqUrl = this.configService.get<string>('RABBITMQ_URL') || 'amqp://guest:guest@localhost:5672';
     const queueName = this.configService.get<string>('RABBITMQ_QUEUE_CRITICAS') || 'incidencias_criticas';
+    const deadLetterExchange =
+      this.configService.get<string>('RABBITMQ_DLQ_EXCHANGE') ||
+      'incidencias_criticas.dlx';
+    const deadLetterRoutingKey =
+      this.configService.get<string>('RABBITMQ_DLQ_ROUTING_KEY') ||
+      'incidencias_criticas';
 
     this.client = ClientProxyFactory.create({
       transport: Transport.RMQ,
@@ -23,6 +29,10 @@ export class RabbitmqProducerService implements OnModuleInit, OnModuleDestroy {
         persistent: true,
         queueOptions: {
           durable: true,
+          arguments: {
+            'x-dead-letter-exchange': deadLetterExchange,
+            'x-dead-letter-routing-key': deadLetterRoutingKey,
+          },
         },
       },
     });

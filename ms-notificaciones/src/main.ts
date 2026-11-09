@@ -29,6 +29,14 @@ async function bootstrap(): Promise<void> {
           'incidencias_criticas',
         queueOptions: {
           durable: true,
+          arguments: {
+            'x-dead-letter-exchange':
+              process.env.RABBITMQ_DLQ_EXCHANGE ??
+              'incidencias_criticas.dlx',
+            'x-dead-letter-routing-key':
+              process.env.RABBITMQ_DLQ_ROUTING_KEY ??
+              'incidencias_criticas',
+          },
         },
         noAck: false,
         prefetchCount: 1,
