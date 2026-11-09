@@ -15,13 +15,20 @@ model EstadoIncidencia {
   @@map("ESTADOS_INCIDENCIA")
 }
 
+enum PrioridadIncidencia {
+  baja
+  media
+  alta
+}
+
 model Incidencias {
-  id_incidencia  String   @id @default(uuid()) @db.Uuid
-  id_activo      String   @db.Uuid
-  id_reportante  String   @db.Uuid
-  titulo         String   @db.VarChar(255)
-  descripcion    String   @db.Text
-  fecha_creacion DateTime @default(now()) @db.Timestamp()
+  id_incidencia  String             @id @default(uuid()) @db.Uuid
+  id_activo      String             @db.Uuid
+  id_reportante  String             @db.Uuid
+  titulo         String             @db.VarChar(100)
+  descripcion    String             @db.Text
+  prioridad      PrioridadIncidencia @default(media)
+  fecha_creacion DateTime           @default(now()) @db.Timestamp()
 
   historial_estados HistorialEstados[]
   ordenes_trabajo   OrdenTrabajo[]

@@ -38,9 +38,21 @@ export class ExportarIncidenciasService {
     private readonly prioridadDinamicaService: PrioridadDinamicaService = new PrioridadDinamicaService(),
   ) {}
 
+
+  async exportar(
+    incidencias: any[],
+    formato: 'xlsx' | 'excel' | 'csv' = 'xlsx',
+  ): Promise<ResultadoExportacion> {
+    const filas = this.construirFilas(incidencias);
+    return this.generarArchivo(filas, formato);
+  }
+
+
+
   /**
    * Transforma el conjunto de incidencias de base de datos en filas enriquecidas para el reporte gerencial
    */
+
   construirFilas(
     incidencias: any[],
     resolutores: ResolutoresDatosCruzados = {},
