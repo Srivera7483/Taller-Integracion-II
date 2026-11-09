@@ -22,6 +22,9 @@ import api from '../services/api';
 const MAX_FILE_SIZE_BYTES = 5242880;
 const MENSAJE_ERROR_LIMITE_5MB = 'El archivo supera el límite de 5MB';
 
+// Expresión regular para formato estándar UUID v4
+const UUID_V4_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 const CATEGORIAS_FALLA = [
   { id: 'hardware', nombre: 'Hardware', desc: 'Falla física en servidores, equipos o periféricos' },
   { id: 'software', nombre: 'Software', desc: 'Errores en sistemas operativos, servicios o aplicaciones' },
@@ -89,16 +92,26 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
         if (!val) return 'El título de la incidencia es obligatorio';
         if (val.length < 5) return 'El título debe tener al menos 5 caracteres';
         return '';
+
       case 'idActivo':
         if (!val) return 'Debes especificar el ID o número de serie del activo';
+        // Permite UUID v4 estándar, códigos formateados conocidos (ej. ACT-2026-0001) o códigos de serie (ej. SN-...)
+        const esUuidValido = UUID_V4_REGEX.test(val);
+        const esCodigoLegible = /^(ACT|SN|QR)-/i.test(val);
+        if (!esUuidValido && !esCodigoLegible) {
+          return 'Ingresa un UUID válido (ej. 550e8400-e29b-41d4-a716-446655440000) o un código de activo válido (ej. ACT-2026-0001)';
+        }
         return '';
+
       case 'categoria':
         if (!val) return 'Selecciona una categoría de falla';
         return '';
+
       case 'descripcion':
         if (!val) return 'La descripción del problema es obligatoria';
         if (val.length < 15) return 'Por favor proporciona una descripción más detallada (mínimo 15 caracteres)';
         return '';
+
       default:
         return '';
     }
@@ -163,12 +176,10 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
 
   /**
    * TAL-134: Validador de tamaño de archivo (Max 5MB = 5,242,880 bytes) en cliente.
-   * Procesa el archivo una vez validado por <ImageUploader /> (o invocado directamente).
    */
   const handleFileAccepted = (file) => {
     if (!file) return;
 
-    // Doble barrera de seguridad en el formulario: bloquear si supera 5,242,880 bytes (5MB)
     if (file.size > MAX_FILE_SIZE_BYTES) {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -199,10 +210,6 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     }
   };
 
-  /**
-   * TAL-133 - Criterio de Aceptación b:
-   * Posibilidad de limpiar la selección antes de enviar el POST final.
-   */
   const handleLimpiarImagen = (options = {}) => {
     if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(imagenPreviewUrl);
@@ -249,7 +256,6 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     const formErrors = validateForm(currentValues);
     setErrors(formErrors);
 
-    // Marcar todos los campos obligatorios como tocados para desplegar advertencias en rojo
     setTouched({
       titulo: true,
       idActivo: true,
@@ -257,29 +263,24 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       descripcion: true,
     });
 
-    // Criterio 1: Prevenir envío y notificar si faltan campos obligatorios
     if (Object.keys(formErrors).length > 0) {
       showToast('Por favor completa todos los campos requeridos correctamente', 'error');
       return;
     }
 
-    // TAL-134 - Criterio de Aceptación a:
-    // El POST a Cloudinary/Backend nunca se ejecuta si el archivo es mayor a 5MB (5,242,880 bytes)
     if (archivoImagen && archivoImagen.size > MAX_FILE_SIZE_BYTES) {
       handleLimpiarImagen({ silent: true });
       showToast(MENSAJE_ERROR_LIMITE_5MB, 'error');
       return;
     }
 
-    // Criterio 2: Activar estado de envío / loading y deshabilitar botón
     setIsSubmitting(true);
 
-    // Se concatenan metadatos contextuales en la descripción
     const descripcionCompleta = `[Categoría: ${categoria}] [Ubicación: ${ubicacion}]\n${descripcion.trim()}`;
 
     // Resolver ID de activo si es código QR o identificador amigable
     let resolvedActivoId = idActivo.trim();
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(resolvedActivoId);
+    const isUuid = UUID_V4_REGEX.test(resolvedActivoId);
 
     if (!isUuid) {
       try {
@@ -310,13 +311,32 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     try {
       const resp = await createIncidencia(payloadApi);
       idGenerado = resp?.id_incidencia || resp?.id;
-    } catch {
-      // Fallback a almacenamiento persistente local
+    } catch (err) {
+      // Detección explícita de Kill Switch (HTTP 503 con header X-Kill-Switch)
+      const isKillSwitch = 
+        err.response?.status === 503 && 
+        (err.response?.headers?.['x-kill-switch'] === 'true' || err.response?.data?.killSwitch);
+
+      if (isKillSwitch) {
+        const motivo = err.response?.data?.motivo || err.response?.data?.mensaje || 'Sistema en suspensión por mantenimiento de emergencia.';
+        showToast(`[MANTENIMIENTO] ${motivo}`, 'error');
+        setIsSubmitting(false);
+        return;
       }
+
+      // Si fue un 400 u otro error de backend, notificar adecuadamente
+      if (err.response?.status === 400) {
+        const mensajeError = Array.isArray(err.response?.data?.message) 
+          ? err.response.data.message.join(', ') 
+          : (err.response?.data?.mensaje || 'Los datos enviados son inválidos.');
+        showToast(`Error de validación: ${mensajeError}`, 'error');
+        setIsSubmitting(false);
+        return;
+      }
+    }
 
     let urlEvidencia = null;
 
-    // Si el usuario adjuntó una imagen válida (<= 5MB) y no la limpió, subirla como evidencia asociada a la incidencia (TAL-14/TAL-133/TAL-134)
     if (idGenerado && archivoImagen && archivoImagen.size <= MAX_FILE_SIZE_BYTES) {
       try {
         const formData = new FormData();
@@ -346,20 +366,17 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       imagenAdjuntaNombre: archivoImagen?.name || null,
     };
 
-    // Sincronizar almacenamiento local para compatibilidad
     saveIncidencia(nuevaIncidenciaLocal);
 
     setIsSubmitting(false);
     showToast(`¡Incidencia ${nuevaIncidenciaLocal.id} registrada con éxito!`, 'success');
 
-    // Navegación tras registrar
     if (onCancel) {
       onCancel();
     } else {
       navigate('/incidencias');
     }
   };
-
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-8">
@@ -413,7 +430,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             )}
           </div>
 
-          {/* Campo: ID del Activo (con soporte para Pre-carga de URL) */}
+          {/* Campo: ID del Activo (con soporte para Pre-carga de URL y Validación de UUID) */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label htmlFor="incidencia-id-activo" className="block text-sm font-medium text-gray-700">
@@ -438,7 +455,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 onChange={(e) => handleFieldChange('idActivo', e.target.value)}
                 onBlur={() => handleBlur('idActivo')}
                 disabled={isSubmitting}
-                placeholder="Ej. SN-MPM2-2023-001 o ACT-SRV-04"
+                placeholder="Ej. 550e8400-e29b-41d4-a716-446655440000 o ACT-2026-0001"
                 className={`w-full pl-11 ${
                   isUrlPreloaded ? 'pr-10 bg-primary-50/30' : 'pr-4 bg-white'
                 } py-2.5 rounded-lg border text-sm transition-all outline-none font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
@@ -473,12 +490,12 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               </p>
             ) : (
               <p className="mt-1 text-xs text-gray-500">
-                Código de inventario o número de serie del componente afectado.
+                UUID v4 de la base de datos o código de inventario formateado del activo.
               </p>
             )}
           </div>
 
-          {/* Campo: Ubicación Física / Sala (Opcional pero muy útil para soporte) */}
+          {/* Campo: Ubicación Física / Sala */}
           <div className="space-y-1.5">
             <label htmlFor="incidencia-ubicacion" className="block text-sm font-medium text-gray-700">
               Ubicación o Entorno <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
@@ -562,7 +579,6 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
         </div>
       </div>
 
-
       {/* SECCIÓN 3: DESCRIPCIÓN DETALLADA Y EVIDENCIA */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
         <div className="border-b border-gray-100 pb-4 flex items-center justify-between">
@@ -614,7 +630,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
           )}
         </div>
 
-        {/* Campo: Adjuntar Evidencias Fotográficas con Validador de Tamaño Max 5MB (TAL-134) y Previsualizador (TAL-133) */}
+        {/* Campo: Adjuntar Evidencias Fotográficas */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">
             Evidencia Fotográfica o Archivo de Registro <span className="text-xs text-gray-400 font-normal">(Opcional — Máx. 5MB)</span>
@@ -685,7 +701,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
         </div>
       </div>
 
-      {/* Modal Previsualizador de Imágenes Subidas a S3 (TAL-133) */}
+      {/* Modal Previsualizador de Imágenes Subidas */}
       <ModalPrevisualizadorImagen
         isOpen={isImageModalOpen}
         onClose={() => setIsImageModalOpen(false)}

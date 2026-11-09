@@ -51,6 +51,22 @@ if (Test-Path "ms-auth\.env") {
     }
 }
 
+# Sincronizar dependencias de MS Notificaciones antes de Docker
+Write-Host "  -> Sincronizando dependencias de ms-notificaciones..." -ForegroundColor Cyan
+
+Push-Location "ms-notificaciones"
+try {
+    pnpm.cmd install
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Error al instalar dependencias de ms-notificaciones"
+    }
+}
+finally {
+    Pop-Location
+}
+
+
 Write-Host "`n[3/7] Levantando contenedores..." -ForegroundColor Yellow
 
 # Evitar conflictos de directorios/nombres
@@ -61,8 +77,11 @@ foreach ($c in $contenedores) {
         docker rm -f $c > $null 2>&1
     }
 }
-docker compose up -d --remove-orphans
+docker compose up -d --build --remove-orphans
 
+if ($LASTEXITCODE -ne 0) {
+    throw "Error al construir o iniciar los contenedores Docker"
+}
 
 Write-Host "`n[4/7] Verificando conexion a bases de datos PostgreSQL..." -ForegroundColor Yellow
 
@@ -114,9 +133,10 @@ foreach ($srv in $serviciosPrisma) {
 
 $ErrorActionPreference = $OldPreference
 
+
 # sixseven xddxdxd
-# [6/7] Agregando datos de prueba...
-Write-Host "`n[6/7] Agregando datos de prueba..." -ForegroundColor Yellow
+# [6/7] Aplicando migraciones y agregando datos de prueba...
+Write-Host "`n[6/7] Aplicando migraciones y agregando datos de prueba..." -ForegroundColor Yellow
 
 # Seed de MS Auth
 Push-Location "ms-auth"
@@ -138,21 +158,40 @@ finally {
     Pop-Location
 }
 
-# Seed de MS Incidencias
+# Reconstruir base de datos de MS Incidencias
 Push-Location "ms-incidencias"
 try {
-    Write-Host "Ingreso a ms-incidencias" -ForegroundColor Cyan
+    Write-Host "Reconstruyendo incidencias_db..." -ForegroundColor Cyan
 
+    # Recrear tablas mediante las migraciones existentes
+    pnpm.cmd exec prisma migrate reset --force --skip-seed
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Error al reconstruir incidencias_db"
+    }
+
+    # Sincronizar el schema.prisma actual (incluye prioridad)
+    pnpm.cmd exec prisma db push
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Error al sincronizar schema.prisma"
+    }
+
+    # Regenerar Prisma Client
+    pnpm.cmd exec prisma generate
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "Error al generar Prisma Client"
+    }
+
+    # Insertar datos iniciales
     pnpm.cmd exec prisma db seed
 
     if ($LASTEXITCODE -ne 0) {
-        throw "El seed de ms-incidencias terminó con código $LASTEXITCODE"
+        throw "Error al ejecutar seed de ms-incidencias"
     }
 
-    Write-Host "  -> Estados de incidencia ingresados correctamente." -ForegroundColor Green
-}
-catch {
-    Write-Host "  [AVISO] No se pudo ejecutar prisma db seed en ms-incidencias: $_" -ForegroundColor Yellow
+    Write-Host "Base de incidencias preparada correctamente." -ForegroundColor Green
 }
 finally {
     Pop-Location
@@ -173,6 +212,7 @@ if (Test-Path "seed.cjs") {
         Write-Host "  [AVISO] No se pudo ejecutar seed.cjs: $_" -ForegroundColor Yellow
     }
 }
+
 
 Write-Host "`n[7/7] Levantando microservicios en ventanas de Powershell..." -ForegroundColor Yellow
 
