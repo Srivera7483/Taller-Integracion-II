@@ -711,29 +711,22 @@ export class IncidenciasService {
       orderBy: { fecha_creacion: 'desc' },
     });
 
-    // Si se especificó filtro de estado, filtrar por el estado actual de la incidencia
-    const filtradas =
-      query?.id_estado !== undefined && query?.id_estado !== null
-        ? incidencias.filter(
-            (inc) =>
-              inc.historial_estados?.[0]?.estado?.id_estado ===
-              Number(query.id_estado),
-          )
-        : incidencias;
+    return this.exportarIncidenciasService.exportar(incidencias, query?.formato);
+  }
 
-    // Obtener mapas para cruce de datos (Activo, Reportante, Técnico)
-    const activosPorId = await this.resolverActivos();
-    const usuariosPorId = await this.resolverUsuarios();
-
-    const filas = this.exportarIncidenciasService.construirFilas(filtradas, {
-      activosPorId,
-      usuariosPorId,
-    });
-
-    return this.exportarIncidenciasService.generarArchivo(
-      filas,
-      query?.formato ?? 'xlsx',
-    );
+  private toApiEvidencia(
+    evidencia: Prisma.EvidenciaGetPayload<{
+      include: { tipo_evidencia: true };
+    }>,
+  ) {
+    return {
+      id_evidencia: evidencia.id_evidencia,
+      id_incidencia: evidencia.id_incidencia,
+      id_tipo_evidencia: evidencia.id_tipo_evidencia,
+      tipo_evidencia: evidencia.tipo_evidencia,
+      url_evidencia: evidencia.url_cloudinary,
+      fecha_creacion: evidencia.fecha_creacion,
+    };
   }
 
   private async resolverActivos(
@@ -858,17 +851,5 @@ export class IncidenciasService {
     }
 
     return mapa;
-  }
-
-  private toApiEvidencia(evidencia: any) {
-    return {
-      id_evidencia: evidencia.id_evidencia,
-      id_incidencia: evidencia.id_incidencia,
-      id_tipo_evidencia: evidencia.id_tipo_evidencia,
-      tipo: evidencia.tipo_evidencia,
-      tipo_evidencia: evidencia.tipo_evidencia,
-      url_evidencia: evidencia.url_cloudinary,
-      fecha_creacion: evidencia.fecha_creacion,
-    };
   }
 }

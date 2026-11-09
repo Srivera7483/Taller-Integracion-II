@@ -46,7 +46,7 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    cargarResumenGlobal();
+    void cargarResumenGlobal();
   }, [cargarResumenGlobal]);
 
   // LLamada HTTP alineada a la especificación de la tarea TAL-112
@@ -81,7 +81,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     const handleIncidenciaCreada = () => {
-      cargarResumenGlobal();
+      void cargarResumenGlobal();
       recargarListadoIncidencias();
     };
     window.addEventListener('incidencia-creada', handleIncidenciaCreada);

@@ -126,9 +126,9 @@ const Incidencias = () => {
   };
 
   useEffect(() => {
-    cargarIncidenciasReales();
+    void cargarIncidenciasReales();
     const handleIncidenciaCreada = () => {
-      cargarIncidenciasReales();
+      void cargarIncidenciasReales();
     };
     window.addEventListener('incidencia-creada', handleIncidenciaCreada);
     return () => window.removeEventListener('incidencia-creada', handleIncidenciaCreada);
@@ -223,7 +223,7 @@ const Incidencias = () => {
   };
 
   const handleCierreExitoso = () => {
-    cargarIncidenciasReales();
+    void cargarIncidenciasReales();
   };
 
   return (

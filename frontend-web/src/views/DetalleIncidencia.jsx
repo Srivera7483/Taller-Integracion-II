@@ -253,7 +253,7 @@ const DetalleIncidencia = () => {
   };
 
   useEffect(() => {
-    cargarIncidencia();
+    void cargarIncidencia();
   }, [idIncidencia]);
 
   const handleAprobacionCompletada = (nuevoEstado) => {
