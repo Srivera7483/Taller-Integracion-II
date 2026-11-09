@@ -8,7 +8,7 @@ import {
 } from 'react-icons/fi';
 
 /**
- * TAL-169: Vista corporativa de Error 500 (Fallo Interno del Servidor / Bad Gateway)
+ * Vista corporativa de Error 500 (Fallo Interno del Servidor / Bad Gateway)
  * Captura excepciones no controladas de la API, errores 500/502/503 y caídas de microservicios,
  * proveyendo diagnóstico accesible, reintento sin pérdida de sesión y retorno seguro.
  */

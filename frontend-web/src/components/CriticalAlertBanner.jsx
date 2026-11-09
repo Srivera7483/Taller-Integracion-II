@@ -5,7 +5,7 @@ import { fetchMantenimientos } from '../services/mantenimientosService';
 import { hasPermission } from '../services/authService';
 
 /**
- * TAL-122: Alertas Visuales (Mantenimientos Próximos)
+ * Alertas Visuales (Mantenimientos Próximos)
  * Componente independiente de banner de alerta crítica.
  * Se renderiza únicamente si existen mantenimientos vencidos o programados para hoy.
  * Manejo de errores silencioso para garantizar la estabilidad de la UI.

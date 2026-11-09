@@ -1,21 +1,36 @@
 import api from './api';
 
 /**
- * Servicio para gestión y planificación de mantenimientos preventivos (TAL-7 / TAL-12)
+ * Servicio para gestión y planificación de mantenimientos preventivos.
+ * Alineado estrictamente con la tabla MANTENIMIENTOS_PREVENTIVOS del MER y OpenAPI v1.3.0:
+ * - id_mantenimiento (uuid)
+ * - id_activo (uuid)
+ * - fecha_programada (date / ISO 8601)
+ * - fecha_creacion (date-time)
  */
 
 /**
  * Agenda un nuevo mantenimiento preventivo en el microservicio de activos a través del API Gateway.
  * @param {Object} payload
  * @param {string} payload.id_activo - UUID del activo a intervenir
- * @param {string} payload.fecha_programada - Fecha en formato ISO 8601 (futura)
- * @param {string} payload.descripcion - Detalle técnico del trabajo
- * @param {string} payload.tipo - Tipo de mantenimiento (ej. 'Preventivo', 'Calibración')
- * @param {string} [payload.estado] - Estado inicial (por defecto 'Pendiente')
+ * @param {string} payload.fecha_programada - Fecha en formato ISO 8601 o YYYY-MM-DD (futura)
  */
 export const planificarMantenimiento = async (payload) => {
-  const response = await api.post('/mantenimientos/planificar', payload);
-  return response.data;
+  const body = {
+    id_activo: payload.id_activo,
+    fecha_programada: payload.fecha_programada,
+  };
+
+  try {
+    const response = await api.post('/mantenimientos', body);
+    return response.data;
+  } catch (err) {
+    if (err.response?.status === 404) {
+      const fallbackResp = await api.post('/mantenimientos/planificar', body);
+      return fallbackResp.data;
+    }
+    throw err;
+  }
 };
 
 /**
@@ -34,11 +49,10 @@ export const fetchActivosParaMantenimiento = async () => {
 export const MANTENIMIENTOS_FALLBACK = [
   {
     id: 'MANT-001',
+    id_mantenimiento: 'MANT-001',
     id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     fecha_programada: '2026-10-15T10:00:00.000Z',
-    descripcion: 'Mantenimiento preventivo semestral de lámpara y calibración óptico-láser',
-    tipo: 'Preventivo',
-    estado: 'Pendiente',
+    fecha_creacion: '2026-10-01T09:00:00.000Z',
     activo: {
       id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       nombre: 'Proyector Láser Epson PowerLite',
@@ -49,11 +63,10 @@ export const MANTENIMIENTOS_FALLBACK = [
   },
   {
     id: 'MANT-002',
+    id_mantenimiento: 'MANT-002',
     id_activo: '550e8400-e29b-41d4-a716-446655440000',
     fecha_programada: '2026-10-20T14:30:00.000Z',
-    descripcion: 'Limpieza de ventiladores, cambio de pasta térmica y diagnóstico de RAM',
-    tipo: 'Correctivo',
-    estado: 'En Proceso',
+    fecha_creacion: '2026-10-02T11:15:00.000Z',
     activo: {
       id: '550e8400-e29b-41d4-a716-446655440000',
       nombre: 'Computador Docente All-in-One Dell',
@@ -64,11 +77,10 @@ export const MANTENIMIENTOS_FALLBACK = [
   },
   {
     id: 'MANT-003',
+    id_mantenimiento: 'MANT-003',
     id_activo: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
     fecha_programada: '2026-10-28T09:00:00.000Z',
-    descripcion: 'Inspección de hardware dado de baja y rescate de componentes reutilizables',
-    tipo: 'Preventivo',
-    estado: 'Pendiente',
+    fecha_creacion: '2026-10-03T08:30:00.000Z',
     activo: {
       id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
       nombre: 'Estación de Trabajo Desincorporada',
@@ -79,11 +91,10 @@ export const MANTENIMIENTOS_FALLBACK = [
   },
   {
     id: 'MANT-004',
+    id_mantenimiento: 'MANT-004',
     id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     fecha_programada: '2026-11-05T11:00:00.000Z',
-    descripcion: 'Revisión trimestral de filtros de aire y pruebas térmicas',
-    tipo: 'Preventivo',
-    estado: 'Pendiente',
+    fecha_creacion: '2026-10-05T10:00:00.000Z',
     activo: {
       id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
       nombre: 'Proyector Láser Epson PowerLite',
@@ -94,11 +105,10 @@ export const MANTENIMIENTOS_FALLBACK = [
   },
   {
     id: 'MANT-005',
+    id_mantenimiento: 'MANT-005',
     id_activo: 'SW-CORE-01',
     fecha_programada: '2026-11-12T16:00:00.000Z',
-    descripcion: 'Actualización preventiva de firmware y verificación de redundancia PoE',
-    tipo: 'Preventivo',
-    estado: 'Pendiente',
+    fecha_creacion: '2026-10-06T15:20:00.000Z',
     activo: {
       id: 'SW-CORE-01',
       nombre: 'Switch de Distribución Cisco Catalyst 9300',
@@ -110,7 +120,7 @@ export const MANTENIMIENTOS_FALLBACK = [
 ];
 
 /**
- * Obtiene el listado de mantenimientos registrados con filtros de rango de fechas y activo (TAL-121).
+ * Obtiene el listado de mantenimientos registrados con filtros de rango de fechas y activo.
  * @param {Object} [filtros]
  * @param {string} [filtros.startDate] - Fecha de inicio en formato ISO o YYYY-MM-DD
  * @param {string} [filtros.endDate] - Fecha de fin en formato ISO o YYYY-MM-DD

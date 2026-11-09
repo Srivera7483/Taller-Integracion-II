@@ -12,13 +12,13 @@ import {
 import { useToast } from '../context/ToastContext';
 
 /**
- * Límite estricto de tamaño de archivo en cliente: 5MB = 5 * 1024 * 1024 = 5,242,880 bytes (TAL-134)
+ * Límite estricto de tamaño de archivo en cliente: 5MB = 5 * 1024 * 1024 = 5,242,880 bytes
  */
 const MAX_FILE_SIZE_BYTES = 5242880;
 const MENSAJE_ERROR_LIMITE_5MB = 'El archivo supera el límite de 5MB';
 
 /**
- * Componente <ImageUploader /> (TAL-134 & TAL-133)
+ * Componente <ImageUploader />
  * - Valida en cliente el peso del archivo mediante JS nativo (`file.size`) en el evento `onChange` del input `file`.
  * - Si el archivo supera los 5,242,880 bytes (5MB), cancela inmediatamente la carga, limpia el input
  *   y dispara un Toast de error informativo: "El archivo supera el límite de 5MB".
@@ -206,7 +206,7 @@ const ImageUploader = ({
               aria-label="Ampliar imagen de evidencia"
               className="group relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-2 border-primary shadow-md cursor-pointer hover:border-primary-hover hover:shadow-lg transition-all flex-shrink-0 bg-slate-900 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
             >
-              {/* TAL-133 Criterio a: El thumbnail utiliza la propiedad object-cover para no deformar la foto */}
+              {/* Criterio a: El thumbnail utiliza la propiedad object-cover para no deformar la foto */}
               <img
                 id="thumbnail-imagen-adjunta"
                 src={imagenPreviewUrl}

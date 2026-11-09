@@ -73,7 +73,7 @@ const Usuarios = () => {
           onScroll={handleContainerScroll}
           className="overflow-x-auto overflow-y-auto max-h-[580px]"
         >
-          {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
+          {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas */}
           <div className="md:hidden divide-y divide-gray-100 p-3 sm:p-4 space-y-3">
             {loading && usuarios.length === 0 ? (
               <div className="py-12 text-center text-sm text-gray-500">
@@ -134,7 +134,7 @@ const Usuarios = () => {
             )}
           </div>
 
-          {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
+          {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal */}
           <div className="hidden md:block">
 <table className="min-w-full divide-y divide-gray-200 text-left text-sm text-gray-600">
             <thead className="bg-gray-50/90 backdrop-blur-sm sticky top-0 z-10 shadow-xs">
