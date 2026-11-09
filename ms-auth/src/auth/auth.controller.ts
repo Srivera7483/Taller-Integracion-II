@@ -51,7 +51,7 @@ function getCookieValue(cookieHeader: string | undefined, name: string) {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post(['login', 'inicio-sesion'])
+  @Post('login')
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async login(
