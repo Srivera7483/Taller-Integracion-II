@@ -25,6 +25,7 @@ const Incidencias = () => {
   
   // Estados para datos reales de la BD
   const [incidencias, setIncidencias] = useState([]);
+  const [totalGlobal, setTotalGlobal] = useState(null);
   const [loading, setLoading] = useState(true);
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('Todas');
@@ -46,17 +47,76 @@ const Incidencias = () => {
 
   const usuarioAutenticado = obtenerUsuarioActual();
   const rolUsuario = usuarioAutenticado?.rol?.nombre_rol || usuarioAutenticado?.rol || null;
-  const idUsuarioActual = usuarioAutenticado?.id_usuario;
-  const esAdmin = rolUsuario === 'ADMINISTRADOR';
-  const esSupervisor = rolUsuario === 'SUPERVISOR' || esAdmin;
+  const rolNormalizado = (typeof rolUsuario === 'string' ? rolUsuario : '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  const idUsuarioActual =
+    usuarioAutenticado?.id_usuario ||
+    usuarioAutenticado?.id ||
+    usuarioAutenticado?.userId ||
+    null;
+  const nombreUsuarioActual = `${usuarioAutenticado?.nombre || ''} ${usuarioAutenticado?.apellido || ''}`.trim();
+  const esAdmin = rolNormalizado === 'ADMINISTRADOR';
+  const esSupervisor = rolNormalizado === 'SUPERVISOR' || esAdmin;
+
+  const esUuid = (valor) =>
+    typeof valor === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(valor);
+
+  const obtenerNombreTecnicoReal = (inc) => {
+    const candidato =
+      inc.nombre_tecnico ||
+      inc.orden_trabajo?.nombre_tecnico ||
+      inc.tecnico_asignado ||
+      null;
+    if (!candidato) {
+      return inc.id_tecnico ? `ID ${inc.id_tecnico.substring(0, 8)}` : null;
+    }
+    return esUuid(candidato) ? `ID ${candidato.substring(0, 8)}` : candidato;
+  };
+
+  const esIncidenciaAsignadaAMi = (inc) => {
+    const idTecnicoOrden = inc.id_tecnico || inc.orden_trabajo?.id_tecnico || null;
+    const nombreTecnico =
+      inc.nombre_tecnico ||
+      inc.orden_trabajo?.nombre_tecnico ||
+      inc.tecnico_asignado ||
+      '';
+
+    // Si la incidencia no tiene técnico ni orden asignada, NO pertenece a "Mis Asignadas"
+    if (!idTecnicoOrden && !nombreTecnico) {
+      return false;
+    }
+
+    const coincideTecnicoId = Boolean(
+      idUsuarioActual &&
+        (idTecnicoOrden === idUsuarioActual || inc.tecnico_asignado === idUsuarioActual)
+    );
+    const coincideTecnicoNombre = Boolean(
+      nombreUsuarioActual &&
+        nombreTecnico &&
+        !esUuid(nombreTecnico) &&
+        nombreTecnico.toLowerCase() === nombreUsuarioActual.toLowerCase()
+    );
+    return coincideTecnicoId || coincideTecnicoNombre;
+  };
 
   const cargarIncidenciasReales = async () => {
     try {
       setLoading(true);
-      // Asume soporte de paginación TAL-112 o límite OpenAPI
-      const response = await api.get('/incidencias?limite=50');
+      const [response, resumenResp] = await Promise.all([
+        api.get('/incidencias?limite=50'),
+        api.get('/incidencias/resumen').catch(() => null),
+      ]);
       const datos = response.data.datos || response.data.data || response.data || [];
-      setIncidencias(Array.isArray(datos) ? datos : []);
+      const lista = Array.isArray(datos) ? datos : [];
+      setIncidencias(lista);
+      if (resumenResp?.data && typeof resumenResp.data.total === 'number') {
+        setTotalGlobal(Math.max(resumenResp.data.total, lista.length));
+      } else {
+        setTotalGlobal(lista.length);
+      }
     } catch (error) {
       console.error('Error obteniendo incidencias:', error);
       showToast('Error al conectar con la base de datos de incidencias', 'error');
@@ -67,6 +127,11 @@ const Incidencias = () => {
 
   useEffect(() => {
     cargarIncidenciasReales();
+    const handleIncidenciaCreada = () => {
+      cargarIncidenciasReales();
+    };
+    window.addEventListener('incidencia-creada', handleIncidenciaCreada);
+    return () => window.removeEventListener('incidencia-creada', handleIncidenciaCreada);
   }, []);
 
   // Función auxiliar para obtener el nombre del estado
@@ -80,32 +145,46 @@ const Incidencias = () => {
     (acc, inc) => {
       const estadoStr = getNombreEstado(inc.estado);
       acc[estadoStr] = (acc[estadoStr] || 0) + 1;
-      
+
+      if (estadoStr.toLowerCase() === 'reportada') {
+        acc['Pendiente'] = (acc['Pendiente'] || 0) + 1;
+      }
       if (estadoStr.toLowerCase() === 'rechazado' || estadoStr.toLowerCase() === 'rechazada') {
         acc['Rechazado'] = (acc['Rechazado'] || 0) + 1;
       }
       acc['Todas'] = (acc['Todas'] || 0) + 1;
 
-      // Mis Asignadas (Basado en el id del reportante o asignación de backend)
-      if (inc.id_reportante === idUsuarioActual || inc.tecnico_asignado === idUsuarioActual) {
+      // Mis Asignadas (Exclusivamente incidencias con orden de trabajo asignada al usuario actual)
+      if (esIncidenciaAsignadaAMi(inc)) {
         acc['Mis Asignadas'] = (acc['Mis Asignadas'] || 0) + 1;
       }
       return acc;
     },
-    { Todas: 0, 'Mis Asignadas': 0, Rechazado: 0 }
+    { Todas: 0, 'Mis Asignadas': 0, Pendiente: 0, Rechazado: 0 }
   );
+
+  if (typeof totalGlobal === 'number' && totalGlobal > counts.Todas) {
+    counts.Todas = totalGlobal;
+  }
 
   // Filtrado reactivo en tiempo real
   const incidenciasFiltradas = incidencias.filter((inc) => {
     const texto = terminoBusqueda.toLowerCase();
     const idActivo = inc.id_activo || '';
+    const nombreActivo = inc.nombre_activo || '';
+    const codigoQrActivo = inc.codigo_qr_activo || '';
+    const nombreTecnico = obtenerNombreTecnicoReal(inc) || '';
     const idInc = inc.id_incidencia || '';
     
     const coincideTitulo = inc.titulo?.toLowerCase().includes(texto);
-    const coincideActivo = idActivo.toLowerCase().includes(texto);
+    const coincideActivo =
+      idActivo.toLowerCase().includes(texto) ||
+      nombreActivo.toLowerCase().includes(texto) ||
+      codigoQrActivo.toLowerCase().includes(texto);
+    const coincideTecnico = nombreTecnico.toLowerCase().includes(texto);
     const coincideId = idInc.toLowerCase().includes(texto);
     
-    const matchBusqueda = coincideTitulo || coincideActivo || coincideId;
+    const matchBusqueda = coincideTitulo || coincideActivo || coincideTecnico || coincideId;
 
     const incEstado = getNombreEstado(inc.estado);
     let matchEstado = true;
@@ -113,9 +192,11 @@ const Incidencias = () => {
     if (filtroEstado === 'Todas') {
       matchEstado = true;
     } else if (filtroEstado === 'Mis Asignadas') {
-      matchEstado = (inc.id_reportante === idUsuarioActual || inc.tecnico_asignado === idUsuarioActual);
+      matchEstado = esIncidenciaAsignadaAMi(inc);
     } else if (filtroEstado.toLowerCase() === 'rechazado') {
       matchEstado = incEstado.toLowerCase() === 'rechazado' || incEstado.toLowerCase() === 'rechazada';
+    } else if (filtroEstado.toLowerCase() === 'pendiente') {
+      matchEstado = incEstado.toLowerCase() === 'pendiente' || incEstado.toLowerCase() === 'reportada';
     } else {
       matchEstado = incEstado.toLowerCase() === filtroEstado.toLowerCase();
     }
@@ -202,7 +283,12 @@ const Incidencias = () => {
           incidenciasFiltradas.map((inc) => {
             const estadoTexto = getNombreEstado(inc.estado);
             const idTexto = inc.id_incidencia;
-            const esMio = (inc.id_reportante === idUsuarioActual || inc.tecnico_asignado === idUsuarioActual);
+            const nombreTecnicoReal = obtenerNombreTecnicoReal(inc);
+            const etiquetaActivo =
+              inc.nombre_activo ||
+              inc.codigo_qr_activo ||
+              (inc.id_activo ? inc.id_activo.substring(0, 8) : 'Sin activo');
+            const esMio = esIncidenciaAsignadaAMi(inc);
             const estaCompletada = ['completada', 'resuelta', 'cerrada'].includes(estadoTexto.toLowerCase());
             const esRechazado = ['rechazado', 'rechazada'].includes(estadoTexto.toLowerCase());
 
@@ -229,7 +315,7 @@ const Incidencias = () => {
                 <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
                   <div className="inline-flex items-center gap-1.5 font-mono text-xs px-2 py-1 bg-gray-50 text-gray-600 rounded-lg border border-gray-200">
                     <FiBox className="w-3 h-3" />
-                    {inc.id_activo ? inc.id_activo.substring(0, 8) : 'Sin activo'}
+                    {etiquetaActivo}
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getPriorityStyle(inc.prioridad)}`}>
                     {inc.prioridad ? inc.prioridad.toUpperCase() : 'MEDIA'}
@@ -241,7 +327,7 @@ const Incidencias = () => {
                     <div className="flex items-center gap-1.5">
                       <FiUser className="w-3.5 h-3.5 text-gray-400" />
                       <span className="font-medium text-gray-800">
-                        {inc.tecnico_asignado ? `Técnico: ${inc.tecnico_asignado.substring(0, 8)}` : 'Sin asignar'}
+                        {nombreTecnicoReal ? `Técnico: ${nombreTecnicoReal}` : 'Sin asignar'}
                       </span>
                     </div>
 
@@ -256,7 +342,7 @@ const Incidencias = () => {
                         </button>
                       ) : null}
 
-                      {esSupervisor && (estadoTexto.toLowerCase() === 'pendiente') && (
+                      {esSupervisor && !nombreTecnicoReal && !estaCompletada && (
                         <Link to={`/incidencias/asignar?incidenciaId=${idTexto}`} className="text-primary hover:text-primary-hover font-semibold">
                           Asignar
                         </Link>
@@ -299,7 +385,12 @@ const Incidencias = () => {
                 incidenciasFiltradas.map((inc) => {
                   const estadoTexto = getNombreEstado(inc.estado);
                   const idTexto = inc.id_incidencia;
-                  const esMio = (inc.id_reportante === idUsuarioActual || inc.tecnico_asignado === idUsuarioActual);
+                  const nombreTecnicoReal = obtenerNombreTecnicoReal(inc);
+                  const etiquetaActivo =
+                    inc.nombre_activo ||
+                    inc.codigo_qr_activo ||
+                    (inc.id_activo ? inc.id_activo.substring(0, 8) : null);
+                  const esMio = esIncidenciaAsignadaAMi(inc);
                   const estaCompletada = ['completada', 'resuelta', 'cerrada'].includes(estadoTexto.toLowerCase());
                   const esRechazado = ['rechazado', 'rechazada'].includes(estadoTexto.toLowerCase());
 
@@ -316,9 +407,14 @@ const Incidencias = () => {
                       </td>
 
                       <td className="px-6 py-4">
-                        {inc.id_activo ? (
-                          <div className="inline-flex items-center gap-1.5 font-mono text-xs px-2.5 py-1 bg-gray-100 text-gray-800 rounded-lg border border-gray-200">
-                            <FiBox className="w-3.5 h-3.5 text-gray-500" /> {inc.id_activo.substring(0, 8)}
+                        {etiquetaActivo ? (
+                          <div className="inline-flex flex-col gap-0.5 font-mono text-xs px-2.5 py-1 bg-gray-100 text-gray-800 rounded-lg border border-gray-200">
+                            <span className="inline-flex items-center gap-1.5 font-sans font-medium text-gray-900">
+                              <FiBox className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" /> {etiquetaActivo}
+                            </span>
+                            {inc.codigo_qr_activo && inc.nombre_activo && (
+                              <span className="text-[10px] text-gray-500">{inc.codigo_qr_activo}</span>
+                            )}
                           </div>
                         ) : <span className="text-xs text-gray-400">N/A</span>}
                       </td>
@@ -335,8 +431,8 @@ const Incidencias = () => {
                         <div className="flex flex-col text-xs text-gray-500">
                           <span className="flex items-center gap-1.5 text-gray-800 font-medium">
                             <FiUser className="w-3 h-3 text-gray-400" />
-                            <span>{inc.tecnico_asignado ? `Técnico: ${inc.tecnico_asignado.substring(0, 8)}` : 'Sin asignar'}</span>
-                            {esSupervisor && (estadoTexto.toLowerCase() === 'pendiente') && (
+                            <span>{nombreTecnicoReal ? `Técnico: ${nombreTecnicoReal}` : 'Sin asignar'}</span>
+                            {esSupervisor && !nombreTecnicoReal && !estaCompletada && (
                               <Link to={`/incidencias/asignar?incidenciaId=${idTexto}`} className="ml-1 text-[11px] text-primary hover:underline">Asignar</Link>
                             )}
                           </span>
@@ -359,7 +455,7 @@ const Incidencias = () => {
                           <button onClick={() => abrirModalParaIncidencia(inc)} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs">
                             <FiCheckCircle className="w-3.5 h-3.5" /> Finalizar Tarea
                           </button>
-                        ) : inc.tecnico_asignado ? (
+                        ) : nombreTecnicoReal ? (
                           <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-200">
                             <FiLock className="w-3 h-3" /> De otro técnico
                           </span>

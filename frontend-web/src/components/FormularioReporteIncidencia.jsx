@@ -366,7 +366,9 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       imagenAdjuntaNombre: archivoImagen?.name || null,
     };
 
+    // Sincronizar almacenamiento local para compatibilidad y notificar a las vistas activas
     saveIncidencia(nuevaIncidenciaLocal);
+    window.dispatchEvent(new Event('incidencia-creada'));
 
     setIsSubmitting(false);
     showToast(`¡Incidencia ${nuevaIncidenciaLocal.id} registrada con éxito!`, 'success');
