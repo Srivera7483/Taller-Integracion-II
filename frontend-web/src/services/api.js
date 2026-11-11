@@ -71,14 +71,54 @@ export const isNetworkOrTimeoutError = (error) => {
   return false;
 };
 
+const AUTH_ENDPOINT_REGEX = /\/(?:auth|autenticacion)\/(?:login|inicio-sesion|refresh|renovar)(?:\?|$)/i;
+
+/**
+ * Reintenta una petición original inyectando el nuevo token de acceso.
+ */
+const reintentarConToken = (request, token) => {
+  request.headers = request.headers || {};
+  request.headers.Authorization = `Bearer ${token}`;
+  return api(request);
+};
+
+/**
+ * Limpia el temporizador y el abort controller asociados a un reintento.
+ */
+const limpiarEntradaReintento = (entry) => {
+  if (entry?.timerId) {
+    clearTimeout(entry.timerId);
+    entry.timerId = null;
+  }
+  if (entry?.abortController) {
+    try {
+      entry.abortController.abort();
+    } catch {
+      // Ignorar fallo al abortar
+    }
+  }
+};
+
+/**
+ * Fabrica una instancia estándar de error de cancelación de Axios.
+ */
+const crearErrorCancelacion = (mensaje) => new axios.CanceledError(mensaje);
+
+/**
+ * Suscribe o remueve escuchadores para eventos de recuperación de red.
+ */
+const gestionarEventosRed = (handler, suscribir = true) => {
+  if (typeof window === 'undefined') return;
+  const action = suscribir ? 'addEventListener' : 'removeEventListener';
+  window[action]('online', handler);
+  window[action]('gateway-success', handler);
+};
+
 /**
  * Verifica si la URL corresponde a endpoints excluidos de reintentos (auth o health).
  */
 export const isExcludedEndpoint = (url = '') => {
-  return (
-    /\/(?:auth|autenticacion)\/(?:login|inicio-sesion|refresh|renovar)(?:\?|$)/i.test(url) ||
-    /\/health(?:\?|$)/i.test(url)
-  );
+  return AUTH_ENDPOINT_REGEX.test(url) || /\/health(?:\?|$)/i.test(url);
 };
 
 // ---------------------------------------------------------------------------
@@ -115,24 +155,14 @@ export const serializePayload = (data) => {
  */
 export const cancelPendingRetries = (targetScreen = null) => {
   const currentScreen = targetScreen || getCurrentScreen();
+  const debeCancelar = (screen) => !targetScreen || screen !== currentScreen;
 
   // Cancelar reintentos en backoff
   for (const [id, entry] of pendingRetries.entries()) {
-    const shouldCancel = !targetScreen || entry.screen !== currentScreen;
-    if (shouldCancel) {
-      if (entry.timerId) {
-        clearTimeout(entry.timerId);
-        entry.timerId = null;
-      }
-      if (entry.abortController) {
-        try {
-          entry.abortController.abort();
-        } catch {
-          // ignorar error de abort
-        }
-      }
+    if (debeCancelar(entry.screen)) {
+      limpiarEntradaReintento(entry);
       entry.reject(
-        new axios.CanceledError(
+        crearErrorCancelacion(
           `Reintento cancelado: el usuario navegó a otra pantalla (${currentScreen}).`
         )
       );
@@ -143,9 +173,9 @@ export const cancelPendingRetries = (targetScreen = null) => {
   // Cancelar mutaciones en pausa si se navegó a otra pantalla
   for (let i = pausedMutations.length - 1; i >= 0; i--) {
     const entry = pausedMutations[i];
-    if (!targetScreen || entry.screen !== currentScreen) {
+    if (debeCancelar(entry.screen)) {
       entry.reject(
-        new axios.CanceledError(
+        crearErrorCancelacion(
           `Solicitud mutante cancelada: el usuario navegó a otra pantalla (${currentScreen}) mientras esperaba conectividad.`
         )
       );
@@ -179,7 +209,7 @@ export const flushPendingRetriesAndMutations = () => {
       entry.resolve();
     } else {
       entry.reject(
-        new axios.CanceledError(
+        crearErrorCancelacion(
           `Solicitud mutante cancelada: el usuario navegó a otra pantalla (${currentScreen}).`
         )
       );
@@ -189,8 +219,7 @@ export const flushPendingRetriesAndMutations = () => {
 
 // Listeners en navegador para reconexión y navegación
 if (typeof window !== 'undefined') {
-  window.addEventListener('online', flushPendingRetriesAndMutations);
-  window.addEventListener('gateway-success', flushPendingRetriesAndMutations);
+  gestionarEventosRed(flushPendingRetriesAndMutations, true);
   window.addEventListener('popstate', () => {
     cancelPendingRetries(window.location?.pathname);
   });
@@ -205,7 +234,7 @@ export const getPausedMutationsCount = () => pausedMutations.length;
 export const getInFlightMutationsCount = () => inFlightMutations.size;
 export const clearAllRetriesAndMutations = () => {
   for (const [, entry] of pendingRetries.entries()) {
-    if (entry.timerId) clearTimeout(entry.timerId);
+    limpiarEntradaReintento(entry);
   }
   pendingRetries.clear();
   pausedMutations.length = 0;
@@ -222,10 +251,7 @@ export const pauseMutatingRequestUntilOnline = (config) => {
 
     const cleanup = () => {
       if (timeoutId) clearTimeout(timeoutId);
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('gateway-success', handleOnline);
-      }
+      gestionarEventosRed(handleOnline, false);
       const idx = pausedMutations.indexOf(entry);
       if (idx !== -1) pausedMutations.splice(idx, 1);
     };
@@ -235,7 +261,7 @@ export const pauseMutatingRequestUntilOnline = (config) => {
       const current = getCurrentScreen();
       if (current !== originScreen) {
         reject(
-          new axios.CanceledError(
+          crearErrorCancelacion(
             `Solicitud mutante cancelada: el usuario navegó de ${originScreen} a ${current} mientras esperaba conectividad.`
           )
         );
@@ -263,10 +289,7 @@ export const pauseMutatingRequestUntilOnline = (config) => {
       reject(timeoutError);
     }, 30000);
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('gateway-success', handleOnline);
-    }
+    gestionarEventosRed(handleOnline, true);
   });
 };
 
@@ -336,10 +359,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    const isAuthEndpoint =
-      /\/(?:auth|autenticacion)\/(?:login|inicio-sesion|refresh|renovar)(?:\?|$)/i.test(
-        originalRequest?.url || '',
-      );
+    const isAuthEndpoint = AUTH_ENDPOINT_REGEX.test(originalRequest?.url || '');
 
     // 1. Manejo de expiración de sesión (401 Unauthorized) con Refresh Token
     if (error.response && error.response.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
@@ -347,11 +367,7 @@ api.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then((newAccessToken) => {
-            originalRequest.headers = originalRequest.headers || {};
-            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-            return api(originalRequest);
-          })
+          .then((newAccessToken) => reintentarConToken(originalRequest, newAccessToken))
           .catch((refreshError) => Promise.reject(refreshError));
       }
 
@@ -380,9 +396,7 @@ api.interceptors.response.use(
           localStorage.setItem('token', newAccessToken);
         }
         processQueue(null, newAccessToken);
-        originalRequest.headers = originalRequest.headers || {};
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-        return api(originalRequest);
+        return reintentarConToken(originalRequest, newAccessToken);
       } catch (refreshError) {
         processQueue(refreshError, null);
         if (typeof localStorage !== 'undefined') {
@@ -429,7 +443,7 @@ api.interceptors.response.use(
         const currentScreen = getCurrentScreen();
         if (originScreen !== currentScreen) {
           return Promise.reject(
-            new axios.CanceledError(
+            crearErrorCancelacion(
               `Reintento cancelado: el usuario navegó a otra pantalla (${currentScreen}).`
             )
           );
@@ -443,7 +457,7 @@ api.interceptors.response.use(
 
           if (abortController) {
             if (originalRequest.signal && originalRequest.signal.aborted) {
-              return reject(new axios.CanceledError('Petición cancelada por el usuario.'));
+              return reject(crearErrorCancelacion('Petición cancelada por el usuario.'));
             }
             originalRequest.signal = abortController.signal;
           }
@@ -452,7 +466,7 @@ api.interceptors.response.use(
             const activeScreen = getCurrentScreen();
             if (originScreen !== activeScreen) {
               return reject(
-                new axios.CanceledError(
+                crearErrorCancelacion(
                   `Reintento cancelado: el usuario navegó de ${originScreen} a ${activeScreen}.`
                 )
               );
