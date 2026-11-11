@@ -62,7 +62,7 @@ const Mantenimientos = () => {
   }, [startDate, endDate]);
 
   useEffect(() => {
-    cargarMantenimientos();
+    void cargarMantenimientos();
   }, [cargarMantenimientos]);
 
   // Filtrado local adicional por texto (búsqueda rápida dentro del rango)
