@@ -2,11 +2,11 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testRegex": ".*\\.spec\\.ts$",
-  "moduleDirectories": ["node_modules", "../ms-incidencias/node_modules"],
+  "moduleDirectories": ["node_modules"],
   "setupFiles": ["reflect-metadata"],
   "transform": {
     "^.+\\.(t|j)s$": [
-      "../ms-incidencias/node_modules/ts-jest",
+      "ts-jest",
       {
         "diagnostics": false
       }
