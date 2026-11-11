@@ -42,7 +42,7 @@ const EQUIPOS_BASE = [
     estado: 'En Mantenimiento',
   },
   {
-    id: 'SN-MPM2-2023-001',
+    id: '1cbf1781-1087-47f7-8761-b461f108af6f',
     codigoQr: 'SN-MPM2-2023-001',
     nombre: 'MacBook Pro M2 Max 16"',
     categoria: 'Portátiles',
@@ -51,7 +51,7 @@ const EQUIPOS_BASE = [
     estado: 'Operativo',
   },
   {
-    id: 'SN-RC-1111-042',
+    id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
     codigoQr: 'SN-RC-1111-042',
     nombre: 'Router Cisco C1111-8P ISR',
     categoria: 'Redes',

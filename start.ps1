@@ -1,4 +1,4 @@
-﻿# Script de Inicialización Automatizado de Microservicios
+# Script de Inicialización Automatizado de Microservicios
 # ------------------------------------------------------------------------------
 $ErrorActionPreference = "Stop"
 
@@ -48,6 +48,46 @@ if (Test-Path "ms-auth\.env") {
             $contenido -replace "^JWT_SECRET=.*", "JWT_SECRET=$secretAuth" | Set-Content "ms-incidencias\.env"
             Write-Host "  [OK] JWT_SECRET sincronizado en ms-incidencias." -ForegroundColor Green
         }
+    }
+}
+
+# Sincronización de credenciales de Cloudinary desde .env raíz hacia ms-incidencias y frontend-web
+if (Test-Path ".env") {
+    $cName = ""
+    $cPreset = ""
+    Get-Content ".env" | ForEach-Object {
+        if ($_ -match "^\s*CLOUDINARY_CLOUD_NAME\s*=\s*(.+)") { $cName = $matches[1].Trim() }
+        if ($_ -match "^\s*CLOUDINARY_UPLOAD_PRESET\s*=\s*(.+)") { $cPreset = $matches[1].Trim() }
+    }
+
+    if ($cName -and $cPreset) {
+        if (Test-Path "ms-incidencias\.env") {
+            $cInc = Get-Content "ms-incidencias\.env"
+            if ($cInc -match "CLOUDINARY_CLOUD_NAME=") {
+                $cInc = $cInc -replace "^CLOUDINARY_CLOUD_NAME=.*", "CLOUDINARY_CLOUD_NAME=$cName"
+            } else {
+                $cInc += "CLOUDINARY_CLOUD_NAME=$cName"
+            }
+            if ($cInc -match "CLOUDINARY_UPLOAD_PRESET=") {
+                $cInc = $cInc -replace "^CLOUDINARY_UPLOAD_PRESET=.*", "CLOUDINARY_UPLOAD_PRESET=$cPreset"
+            } else {
+                $cInc += "CLOUDINARY_UPLOAD_PRESET=$cPreset"
+            }
+            $cInc | Set-Content "ms-incidencias\.env"
+            Write-Host "  [OK] Credenciales Cloudinary sincronizadas en ms-incidencias." -ForegroundColor Green
+        }
+
+        # Generar o actualizar frontend-web\.env
+        $frontendEnvPath = "frontend-web\.env"
+        $frontendEnvLines = @(
+            "VITE_API_URL=http://localhost:3000/api/v1",
+            "VITE_CLOUDINARY_CLOUD_NAME=$cName",
+            "VITE_CLOUDINARY_UPLOAD_PRESET=$cPreset",
+            "CLOUDINARY_CLOUD_NAME=$cName",
+            "CLOUDINARY_UPLOAD_PRESET=$cPreset"
+        )
+        $frontendEnvLines | Set-Content $frontendEnvPath
+        Write-Host "  [OK] Credenciales Cloudinary sincronizadas en frontend-web." -ForegroundColor Green
     }
 }
 

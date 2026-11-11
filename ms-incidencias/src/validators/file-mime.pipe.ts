@@ -32,6 +32,24 @@ export interface FileMimeValidationOptions {
 }
 
 /**
+ * Normaliza cualquier formato de buffer (Buffer de Node, ArrayBuffer, Uint8Array o DTO transformado con claves numéricas).
+ */
+export function normalizarBuffer(raw: any): Buffer {
+  if (!raw) return Buffer.alloc(0);
+  if (Buffer.isBuffer(raw)) return raw;
+  if (raw instanceof Uint8Array) return Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
+  if (raw instanceof ArrayBuffer) return Buffer.from(raw);
+  if (typeof raw === 'object') {
+    if (Array.isArray(raw.data)) return Buffer.from(raw.data);
+    const values = Object.values(raw);
+    if (values.length > 0 && typeof values[0] === 'number') {
+      return Buffer.from(values as number[]);
+    }
+  }
+  return Buffer.alloc(0);
+}
+
+/**
  * Extrae la extensión en minúsculas de un nombre de archivo o URL.
  */
 export function extraerExtension(nombreArchivo?: string): string {
@@ -178,7 +196,8 @@ export class FileMimeValidationPipe implements PipeTransform<any, any> {
 
     const originalname = file.originalname || file.name || '';
     const mimetype = (file.mimetype || file.type || '').toLowerCase().trim();
-    const buffer: Buffer | undefined = file.buffer;
+    const buffer: Buffer = normalizarBuffer(file.buffer);
+    file.buffer = buffer;
 
     // 2. Validación de extensión del archivo
     const extension = extraerExtension(originalname);

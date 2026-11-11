@@ -18,7 +18,9 @@ import StatusBadge from '../components/StatusBadge';
 import api from '../services/api';
 import AprobacionReportante from '../components/AprobacionReportante';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
+import ModalPrevisualizadorImagen from '../components/ModalPrevisualizadorImagen';
 import EvidenciaUploader from '../components/EvidenciaUploader';
+import { useToast } from '../context/ToastContext';
 import {
   getIncidencias,
   getTecnicoActual,
@@ -29,7 +31,7 @@ import {
  * Componente TarjetaEvidenciaCloudinary (TAL-136)
  * Despliega la evidencia fotográfica de la incidencia con animación fluida de carga.
  */
-const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
+  const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState(false);
 
@@ -127,8 +129,8 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
           </span>
         </div>
 
-        <p className="text-sm font-bold text-gray-900 truncate" title={nombre || 'evidencia_reportante.webp'}>
-          {nombre || 'evidencia_reportante.webp'}
+        <p className="text-sm font-bold text-gray-900 truncate" title={nombre || 'Evidencia fotográfica'}>
+          {nombre || 'Evidencia fotográfica'}
         </p>
 
         <p className="text-xs text-gray-600 leading-relaxed">
@@ -152,6 +154,7 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
 
 const DetalleIncidencia = () => {
   const { idIncidencia } = useParams();
+  const { showToast } = useToast();
   const [incidencia, setIncidencia] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -178,18 +181,31 @@ const DetalleIncidencia = () => {
         const response = await api.get(`/incidencias/${idIncidencia}`);
         if (response.data) {
           const apiData = response.data;
-          const idTecnicoApi =
-            apiData.id_tecnico || apiData.orden_trabajo?.id_tecnico || null;
-          const nombreTecnicoApi =
-            apiData.nombre_tecnico ||
-            apiData.orden_trabajo?.nombre_tecnico ||
-            apiData.tecnico_asignado ||
-            encontradaLocal?.asignado ||
-            null;
-          const diagnosticoApi =
-            apiData.diagnostico_tecnico ||
-            apiData.orden_trabajo?.diagnostico_tecnico ||
-            null;
+
+          let evidenciasApi = [];
+          if (Array.isArray(apiData.evidencias)) {
+            evidenciasApi = apiData.evidencias.map((e) =>
+              typeof e === 'string' ? e : (e.url_cloudinary || e.url_evidencia || e.url),
+            );
+          }
+
+          try {
+            const respEv = await api.get(`/incidencias/${idIncidencia}/evidencias`);
+            if (Array.isArray(respEv.data) && respEv.data.length > 0) {
+              const urlsEndpoint = respEv.data.map(
+                (e) => e.url_cloudinary || e.url_evidencia || e.url,
+              );
+              evidenciasApi = [...new Set([...evidenciasApi, ...urlsEndpoint])];
+            }
+          } catch {
+            // Si el endpoint dedicado no está disponible, usamos apiData.evidencias
+          }
+
+          const evidenciasCombinadas = [
+            ...evidenciasApi,
+            ...(Array.isArray(encontradaLocal?.evidencias) ? encontradaLocal.evidencias : []),
+          ];
+          const evidenciasFinales = [...new Set(evidenciasCombinadas.filter(Boolean))];
 
           setIncidencia({
             id: apiData.id_incidencia || idIncidencia,
@@ -216,10 +232,7 @@ const DetalleIncidencia = () => {
             horasInvertidas: encontradaLocal?.horasInvertidas || null,
             materialesUsados: encontradaLocal?.materialesUsados || [],
             fechaCierre: encontradaLocal?.fechaCierre || null,
-            evidencias:
-              Array.isArray(apiData.evidencias) && apiData.evidencias.length > 0
-                ? apiData.evidencias
-                : encontradaLocal?.evidencias || [],
+            evidencias: evidenciasFinales,
           });
           setLoading(false);
           return;
@@ -274,13 +287,56 @@ const DetalleIncidencia = () => {
     }));
   };
 
-  const handleEvidenciaSubidaDesdeDetalle = (urlEvidencia) => {
-    adjuntarEvidenciaIncidencia(incidencia.id, urlEvidencia);
-    setIncidencia((prev) => ({
-      ...prev,
-      evidencias: [...(prev.evidencias || []), urlEvidencia],
-    }));
-    setMostrarSubidorNuevo(false);
+  const handleEvidenciaSubidaDesdeDetalle = async (evidenciaPayload) => {
+    try {
+      let urlSubida = null;
+      const file = evidenciaPayload?.file;
+
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('id_tipo_evidencia', '1');
+
+        const uploadResp = await api.post(`/incidencias/${idIncidencia}/evidencias`, formData);
+
+        urlSubida = uploadResp.data?.url_cloudinary || uploadResp.data?.url_evidencia;
+      } else {
+        const urlParam =
+          typeof evidenciaPayload === 'string'
+            ? evidenciaPayload
+            : (evidenciaPayload?.previewUrl || evidenciaPayload?.cloudinaryResult?.url);
+
+        if (urlParam) {
+          const uploadResp = await api.post(`/incidencias/${idIncidencia}/evidencias`, {
+            id_tipo_evidencia: 1,
+            url_evidencia: urlParam,
+          });
+          urlSubida = uploadResp.data?.url_cloudinary || uploadResp.data?.url_evidencia || urlParam;
+        }
+      }
+
+      const urlFinal =
+        urlSubida ||
+        (typeof evidenciaPayload === 'string' ? evidenciaPayload : evidenciaPayload?.previewUrl);
+
+      if (urlFinal) {
+        adjuntarEvidenciaIncidencia(incidencia.id, urlFinal);
+        setIncidencia((prev) => ({
+          ...prev,
+          evidencias: [...(prev.evidencias || []), urlFinal],
+        }));
+        showToast('Evidencia fotográfica guardada en Cloudinary exitosamente', 'success');
+      }
+    } catch (err) {
+      console.error('Error al subir evidencia:', err);
+      const msg =
+        err.response?.data?.mensaje ||
+        err.response?.data?.message ||
+        'Error al guardar la evidencia fotográfica.';
+      showToast(msg, 'error');
+    } finally {
+      setMostrarSubidorNuevo(false);
+    }
   };
 
   const handleAbrirPrevisualizador = (url, nombre) => {
@@ -437,20 +493,19 @@ const DetalleIncidencia = () => {
         {evidencias.length > 0 ? (
           <div className="space-y-4">
             {evidencias.map((evItem, idx) => {
-              const urlResuelta =
+              const urlReal =
                 typeof evItem === 'string'
                   ? evItem
-                  : evItem?.url_evidencia || evItem?.url_cloudinary || '';
-              const nombreResuelto =
-                incidencia.imagenAdjuntaNombre ||
-                (typeof evItem === 'object' && evItem?.tipo?.nombre_tipo
-                  ? `evidencia_${evItem.tipo.nombre_tipo.toLowerCase()}_${idx + 1}.webp`
-                  : `evidencia_incidencia_${idx + 1}.webp`);
+                  : (evItem?.url_cloudinary || evItem?.url_evidencia || evItem?.url);
               return (
                 <TarjetaEvidenciaCloudinary
-                  key={evItem?.id_evidencia || idx}
-                  url={urlResuelta}
-                  nombre={nombreResuelto}
+                  key={idx}
+                  url={urlReal}
+                  nombre={
+                    incidencia.id
+                      ? `Incidencia: ${incidencia.id}${evidencias.length > 1 ? ` (Foto ${idx + 1})` : ''}`
+                      : `evidencia_${idx + 1}`
+                  }
                   onAmpliar={handleAbrirPrevisualizador}
                 />
               );
@@ -591,6 +646,14 @@ const DetalleIncidencia = () => {
         }}
         tecnicoActual={tecnicoActual}
         onCierreExitoso={handleCierreExitoso}
+      />
+
+      {/* Modal Previsualizador de Imagen Cloudinary en Alta Resolución */}
+      <ModalPrevisualizadorImagen
+        isOpen={Boolean(imagenModal.url)}
+        onClose={() => setImagenModal({ url: null, nombre: null })}
+        imageUrl={imagenModal.url}
+        imageName={imagenModal.nombre}
       />
     </div>
   );

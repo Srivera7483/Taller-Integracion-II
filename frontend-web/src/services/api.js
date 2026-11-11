@@ -12,8 +12,12 @@ export const resetTestRetryDelays = () => {
   currentRetryDelays = [...RETRY_DELAYS];
 };
 
+const rawBaseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'http://localhost:3000/api/v1';
+const cleanBaseUrl = rawBaseUrl.replace(/\/+$/, '');
+const normalizedBaseUrl = cleanBaseUrl.endsWith('/api') ? `${cleanBaseUrl}/v1` : cleanBaseUrl;
+
 const api = axios.create({
-  baseURL: (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || 'http://localhost:3000/api/v1',
+  baseURL: normalizedBaseUrl,
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
@@ -296,6 +300,11 @@ wrapMutatingMethod('delete');
 // Interceptor de peticiones
 api.interceptors.request.use(
   async (config) => {
+    // Si la petición envía FormData, dejar que el navegador/cliente calcule el boundary multipart
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;

@@ -32,6 +32,7 @@ import { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
 import { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 import { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { IncidenciasService } from './incidencias.service';
+import { FileMimeValidationPipe } from '../validators/file-mime.pipe';
 
 @Controller('incidencias')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -159,29 +160,31 @@ export class IncidenciasController {
   }
 
   @Post(':id_incidencia/evidencias')
+  @Roles('REPORTANTE', 'TECNICO', 'TÉCNICO', 'SUPERVISOR', 'ADMINISTRADOR', 'ADMIN')
+  @UseInterceptors(FileInterceptor('file'))
   crearEvidencia(
     @Param('id_incidencia', ParseUUIDPipe) id: string,
     @Body() body: CrearEvidenciaDto,
+    @UploadedFile(new FileMimeValidationPipe({ required: false })) file?: any,
   ) {
+    if (file) {
+      return this.incidenciasService.crearEvidencia(id, body, file);
+    }
     return this.incidenciasService.crearEvidencia(id, body);
   }
 
   @Post(':id_incidencia/evidencias/upload')
+  @Roles('REPORTANTE', 'TECNICO', 'TÉCNICO', 'SUPERVISOR', 'ADMINISTRADOR', 'ADMIN')
   @UseInterceptors(FileInterceptor('file'))
   async uploadEvidencia(
     @Param('id_incidencia', ParseUUIDPipe) id: string,
     @Body('id_tipo_evidencia') id_tipo_evidencia: string,
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: /(jpg|jpeg|png)$/,
-        })
-        .build({
-          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-        }),
-    )
-    file: any,
+    @UploadedFile(new FileMimeValidationPipe({ required: true })) file: any,
   ) {
-    return this.incidenciasService.procesarYGuardarEvidencia(id, Number(id_tipo_evidencia), file);
+    return this.incidenciasService.procesarYGuardarEvidencia(
+      id,
+      Number(id_tipo_evidencia),
+      file,
+    );
   }
 }

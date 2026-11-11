@@ -280,24 +280,47 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
 
     // Resolver ID de activo si es código QR o identificador amigable
     let resolvedActivoId = idActivo.trim();
-    const isUuid = UUID_V4_REGEX.test(resolvedActivoId);
+    let isUuid = UUID_V4_REGEX.test(resolvedActivoId);
+
+    const mapaConocido = {
+      'ACT-2026-0001': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      'ACT-2026-0002': '550e8400-e29b-41d4-a716-446655440000',
+      'ACT-2026-0003': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      'SN-RC-1111-04': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      'SN-RC-1111-042': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      'SN-MPM2-2023-001': '550e8400-e29b-41d4-a716-446655440000',
+    };
 
     if (!isUuid) {
-      try {
-        const qrResp = await api.get(`/activos/validar-qr?codigoQr=${encodeURIComponent(resolvedActivoId)}`);
-        if (qrResp.data?.valido && qrResp.data?.activo?.id) {
-          resolvedActivoId = qrResp.data.activo.id;
-        }
-      } catch {
-        const mapaConocido = {
-          'ACT-2026-0001': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-          'ACT-2026-0002': '550e8400-e29b-41d4-a716-446655440000',
-          'ACT-2026-0003': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        };
-        if (mapaConocido[resolvedActivoId.toUpperCase()]) {
-          resolvedActivoId = mapaConocido[resolvedActivoId.toUpperCase()];
+      // 1. Intentar resolver por mapa conocido local
+      if (mapaConocido[resolvedActivoId.toUpperCase()]) {
+        resolvedActivoId = mapaConocido[resolvedActivoId.toUpperCase()];
+        isUuid = true;
+      } else {
+        // 2. Intentar resolver vía API de activos (código QR, número de serie o ID)
+        try {
+          const qrResp = await api.get(`/activos/validar-qr?codigoQr=${encodeURIComponent(resolvedActivoId)}`);
+          if (qrResp.data?.valido && qrResp.data?.activo?.id) {
+            const apiId = qrResp.data.activo.id;
+            if (UUID_V4_REGEX.test(apiId)) {
+              resolvedActivoId = apiId;
+              isUuid = true;
+            }
+          }
+        } catch {
+          // Si la API falla, continuar con validación
         }
       }
+    }
+
+    // Si aún no es un UUID válido (no encontrado en BD ni en catálogo conocido)
+    if (!isUuid || !UUID_V4_REGEX.test(resolvedActivoId)) {
+      showToast(
+        `El código "${idActivo}" no corresponde a un activo registrado ni es un UUID válido. Selecciona un activo del inventario o ingresa un código válido (ej. UCT-PRJ-01, ACT-2026-0001).`,
+        'error'
+      );
+      setIsSubmitting(false);
+      return;
     }
 
     const payloadApi = {
@@ -342,14 +365,11 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
         const formData = new FormData();
         formData.append('file', archivoImagen);
         formData.append('id_tipo_evidencia', '1');
-        const uploadResp = await api.post(`/incidencias/${idGenerado}/evidencias/upload`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        urlEvidencia = uploadResp.data?.url_evidencia || uploadResp.data?.url_cloudinary;
-      } catch {
-        // Omisión controlada si backend de carga de evidencias no está disponible
+        const uploadResp = await api.post(`/incidencias/${idGenerado}/evidencias`, formData);
+        urlEvidencia = uploadResp.data?.url_cloudinary || uploadResp.data?.url_evidencia;
+      } catch (uploadErr) {
+        console.warn('Fallo en la subida de evidencia a Cloudinary en backend:', uploadErr);
+        showToast('Incidencia creada, pero la evidencia fotográfica no pudo subirse.', 'warning');
       }
     }
 
