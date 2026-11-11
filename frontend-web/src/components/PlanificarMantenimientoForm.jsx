@@ -128,7 +128,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
   const fechaPreview = useMemo(() => {
     if (!fechaProgramada) return null;
     const d = new Date(fechaProgramada);
-    if (isNaN(d.getTime())) return null;
+    if (Number.isNaN(d.getTime())) return null;
     return new Intl.DateTimeFormat('es-CL', {
       weekday: 'long',
       day: 'numeric',
@@ -143,7 +143,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
   const tiempoRestanteBadge = useMemo(() => {
     if (!fechaProgramada) return null;
     const d = new Date(fechaProgramada);
-    if (isNaN(d.getTime())) return null;
+    if (Number.isNaN(d.getTime())) return null;
     const baseDate = new Date(fechaMinima);
     const diffMs = d.getTime() - baseDate.getTime();
     if (diffMs < 0) {
@@ -177,7 +177,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
         if (!val) return 'La fecha y hora de intervención son obligatorias.';
         const fechaIngresada = new Date(val);
         const ahora = new Date();
-        if (isNaN(fechaIngresada.getTime())) return 'Formato de fecha u hora no válido.';
+        if (Number.isNaN(fechaIngresada.getTime())) return 'Formato de fecha u hora no válido.';
         if (fechaIngresada <= ahora) {
           return 'No se puede agendar un mantenimiento con fecha en el pasado.';
         }
