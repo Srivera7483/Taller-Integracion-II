@@ -3,7 +3,7 @@
   "rootDir": ".",
   "testRegex": ".*\\.spec\\.ts$",
   "moduleDirectories": ["node_modules", "../ms-incidencias/node_modules"],
-  "setupFiles": ["../ms-incidencias/node_modules/reflect-metadata"],
+  "setupFiles": ["reflect-metadata"],
   "transform": {
     "^.+\\.(t|j)s$": [
       "../ms-incidencias/node_modules/ts-jest",
