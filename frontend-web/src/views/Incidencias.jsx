@@ -77,29 +77,15 @@ const Incidencias = () => {
   };
 
   const esIncidenciaAsignadaAMi = (inc) => {
-    const idTecnicoOrden = inc.id_tecnico || inc.orden_trabajo?.id_tecnico || null;
-    const nombreTecnico =
-      inc.nombre_tecnico ||
-      inc.orden_trabajo?.nombre_tecnico ||
-      inc.tecnico_asignado ||
-      '';
+    const idTecnicoOrden =
+      inc.orden_trabajo?.id_tecnico ?? inc.id_tecnico ?? null;
 
-    // Si la incidencia no tiene técnico ni orden asignada, NO pertenece a "Mis Asignadas"
-    if (!idTecnicoOrden && !nombreTecnico) {
-      return false;
-    }
-
-    const coincideTecnicoId = Boolean(
+    return Boolean(
       idUsuarioActual &&
-        (idTecnicoOrden === idUsuarioActual || inc.tecnico_asignado === idUsuarioActual)
+      idTecnicoOrden &&
+      String(idTecnicoOrden).toLowerCase() ===
+        String(idUsuarioActual).toLowerCase()
     );
-    const coincideTecnicoNombre = Boolean(
-      nombreUsuarioActual &&
-        nombreTecnico &&
-        !esUuid(nombreTecnico) &&
-        nombreTecnico.toLowerCase() === nombreUsuarioActual.toLowerCase()
-    );
-    return coincideTecnicoId || coincideTecnicoNombre;
   };
 
   const cargarIncidenciasReales = async () => {
