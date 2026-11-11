@@ -5,6 +5,7 @@ import {
   BadGatewayException,
 } from '@nestjs/common';
 import axios from 'axios';
+import { normalizarBuffer } from '../validators/file-mime.pipe';
 
 @Injectable()
 export class CloudinaryService {
@@ -29,21 +30,6 @@ export class CloudinaryService {
     );
   }
 
-  normalizarBuffer(raw: any): Buffer {
-    if (!raw) return Buffer.alloc(0);
-    if (Buffer.isBuffer(raw)) return raw;
-    if (raw instanceof Uint8Array) return Buffer.from(raw.buffer, raw.byteOffset, raw.byteLength);
-    if (raw instanceof ArrayBuffer) return Buffer.from(raw);
-    if (typeof raw === 'object') {
-      if (Array.isArray(raw.data)) return Buffer.from(raw.data);
-      const values = Object.values(raw);
-      if (values.length > 0 && typeof values[0] === 'number') {
-        return Buffer.from(values as number[]);
-      }
-    }
-    return Buffer.alloc(0);
-  }
-
   /**
    * Sube un archivo binario directamente a la API de Cloudinary usando el upload preset no firmado.
    * @param file Archivo recibido por Multer (Express.Multer.File o similar con buffer).
@@ -57,7 +43,7 @@ export class CloudinaryService {
   }): Promise<string> {
     const cloudName = this.getCloudName();
     const preset = this.getUploadPreset();
-    const buffer = this.normalizarBuffer(file?.buffer);
+    const buffer = normalizarBuffer(file?.buffer);
 
     if (!file || !buffer || buffer.length === 0) {
       throw new BadRequestException('No se ha proporcionado ningún archivo para subir o el archivo está vacío.');
