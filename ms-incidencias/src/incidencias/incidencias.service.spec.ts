@@ -224,4 +224,142 @@ describe('IncidenciasService notifications', () => {
       );
     });
   });
+
+  describe('TAL-201: Enriquecimiento de Técnico Real, Mis Asignadas y Resumen Dashboard', () => {
+    it('enriquece obtener() con datos de orden de trabajo, técnico real, reportante y activo', async () => {
+      const mockPrisma = prisma as any;
+      const fechaAsignacion = new Date('2026-10-06T09:30:00Z');
+      mockPrisma.incidencias = {
+        findUnique: jest.fn().mockResolvedValue({
+          ...incidenciaCreada,
+          ordenes_trabajo: [
+            {
+              id_orden: 'orden-101',
+              id_incidencia: 'incidencia-1',
+              id_tecnico: 'tecnico-real-uuid',
+              diagnostico_tecnico: 'Cambio de lámpara óptica',
+              fecha_creacion: fechaAsignacion,
+            },
+          ],
+        }),
+      };
+
+      const getMock = jest.fn((url: string) => {
+        if (url.includes('/activos')) {
+          return of({
+            data: {
+              datos: [
+                {
+                  id: 'activo-1',
+                  nombre: 'Proyector Epson Aula 301',
+                  codigoQr: 'ACT-2026-0301',
+                },
+              ],
+            },
+          });
+        }
+        return of({
+          data: {
+            datos: [
+              {
+                id_usuario: 'tecnico-real-uuid',
+                nombre: 'Carlos',
+                apellido: 'Ruiz',
+                email: 'carlos.ruiz@duoc.cl',
+              },
+              {
+                id_usuario: 'reportante-1',
+                nombre: 'Ana',
+                apellido: 'Gómez',
+                email: 'ana.gomez@duoc.cl',
+              },
+            ],
+          },
+        });
+      });
+      (httpService as any).get = getMock;
+
+      const resultado = await service.obtener('incidencia-1', 'Bearer token-123');
+
+      expect(resultado).toMatchObject({
+        id_incidencia: 'incidencia-1',
+        id_orden: 'orden-101',
+        id_tecnico: 'tecnico-real-uuid',
+        nombre_tecnico: 'Carlos Ruiz',
+        tecnico_asignado: 'Carlos Ruiz',
+        nombre_reportante: 'Ana Gómez',
+        nombre_activo: 'Proyector Epson Aula 301',
+        codigo_qr_activo: 'ACT-2026-0301',
+        diagnostico_tecnico: 'Cambio de lámpara óptica',
+        fecha_asignacion: fechaAsignacion,
+      });
+    });
+
+    it('calcula el resumen global de métricas en obtenerResumenMetricas() sobre toda la BD', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.incidencias = {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            ...incidenciaCreada,
+            id_incidencia: 'inc-rep',
+            titulo: 'Falla eléctrica crítica en servidor',
+            historial_estados: [{ estado: { id_estado: 1, nombre_estado: 'Reportada' } }],
+            ordenes_trabajo: [],
+          },
+          {
+            ...incidenciaCreada,
+            id_incidencia: 'inc-asig',
+            fecha_creacion: new Date(),
+            historial_estados: [{ estado: { id_estado: 2, nombre_estado: 'Asignada' } }],
+            ordenes_trabajo: [{ id_orden: 'ord-1', id_tecnico: 'tec-1' }],
+          },
+          {
+            ...incidenciaCreada,
+            id_incidencia: 'inc-res',
+            historial_estados: [{ estado: { id_estado: 3, nombre_estado: 'Resuelta' } }],
+            ordenes_trabajo: [{ id_orden: 'ord-2', id_tecnico: 'tec-1' }],
+          },
+        ]),
+      };
+
+      const resumen = await service.obtenerResumenMetricas();
+
+      expect(resumen).toEqual({
+        total: 3,
+        pendientes: 2,
+        reportadas: 1,
+        asignadas: 1,
+        criticas: 1,
+        resueltas: 1,
+        cerradas: 0,
+        sin_asignar: 1,
+      });
+    });
+
+    it('separa el estado Cerrada de Órdenes Resueltas para no inflar el contador de Resueltas en el Dashboard', async () => {
+      const mockPrisma = prisma as any;
+      mockPrisma.incidencias = {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            ...incidenciaCreada,
+            id_incidencia: 'inc-resuelta-1',
+            historial_estados: [{ estado: { id_estado: 3, nombre_estado: 'Resuelta' } }],
+            ordenes_trabajo: [{ id_orden: 'ord-real-1', id_tecnico: 'tec-1' }],
+          },
+          {
+            ...incidenciaCreada,
+            id_incidencia: 'inc-cerrada-1',
+            historial_estados: [{ estado: { id_estado: 4, nombre_estado: 'Cerrada' } }],
+            ordenes_trabajo: [],
+          },
+        ]),
+      };
+
+      const resumen = await service.obtenerResumenMetricas();
+
+      expect(resumen.total).toBe(2);
+      expect(resumen.resueltas).toBe(1);
+      expect(resumen.cerradas).toBe(1);
+    });
+  });
 });

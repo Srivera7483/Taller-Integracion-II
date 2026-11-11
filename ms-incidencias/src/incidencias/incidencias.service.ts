@@ -58,7 +58,7 @@ export class IncidenciasService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
-    private readonly rabbitmqProducer: RabbitmqProducerService,
+    private readonly rabbitmqProducer?: RabbitmqProducerService,
     private readonly prioridadDinamicaService: PrioridadDinamicaService = new PrioridadDinamicaService(),
     private readonly exportarIncidenciasService: ExportarIncidenciasService = new ExportarIncidenciasService(),
   ) {}
@@ -69,12 +69,14 @@ export class IncidenciasService {
     return prioridad === PrioridadIncidencia.alta;
   }
 
-  async listar(query: ListarIncidenciasQueryDto) {
-    const limite = query.limit ?? query.limite ?? 15;
-    const pagina = query.page ?? query.pagina ?? 1;
+  async listar(query: ListarIncidenciasQueryDto, authHeader?: string) {
+    const limite = query.limite ?? query.limit ?? 20;
+    const pagina = query.pagina ?? query.page ?? 1;
     const offset = (pagina - 1) * limite;
     const idActivo = query.id_activo ?? null;
     const idEstado = query.id_estado ?? null;
+    const idTecnico = query.id_tecnico ?? null;
+    const idReportante = query.id_reportante ?? null;
 
     const ids = await this.prisma.$queryRaw<Array<{ id_incidencia: string }>>(
       Prisma.sql`
@@ -87,27 +89,118 @@ export class IncidenciasService {
           ORDER BY h."fecha_creacion" DESC, h."id_historial" DESC
           LIMIT 1
         ) estado_actual ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT o."id_tecnico"
+          FROM "ORDENES_TRABAJO" o
+          WHERE o."id_incidencia" = i."id_incidencia"
+          ORDER BY o."fecha_creacion" DESC, o."id_orden" DESC
+          LIMIT 1
+        ) orden_actual ON TRUE
         WHERE (${idActivo}::uuid IS NULL OR i."id_activo" = ${idActivo}::uuid)
           AND (${idEstado}::integer IS NULL OR estado_actual."id_estado" = ${idEstado}::integer)
+          AND (${idTecnico}::uuid IS NULL OR orden_actual."id_tecnico" = ${idTecnico}::uuid)
+          AND (${idReportante}::uuid IS NULL OR i."id_reportante" = ${idReportante}::uuid)
         ORDER BY i."fecha_creacion" DESC
         LIMIT ${limite} OFFSET ${offset}
       `,
     );
     if (ids.length === 0) return [];
 
-    const incidencias = await this.prisma.incidencias.findMany({
-      where: { id_incidencia: { in: ids.map((row) => row.id_incidencia) } },
-      ...incidenciaConEstadoActual,
-    });
-    
+    const [incidencias, activosPorId, usuariosPorId] = await Promise.all([
+      this.prisma.incidencias.findMany({
+        where: { id_incidencia: { in: ids.map((row) => row.id_incidencia) } },
+        ...incidenciaConEstadoActual,
+      }),
+      this.resolverActivos(authHeader),
+      this.resolverUsuarios(authHeader),
+    ]);
+
     const porId = new Map(
       incidencias.map((incidencia) => [incidencia.id_incidencia, incidencia]),
     );
-    
+
     return ids.flatMap((row) => {
       const incidencia = porId.get(row.id_incidencia);
-      return incidencia ? [this.toApiIncidencia(incidencia)] : [];
+      return incidencia
+        ? [this.toApiIncidencia(incidencia, { activosPorId, usuariosPorId })]
+        : [];
     });
+  }
+
+  /**
+   * TAL-201: Obtiene los contadores globales reales de toda la tabla INCIDENCIAS
+   * para el Dashboard operativo (sin truncar por la paginación inicial limit=15).
+   */
+  async obtenerResumenMetricas() {
+    const incidencias = await this.prisma.incidencias.findMany({
+      ...incidenciaConEstadoActual,
+      orderBy: { fecha_creacion: 'desc' },
+    });
+
+    let pendientes = 0;
+    let reportadas = 0;
+    let asignadas = 0;
+    let criticas = 0;
+    let resueltas = 0;
+    let cerradas = 0;
+    let sinAsignar = 0;
+
+    for (const inc of incidencias) {
+      const estadoNombre = (
+        inc.historial_estados?.[0]?.estado?.nombre_estado ?? 'Reportada'
+      )
+        .trim()
+        .toLowerCase();
+
+      const esCerradaOResuelta = [
+        'resuelta',
+        'completada',
+        'cerrada',
+        'rechazada',
+      ].includes(estadoNombre);
+
+      if (esCerradaOResuelta) {
+        if (estadoNombre === 'resuelta' || estadoNombre === 'completada') {
+          resueltas += 1;
+        } else if (estadoNombre === 'cerrada') {
+          cerradas += 1;
+        }
+        continue;
+      }
+
+      pendientes += 1;
+      if (estadoNombre === 'asignada' || estadoNombre === 'en progreso') {
+        asignadas += 1;
+      } else {
+        reportadas += 1;
+      }
+
+      if (!inc.ordenes_trabajo?.length) {
+        sinAsignar += 1;
+      }
+
+      const calculo =
+        this.prioridadDinamicaService.calcularPrioridadRelativa(inc);
+      const prioStr = (calculo.prioridad_relativa ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+      if (prioStr === 'critica' || prioStr === 'alta') {
+        criticas += 1;
+      }
+    }
+
+    return {
+      total: incidencias.length,
+      pendientes,
+      reportadas,
+      asignadas,
+      criticas,
+      resueltas,
+      cerradas,
+      sin_asignar: sinAsignar,
+    };
   }
 
   async crear(
@@ -160,7 +253,7 @@ export class IncidenciasService {
       `La incidencia "${creada.titulo}" fue reportada correctamente.`,
     );
 
-    if (this.esIncidenciaCritica(prioridadAsignada)) {
+    if (this.esIncidenciaCritica(prioridadAsignada) && this.rabbitmqProducer) {
       this.rabbitmqProducer
         .emitirIncidenciaCritica({
           evento: 'INCIDENCIA_CRITICA_REGISTRADA',
@@ -181,13 +274,19 @@ export class IncidenciasService {
     return creada;
   }
 
-  async obtener(id: string) {
+  async obtener(id: string, authHeader?: string) {
     const incidencia = await this.prisma.incidencias.findUnique({
       where: { id_incidencia: id },
       ...incidenciaConEstadoActual,
     });
     if (!incidencia) throw new NotFoundException('Incidencia no encontrada');
-    return this.toApiIncidencia(incidencia);
+
+    const [activosPorId, usuariosPorId] = await Promise.all([
+      this.resolverActivos(authHeader),
+      this.resolverUsuarios(authHeader),
+    ]);
+
+    return this.toApiIncidencia(incidencia, { activosPorId, usuariosPorId });
   }
 
   async actualizarEstado(
@@ -493,36 +592,63 @@ export class IncidenciasService {
       .toUpperCase();
   }
 
-  private toApiEvidencia(
-    evidencia: Prisma.EvidenciaGetPayload<{
-      include: { tipo_evidencia: true };
-    }>,
+  private toApiIncidencia(
+    incidencia: IncidenciaConEstadoActual,
+    resolutores?: {
+      activosPorId?: Map<string, { nombre: string; codigoQr?: string }>;
+      usuariosPorId?: Map<
+        string,
+        { nombre: string; apellido?: string; email?: string }
+      >;
+    },
   ) {
-    return {
-      id_evidencia: evidencia.id_evidencia,
-      id_incidencia: evidencia.id_incidencia,
-      id_tipo_evidencia: evidencia.id_tipo_evidencia,
-      tipo_evidencia: evidencia.tipo_evidencia,
-      url_evidencia: evidencia.url_cloudinary,
-      fecha_creacion: evidencia.fecha_creacion,
-    };
-  }
-
-  private toApiIncidencia(incidencia: IncidenciaConEstadoActual) {
     const estado = incidencia.historial_estados?.[0]?.estado;
-    const calculo = this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia);
+    const calculo =
+      this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia);
+    const ordenActiva = incidencia.ordenes_trabajo?.[0] ?? null;
+    const idTecnico = ordenActiva?.id_tecnico ?? null;
+
+    const formatearUsuario = (idUsuario?: string | null): string | null => {
+      if (!idUsuario) return null;
+      const u = resolutores?.usuariosPorId?.get(idUsuario);
+      if (!u) return null;
+      return `${u.nombre || ''} ${u.apellido || ''}`.trim() || u.email || null;
+    };
+
+    const nombreTecnico = formatearUsuario(idTecnico);
+    const nombreReportante = formatearUsuario(incidencia.id_reportante);
+    const infoActivo = resolutores?.activosPorId?.get(incidencia.id_activo);
 
     return {
       id_incidencia: incidencia.id_incidencia,
       id_activo: incidencia.id_activo,
+      nombre_activo: infoActivo?.nombre ?? null,
+      codigo_qr_activo: infoActivo?.codigoQr ?? null,
       id_reportante: incidencia.id_reportante,
+      nombre_reportante: nombreReportante,
+      id_orden: ordenActiva?.id_orden ?? null,
+      id_tecnico: idTecnico,
+      nombre_tecnico: nombreTecnico,
+      tecnico_asignado: nombreTecnico ?? idTecnico ?? null,
+      fecha_asignacion: ordenActiva?.fecha_creacion ?? null,
+      diagnostico_tecnico: ordenActiva?.diagnostico_tecnico ?? null,
+      orden_trabajo: ordenActiva
+        ? {
+            id_orden: ordenActiva.id_orden,
+            id_incidencia: ordenActiva.id_incidencia,
+            id_tecnico: ordenActiva.id_tecnico,
+            nombre_tecnico: nombreTecnico,
+            diagnostico_tecnico: ordenActiva.diagnostico_tecnico ?? null,
+            fecha_creacion: ordenActiva.fecha_creacion,
+          }
+        : null,
       titulo: incidencia.titulo,
       descripcion: incidencia.descripcion,
       estado: estado || null,
-      evidencias: incidencia.evidencias?.map(e => e.url_cloudinary) || [],
+      evidencias: incidencia.evidencias?.map((e) => e.url_cloudinary) || [],
       fecha_creacion: incidencia.fecha_creacion,
-      prioridad: incidencia.prioridad,
-      prioridad_original: incidencia.prioridad,
+      prioridad: incidencia.prioridad ?? calculo.prioridad_relativa,
+      prioridad_original: incidencia.prioridad ?? calculo.prioridad_original,
       prioridad_relativa: calculo.prioridad_relativa,
       escalada: calculo.escalada,
       tiempo_inactividad_horas: calculo.tiempo_inactividad_horas,
@@ -586,5 +712,144 @@ export class IncidenciasService {
     });
 
     return this.exportarIncidenciasService.exportar(incidencias, query?.formato);
+  }
+
+  private toApiEvidencia(
+    evidencia: Prisma.EvidenciaGetPayload<{
+      include: { tipo_evidencia: true };
+    }>,
+  ) {
+    return {
+      id_evidencia: evidencia.id_evidencia,
+      id_incidencia: evidencia.id_incidencia,
+      id_tipo_evidencia: evidencia.id_tipo_evidencia,
+      tipo_evidencia: evidencia.tipo_evidencia,
+      url_evidencia: evidencia.url_cloudinary,
+      fecha_creacion: evidencia.fecha_creacion,
+    };
+  }
+
+  private async resolverActivos(
+    authHeader?: string,
+  ): Promise<Map<string, { nombre: string; codigoQr?: string }>> {
+    const mapa = new Map<string, { nombre: string; codigoQr?: string }>();
+    try {
+      if (typeof this.httpService?.get === 'function') {
+        const resp = await firstValueFrom(
+          this.httpService.get(`${this.activosUrl}/api/v1/activos?limit=50`, {
+            timeout: 1500,
+            ...(authHeader ? { headers: { Authorization: authHeader } } : {}),
+          }),
+        );
+        const items = resp?.data?.datos || resp?.data;
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            const id = item?.id || item?.id_activo;
+            if (id) {
+              mapa.set(id, {
+                nombre: item.nombre || 'Activo sin nombre',
+                codigoQr: item.codigoQr || item.codigo_qr,
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      // Continúa a consulta de respaldo en BD compartida si ms-activos no responde o restringe por rol
+    }
+
+    if (
+      mapa.size === 0 &&
+      typeof (this.prisma as any)?.$queryRaw === 'function'
+    ) {
+      try {
+        const rows = await this.prisma.$queryRaw<
+          Array<{ id: string; nombre: string; codigo_qr?: string }>
+        >(Prisma.sql`SELECT "id", "nombre", "codigo_qr" FROM public."activos" LIMIT 200`);
+        if (Array.isArray(rows)) {
+          for (const row of rows) {
+            if (row?.id) {
+              mapa.set(row.id, {
+                nombre: row.nombre || 'Activo sin nombre',
+                codigoQr: row.codigo_qr,
+              });
+            }
+          }
+        }
+      } catch {
+        // Fallback silencioso si la tabla activos reside en instancia separada
+      }
+    }
+
+    return mapa;
+  }
+
+  private async resolverUsuarios(
+    authHeader?: string,
+  ): Promise<
+    Map<string, { nombre: string; apellido?: string; email?: string }>
+  > {
+    const mapa = new Map<
+      string,
+      { nombre: string; apellido?: string; email?: string }
+    >();
+    try {
+      if (typeof this.httpService?.get === 'function') {
+        const resp = await firstValueFrom(
+          this.httpService.get(`${this.authUrl}/auth/usuarios?limit=50`, {
+            timeout: 1500,
+            ...(authHeader ? { headers: { Authorization: authHeader } } : {}),
+          }),
+        );
+        const items = resp?.data?.datos || resp?.data;
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            const id = item?.id_usuario || item?.id || item?.userId;
+            if (id) {
+              mapa.set(id, {
+                nombre: item.nombre || 'Usuario',
+                apellido: item.apellido,
+                email: item.email || item.correo,
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      // Continúa a consulta de respaldo en BD compartida si ms-auth no responde o restringe por rol
+    }
+
+    if (
+      mapa.size === 0 &&
+      typeof (this.prisma as any)?.$queryRaw === 'function'
+    ) {
+      try {
+        const rows = await this.prisma.$queryRaw<
+          Array<{
+            id_usuario: string;
+            nombre: string;
+            apellido?: string;
+            email?: string;
+          }>
+        >(
+          Prisma.sql`SELECT "id_usuario", "nombre", "apellido", "email" FROM public."USUARIOS" LIMIT 200`,
+        );
+        if (Array.isArray(rows)) {
+          for (const row of rows) {
+            if (row?.id_usuario) {
+              mapa.set(row.id_usuario, {
+                nombre: row.nombre || 'Usuario',
+                apellido: row.apellido,
+                email: row.email,
+              });
+            }
+          }
+        }
+      } catch {
+        // Fallback silencioso si la tabla USUARIOS reside en instancia separada
+      }
+    }
+
+    return mapa;
   }
 }
