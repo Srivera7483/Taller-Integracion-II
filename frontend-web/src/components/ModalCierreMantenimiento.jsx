@@ -16,7 +16,6 @@ import {
 } from 'react-icons/fi';
 import { LuTriangleAlert, LuCircleAlert, LuInfo } from 'react-icons/lu';
 import { useToast } from '../context/ToastContext';
-import { completarMantenimientoTecnico, rechazarIncidenciaTecnico } from '../services/incidenciasStorage';
 import api from '../services/api';
 
 // Lista de materiales e insumos comunes para selección rápida táctil en tablets
@@ -93,17 +92,23 @@ const ModalCierreMantenimiento = ({
 
   if (!isOpen || !orden) return null;
 
-  // Validación de Ownership / Asignación:
-  // Solo el técnico asignado a esta tarea específica puede acceder al formulario.
+  // Validación de Ownership / Asignación y Roles (TAL-194):
+  const rolActual = (tecnicoActual?.rol || tecnicoActual?.role || '').toUpperCase();
+  const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolActual);
+
   const nombreAsignado = (orden.tecnico_nombre || orden.asignado || '').trim().toLowerCase();
   const nombreActual = (tecnicoActual?.nombre || '').trim().toLowerCase();
   
   const esTecnicoAsignado =
-    Boolean(nombreAsignado) &&
-    (nombreAsignado === nombreActual ||
-      nombreAsignado.includes(nombreActual) ||
-      nombreActual.includes(nombreAsignado) ||
-      orden.tecnico_id === tecnicoActual?.id);
+    esSupervisorOAdmin ||
+    !nombreAsignado ||
+    nombreAsignado === 'sin asignar' ||
+    (Boolean(nombreAsignado) &&
+      (nombreAsignado === nombreActual ||
+        nombreAsignado.includes(nombreActual) ||
+        nombreActual.includes(nombreAsignado) ||
+        orden.tecnico_id === tecnicoActual?.id ||
+        orden.tecnico_id === tecnicoActual?.sub));
 
   // Validaciones según el modo
   const resolucionValida = resolucion.trim().length >= 10;
@@ -184,45 +189,46 @@ const ModalCierreMantenimiento = ({
     setErrorValidacion(null);
     setIsSubmitting(true);
 
-    const payloadCierre = {
-      incidenciaId: orden.incidencia_id || orden.id,
-      ordenId: orden.id_orden || orden.id,
-      resolucion: resolucion.trim(),
-      horasInvertidas: Number(horasInvertidas),
-      materialesUsados: sinMateriales ? [] : materialesUsados,
-      tecnicoNombre: tecnicoActual?.nombre || orden.tecnico_nombre || 'Técnico Responsable',
-      tecnicoId: tecnicoActual?.id || orden.tecnico_id || 'tec-01',
-    };
+    const idIncidenciaBackend = orden.incidencia_id || orden.id;
+    const ordenId = orden.id_orden || orden.id;
 
     try {
-      // 1. Guardar de forma reactiva y persistente en el frontend (cookies / localStorage)
-      const resultadoLocal = completarMantenimientoTecnico(payloadCierre);
-
-      // 2. Intentar actualizar en el backend real mediante el API Gateway si está disponible
+      // 1. Marcar como resuelta a través del endpoint real PATCH /api/v1/incidencias/:id/resolver (TAL-194)
       try {
-        const idIncidenciaBackend = orden.incidencia_id || orden.id;
+        await api.patch(`/incidencias/${idIncidenciaBackend}/resolver`);
+      } catch (resolverErr) {
+        // En caso de requerir transición directa por máquina de estados
+        console.warn('Fallback a actualización de estado:', resolverErr.message);
         await api.patch(`/incidencias/${idIncidenciaBackend}/estado`, {
-          id_estado: 6, // Estado Completada
+          id_estado: 4, // Estado Resuelta
         });
-
-        if (orden.id_orden) {
-          await api.patch(`/ordenes-trabajo/${orden.id_orden}/diagnostico`, {
-            diagnostico_tecnico: resolucion.trim(),
-          });
-        }
-      } catch {
-        // Fallback silencioso
       }
 
-      showToast('¡Mantenimiento técnico confirmado! La tarea pasó a estado Completada.', 'success');
+      // 2. Registrar diagnóstico en PostgreSQL mediante PATCH /api/v1/ordenes-trabajo/:id/diagnostico (TAL-194)
+      if (ordenId && !String(ordenId).startsWith('ORD-')) {
+        try {
+          await api.patch(`/ordenes-trabajo/${ordenId}/diagnostico`, {
+            diagnostico_tecnico: resolucion.trim(),
+          });
+        } catch (diagErr) {
+          console.warn('Diagnóstico de orden:', diagErr.message);
+        }
+      }
+
+      showToast('¡Mantenimiento técnico confirmado! La incidencia fue resuelta en PostgreSQL.', 'success');
 
       if (onCierreExitoso) {
-        onCierreExitoso(resultadoLocal);
+        onCierreExitoso({
+          resolucion: resolucion.trim(),
+          horasInvertidas: Number(horasInvertidas),
+          materialesUsados: sinMateriales ? [] : materialesUsados,
+        });
       }
 
       onClose();
-    } catch {
-      showToast('Error al registrar la confirmación del mantenimiento', 'error');
+    } catch (err) {
+      console.error('Error al registrar cierre:', err);
+      showToast(err.response?.data?.mensaje || 'Error al registrar la confirmación del mantenimiento', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -243,44 +249,38 @@ const ModalCierreMantenimiento = ({
     setErrorValidacion(null);
     setIsSubmitting(true);
 
-    const payloadRechazo = {
-      incidenciaId: orden.incidencia_id || orden.id,
-      ordenId: orden.id_orden || orden.id,
-      motivoRechazo: motivoRechazo.trim(),
-      tecnicoNombre: tecnicoActual?.nombre || orden.tecnico_nombre || 'Técnico Responsable',
-      tecnicoId: tecnicoActual?.id || orden.tecnico_id || 'tec-01',
-    };
+    const idIncidenciaBackend = orden.incidencia_id || orden.id;
+    const ordenId = orden.id_orden || orden.id;
 
     try {
-      // 1. Guardar en cookies / persistencia local con estado RECHAZADO
-      const resultadoLocal = rechazarIncidenciaTecnico(payloadRechazo);
+      // Actualizar estado a Rechazada (id_estado: 5) con motivo
+      await api.patch(`/incidencias/${idIncidenciaBackend}/estado`, {
+        id_estado: 5,
+        motivo_rechazo: motivoRechazo.trim(),
+      });
 
-      // 2. Intentar actualizar en el backend si está disponible (id_estado: 5 = Rechazada)
-      try {
-        const idIncidenciaBackend = orden.incidencia_id || orden.id;
-        await api.patch(`/incidencias/${idIncidenciaBackend}/estado`, {
-          id_estado: 5,
-          motivo_rechazo: motivoRechazo.trim(),
-        });
-
-        if (orden.id_orden) {
-          await api.patch(`/ordenes-trabajo/${orden.id_orden}/diagnostico`, {
+      if (ordenId && !String(ordenId).startsWith('ORD-')) {
+        try {
+          await api.patch(`/ordenes-trabajo/${ordenId}/diagnostico`, {
             diagnostico_tecnico: `[RECHAZADO]: ${motivoRechazo.trim()}`,
           });
+        } catch {
+          // opcional
         }
-      } catch {
-        // Fallback silencioso
       }
 
-      showToast('Incidencia rechazada. El motivo ha sido registrado para el reportante.', 'info');
+      showToast('Incidencia rechazada en PostgreSQL. Motivo registrado.', 'info');
 
       if (onCierreExitoso) {
-        onCierreExitoso(resultadoLocal);
+        onCierreExitoso({
+          resolucion: `[RECHAZADO]: ${motivoRechazo.trim()}`,
+          estado: 'Rechazada',
+        });
       }
 
       onClose();
-    } catch {
-      showToast('Error al registrar el rechazo de la incidencia', 'error');
+    } catch (err) {
+      showToast(err.response?.data?.mensaje || 'Error al registrar el rechazo de la incidencia', 'error');
     } finally {
       setIsSubmitting(false);
     }

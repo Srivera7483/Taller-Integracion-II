@@ -388,10 +388,10 @@ export class IncidenciasService {
     rolUsuario: string,
     emailUsuario?: string,
   ) {
-    const rolUpper = rolUsuario.toUpperCase();
-    if (rolUpper !== 'TÉCNICO' && rolUpper !== 'TECNICO') {
+    const rolNorm = this.normalizarRol(rolUsuario);
+    if (!['TECNICO', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm)) {
       throw new ForbiddenException(
-        'Acceso denegado: Solo los técnicos pueden resolver incidencias.',
+        'Acceso denegado: Solo los técnicos asignados, supervisores o administradores pueden resolver incidencias.',
       );
     }
 
@@ -449,6 +449,12 @@ export class IncidenciasService {
         include: { estado: true },
       });
 
+      // TAL-194: Registrar fecha_cierre en ORDENES_TRABAJO
+      await transaction.ordenTrabajo.updateMany({
+        where: { id_incidencia: idIncidencia },
+        data: { fecha_cierre: new Date() },
+      });
+
       return { historial: nuevoHistorial, titulo: incidencia.titulo };
     });
 
@@ -458,6 +464,40 @@ export class IncidenciasService {
       `La incidencia "${resultado.titulo}" fue resuelta.`,
     );
     return resultado.historial;
+  }
+
+  async clasificarPrioridad(idIncidencia: string, prioridadRaw: string) {
+    const normalizada = (prioridadRaw || '').trim().toLowerCase();
+    const mapPrioridad: Record<string, string> = {
+      baja: 'baja',
+      media: 'media',
+      alta: 'alta',
+      critica: 'critica',
+      'crítica': 'critica',
+    };
+
+    const prioridadEnum = mapPrioridad[normalizada];
+    if (!prioridadEnum) {
+      throw new BadRequestException(
+        'Prioridad no válida. Valores permitidos: Baja, Media, Alta, Crítica',
+      );
+    }
+
+    const incidencia = await this.prisma.incidencias.findUnique({
+      where: { id_incidencia: idIncidencia },
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException('Incidencia no encontrada');
+    }
+
+    const actualizada = await this.prisma.incidencias.update({
+      where: { id_incidencia: idIncidencia },
+      data: { prioridad: prioridadEnum as any },
+      ...incidenciaConEstadoActual,
+    });
+
+    return this.toApiIncidencia(actualizada);
   }
 
   private async notificarIncidencia(

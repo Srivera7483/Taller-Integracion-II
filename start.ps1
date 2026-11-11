@@ -163,8 +163,8 @@ Push-Location "ms-incidencias"
 try {
     Write-Host "Reconstruyendo incidencias_db..." -ForegroundColor Cyan
 
-    # Recrear tablas mediante las migraciones existentes
-    pnpm.cmd exec prisma migrate reset --force --skip-seed
+    # Reconstruir BD en base a schemas, no migrations
+    pnpm.cmd exec prisma db push
 
     if ($LASTEXITCODE -ne 0) {
         throw "Error al reconstruir incidencias_db"

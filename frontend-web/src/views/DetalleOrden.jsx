@@ -13,7 +13,7 @@ import {
 } from 'react-icons/fi';
 import StatusBadge from '../components/StatusBadge';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
-import { getTecnicoActual, getIncidencias } from '../services/incidenciasStorage';
+import { getUsuarioActual } from '../services/authService';
 import api from '../services/api';
 
 const DetalleOrden = () => {
@@ -21,74 +21,33 @@ const DetalleOrden = () => {
   const [orden, setOrden] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [tecnicoActual, setTecnicoActual] = useState(() => getTecnicoActual());
+  const [tecnicoActual] = useState(() => getUsuarioActual());
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // Escuchar cambios de perfil técnico para actualizar ownership en tiempo real
-  useEffect(() => {
-    const handleCambioTecnico = () => {
-      setTecnicoActual(getTecnicoActual());
-    };
-    window.addEventListener('tecnico-cambiado', handleCambioTecnico);
-    return () => window.removeEventListener('tecnico-cambiado', handleCambioTecnico);
-  }, []);
 
   const cargarOrden = async () => {
     try {
       setLoading(true);
-      // 1. Intentar consultar desde el almacenamiento local persistente primero
-      const incidenciasLocales = getIncidencias();
-      const incidenciaMatch = incidenciasLocales.find(
-        (i) => i.id === idOrden || i.ordenId === idOrden || i.id === 'INC-1042'
-      );
-
-      // 2. Intentar obtener la orden desde el API real a través del API Gateway
-      try {
-        const response = await api.get(`/ordenes-trabajo/${idOrden}`);
-        if (response.data) {
-          const apiOrden = response.data;
-          setOrden({
-            ...apiOrden,
-            id_orden: apiOrden.id_orden || idOrden,
-            incidencia_id: apiOrden.id_incidencia || apiOrden.incidencia_id || 'INC-1042',
-            incidencia_titulo: apiOrden.incidencia?.titulo || 'Mantenimiento Preventivo / Correctivo',
-            id_activo: apiOrden.incidencia?.id_activo || 'SRV-MAIL-01',
-            estado: incidenciaMatch?.estado || apiOrden.estado || 'Asignada',
-            tecnico_nombre: incidenciaMatch?.asignado || apiOrden.tecnico_nombre || 'Carlos Ruiz',
-            tecnico_id: apiOrden.id_tecnico || 'tec-01',
-            fecha_emision: apiOrden.fecha_creacion || new Date().toISOString(),
-            resolucion: incidenciaMatch?.resolucion || apiOrden.diagnostico_tecnico || null,
-            horasInvertidas: incidenciaMatch?.horasInvertidas || null,
-            materialesUsados: incidenciaMatch?.materialesUsados || [],
-            fechaCierre: incidenciaMatch?.fechaCierre || null,
-          });
-          setLoading(false);
-          return;
-        }
-      } catch (apiErr) {
-        console.warn('API Gateway no respondió con la orden, utilizando datos locales.', apiErr.message);
+      const response = await api.get(`/ordenes-trabajo/${idOrden}`);
+      if (response.data) {
+        const apiOrden = response.data;
+        setOrden({
+          ...apiOrden,
+          id_orden: apiOrden.id_orden || idOrden,
+          incidencia_id: apiOrden.id_incidencia || apiOrden.incidencia_id,
+          incidencia_titulo: apiOrden.incidencia?.titulo || 'Orden de Trabajo',
+          id_activo: apiOrden.incidencia?.id_activo || 'N/A',
+          estado: apiOrden.estado || (apiOrden.fecha_cierre ? 'Completada' : 'Asignada'),
+          tecnico_nombre: apiOrden.tecnico_nombre || 'Técnico Asignado',
+          tecnico_id: apiOrden.id_tecnico,
+          fecha_emision: apiOrden.fecha_creacion || new Date().toISOString(),
+          resolucion: apiOrden.diagnostico_tecnico || null,
+          diagnostico_tecnico: apiOrden.diagnostico_tecnico || null,
+          fechaCierre: apiOrden.fecha_cierre || null,
+        });
       }
-
-      // Si no viene del API o falla, estructurar datos locales/mock consistentes
-      setOrden({
-        id_orden: idOrden,
-        incidencia_id: incidenciaMatch?.id || 'INC-1042',
-        incidencia_titulo: incidenciaMatch?.titulo || 'Fallo en sistema de correos',
-        id_activo: incidenciaMatch?.id_activo || 'SRV-MAIL-01',
-        estado: incidenciaMatch?.estado || 'Asignada',
-        tecnico_id: 'tec-01',
-        tecnico_nombre: incidenciaMatch?.asignado || 'Carlos Ruiz',
-        fecha_emision: incidenciaMatch?.fecha || new Date().toISOString(),
-        instrucciones: 'Revisar la configuración del servidor de correos y los puertos SMTP/IMAP.',
-        diagnostico_tecnico: incidenciaMatch?.resolucion || null,
-        resolucion: incidenciaMatch?.resolucion || null,
-        horasInvertidas: incidenciaMatch?.horasInvertidas || null,
-        materialesUsados: incidenciaMatch?.materialesUsados || [],
-        fechaCierre: incidenciaMatch?.fechaCierre || null,
-      });
-    } catch (err) {
-      console.error('Error general al cargar orden:', err);
-      setError(err);
+    } catch (apiErr) {
+      console.error('Error al cargar la orden desde la API PostgreSQL:', apiErr);
+      setError(apiErr);
     } finally {
       setLoading(false);
     }
