@@ -20,7 +20,7 @@ import { hasPermission } from '../services/authService';
 const calcularVigenciaFecha = (fechaProgramada) => {
   if (!fechaProgramada) return 'programado';
   const fecha = new Date(fechaProgramada);
-  if (isNaN(fecha.getTime())) return 'programado';
+  if (Number.isNaN(fecha.getTime())) return 'programado';
 
   const ahora = new Date();
   const inicioHoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), 0, 0, 0, 0);
@@ -106,7 +106,7 @@ const Mantenimientos = () => {
     if (!fechaStr) return 'Fecha no especificada';
     try {
       const fecha = new Date(fechaStr);
-      if (isNaN(fecha.getTime())) return fechaStr;
+      if (Number.isNaN(fecha.getTime())) return fechaStr;
       return new Intl.DateTimeFormat('es-CL', {
         day: '2-digit',
         month: 'short',
