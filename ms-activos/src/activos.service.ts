@@ -431,82 +431,31 @@ export class ActivosService {
   private activosEnMemoria: Activo[] = [...SEMILLAS_ACTIVOS_BASE];
   private eventosTrazabilidad: Record<string, EventoTrazabilidad[]> = { ...HISTORIAL_TRAZABILIDAD_INICIAL };
 
+  private crearSemillaMantenimiento(
+    id: string,
+    idActivo: string,
+    fechaProgramadaIso: string,
+    nombre: string,
+    codigoQr: string,
+    ubicacion: string,
+    categoria: string,
+  ) {
+    return {
+      id,
+      id_mantenimiento: id,
+      id_activo: idActivo,
+      fecha_programada: new Date(fechaProgramadaIso),
+      fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
+      activo: { id: idActivo, nombre, codigoQr, ubicacion, categoria },
+    };
+  }
+
   private mantenimientosEnMemoria: any[] = [
-    {
-      id: 'mant-001', id_mantenimiento: 'mant-001', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
-      id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-      fecha_programada: new Date('2026-10-15T10:00:00.000Z'),
-      descripcion: 'Mantenimiento preventivo semestral de lámpara y calibración óptico-láser',
-      tipo: 'Preventivo',
-      estado: 'Pendiente',
-      activo: {
-        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-        nombre: 'Proyector Láser Epson PowerLite',
-        codigoQr: 'ACT-2026-0001',
-        ubicacion: 'Edificio A - Auditorio Principal',
-        categoria: 'AUDIOVISUAL',
-      },
-    },
-    {
-      id: 'mant-002', id_mantenimiento: 'mant-002', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
-      id_activo: '550e8400-e29b-41d4-a716-446655440000',
-      fecha_programada: new Date('2026-10-20T14:30:00.000Z'),
-      descripcion: 'Limpieza de ventiladores, cambio de pasta térmica y diagnóstico de RAM',
-      tipo: 'Correctivo',
-      estado: 'En Proceso',
-      activo: {
-        id: '550e8400-e29b-41d4-a716-446655440000',
-        nombre: 'Computador Docente All-in-One Dell',
-        codigoQr: 'ACT-2026-0002',
-        ubicacion: 'Edificio B - Laboratorio 302',
-        categoria: 'COMPUTO',
-      },
-    },
-    {
-      id: 'mant-003', id_mantenimiento: 'mant-003', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
-      id_activo: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-      fecha_programada: new Date('2026-10-28T09:00:00.000Z'),
-      descripcion: 'Inspección de hardware dado de baja y rescate de componentes reutilizables',
-      tipo: 'Preventivo',
-      estado: 'Pendiente',
-      activo: {
-        id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        nombre: 'Estación de Trabajo Desincorporada',
-        codigoQr: 'ACT-2026-0003',
-        ubicacion: 'Edificio B - Rack Principal Piso 2',
-        categoria: 'COMPUTO',
-      },
-    },
-    {
-      id: 'mant-004', id_mantenimiento: 'mant-004', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
-      id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-      fecha_programada: new Date('2026-11-05T11:00:00.000Z'),
-      descripcion: 'Revisión trimestral de filtros de aire y pruebas térmicas',
-      tipo: 'Preventivo',
-      estado: 'Pendiente',
-      activo: {
-        id: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-        nombre: 'Proyector Láser Epson PowerLite',
-        codigoQr: 'ACT-2026-0001',
-        ubicacion: 'Edificio A - Auditorio Principal',
-        categoria: 'AUDIOVISUAL',
-      },
-    },
-    {
-      id: 'mant-005', id_mantenimiento: 'mant-005', fecha_creacion: new Date('2026-10-01T10:00:00.000Z'),
-      id_activo: 'SW-CORE-01',
-      fecha_programada: new Date('2026-11-12T16:00:00.000Z'),
-      descripcion: 'Actualización preventiva de firmware y verificación de redundancia PoE',
-      tipo: 'Preventivo',
-      estado: 'Pendiente',
-      activo: {
-        id: 'SW-CORE-01',
-        nombre: 'Switch de Distribución Cisco Catalyst 9300',
-        codigoQr: 'SW-CORE-01',
-        ubicacion: 'Edificio Central - Sala de Comunicaciones 1',
-        categoria: 'REDES',
-      },
-    },
+    this.crearSemillaMantenimiento('mant-001', 'f47ac10b-58cc-4372-a567-0e02b2c3d479', '2026-10-15T10:00:00.000Z', 'Proyector Láser Epson PowerLite', 'ACT-2026-0001', 'Edificio A - Auditorio Principal', 'AUDIOVISUAL'),
+    this.crearSemillaMantenimiento('mant-002', '550e8400-e29b-41d4-a716-446655440000', '2026-10-20T14:30:00.000Z', 'Computador Docente All-in-One Dell', 'ACT-2026-0002', 'Edificio B - Laboratorio 302', 'COMPUTO'),
+    this.crearSemillaMantenimiento('mant-003', '3fa85f64-5717-4562-b3fc-2c963f66afa6', '2026-10-28T09:00:00.000Z', 'Estación de Trabajo Desincorporada', 'ACT-2026-0003', 'Edificio B - Rack Principal Piso 2', 'COMPUTO'),
+    this.crearSemillaMantenimiento('mant-004', 'f47ac10b-58cc-4372-a567-0e02b2c3d479', '2026-11-05T11:00:00.000Z', 'Proyector Láser Epson PowerLite', 'ACT-2026-0001', 'Edificio A - Auditorio Principal', 'AUDIOVISUAL'),
+    this.crearSemillaMantenimiento('mant-005', 'SW-CORE-01', '2026-11-12T16:00:00.000Z', 'Switch de Distribución Cisco Catalyst 9300', 'SW-CORE-01', 'Edificio Central - Sala de Comunicaciones 1', 'REDES'),
   ];
 
   constructor(private readonly prisma: PrismaService) {}
@@ -517,7 +466,7 @@ export class ActivosService {
 
     if (filtros?.startDate) {
       fechaInicio = new Date(filtros.startDate);
-      if (isNaN(fechaInicio.getTime())) {
+      if (Number.isNaN(fechaInicio.getTime())) {
         throw new BadRequestException('Formato de fecha de inicio inválido. Use ISO o YYYY-MM-DD.');
       }
       if (filtros.startDate.length === 10) {
@@ -527,7 +476,7 @@ export class ActivosService {
 
     if (filtros?.endDate) {
       fechaFin = new Date(filtros.endDate);
-      if (isNaN(fechaFin.getTime())) {
+      if (Number.isNaN(fechaFin.getTime())) {
         throw new BadRequestException('Formato de fecha de fin inválido. Use ISO o YYYY-MM-DD.');
       }
       if (filtros.endDate.length === 10) {
@@ -663,13 +612,13 @@ export class ActivosService {
     }
 
     if (!nuevoMantenimiento) {
+      const idGenerado = `mant-${Date.now()}`;
       nuevoMantenimiento = {
-        id: `mant-${Date.now()}`,
+        id: idGenerado,
+        id_mantenimiento: idGenerado,
         id_activo: dto.id_activo,
         fecha_programada: new Date(dto.fecha_programada),
-        descripcion: dto.descripcion,
-        tipo: dto.tipo,
-        estado: dto.estado || 'Pendiente',
+        fecha_creacion: new Date(),
         activo: {
           id: activoExiste.id,
           nombre: activoExiste.nombre,
@@ -1039,27 +988,27 @@ export class ActivosService {
     // Si existen mantenimientos en Prisma, se mapean a eventos si no estaban registrados
     if (mantenimientosPrisma.length > 0) {
       for (const m of mantenimientosPrisma) {
-        const existeEvento = todosLosEventos.some((e) => e.detalles?.id_mantenimiento === m.id);
-        if (!existeEvento) {
-          const esCompletado = m.estado === 'Completado';
+        const idMant = String(m.id_mantenimiento || m.id || '');
+        const existeEvento = todosLosEventos.some((e) => e.detalles?.id_mantenimiento === idMant);
+        if (!existeEvento && idMant) {
           todosLosEventos.push({
-            id: `MNT-${m.id.substring(0, 8)}`,
+            id: `MNT-${idMant.substring(0, 8)}`,
             fecha: new Date(m.fecha_programada).toISOString(),
-            tipo: esCompletado ? 'resolucion' : 'mantenimiento',
-            tipoLabel: esCompletado ? 'Mantenimiento Completado' : 'Mantenimiento Programado',
-            titulo: `${m.tipo}: ${m.descripcion}`,
-            descripcion: m.descripcion,
+            tipo: 'mantenimiento',
+            tipoLabel: 'Mantenimiento Preventivo Programado',
+            titulo: 'Mantenimiento Preventivo Programado',
+            descripcion: `Mantenimiento preventivo programado en cronograma (Ref: ${idMant.substring(0, 8)}).`,
             estadoAnterior: EstadoActivo.EN_REVISION,
-            estadoNuevo: esCompletado ? EstadoActivo.OPERATIVO : EstadoActivo.EN_MANTENIMIENTO,
+            estadoNuevo: EstadoActivo.EN_MANTENIMIENTO,
             responsable: {
               nombre: 'Área de Mantenimiento',
               rol: 'Técnico',
               avatar: 'MNT',
             },
             detalles: {
-              id_mantenimiento: m.id,
-              estado: m.estado,
-              tipo: m.tipo,
+              id_mantenimiento: idMant,
+              fecha_programada: new Date(m.fecha_programada).toISOString(),
+              fecha_creacion: m.fecha_creacion ? new Date(m.fecha_creacion).toISOString() : undefined,
             },
           });
         }

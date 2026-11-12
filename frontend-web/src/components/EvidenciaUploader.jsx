@@ -11,14 +11,14 @@ import {
 import { uploadImageToCloudinary } from '../services/cloudinaryService';
 
 /**
- * Componente EvidenciaUploader (TAL-136)
+ * Componente EvidenciaUploader
  * 
  * Gestiona el ciclo completo de carga de evidencias fotográficas para Cloudinary:
  * - Estado Base: Botón / Zona de Drag&Drop listo para recibir archivos ("Subir Evidencia").
  * - Estado de Carga (isLoading): Input deshabilitado, botón y zona mutan a Spinner circular
  *   + barra de progreso indeterminada animada + texto "Procesando...".
  * - Estado Final (Subido): Transición suave que despliega miniatura con object-cover,
- *   badge de confirmación y acciones de previsualización / cambio / limpieza (TAL-133).
+ *   badge de confirmación y acciones de previsualización / cambio / limpieza.
  */
 const EvidenciaUploader = ({
   archivo,
@@ -240,7 +240,7 @@ const EvidenciaUploader = ({
             className="bg-slate-50 border border-slate-200 hover:border-primary-300 rounded-xl p-4 sm:p-5 shadow-xs transition-smooth"
           >
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-              {/* Miniatura (Thumbnail) con object-cover estricto (TAL-133) */}
+              {/* Miniatura (Thumbnail) con object-cover estricto */}
               <div
                 id="miniatura-imagen-subida"
                 role="button"

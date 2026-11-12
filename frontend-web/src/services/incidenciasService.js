@@ -1,5 +1,7 @@
 import api from './api';
 
+export * from './incidenciasStorage';
+
 /**
  * Obtiene el listado de incidencias reales desde el backend.
  * Utiliza paginación por defecto si no se especifican parámetros.
@@ -14,7 +16,6 @@ export const fetchIncidencias = async (params = {}) => {
  */
 export const fetchIncidenciasRecientes = async () => {
   try {
-    // Parámetros para forzar límite en 5
     const response = await api.get('/incidencias', { params: { limit: 5, sort: 'desc' } });
     const data = response.data.data || response.data || [];
     return data;
@@ -32,17 +33,7 @@ export const createIncidencia = async (payload) => {
 };
 
 /**
- * TAL-132: Exporta el historial de incidencias a Excel (.xlsx) o CSV.
- * Solicita los datos binarios en modo blob al backend (TAL-115 / TAL-117)
- * y fuerza la descarga en el navegador mediante window.URL.createObjectURL y <a> temporal.
- * 
- * @param {Object} [filtros={}] - Filtros opcionales para la exportación
- * @param {'xlsx'|'excel'|'csv'} [filtros.formato='xlsx'] - Formato de archivo deseado
- * @param {string} [filtros.id_activo] - Filtrar por UUID de activo
- * @param {number} [filtros.id_estado] - Filtrar por ID de estado
- * @param {string} [filtros.fecha_inicio] - Filtrar desde fecha (ISO)
- * @param {string} [filtros.fecha_fin] - Filtrar hasta fecha (ISO)
- * @returns {Promise<{ filename: string, totalBytes: number }>}
+ * Exporta el historial de incidencias a Excel (.xlsx) o CSV.
  */
 export const exportarReporteIncidencias = async ({
   formato = 'xlsx',
@@ -64,7 +55,6 @@ export const exportarReporteIncidencias = async ({
     responseType: 'blob',
   });
 
-  // Intentar extraer el nombre del archivo desde el header Content-Disposition
   let filename = '';
   const disposition = response.headers?.['content-disposition'] || response.headers?.['Content-Disposition'];
   if (disposition && typeof disposition === 'string') {
@@ -74,13 +64,11 @@ export const exportarReporteIncidencias = async ({
     }
   }
 
-  // Fallback si no viene el header
   if (!filename) {
     const timestamp = new Date().toISOString().slice(0, 10);
     filename = `reporte_incidencias_${timestamp}.${formato}`;
   }
 
-  // Crear Blob y disparar la descarga por el navegador
   const blob = new Blob([response.data], {
     type:
       formato === 'csv'
@@ -96,7 +84,6 @@ export const exportarReporteIncidencias = async ({
   document.body.appendChild(link);
   link.click();
 
-  // Limpieza de memoria y DOM
   setTimeout(() => {
     document.body.removeChild(link);
     window.URL.revokeObjectURL(downloadUrl);
@@ -107,5 +94,3 @@ export const exportarReporteIncidencias = async ({
     totalBytes: blob.size,
   };
 };
-
-

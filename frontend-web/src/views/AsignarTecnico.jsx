@@ -46,8 +46,7 @@ const AsignarTecnico = () => {
         const resIncidencias = await api.get('/incidencias?limite=50');
         const dataInc = resIncidencias.data?.datos || resIncidencias.data?.data || resIncidencias.data || [];
         setIncidencias(Array.isArray(dataInc) ? dataInc : []);
-      } catch (errInc) {
-        console.error('Error cargando incidencias de la BD:', errInc);
+      } catch {
         setIncidencias([]);
       }
 
@@ -104,13 +103,11 @@ const AsignarTecnico = () => {
 
       // Si la BD devolvió usuarios reales pero ninguno tiene la etiqueta 'TECNICO', se muestran los usuarios reales obtenidos
       if (listaFiltrada.length === 0 && dataUsuarios.length > 0) {
-        console.warn('Usuarios obtenidos de la BD sin coincidencia de rol TECNICO. Cargando nómina real completa.');
         listaFiltrada = dataUsuarios;
       }
 
       setTecnicos(listaFiltrada);
-    } catch (error) {
-      console.error('Error general en consulta de la BD:', error);
+    } catch {
       setErrorApi('Error al establecer conexión con la API de usuarios.');
       setTecnicos([]);
     } finally {
@@ -135,7 +132,7 @@ const AsignarTecnico = () => {
 
   // Filtrar incidencias no resueltas ni asignadas
   const incidenciasDisponibles = incidencias.filter((inc) => {
-    const estadoStr = (typeof inc.estado === 'object' ? inc.estado?.nombre_estado : inc.estado || '').toLowerCase();
+    const estadoStr = String(typeof inc.estado === 'object' ? (inc.estado?.nombre_estado || '') : (inc.estado || '')).toLowerCase();
     const esCompletada = ['resuelta', 'completada', 'cerrada'].includes(estadoStr);
     return !esCompletada && !inc.tecnico_asignado;
   });
@@ -193,7 +190,6 @@ const AsignarTecnico = () => {
       showToast(`¡Orden ${idOrdenEmitida} asignada exitosamente en BD!`, 'success');
       cargarDatosReales();
     } catch (error) {
-      console.error('Error al emitir orden en la BD:', error);
       const mensajeError = error.response?.data?.message || 'Fallo al intentar registrar la orden en el backend.';
       setErrorApi(mensajeError);
       showToast(mensajeError, 'error');

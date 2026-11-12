@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiUserCheck, FiChevronDown, FiShield } from 'react-icons/fi';
-import { TECNICOS_EXISTENTES, getTecnicoActual, setTecnicoActual } from '../services/incidenciasStorage';
+import { TECNICOS_EXISTENTES, getTecnicoActual, setTecnicoActual } from '../services/incidenciasService';
 
 /**
  * Componente que muestra el perfil de técnico actual en sesión

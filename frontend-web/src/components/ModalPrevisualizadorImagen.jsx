@@ -10,8 +10,7 @@ import {
 
 /**
  * ModalPrevisualizadorImagen
- * Cumple con los requerimientos de la tarea TAL-133:
- * - Muestra la imagen adjunta en tamaño grande dentro de un Modal.
+ * Cumple con los requerimientos de la tarea * - Muestra la imagen adjunta en tamaño grande dentro de un Modal.
  * - Incluye un botón superpuesto de "Eliminar/Cambiar imagen" sobre el área de visualización.
  * - Permite limpiar la selección antes de realizar el POST definitivo (Criterio de Aceptación b).
  */

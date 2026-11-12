@@ -4,7 +4,7 @@ import { FiCalendar, FiFilter, FiRotateCcw, FiAlertCircle, FiClock, FiCheck } fr
 
 /**
  * Componente de barra superior de herramientas (Toolbar) para filtros dinámicos
- * de rango de fechas en la vista de Mantenimientos (TAL-121).
+ * de rango de fechas en la vista de Mantenimientos.
  *
  * Criterios de Aceptación:
  * 1. Si se limpian las fechas, la tabla regresa al listado completo original.

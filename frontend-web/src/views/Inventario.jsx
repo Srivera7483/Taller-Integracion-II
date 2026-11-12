@@ -179,7 +179,7 @@ const Inventario = () => {
 
       {/* Tabla de Equipos e Inventario */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
+        {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas */}
         <div className="md:hidden p-3 sm:p-4 space-y-3">
           {cargando && equipos.length === 0 ? (
             <div className="py-10 text-center text-gray-500 text-sm">
@@ -258,7 +258,7 @@ const Inventario = () => {
           )}
         </div>
 
-        {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
+        {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal */}
         <div className="hidden md:block overflow-x-auto">
 
           <table className="w-full text-left text-sm text-gray-600">
