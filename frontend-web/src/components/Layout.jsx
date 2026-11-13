@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser } from 'react-icons/fi';
+import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload } from 'react-icons/fi';
 import NotificacionesDropdown from './NotificacionesDropdown';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import NetworkStatusIndicator from './NetworkStatusIndicator';
@@ -161,6 +161,16 @@ const Layout = () => {
               </span>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('pwa-install-trigger'))}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 rounded-xl transition-colors cursor-pointer border border-primary-200"
+            title="Instalar InfraManager en pantalla de inicio"
+          >
+            <FiDownload className="w-4 h-4" />
+            <span>Instalar App PWA</span>
+          </button>
 
           <button
             type="button"

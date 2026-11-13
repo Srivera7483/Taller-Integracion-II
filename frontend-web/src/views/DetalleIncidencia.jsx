@@ -178,19 +178,48 @@ const DetalleIncidencia = () => {
         const response = await api.get(`/incidencias/${idIncidencia}`);
         if (response.data) {
           const apiData = response.data;
+          const idTecnicoApi =
+            apiData.id_tecnico || apiData.orden_trabajo?.id_tecnico || null;
+          const nombreTecnicoApi =
+            apiData.nombre_tecnico ||
+            apiData.orden_trabajo?.nombre_tecnico ||
+            apiData.tecnico_asignado ||
+            encontradaLocal?.asignado ||
+            null;
+          const diagnosticoApi =
+            apiData.diagnostico_tecnico ||
+            apiData.orden_trabajo?.diagnostico_tecnico ||
+            null;
+
           setIncidencia({
             id: apiData.id_incidencia || idIncidencia,
+            id_orden: apiData.id_orden || apiData.orden_trabajo?.id_orden || null,
+            id_tecnico: idTecnicoApi,
             titulo: apiData.titulo,
             descripcion: apiData.descripcion,
             id_activo: apiData.id_activo,
-            estado: encontradaLocal?.estado || apiData.estado?.nombre_estado || 'Pendiente',
+            nombre_activo: apiData.nombre_activo || null,
+            codigo_qr_activo: apiData.codigo_qr_activo || null,
+            nombre_reportante: apiData.nombre_reportante || null,
+            estado:
+              apiData.estado?.nombre_estado ||
+              (typeof apiData.estado === 'string' ? apiData.estado : null) ||
+              encontradaLocal?.estado ||
+              'Reportada',
             fecha_creacion: apiData.fecha_creacion || new Date().toISOString(),
-            asignado: encontradaLocal?.asignado || 'Carlos Ruiz',
-            resolucion: encontradaLocal?.resolucion || null,
+            fecha_asignacion:
+              apiData.fecha_asignacion ||
+              apiData.orden_trabajo?.fecha_creacion ||
+              null,
+            asignado: nombreTecnicoApi,
+            resolucion: diagnosticoApi || encontradaLocal?.resolucion || null,
             horasInvertidas: encontradaLocal?.horasInvertidas || null,
             materialesUsados: encontradaLocal?.materialesUsados || [],
             fechaCierre: encontradaLocal?.fechaCierre || null,
-            evidencias: encontradaLocal?.evidencias || apiData.evidencias || [],
+            evidencias:
+              Array.isArray(apiData.evidencias) && apiData.evidencias.length > 0
+                ? apiData.evidencias
+                : encontradaLocal?.evidencias || [],
           });
           setLoading(false);
           return;
@@ -224,7 +253,7 @@ const DetalleIncidencia = () => {
   };
 
   useEffect(() => {
-    cargarIncidencia();
+    void cargarIncidencia();
   }, [idIncidencia]);
 
   const handleAprobacionCompletada = (nuevoEstado) => {
@@ -270,13 +299,43 @@ const DetalleIncidencia = () => {
   const estaCompletada = incidencia.estado?.toLowerCase() === 'completada';
   const estaRechazada = incidencia.estado?.toLowerCase() === 'rechazada';
 
+  const obtenerUsuarioSesion = () => {
+    try {
+      const raw = localStorage.getItem('usuario');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+  const usuarioSesion = obtenerUsuarioSesion();
+  const idUsuarioSesion =
+    usuarioSesion?.id_usuario || usuarioSesion?.id || usuarioSesion?.userId || null;
+  const nombreUsuarioSesion = `${usuarioSesion?.nombre || ''} ${usuarioSesion?.apellido || ''}`
+    .trim()
+    .toLowerCase();
+
   const nombreAsignado = (incidencia.asignado || '').trim().toLowerCase();
   const nombreActual = (tecnicoActual?.nombre || '').trim().toLowerCase();
-  const esTecnicoAsignado =
+  const coincidePorIdTecnico = Boolean(
+    idUsuarioSesion &&
+      incidencia.id_tecnico &&
+      incidencia.id_tecnico === idUsuarioSesion
+  );
+  const coincidePorNombreSesion =
     Boolean(nombreAsignado) &&
+    Boolean(nombreUsuarioSesion) &&
+    (nombreAsignado === nombreUsuarioSesion ||
+      nombreAsignado.includes(nombreUsuarioSesion) ||
+      nombreUsuarioSesion.includes(nombreAsignado));
+  const coincidePorTecnicoLocal =
+    Boolean(nombreAsignado) &&
+    Boolean(nombreActual) &&
     (nombreAsignado === nombreActual ||
       nombreAsignado.includes(nombreActual) ||
       nombreActual.includes(nombreAsignado));
+
+  const esTecnicoAsignado =
+    coincidePorIdTecnico || coincidePorNombreSesion || coincidePorTecnicoLocal;
 
   const evidencias = Array.isArray(incidencia.evidencias) ? incidencia.evidencias : [];
 
@@ -311,7 +370,11 @@ const DetalleIncidencia = () => {
             <h4 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Activo Afectado</h4>
             <div className="flex items-center gap-2 text-gray-800 font-medium">
               <FiBox className="w-4 h-4 text-orange-600" aria-hidden="true" />
-              <span>{incidencia.id_activo || 'N/A'}</span>
+              <span>
+                {incidencia.nombre_activo
+                  ? `${incidencia.nombre_activo}${incidencia.codigo_qr_activo ? ` (${incidencia.codigo_qr_activo})` : ''}`
+                  : incidencia.codigo_qr_activo || incidencia.id_activo || 'N/A'}
+              </span>
             </div>
           </div>
           <div>
@@ -373,14 +436,25 @@ const DetalleIncidencia = () => {
 
         {evidencias.length > 0 ? (
           <div className="space-y-4">
-            {evidencias.map((urlEvidencia, idx) => (
-              <TarjetaEvidenciaCloudinary
-                key={idx}
-                url={urlEvidencia}
-                nombre={incidencia.imagenAdjuntaNombre || `evidencia_incidencia_${idx + 1}.webp`}
-                onAmpliar={handleAbrirPrevisualizador}
-              />
-            ))}
+            {evidencias.map((evItem, idx) => {
+              const urlResuelta =
+                typeof evItem === 'string'
+                  ? evItem
+                  : evItem?.url_evidencia || evItem?.url_cloudinary || '';
+              const nombreResuelto =
+                incidencia.imagenAdjuntaNombre ||
+                (typeof evItem === 'object' && evItem?.tipo?.nombre_tipo
+                  ? `evidencia_${evItem.tipo.nombre_tipo.toLowerCase()}_${idx + 1}.webp`
+                  : `evidencia_incidencia_${idx + 1}.webp`);
+              return (
+                <TarjetaEvidenciaCloudinary
+                  key={evItem?.id_evidencia || idx}
+                  url={urlResuelta}
+                  nombre={nombreResuelto}
+                  onAmpliar={handleAbrirPrevisualizador}
+                />
+              );
+            })}
           </div>
         ) : !mostrarSubidorNuevo ? (
           <div className="p-8 text-center bg-gray-50/60 rounded-xl border-2 border-dashed border-gray-200 space-y-2">
@@ -505,7 +579,7 @@ const DetalleIncidencia = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         orden={{
-          id_orden: `ORD-${incidencia.id}`,
+          id_orden: incidencia.id_orden || `ORD-${incidencia.id}`,
           incidencia_id: incidencia.id,
           id: incidencia.id,
           titulo: incidencia.titulo,

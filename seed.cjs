@@ -23,22 +23,22 @@ async function main() {
 
   const usuariosData = [
     // Administradores
-    { rut: '20123456-7', nombre: 'Diego Antonio', apellido: 'Hernández Martínez', email: 'dhernandez2020@alu.uct.cl', role: rolAdmin.id },
-    { rut: '15234567-8', nombre: 'Carlos', apellido: 'Sanhueza', email: 'csanhueza@uct.cl', role: rolAdmin.id },
+    { rut: '20123456-7', nombre: 'Diego Antonio', apellido: 'Hernández Martínez', email: 'administrador@uct.cl', role: rolAdmin.id },
+    { rut: '15234567-8', nombre: 'Eduardo', apellido: 'Necul', email: 'csanhueza@uct.cl', role: rolAdmin.id },
     { rut: '16987654-3', nombre: 'Loreto', apellido: 'Paredes', email: 'lparedes@uct.cl', role: rolAdmin.id },
     
     // Supervisor
-    { rut: '17777777-7', nombre: 'Andrea', apellido: 'Méndez', email: 'amendez@uct.cl', role: rolSupervisor.id },
+    { rut: '17777777-7', nombre: 'Andrea', apellido: 'Méndez', email: 'supervisor@uct.cl', role: rolSupervisor.id },
     
     // Técnicos
-    { rut: '18765432-1', nombre: 'Felipe', apellido: 'Gutiérrez', email: 'fgutierrez@uct.cl', role: rolTecnico.id },
+    { rut: '18765432-1', nombre: 'Felipe', apellido: 'Gutiérrez', email: 'tecnico@uct.cl', role: rolTecnico.id },
     { rut: '19876543-2', nombre: 'Camila', apellido: 'Rojas', email: 'crojas@uct.cl', role: rolTecnico.id },
     { rut: '17654321-0', nombre: 'Sebastián', apellido: 'Valenzuela', email: 'svalenzuela@uct.cl', role: rolTecnico.id },
     { rut: '21345678-9', nombre: 'Macarena', apellido: 'Flores', email: 'mflores@uct.cl', role: rolTecnico.id },
     { rut: '19456789-K', nombre: 'Rodrigo', apellido: 'Vergara', email: 'rvergara@uct.cl', role: rolTecnico.id },
     
     // Reportantes (Nuevos)
-    { rut: '22111222-3', nombre: 'Estudiante', apellido: 'Prueba', email: 'eprueba@alu.uct.cl', role: rolReportante.id },
+    { rut: '22111222-3', nombre: 'Estudiante', apellido: 'Prueba', email: 'reportante@uct.cl', role: rolReportante.id },
     { rut: '14555666-7', nombre: 'Profesor', apellido: 'Invitado', email: 'pinvitado@uct.cl', role: rolReportante.id },
   ];
 

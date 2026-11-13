@@ -128,12 +128,6 @@ const buildGateway = (options = {}) => {
         exposedHeaders: ['Content-Disposition', 'X-Kill-Switch'],
     });
 
-    fastify.addHook('onRequest', (request, _reply, done) => {
-        delete request.headers.expect;
-        delete request.headers.Expect;
-        done();
-    });
-
     fastify.register(proxy, {
         upstream: options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3003',
         prefix: '/api/v1/activos',
@@ -218,12 +212,6 @@ const buildGateway = (options = {}) => {
         upstream: options.notificacionesUrl || process.env.MS_NOTIFICACIONES_URL || 'http://127.0.0.1:3004',
         prefix: '/api/v1/notificaciones',
         rewritePrefix: '/notificar',
-        rewriteRequestHeaders: (_request, headers) => {
-            const sanitizedHeaders = { ...headers };
-            delete sanitizedHeaders.expect;
-            delete sanitizedHeaders.Expect;
-            return sanitizedHeaders;
-        },
         replyOptions: { onError: handleProxyError }
     });
 

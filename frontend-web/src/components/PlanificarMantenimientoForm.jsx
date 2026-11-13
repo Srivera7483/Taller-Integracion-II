@@ -135,7 +135,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
       }
     };
 
-    cargar();
+    void cargar();
 
     return () => {
       cancel = true;

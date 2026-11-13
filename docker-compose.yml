@@ -1,47 +1,5 @@
-name: inframanager
-
-services:
-  activos_db:
-    image: postgres:16
-    container_name: activos_db
-    restart: always
-    ports:
-      - "127.0.0.1:5433:5432"
-    environment:
-      - POSTGRES_DB=activos_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    volumes:
-      - activos_db_data:/var/lib/postgresql/data
-
-  incidencias_db:
-    image: postgres:16
-    container_name: incidencias_db
-    restart: always
-    ports:
-      - "127.0.0.1:5434:5432"
-    environment:
-      - POSTGRES_DB=incidencias_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    volumes:
-      - incidencias_db_data:/var/lib/postgresql/data
-
-  auth_db:
-    image: postgres:16
-    container_name: auth_db
-    restart: always
-    ports:
-      - "127.0.0.1:5435:5432"
-    environment:
-      - POSTGRES_DB=auth_db
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-    volumes:
-      - auth_db_data:/var/lib/postgresql/data
-
   rabbitmq:
-    image: rabbitmq:4-management
+    image: rabbitmq:3-management
     container_name: rabbitmq
     restart: unless-stopped
     environment:
@@ -78,8 +36,6 @@ services:
       context: ./ms-notificaciones
     container_name: ms-notificaciones
     restart: unless-stopped
-    env_file:
-      - ./ms-notificaciones/.env
     environment:
       PORT: 3004
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-inframanager}:${RABBITMQ_DEFAULT_PASS:-inframanager-local}@rabbitmq:5672

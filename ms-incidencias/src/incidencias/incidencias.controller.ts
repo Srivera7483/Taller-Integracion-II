@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpStatus,
   UnauthorizedException,
   Param,
@@ -38,8 +39,18 @@ export class IncidenciasController {
   constructor(private readonly incidenciasService: IncidenciasService) { }
 
   @Get()
-  listar(@Query() query: ListarIncidenciasQueryDto) {
-    return this.incidenciasService.listar(query);
+  listar(
+    @Query() query: ListarIncidenciasQueryDto,
+    @Headers('authorization') authHeader?: string,
+  ) {
+    return authHeader
+      ? this.incidenciasService.listar(query, authHeader)
+      : this.incidenciasService.listar(query);
+  }
+
+  @Get('resumen')
+  obtenerResumenMetricas() {
+    return this.incidenciasService.obtenerResumenMetricas();
   }
 
   @Get('prioridades-dinamicas')
@@ -86,8 +97,13 @@ export class IncidenciasController {
   }
 
   @Get(':id_incidencia')
-  obtener(@Param('id_incidencia', ParseUUIDPipe) id: string) {
-    return this.incidenciasService.obtener(id);
+  obtener(
+    @Param('id_incidencia', ParseUUIDPipe) id: string,
+    @Headers('authorization') authHeader?: string,
+  ) {
+    return authHeader
+      ? this.incidenciasService.obtener(id, authHeader)
+      : this.incidenciasService.obtener(id);
   }
 
   @Patch(':id_incidencia/estado')

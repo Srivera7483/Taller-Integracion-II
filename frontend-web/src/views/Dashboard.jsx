@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import StatusBadge from '../components/StatusBadge';
@@ -32,6 +32,22 @@ const Dashboard = () => {
 
   const rolUsuario = obtenerRolUsuario();
   const esAdmin = rolUsuario === 'ADMINISTRADOR';
+  const [resumenGlobal, setResumenGlobal] = useState(null);
+
+  const cargarResumenGlobal = useCallback(async () => {
+    try {
+      const res = await api.get('/incidencias/resumen');
+      if (res?.data && typeof res.data.total === 'number') {
+        setResumenGlobal(res.data);
+      }
+    } catch {
+      // Si el endpoint de resumen no está disponible aún, se usa el cálculo local completo
+    }
+  }, []);
+
+  useEffect(() => {
+    void cargarResumenGlobal();
+  }, [cargarResumenGlobal]);
 
   // LLamada HTTP alineada a la especificación de la tarea TAL-112
   const fetchIncidenciasCallback = useCallback(async (page, limit) => {
@@ -57,34 +73,78 @@ const Dashboard = () => {
     sentinelRef,
     sentinelIndex,
     handleContainerScroll,
+    reset: recargarListadoIncidencias,
   } = useInfiniteScroll({
     fetchFunction: fetchIncidenciasCallback,
     limit: 15, // Límite estipulado en TAL-112
   });
 
+  useEffect(() => {
+    const handleIncidenciaCreada = () => {
+      void cargarResumenGlobal();
+      recargarListadoIncidencias();
+    };
+    window.addEventListener('incidencia-creada', handleIncidenciaCreada);
+    return () => window.removeEventListener('incidencia-creada', handleIncidenciaCreada);
+  }, [cargarResumenGlobal, recargarListadoIncidencias]);
+
   const resumenMetricas = useMemo(() => {
-    let resueltas = 0;
-    let pendientes = 0;
-    let criticas = 0;
+    let localResueltas = 0;
+    let localPendientes = 0;
+    let localCriticas = 0;
 
     incidencias.forEach((item) => {
-      // Manejo seguro del estado (puede ser objeto o string según la BD)
       const estadoNombre = (
         typeof item.estado === 'object' && item.estado !== null
           ? item.estado.nombre_estado || item.estado.nombre
           : item.estado || ''
       ).toLowerCase();
-      
-      // Manejo seguro de prioridad
-      const prioridadNombre = (item.prioridad || '').toLowerCase();
 
-      if (estadoNombre === 'resuelta' || estadoNombre === 'completada' || estadoNombre === 'cerrada') resueltas++;
-      if (estadoNombre === 'pendiente' || estadoNombre === 'reportada') pendientes++;
-      if (prioridadNombre === 'crítica' || prioridadNombre === 'alta') criticas++;
+      const prioridadNombre = (item.prioridad || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+
+      const esFinalizada =
+        estadoNombre === 'resuelta' ||
+        estadoNombre === 'completada' ||
+        estadoNombre === 'cerrada';
+
+      if (esFinalizada) {
+        if (estadoNombre === 'resuelta' || estadoNombre === 'completada') {
+          localResueltas++;
+        }
+      } else if (estadoNombre !== 'rechazada' && estadoNombre !== 'rechazado') {
+        if (
+          estadoNombre === 'pendiente' ||
+          estadoNombre === 'reportada' ||
+          estadoNombre === 'asignada' ||
+          estadoNombre === 'en progreso'
+        ) {
+          localPendientes++;
+        }
+        if (prioridadNombre === 'critica' || prioridadNombre === 'alta') {
+          localCriticas++;
+        }
+      }
     });
 
-    return { resueltas, pendientes, criticas };
-  }, [incidencias]);
+    if (resumenGlobal && typeof resumenGlobal.total === 'number') {
+      return {
+        total: Math.max(resumenGlobal.total, incidencias.length),
+        pendientes: resumenGlobal.pendientes ?? localPendientes,
+        criticas: resumenGlobal.criticas ?? localCriticas,
+        resueltas: resumenGlobal.resueltas ?? localResueltas,
+      };
+    }
+
+    return {
+      total: incidencias.length,
+      resueltas: localResueltas,
+      pendientes: localPendientes,
+      criticas: localCriticas,
+    };
+  }, [incidencias, resumenGlobal]);
 
   return (
     <div className="space-y-6">
@@ -113,9 +173,15 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard
-          title="Incidencias Pendientes"
+          title="Total Incidencias"
+          value={resumenMetricas.total.toString()}
+          icon={FiActivity}
+          color="blue"
+        />
+        <MetricCard
+          title="Pendientes / En Atención"
           value={resumenMetricas.pendientes.toString()}
           icon={FiClock}
           color="orange"
@@ -140,7 +206,9 @@ const Dashboard = () => {
             <div className="flex items-center gap-3">
               <h3 className="font-semibold text-gray-900 text-sm">Órdenes de Trabajo e Incidencias Recientes</h3>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                {incidencias.length} registros cargados
+                {resumenMetricas.total > incidencias.length
+                  ? `${incidencias.length} de ${resumenMetricas.total} registros cargados`
+                  : `${incidencias.length} registros cargados`}
               </span>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
@@ -205,8 +273,21 @@ const Dashboard = () => {
                     ? new Date(inc.fecha_creacion).toLocaleDateString()
                     : (inc.fecha || 'Reciente');
 
-                  // Mapeo seguro para el reportante o técnico asignado
-                  const usuarioAsignado = inc.asignado || inc.tecnico_asignado || (inc.id_reportante ? `Reportante: ${inc.id_reportante.substring(0, 8)}` : 'Sin asignar');
+                  // Mapeo seguro para el técnico asignado o reportante real
+                  const usuarioAsignado = inc.nombre_tecnico
+                    ? `Técnico: ${inc.nombre_tecnico}`
+                    : inc.asignado ||
+                      (inc.tecnico_asignado
+                        ? `Técnico: ${inc.tecnico_asignado}`
+                        : inc.nombre_reportante
+                          ? `Reportante: ${inc.nombre_reportante}`
+                          : inc.id_reportante
+                            ? `Reportante: ${inc.id_reportante.substring(0, 8)}`
+                            : 'Sin asignar');
+                  const etiquetaActivo =
+                    inc.nombre_activo ||
+                    inc.codigo_qr_activo ||
+                    (inc.id_activo ? `${inc.id_activo.substring(0, 8)}...` : null);
 
                   return (
                     <tr
@@ -230,10 +311,10 @@ const Dashboard = () => {
                           <Link
                             to={`/trazabilidad/${encodeURIComponent(inc.id_activo)}`}
                             className="inline-flex items-center gap-1 font-mono text-xs px-2 py-0.5 bg-gray-100 hover:bg-blue-50 text-gray-800 hover:text-blue-700 rounded border border-gray-200 hover:border-blue-300 transition-colors shadow-2xs"
-                            title={`Ver trazabilidad de ${inc.id_activo}`}
+                            title={`Ver trazabilidad de ${etiquetaActivo || inc.id_activo}`}
                           >
                             <FiBox className="w-3 h-3 text-gray-600" aria-hidden="true" />
-                            <span>{inc.id_activo.substring(0, 8)}...</span>
+                            <span>{etiquetaActivo}</span>
                           </Link>
                         ) : (
                           <span className="font-mono text-xs text-gray-600">N/A</span>
