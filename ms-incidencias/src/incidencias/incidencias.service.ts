@@ -61,7 +61,7 @@ export class IncidenciasService {
     private readonly rabbitmqProducer: RabbitmqProducerService,
     private readonly prioridadDinamicaService: PrioridadDinamicaService = new PrioridadDinamicaService(),
     private readonly exportarIncidenciasService: ExportarIncidenciasService = new ExportarIncidenciasService(),
-  ) {}
+  ) { }
 
   private esIncidenciaCritica(
     prioridad: PrioridadIncidencia,
@@ -99,11 +99,11 @@ export class IncidenciasService {
       where: { id_incidencia: { in: ids.map((row) => row.id_incidencia) } },
       ...incidenciaConEstadoActual,
     });
-    
+
     const porId = new Map(
       incidencias.map((incidencia) => [incidencia.id_incidencia, incidencia]),
     );
-    
+
     return ids.flatMap((row) => {
       const incidencia = porId.get(row.id_incidencia);
       return incidencia ? [this.toApiIncidencia(incidencia)] : [];
@@ -122,7 +122,7 @@ export class IncidenciasService {
       const estadoInicial = await transaction.estadoIncidencia.findFirst({
         where: { nombre_estado: 'Reportada' },
       });
-      
+
       if (!estadoInicial) {
         throw new InternalServerErrorException('No está configurado el estado inicial');
       }
@@ -226,8 +226,8 @@ export class IncidenciasService {
       const idEstadoActual = incidencia.historial_estados?.[0]?.estado?.id_estado;
       const rolUpper = this.normalizarRol(rolUsuario);
 
-      if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR') {
-        throw new ForbiddenException('Solo un SUPERVISOR puede pasar de Reportada a Asignada');
+      if (idEstadoActual === 1 && idEstadoNuevo === 2 && !['SUPERVISOR', 'ADMINISTRADOR'].includes(rolUpper)) {
+        throw new ForbiddenException('Solo un SUPERVISOR o ADMINISTRADOR puede pasar de Reportada a Asignada');
       }
       if (idEstadoActual === 2 && (idEstadoNuevo === 3 || idEstadoNuevo === 6) && (rolUpper !== 'TECNICO' && rolUpper !== 'TÉCNICO' && rolUpper !== 'ADMINISTRADOR')) {
         throw new ForbiddenException('Solo un TECNICO puede pasar de Asignada a Resuelta o Completada');
@@ -286,7 +286,7 @@ export class IncidenciasService {
     }));
   }
 
-  
+
 
   async listarEvidencias(id: string) {
     await this.assertIncidenciaExists(id);
@@ -311,7 +311,7 @@ export class IncidenciasService {
       data: {
         id_incidencia: id,
         id_tipo_evidencia: tipo.id_tipo_evidencia,
-        url_cloudinary: body.url_evidencia.trim(), 
+        url_cloudinary: body.url_evidencia.trim(),
       },
       include: { tipo_evidencia: { select: { id_tipo_evidencia: true, nombre_tipo: true } } },
     });
@@ -320,7 +320,7 @@ export class IncidenciasService {
 
   async procesarYGuardarEvidencia(idIncidencia: string, idTipoEvidencia: number, file: any) {
     await this.assertIncidenciaExists(idIncidencia);
-    
+
     if (!idTipoEvidencia) {
       throw new BadRequestException('id_tipo_evidencia es requerido');
     }
@@ -382,6 +382,7 @@ export class IncidenciasService {
     if (!exists) throw new NotFoundException('Incidencia no encontrada');
   }
 
+
   async resolverIncidencia(
     idIncidencia: string,
     idTecnico: string,
@@ -389,17 +390,56 @@ export class IncidenciasService {
     emailUsuario?: string,
   ) {
     const rolNorm = this.normalizarRol(rolUsuario);
-    if (!['TECNICO', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm)) {
+    const esSupervisorOAdmin = [
+      'SUPERVISOR',
+      'ADMINISTRADOR',
+    ].includes(rolNorm);
+
+    if (
+      !['TECNICO', 'TÉCNICO', 'SUPERVISOR', 'ADMINISTRADOR'].includes(
+        rolNorm,
+      )
+    ) {
       throw new ForbiddenException(
-        'Acceso denegado: Solo los técnicos asignados, supervisores o administradores pueden resolver incidencias.',
+        'Acceso denegado: Solo el técnico asignado, supervisores o administradores pueden resolver incidencias.',
       );
     }
 
     const resultado = await this.prisma.$transaction(async (transaction) => {
+      // 1. Comprobar que exista una orden de trabajo para la incidencia.
+      const orden = await transaction.ordenTrabajo.findFirst({
+        where: {
+          id_incidencia: idIncidencia,
+        },
+      });
+
+      if (!orden) {
+        throw new BadRequestException(
+          'No existe una orden de trabajo para esta incidencia. Primero debes registrar el diagnóstico.',
+        );
+      }
+
+      // 2. Comprobar que el técnico sea el asignado.
+      if (
+        !esSupervisorOAdmin &&
+        orden.id_tecnico !== idTecnico
+      ) {
+        throw new ForbiddenException(
+          'Solo el técnico asignado, un supervisor o un administrador pueden resolver esta incidencia.',
+        );
+      }
+
+      // 3. Consultar el último estado de la incidencia.
       const ultimoHistorial = await transaction.historialEstados.findFirst({
-        where: { id_incidencia: idIncidencia },
-        orderBy: { fecha_creacion: 'desc' },
-        include: { estado: true },
+        where: {
+          id_incidencia: idIncidencia,
+        },
+        orderBy: {
+          fecha_creacion: 'desc',
+        },
+        include: {
+          estado: true,
+        },
       });
 
       if (!ultimoHistorial) {
@@ -408,14 +448,19 @@ export class IncidenciasService {
         );
       }
 
-      const nombreEstadoActual = ultimoHistorial.estado.nombre_estado.toUpperCase();
+      const nombreEstadoActual =
+        ultimoHistorial.estado.nombre_estado.trim().toUpperCase();
 
-      if (nombreEstadoActual !== 'ASIGNADA') {
+      // 4. Permitir resolver desde REPORTADA o ASIGNADA.
+      if (
+        !['REPORTADA', 'ASIGNADA'].includes(nombreEstadoActual)
+      ) {
         throw new BadRequestException(
           `Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`,
         );
       }
 
+      // 5. Buscar el estado RESUELTA.
       const estadoDestino = await transaction.estadoIncidencia.findFirst({
         where: {
           nombre_estado: {
@@ -431,40 +476,58 @@ export class IncidenciasService {
         );
       }
 
+      // 6. Comprobar que exista la incidencia.
       const incidencia = await transaction.incidencias.findUnique({
-        where: { id_incidencia: idIncidencia },
-        select: { titulo: true },
+        where: {
+          id_incidencia: idIncidencia,
+        },
+        select: {
+          titulo: true,
+        },
       });
 
       if (!incidencia) {
         throw new NotFoundException('Incidencia no encontrada');
       }
 
+      // 7. Registrar el nuevo estado en el historial.
       const nuevoHistorial = await transaction.historialEstados.create({
         data: {
           id_incidencia: idIncidencia,
           id_estado: estadoDestino.id_estado,
           id_usuario_cambio: idTecnico,
         },
-        include: { estado: true },
+        include: {
+          estado: true,
+        },
       });
 
-      // TAL-194: Registrar fecha_cierre en ORDENES_TRABAJO
+      // 8. Registrar la fecha de cierre de la orden.
       await transaction.ordenTrabajo.updateMany({
-        where: { id_incidencia: idIncidencia },
-        data: { fecha_cierre: new Date() },
+        where: {
+          id_incidencia: idIncidencia,
+        },
+        data: {
+          fecha_cierre: new Date(),
+        },
       });
 
-      return { historial: nuevoHistorial, titulo: incidencia.titulo };
+      return {
+        historial: nuevoHistorial,
+        titulo: incidencia.titulo,
+      };
     });
 
+    // 9. Notificar después de completar la transacción.
     await this.notificarIncidencia(
       emailUsuario,
       `Incidencia Resuelta: ${resultado.titulo}`,
       `La incidencia "${resultado.titulo}" fue resuelta.`,
     );
+
     return resultado.historial;
   }
+
 
   async clasificarPrioridad(idIncidencia: string, prioridadRaw: string) {
     const normalizada = (prioridadRaw || '').trim().toLowerCase();

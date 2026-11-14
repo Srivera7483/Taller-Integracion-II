@@ -45,6 +45,28 @@ export class OrdenesTrabajoController {
     return this.ordenesService.asignarOrden(body, idUsuario);
   }
 
+  @Post('diagnostico')
+  @HttpCode(HttpStatus.CREATED)
+  @Roles('TECNICO', 'SUPERVISOR', 'ADMINISTRADOR')
+  @RequirePermissions('ordenes:diagnosticar')
+  async registrarDiagnostico(
+    @Body() body: AsignarOrdenDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    const idUsuario = user.sub || user.userId;
+    const rolUsuario = user.rol || user.role;
+
+    if (!idUsuario) {
+      throw new UnauthorizedException('Usuario autenticado inválido');
+    }
+
+    return this.ordenesService.registrarDiagnostico(
+      body,
+      idUsuario,
+      rolUsuario,
+    );
+  }
+
   @Get('mis-ordenes')
   @Roles('TECNICO', 'SUPERVISOR', 'ADMINISTRADOR')
   @RequirePermissions('ordenes:diagnosticar')

@@ -143,9 +143,9 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
     setTocado((prev) => ({ ...prev, [campo]: true }));
     const val =
       campo === 'titulo' ? titulo :
-      campo === 'idActivo' ? idActivo :
-      campo === 'categoria' ? categoria :
-      campo === 'descripcion' ? descripcion : '';
+        campo === 'idActivo' ? idActivo :
+          campo === 'categoria' ? categoria :
+            campo === 'descripcion' ? descripcion : '';
     setErrores((prev) => ({ ...prev, [campo]: validarCampo(campo, val) }));
   };
 
@@ -211,9 +211,8 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
 
     setIsSubmitting(true);
 
-    const descripcionCompleta = `[Categoría: ${categoria}] [Origen: Móvil FAB]${
-      ubicacion.trim() ? ` [Ubicación: ${ubicacion.trim()}]` : ''
-    }\n${descripcion.trim()}`;
+    const descripcionCompleta = `[Categoría: ${categoria}] [Origen: Móvil FAB]${ubicacion.trim() ? ` [Ubicación: ${ubicacion.trim()}]` : ''
+      }\n${descripcion.trim()}`;
 
     // Resolver ID si es un código conocido
     let resolvedActivoId = idActivo.trim();
@@ -360,11 +359,10 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
                 onBlur={() => handleBlur('titulo')}
                 disabled={isSubmitting}
                 placeholder="Ej. Sin señal de video en proyector"
-                className={`w-full pl-9 pr-3 py-2.5 rounded-lg border text-base sm:text-sm outline-none transition-all ${
-                  tocado.titulo && errores.titulo
+                className={`w-full pl-9 pr-3 py-2.5 rounded-lg border text-base sm:text-sm outline-none transition-all ${tocado.titulo && errores.titulo
                     ? 'border-red-400 bg-red-50/20 focus:ring-2 focus:ring-red-200'
                     : 'border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20'
-                }`}
+                  }`}
                 required
               />
             </div>
@@ -393,11 +391,10 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
                 onBlur={() => handleBlur('idActivo')}
                 disabled={isSubmitting}
                 placeholder="Ej. ACT-2026-0001 o SN-EPS-9921"
-                className={`w-full pl-9 pr-3 py-2.5 rounded-lg border text-base sm:text-sm font-mono outline-none transition-all ${
-                  tocado.idActivo && errores.idActivo
+                className={`w-full pl-9 pr-3 py-2.5 rounded-lg border text-base sm:text-sm font-mono outline-none transition-all ${tocado.idActivo && errores.idActivo
                     ? 'border-red-400 bg-red-50/20 focus:ring-2 focus:ring-red-200'
                     : 'border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20'
-                }`}
+                  }`}
                 required
               />
             </div>
@@ -412,11 +409,10 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
                     key={act.id}
                     type="button"
                     onClick={() => handleFieldChange('idActivo', act.id)}
-                    className={`text-[11px] px-2.5 py-1 rounded-full font-mono transition-all cursor-pointer ${
-                      seleccionado
+                    className={`text-[11px] px-2.5 py-1 rounded-full font-mono transition-all cursor-pointer ${seleccionado
                         ? 'bg-primary text-white font-bold shadow-xs'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                      }`}
                   >
                     {act.id}
                   </button>
@@ -446,11 +442,10 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
                     key={cat.id}
                     type="button"
                     onClick={() => handleFieldChange('categoria', cat.id)}
-                    className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all cursor-pointer min-h-[44px] ${
-                      seleccionado
+                    className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all cursor-pointer min-h-[44px] ${seleccionado
                         ? 'bg-primary-50 border-primary text-primary font-bold shadow-xs ring-1 ring-primary'
                         : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     <Icono className={`w-4 h-4 flex-shrink-0 ${seleccionado ? 'text-primary' : 'text-gray-400'}`} />
                     <span className="text-xs truncate">{cat.nombre}</span>
@@ -486,11 +481,10 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
               onBlur={() => handleBlur('descripcion')}
               disabled={isSubmitting}
               placeholder="Indica qué anomalía ocurre, luces o códigos de error..."
-              className={`w-full p-3 rounded-lg border text-base sm:text-sm outline-none transition-all resize-none ${
-                tocado.descripcion && errores.descripcion
+              className={`w-full p-3 rounded-lg border text-base sm:text-sm outline-none transition-all resize-none ${tocado.descripcion && errores.descripcion
                   ? 'border-red-400 bg-red-50/20 focus:ring-2 focus:ring-red-200'
                   : 'border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20'
-              }`}
+                }`}
               required
             />
             {tocado.descripcion && errores.descripcion && (

@@ -16,14 +16,17 @@ import {
 } from 'react-icons/fi';
 import StatusBadge from '../components/StatusBadge';
 import api from '../services/api';
-import AprobacionReportante from '../components/AprobacionReportante';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
 import EvidenciaUploader from '../components/EvidenciaUploader';
 import { useToast } from '../context/ToastContext';
 import { getUsuarioActual, hasPermission } from '../services/authService';
 
 const getPriorityBadgeClass = (prioridad) => {
-  const p = (prioridad || '').toLowerCase();
+  const p = (
+    typeof prioridad === 'string'
+      ? prioridad
+      : prioridad?.nombre_prioridad || prioridad?.nombre || ''
+  ).toLowerCase();
   if (p === 'critica' || p === 'crítica') return 'bg-purple-100 text-purple-800 border-purple-300';
   if (p === 'alta') return 'bg-red-100 text-red-800 border-red-300';
   if (p === 'media') return 'bg-amber-100 text-amber-800 border-amber-300';
@@ -94,9 +97,8 @@ const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
               setErrorCarga(true);
             }}
             onClick={() => onAmpliar(url, nombre)}
-            className={`w-full h-full object-cover cursor-pointer transition-all duration-500 hover:scale-105 ${
-              cargando ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
-            }`}
+            className={`w-full h-full object-cover cursor-pointer transition-all duration-500 hover:scale-105 ${cargando ? 'opacity-0 scale-95' : 'opacity-100 scale-100'
+              }`}
           />
         ) : (
           <div className="p-4 text-center text-xs text-red-400 flex flex-col items-center gap-1.5">
@@ -168,13 +170,10 @@ const DetalleIncidencia = () => {
   const [imagenModal, setImagenModal] = useState({ url: null, nombre: null });
 
   const usuario = getUsuarioActual();
-  const rolUsuario = (usuario?.rol || usuario?.role || '').toUpperCase();
-  const puedeClasificar =
-    hasPermission('incidencias:clasificar_prioridad') ||
-    ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolUsuario);
-  const puedeResolver =
-    hasPermission('incidencias:resolver') ||
-    ['TECNICO', 'TÉCNICO', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolUsuario);
+  const puedeClasificar = hasPermission(
+    'incidencias:clasificar_prioridad');
+  const puedeResolver = hasPermission(
+    'incidencias:resolver');
 
   const cargarIncidencia = async () => {
     try {
@@ -193,7 +192,10 @@ const DetalleIncidencia = () => {
           id_activo: apiData.id_activo,
           prioridad: apiData.prioridad || apiData.prioridad_relativa || 'Media',
           prioridad_relativa: apiData.prioridad_relativa,
-          estado: apiData.estado?.nombre_estado || 'Pendiente',
+          estado:
+            typeof apiData.estado === 'string'
+              ? apiData.estado
+              : apiData.estado?.nombre_estado || 'Pendiente',
           fecha_creacion: apiData.fecha_creacion || new Date().toISOString(),
           asignado:
             ordenAsociada?.tecnico_nombre ||
@@ -521,9 +523,9 @@ const DetalleIncidencia = () => {
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-emerald-50 border border-emerald-200 p-4 rounded-xl">
               <div>
                 <p className="text-xs font-bold text-emerald-950">
-                  {rolUsuario === 'TECNICO'
-                    ? 'Técnico autorizado para registrar cierre.'
-                    : `Usuario con permisos de resolución (${rolUsuario || 'Autorizado'}).`}
+                  {hasPermission('incidencias:resolver')
+                    ? 'Usuario autorizado para registrar el cierre.'
+                    : 'Usuario con autorización de resolución.'}
                 </p>
                 <p className="text-xs text-emerald-800 mt-0.5">
                   Puedes registrar el diagnóstico técnico y marcar la incidencia como resuelta en PostgreSQL.
@@ -561,14 +563,6 @@ const DetalleIncidencia = () => {
             </div>
           )}
         </div>
-      )}
-
-      {/* Renderizado condicional si ya está marcada como resuelta para aprobación del reportante */}
-      {estaResuelta && (
-        <AprobacionReportante
-          incidenciaId={incidencia.id}
-          onAprobacionCompletada={handleAprobacionCompletada}
-        />
       )}
 
       {/* Modal de Cierre */}

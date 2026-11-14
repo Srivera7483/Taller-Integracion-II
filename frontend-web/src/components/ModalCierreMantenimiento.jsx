@@ -93,12 +93,16 @@ const ModalCierreMantenimiento = ({
   if (!isOpen || !orden) return null;
 
   // Validación de Ownership / Asignación y Roles (TAL-194):
-  const rolActual = (tecnicoActual?.rol || tecnicoActual?.role || '').toUpperCase();
+  const rolActual = (
+    typeof tecnicoActual?.rol === 'string'
+      ? tecnicoActual.rol
+      : tecnicoActual?.rol?.nombre_rol || ''
+  ).toUpperCase();
   const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolActual);
 
   const nombreAsignado = (orden.tecnico_nombre || orden.asignado || '').trim().toLowerCase();
   const nombreActual = (tecnicoActual?.nombre || '').trim().toLowerCase();
-  
+
   const esTecnicoAsignado =
     esSupervisorOAdmin ||
     !nombreAsignado ||
@@ -173,15 +177,21 @@ const ModalCierreMantenimiento = ({
   // Envío final para COMPLETAR MANTENIMIENTO
   const handleGuardarCierre = async () => {
     if (!esTecnicoAsignado) {
-      setErrorValidacion('Operación denegada: No eres el técnico asignado a esta tarea.');
+      setErrorValidacion(
+        'Operación denegada: No eres el técnico asignado a esta tarea.'
+      );
       return;
     }
 
     if (!isFormCompletarValido || isSubmitting) {
       if (!resolucionValida) {
-        setErrorValidacion('La resolución debe contener al menos 10 caracteres detallando el trabajo.');
+        setErrorValidacion(
+          'La resolución debe contener al menos 10 caracteres detallando el trabajo.'
+        );
       } else if (!horasValidas) {
-        setErrorValidacion('Debes indicar una cantidad válida de horas invertidas.');
+        setErrorValidacion(
+          'Debes indicar una cantidad válida de horas invertidas.'
+        );
       }
       return;
     }
@@ -189,33 +199,29 @@ const ModalCierreMantenimiento = ({
     setErrorValidacion(null);
     setIsSubmitting(true);
 
-    const idIncidenciaBackend = orden.incidencia_id || orden.id;
-    const ordenId = orden.id_orden || orden.id;
+    const idIncidenciaBackend =
+      orden.incidencia_id || orden.id_incidencia || orden.id;
+
+    const idTecnico =
+      orden.tecnico_id ||
+      orden.id_tecnico ||
+      tecnicoActual?.id_usuario;
 
     try {
-      // 1. Marcar como resuelta a través del endpoint real PATCH /api/v1/incidencias/:id/resolver (TAL-194)
-      try {
-        await api.patch(`/incidencias/${idIncidenciaBackend}/resolver`);
-      } catch (resolverErr) {
-        // En caso de requerir transición directa por máquina de estados
-        console.warn('Fallback a actualización de estado:', resolverErr.message);
-        await api.patch(`/incidencias/${idIncidenciaBackend}/estado`, {
-          id_estado: 4, // Estado Resuelta
-        });
-      }
+      await api.post('/ordenes-trabajo/diagnostico', {
+        id_incidencia: idIncidenciaBackend,
+        id_tecnico: idTecnico,
+        diagnostico_tecnico: resolucion.trim(),
+      });
 
-      // 2. Registrar diagnóstico en PostgreSQL mediante PATCH /api/v1/ordenes-trabajo/:id/diagnostico (TAL-194)
-      if (ordenId && !String(ordenId).startsWith('ORD-')) {
-        try {
-          await api.patch(`/ordenes-trabajo/${ordenId}/diagnostico`, {
-            diagnostico_tecnico: resolucion.trim(),
-          });
-        } catch (diagErr) {
-          console.warn('Diagnóstico de orden:', diagErr.message);
-        }
-      }
+      await api.patch(
+        `/incidencias/${idIncidenciaBackend}/resolver`
+      );
 
-      showToast('¡Mantenimiento técnico confirmado! La incidencia fue resuelta en PostgreSQL.', 'success');
+      showToast(
+        '¡Mantenimiento técnico confirmado! El diagnóstico fue registrado y la incidencia fue resuelta.',
+        'success'
+      );
 
       if (onCierreExitoso) {
         onCierreExitoso({
@@ -228,11 +234,18 @@ const ModalCierreMantenimiento = ({
       onClose();
     } catch (err) {
       console.error('Error al registrar cierre:', err);
-      showToast(err.response?.data?.mensaje || 'Error al registrar la confirmación del mantenimiento', 'error');
+
+      showToast(
+        err.response?.data?.mensaje ||
+        err.response?.data?.message ||
+        'Error al registrar la confirmación del mantenimiento.',
+        'error'
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   // Envío final para RECHAZAR INCIDENCIA
   const handleGuardarRechazo = async () => {
@@ -302,11 +315,10 @@ const ModalCierreMantenimiento = ({
         aria-labelledby="modal-cierre-titulo"
       >
         {/* Cabecera del Modal */}
-        <div className={`px-5 sm:px-6 py-4 flex items-center justify-between flex-shrink-0 text-white transition-colors duration-300 ${
-          modoAccion === 'RECHAZAR'
-            ? 'bg-gradient-to-r from-red-700 via-rose-700 to-red-800'
-            : 'bg-primary'
-        }`}>
+        <div className={`px-5 sm:px-6 py-4 flex items-center justify-between flex-shrink-0 text-white transition-colors duration-300 ${modoAccion === 'RECHAZAR'
+          ? 'bg-gradient-to-r from-red-700 via-rose-700 to-red-800'
+          : 'bg-primary'
+          }`}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white flex-shrink-0 border border-white/20">
               {modoAccion === 'RECHAZAR' ? (
@@ -428,11 +440,10 @@ const ModalCierreMantenimiento = ({
                     setErrorValidacion(null);
                   }}
                   disabled={isSubmitting}
-                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    modoAccion === 'COMPLETAR'
-                      ? 'bg-white text-emerald-800 shadow-xs border border-gray-200'
-                      : 'text-gray-600 hover:text-gray-900'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${modoAccion === 'COMPLETAR'
+                    ? 'bg-white text-emerald-800 shadow-xs border border-gray-200'
+                    : 'text-gray-600 hover:text-gray-900'
+                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   <FiCheckCircle className={`w-4 h-4 ${modoAccion === 'COMPLETAR' ? 'text-emerald-600' : 'text-gray-400'}`} />
                   <span>Completar Mantenimiento</span>
@@ -446,11 +457,10 @@ const ModalCierreMantenimiento = ({
                     setErrorValidacion(null);
                   }}
                   disabled={isSubmitting}
-                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    modoAccion === 'RECHAZAR'
-                      ? 'bg-red-50 text-red-800 shadow-xs border border-red-200'
-                      : 'text-gray-600 hover:text-red-700'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${modoAccion === 'RECHAZAR'
+                    ? 'bg-red-50 text-red-800 shadow-xs border border-red-200'
+                    : 'text-gray-600 hover:text-red-700'
+                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   <LuTriangleAlert className={`w-4 h-4 ${modoAccion === 'RECHAZAR' ? 'text-red-600' : 'text-gray-400'}`} />
                   <span>Rechazar Incidencia</span>
@@ -628,11 +638,10 @@ const ModalCierreMantenimiento = ({
                             type="button"
                             onClick={() => setHorasPreset(h)}
                             disabled={isSubmitting}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                              Number(horasInvertidas) === h
-                                ? 'bg-primary text-white border-primary shadow-xs'
-                                : 'bg-white hover:bg-primary-50 text-gray-700 border-gray-300'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                            className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${Number(horasInvertidas) === h
+                              ? 'bg-primary text-white border-primary shadow-xs'
+                              : 'bg-white hover:bg-primary-50 text-gray-700 border-gray-300'
+                              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                           >
                             {h}h
                           </button>
@@ -796,11 +805,10 @@ const ModalCierreMantenimiento = ({
                   aria-label="Confirmar rechazo de incidencia"
                   onClick={handleGuardarRechazo}
                   disabled={isSubmitting || !motivoRechazoValido}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
-                    isSubmitting || !motivoRechazoValido
-                      ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                      : 'bg-red-700 hover:bg-red-800 active:scale-98 shadow-red-700/20'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${isSubmitting || !motivoRechazoValido
+                    ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                    : 'bg-red-700 hover:bg-red-800 active:scale-98 shadow-red-700/20'
+                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   {isSubmitting ? (
                     <>
@@ -824,11 +832,10 @@ const ModalCierreMantenimiento = ({
                   aria-label="Confirmar cierre de mantenimiento"
                   onClick={handleGuardarCierre}
                   disabled={isSubmitting || !isFormCompletarValido}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
-                    isSubmitting || !isFormCompletarValido
-                      ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                      : 'bg-primary hover:bg-primary-hover active:scale-98 shadow-primary/20'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${isSubmitting || !isFormCompletarValido
+                    ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                    : 'bg-primary hover:bg-primary-hover active:scale-98 shadow-primary/20'
+                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   {isSubmitting ? (
                     <>

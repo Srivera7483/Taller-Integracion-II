@@ -69,11 +69,10 @@ const SelectorTecnicoSesion = () => {
                 key={tec.id}
                 type="button"
                 onClick={() => handleSeleccionarTecnico(tec)}
-                className={`w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors cursor-pointer ${
-                  tec.nombre === tecnico?.nombre
-                    ? 'bg-primary-50 text-primary-950 font-semibold border border-primary-200'
-                    : 'text-gray-700 hover:bg-gray-50'
-                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                className={`w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors cursor-pointer ${tec.nombre === tecnico?.nombre
+                  ? 'bg-primary-50 text-primary-950 font-semibold border border-primary-200'
+                  : 'text-gray-700 hover:bg-gray-50'
+                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
               >
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded bg-gray-100 text-gray-700 flex items-center justify-center font-bold text-[10px]">
