@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -22,6 +23,7 @@ import type { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.d
 import { ExportarIncidenciasService } from './exportar-incidencias.service';
 import type { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { RabbitmqProducerService } from '../rabbitmq/rabbitmq-producer.service';
+import { CloudinaryService } from './cloudinary.service';
 
 const incidenciaConEstadoActual = {
   include: {
@@ -31,7 +33,8 @@ const incidenciaConEstadoActual = {
       include: { estado: { select: { id_estado: true, nombre_estado: true } } },
     },
     evidencias: {
-      select: { url_cloudinary: true }
+      include: { tipo_evidencia: true },
+      orderBy: { fecha_creacion: 'desc' as const },
     },
     ordenes_trabajo: {
       take: 1,
@@ -61,6 +64,7 @@ export class IncidenciasService {
     private readonly rabbitmqProducer?: RabbitmqProducerService,
     private readonly prioridadDinamicaService: PrioridadDinamicaService = new PrioridadDinamicaService(),
     private readonly exportarIncidenciasService: ExportarIncidenciasService = new ExportarIncidenciasService(),
+    private readonly cloudinaryService: CloudinaryService = new CloudinaryService(),
   ) {}
 
   private esIncidenciaCritica(
@@ -399,18 +403,43 @@ export class IncidenciasService {
 
 
 
-  async crearEvidencia(id: string, body: CrearEvidenciaDto) {
+  async crearEvidencia(id: string, body?: CrearEvidenciaDto, file?: any) {
     await this.assertIncidenciaExists(id);
+
+    // Contrato OpenAPI: admite como máximo 5 evidencias y responde 409 al superar el límite
+    const totalEvidencias = await this.prisma.evidencia.count({
+      where: { id_incidencia: id },
+    });
+    if (totalEvidencias >= 5) {
+      throw new ConflictException('La incidencia ya tiene el máximo de 5 evidencias permitidas.');
+    }
+
+    if (!file && (!body || !body.url_evidencia || !body.url_evidencia.trim())) {
+      throw new BadRequestException('Debe proporcionar un archivo de imagen o una url_evidencia válida.');
+    }
+
+    const idTipo = Number(body?.id_tipo_evidencia || 1);
     const tipo = await this.prisma.tipoEvidencia.findUnique({
-      where: { id_tipo_evidencia: body.id_tipo_evidencia },
+      where: { id_tipo_evidencia: idTipo },
     });
     if (!tipo) throw new BadRequestException('id_tipo_evidencia no válido');
+
+    let urlCloudinary = '';
+    if (file) {
+      urlCloudinary = await this.cloudinaryService.subirImagen(file);
+    } else if (body?.url_evidencia) {
+      const url = body.url_evidencia.trim();
+      if (!this.cloudinaryService.validarUrlEvidencia(url)) {
+        throw new BadRequestException('url_evidencia debe ser una dirección HTTPS válida');
+      }
+      urlCloudinary = url;
+    }
 
     const evidencia = await this.prisma.evidencia.create({
       data: {
         id_incidencia: id,
         id_tipo_evidencia: tipo.id_tipo_evidencia,
-        url_cloudinary: body.url_evidencia.trim(), 
+        url_cloudinary: urlCloudinary,
       },
       include: { tipo_evidencia: { select: { id_tipo_evidencia: true, nombre_tipo: true } } },
     });
@@ -418,45 +447,7 @@ export class IncidenciasService {
   }
 
   async procesarYGuardarEvidencia(idIncidencia: string, idTipoEvidencia: number, file: any) {
-    await this.assertIncidenciaExists(idIncidencia);
-    
-    if (!idTipoEvidencia) {
-      throw new BadRequestException('id_tipo_evidencia es requerido');
-    }
-
-    const tipo = await this.prisma.tipoEvidencia.findUnique({
-      where: { id_tipo_evidencia: idTipoEvidencia },
-    });
-    if (!tipo) throw new BadRequestException('id_tipo_evidencia no válido');
-
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    try {
-      await fs.access(uploadsDir);
-    } catch {
-      await fs.mkdir(uploadsDir, { recursive: true });
-    }
-
-    const fileId = uuidv4();
-    const fileName = `${fileId}.webp`;
-    const filePath = path.join(uploadsDir, fileName);
-
-    await sharp(file.buffer)
-      .resize({ width: 1080, withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toFile(filePath);
-
-    const publicUrl = `/uploads/${fileName}`;
-
-    const evidencia = await this.prisma.evidencia.create({
-      data: {
-        id_incidencia: idIncidencia,
-        id_tipo_evidencia: tipo.id_tipo_evidencia,
-        url_cloudinary: publicUrl,
-      },
-      include: { tipo_evidencia: { select: { id_tipo_evidencia: true, nombre_tipo: true } } },
-    });
-
-    return this.toApiEvidencia(evidencia);
+    return this.crearEvidencia(idIncidencia, { id_tipo_evidencia: idTipoEvidencia }, file);
   }
 
   async listarEstados() {
@@ -592,16 +583,24 @@ export class IncidenciasService {
       .toUpperCase();
   }
 
-  private toApiIncidencia(
-    incidencia: IncidenciaConEstadoActual,
-    resolutores?: {
-      activosPorId?: Map<string, { nombre: string; codigoQr?: string }>;
-      usuariosPorId?: Map<
-        string,
-        { nombre: string; apellido?: string; email?: string }
-      >;
-    },
+  private toApiEvidencia(
+    evidencia: Prisma.EvidenciaGetPayload<{
+      include: { tipo_evidencia: true };
+    }>,
   ) {
+    return {
+      id_evidencia: evidencia.id_evidencia,
+      id_incidencia: evidencia.id_incidencia,
+      id_tipo_evidencia: evidencia.id_tipo_evidencia,
+      tipo: evidencia.tipo_evidencia,
+      tipo_evidencia: evidencia.tipo_evidencia,
+      url_evidencia: evidencia.url_cloudinary,
+      url_cloudinary: evidencia.url_cloudinary,
+      fecha_creacion: evidencia.fecha_creacion,
+    };
+  }
+
+  private toApiIncidencia(incidencia: IncidenciaConEstadoActual) {
     const estado = incidencia.historial_estados?.[0]?.estado;
     const calculo =
       this.prioridadDinamicaService.calcularPrioridadRelativa(incidencia);
@@ -645,7 +644,7 @@ export class IncidenciasService {
       titulo: incidencia.titulo,
       descripcion: incidencia.descripcion,
       estado: estado || null,
-      evidencias: incidencia.evidencias?.map((e) => e.url_cloudinary) || [],
+      evidencias: incidencia.evidencias?.map((e) => this.toApiEvidencia(e)) || [],
       fecha_creacion: incidencia.fecha_creacion,
       prioridad: incidencia.prioridad ?? calculo.prioridad_relativa,
       prioridad_original: incidencia.prioridad ?? calculo.prioridad_original,

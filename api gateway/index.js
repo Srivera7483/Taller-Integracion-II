@@ -35,6 +35,11 @@ const buildGateway = (options = {}) => {
 
     // TAL-4: Middleware / Hook de Kill Switch para interceptar operaciones mutantes
     fastify.addHook('onRequest', async (request, reply) => {
+        // Compatibilidad: Redirige internamente rutas /api/* a /api/v1/*
+        if (request.raw.url && /^\/api\/(?!v1(\/|$))/.test(request.raw.url)) {
+            request.raw.url = request.raw.url.replace(/^\/api\//, '/api/v1/');
+        }
+
         if (killSwitch.isBlocked(request.method, request.url)) {
             const status = killSwitch.getStatus();
             reply

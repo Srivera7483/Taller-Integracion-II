@@ -1,13 +1,14 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsNotEmpty, IsString, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CrearEvidenciaDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  id_tipo_evidencia!: number;
+  @IsOptional()
+  id_tipo_evidencia?: number;
 
   @IsString()
-  @IsNotEmpty()
-  url_evidencia!: string;
+  @IsOptional()
+  url_evidencia?: string;
 }

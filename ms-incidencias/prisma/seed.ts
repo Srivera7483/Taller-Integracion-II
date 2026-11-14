@@ -22,7 +22,22 @@ async function main() {
     });
   }
 
-  console.log('Seed de estados completado.');
+  const tiposEvidencia = [
+    { id_tipo_evidencia: 1, nombre_tipo: 'Imagen' },
+    { id_tipo_evidencia: 2, nombre_tipo: 'Video' },
+    { id_tipo_evidencia: 3, nombre_tipo: 'Documento' },
+    { id_tipo_evidencia: 4, nombre_tipo: 'Otro' },
+  ];
+
+  for (const tipo of tiposEvidencia) {
+    await prisma.tipoEvidencia.upsert({
+      where: { id_tipo_evidencia: tipo.id_tipo_evidencia },
+      update: { nombre_tipo: tipo.nombre_tipo },
+      create: tipo,
+    });
+  }
+
+  console.log('Seed de estados y tipos de evidencia completado.');
 }
 
 main()

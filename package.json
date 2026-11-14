@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@prisma/client": "^6.19.3",
+    "cypress": "^16.2.1",
     "prisma": "^6.19.3",
     "react-router-dom": "^7.18.4"
   }
