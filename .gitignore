@@ -28,3 +28,12 @@ artifacts/
 .cache/
 .temp/
 .tmp/
+
+# Temporary command logs from TAL-176 task
+build_output.txt
+logs_msnot.cmd
+logs_msnot2.cmd
+rebuild.cmd
+restart_msnot.cmd
+test_dlq.cmd
+up_msnot.cmd

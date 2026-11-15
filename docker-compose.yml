@@ -63,6 +63,17 @@ services:
     environment:
       PORT: 3004
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      RABBITMQ_EXCHANGE: uct.activos.events
+      RABBITMQ_EXCHANGE_TYPE: topic
+      RABBITMQ_QUEUE_NOTIFICACIONES: notificaciones.queue
+      RABBITMQ_QUEUE_AUDITORIA: auditoria.queue
+      RABBITMQ_DLX: uct.dlx
+      RABBITMQ_DLQ: dead-letter.queue
+      RABBITMQ_DLQ_ROUTING_KEY: dead-letter
+      # TTL de 5 minutos (300.000 ms) para la cola de reintentos / DLQ
+      RABBITMQ_MESSAGE_TTL: "300000"
+      # Límite máximo de reintentos antes de enviar a DLQ
+      RABBITMQ_MAX_RETRIES: "3"
     ports:
       - "127.0.0.1:${NOTIFICACIONES_PORT:-3004}:3004"
 
