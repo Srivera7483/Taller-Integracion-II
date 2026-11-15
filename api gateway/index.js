@@ -6,6 +6,27 @@ const fastifyCors = require('@fastify/cors');
 const rateLimit = require('@fastify/rate-limit');
 const RateLimitStore = require('./rate-limit-store');
 const KillSwitchManager = require('./kill-switch');
+const { Server: HttpServer } = require('http');
+const { Server: IoServer } = require('socket.io');
+
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://localhost:8081',
+  'http://localhost:19006',
+];
+
+const getAllowedOrigins = () => {
+  const envOrigins = process.env.CORS_ORIGINS;
+  if (!envOrigins) {
+    return DEFAULT_ALLOWED_ORIGINS;
+  }
+  return envOrigins
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+};
 
 const getTrustProxy = (value) => {
     if (typeof value !== 'string') {
@@ -215,15 +236,94 @@ const buildGateway = (options = {}) => {
         replyOptions: { onError: handleProxyError }
     });
 
-    return fastify;
+    // TAL-2: Configuración de Socket.io para comunicación en tiempo real
+    const httpServer = HttpServer();
+    fastify.setHandlerCallback((request, reply) => {
+        httpServer.emit('request', request.raw, reply.raw);
+    });
+    fastify.addHook('onClose', () => {
+        httpServer.close();
+    });
+
+    const io = new IoServer(httpServer, {
+        cors: {
+          origin: getAllowedOrigins(),
+          methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+          credentials: true,
+        },
+        transports: ['websocket', 'polling'],
+        allowEIO3: true,
+    });
+
+    // Configurar CORS del lado de Socket.io usando la misma configuración que HTTP
+    io.use((socket, next) => {
+      const origin = socket.handshake.headers.origin;
+      const allowedOrigins = getAllowedOrigins();
+      if (!origin || allowedOrigins.includes(origin)) {
+        socket.data.origin = origin;
+        return next();
+      }
+      next(new Error('[Ciberseguridad - CORS] Origen no autorizado para Socket.io'));
+    });
+
+    // Manejo de conexiones WebSocket
+    io.on('connection', (socket) => {
+      const origin = socket.handshake.headers.origin;
+      const userId = socket.handshake.query.userId || 'anonymous';
+
+      console.log(`[Socket.io] Cliente conectado: ${socket.id}, origen: ${origin}, userId: ${userId}`);
+
+      // Unirse a sala de incidencias para recibir eventos en tiempo real
+      socket.join('incidencias');
+
+      // Manejo de desconexión limpia
+      socket.on('disconnect', (reason) => {
+        console.log(`[Socket.io] Cliente desconectado: ${socket.id}, reason: ${reason}`);
+        // Limpiar listeners y descriptores
+        socket.removeAllListeners();
+      });
+
+      // Manejo de errores de conexión
+      socket.on('error', (error) => {
+        console.error(`[Socket.io] Error en socket ${socket.id}:`, error);
+        socket.disconnect();
+      });
+    });
+
+    // Función para emitir eventos a todos los clientes conectados
+    io.emitIncidencias = (event, data) => {
+      io.to('incidencias').emit(event, data);
+    };
+
+    // Función para emitir evento a un cliente específico
+    io.emitToClient = (socketId, event, data) => {
+      const clientSocket = io.sockets.sockets.get(socketId);
+      if (clientSocket) {
+        clientSocket.emit(event, data);
+      }
+    };
+
+    // Retornar el servidor HTTP para que sea utilizado por start()
+    return { fastify, io, httpServer };
 };
 
 const start = async () => {
-    const fastify = buildGateway();
+    const { fastify, io, httpServer } = buildGateway();
     const port = Number(process.env.GATEWAY_PORT ?? process.env.PORT ?? 3000);
 
     try {
         await fastify.listen({ port, host: '0.0.0.0' });
+        // Iniciar el servidor HTTP para Socket.io en el mismo puerto
+        await new Promise((resolve, reject) => {
+            httpServer.listen(port, '0.0.0.0', () => {
+                console.log(`[Socket.io] Servidor Socket.io escuchando en http://localhost:${port}`);
+                resolve();
+            });
+            httpServer.on('error', (err) => {
+                fastify.log.error(err);
+                reject(err);
+            });
+        });
         fastify.log.info(`API Gateway ejecutándose en http://localhost:${port}`);
     } catch (error) {
         fastify.log.error(error);
