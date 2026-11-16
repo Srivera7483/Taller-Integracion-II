@@ -85,6 +85,14 @@ services:
       RABBITMQ_QUEUE_CRITICAS: incidencias_criticas
       RABBITMQ_DLQ_EXCHANGE: incidencias_criticas.dlx
       RABBITMQ_DLQ_ROUTING_KEY: incidencias_criticas
+      RABBITMQ_EXCHANGE: uct.activos.events
+      RABBITMQ_EXCHANGE_TYPE: topic
+      RABBITMQ_QUEUE_NOTIFICACIONES: notificaciones.queue
+      RABBITMQ_QUEUE_AUDITORIA: auditoria.queue
+      RABBITMQ_DLX: uct.dlx
+      RABBITMQ_DLQ: dead-letter.queue
+      RABBITMQ_MESSAGE_TTL: "300000"
+      RABBITMQ_MAX_RETRIES: "3"
     depends_on:
       rabbitmq-setup:
         condition: service_completed_successfully

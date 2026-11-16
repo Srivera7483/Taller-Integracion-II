@@ -8,6 +8,9 @@ import {
 } from '@nestjs/microservices';
 import { CreateNotificacionDto } from './dto/create-notificacion.dto';
 import { NotificacionesService } from './notificaciones.service';
+import { NotificacionEventoDto } from '../rabbitmq/dto/notificacion-evento.dto';
+import { AuditoriaEventoDto } from '../rabbitmq/dto/auditoria-evento.dto';
+import { RabbitmqPublisherService } from '../rabbitmq/rabbitmq-publisher.service';
 
 @Controller()
 export class NotificacionesController {
@@ -15,6 +18,7 @@ export class NotificacionesController {
 
   constructor(
     private readonly notificacionesService: NotificacionesService,
+    private readonly rabbitmqPublisherService: RabbitmqPublisherService,
   ) {}
 
   @Post('notificar')
@@ -22,6 +26,23 @@ export class NotificacionesController {
     return this.notificacionesService.encolar(payload);
   }
 
+  @Post('eventos/notificaciones')
+  async enviarNotificacion(@Body() payload: NotificacionEventoDto) {
+    const ok = await this.rabbitmqPublisherService.publicarNotificacion(
+      'notificacion.envio',
+      payload,
+    );
+    return { status: ok ? 'publicado' : 'error' };
+  }
+
+  @Post('eventos/auditoria')
+  async enviarAuditoria(@Body() payload: AuditoriaEventoDto) {
+    const ok = await this.rabbitmqPublisherService.publicarAuditoria(
+      'auditoria.registro',
+      payload,
+    );
+    return { status: ok ? 'publicado' : 'error' };
+  }
 
   @EventPattern('incidencia_critica')
   recibirIncidenciaCritica(
