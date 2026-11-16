@@ -23,6 +23,12 @@ export class MantenimientosController {
     });
   }
 
+  @Post()
+  @RequirePermissions('mantenimientos:crear')
+  async programar(@Body() dto: CrearMantenimientoDto) {
+    return this.activosService.crearMantenimiento(dto);
+  }
+
   @Post('planificar')
   @RequirePermissions('mantenimientos:crear')
   async planificar(@Body() dto: CrearMantenimientoDto) {

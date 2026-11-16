@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { ActivosService } from './activos.service';
 import { PrismaService } from './prisma.service';
-import { EstadoActivo, CategoriaActivo } from './interfaces/activo.interface';
+import { CategoriaActivo } from './interfaces/activo.interface';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 
 describe('ActivosService - TAL-6 y TAL-13', () => {
@@ -232,6 +232,40 @@ describe('ActivosService - TAL-6 y TAL-13', () => {
       // 2. Limpiar fechas (enviando vacío o indefinido)
       const restablecido = await service.listarMantenimientos({});
       expect(restablecido.total).toBe(5);
+    });
+  });
+
+  describe('TAL-202: Alineación de Mantenimientos Preventivos con MER y OpenAPI v1.3.0', () => {
+    it('retorna mantenimientos con las 4 columnas reales del MER (id_mantenimiento, id_activo, fecha_programada, fecha_creacion) sin campos inexistentes (descripcion, tipo, estado)', async () => {
+      const resultado = await service.listarMantenimientos();
+
+      expect(resultado.valido).toBe(true);
+      for (const mant of resultado.datos) {
+        expect(mant.id_mantenimiento).toBeDefined();
+        expect(mant.id_activo).toBeDefined();
+        expect(mant.fecha_programada).toBeDefined();
+        expect(mant.fecha_creacion).toBeDefined();
+        expect(mant.descripcion).toBeUndefined();
+        expect(mant.tipo).toBeUndefined();
+        expect(mant.estado).toBeUndefined();
+      }
+    });
+
+    it('crea un mantenimiento preventivo recibiendo únicamente id_activo y fecha_programada (NuevoMantenimiento)', async () => {
+      const fechaFutura = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const creado = await service.crearMantenimiento({
+        id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        fecha_programada: fechaFutura,
+      });
+
+      expect(creado.valido).toBe(true);
+      expect(creado.datos.id_mantenimiento).toBeDefined();
+      expect(creado.datos.id_activo).toBe('f47ac10b-58cc-4372-a567-0e02b2c3d479');
+      expect(creado.datos.fecha_programada).toBeDefined();
+      expect(creado.datos.fecha_creacion).toBeDefined();
+      expect(creado.datos.descripcion).toBeUndefined();
+      expect(creado.datos.tipo).toBeUndefined();
+      expect(creado.datos.estado).toBeUndefined();
     });
   });
 });

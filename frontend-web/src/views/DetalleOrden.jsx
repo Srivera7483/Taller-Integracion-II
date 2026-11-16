@@ -13,7 +13,7 @@ import {
 } from 'react-icons/fi';
 import StatusBadge from '../components/StatusBadge';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
-import { getTecnicoActual, getIncidencias } from '../services/incidenciasStorage';
+import { getTecnicoActual, getIncidencias } from '../services/incidenciasService';
 import api from '../services/api';
 
 const DetalleOrden = () => {
@@ -65,8 +65,8 @@ const DetalleOrden = () => {
           setLoading(false);
           return;
         }
-      } catch (apiErr) {
-        console.warn('API Gateway no respondió con la orden, utilizando datos locales.', apiErr.message);
+      } catch {
+        // Fallback local si el servicio de órdenes no está disponible
       }
 
       // Si no viene del API o falla, estructurar datos locales/mock consistentes
@@ -87,7 +87,6 @@ const DetalleOrden = () => {
         fechaCierre: incidenciaMatch?.fechaCierre || null,
       });
     } catch (err) {
-      console.error('Error general al cargar orden:', err);
       setError(err);
     } finally {
       setLoading(false);

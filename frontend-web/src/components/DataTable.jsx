@@ -45,7 +45,7 @@ const DataTable = ({ columns, data, title, description }) => {
         </div>
       </div>
 
-      {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
+      {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas */}
       <div className="md:hidden divide-y divide-gray-100 p-4 space-y-3">
         {currentData.length > 0 ? (
           currentData.map((row, rowIndex) => (
@@ -72,7 +72,7 @@ const DataTable = ({ columns, data, title, description }) => {
         )}
       </div>
 
-      {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
+      {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal */}
       <div className="hidden md:block overflow-x-auto">
 
         <table className="min-w-full divide-y divide-gray-200">

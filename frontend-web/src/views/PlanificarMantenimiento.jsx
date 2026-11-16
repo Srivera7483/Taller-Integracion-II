@@ -10,8 +10,8 @@ const PlanificarMantenimiento = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/90 pb-6">
         <div>
           <nav className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
-            <Link to="/inventario" className="hover:text-primary transition-colors font-medium">
-              Inventario de Activos
+            <Link to="/mantenimientos" className="hover:text-primary transition-colors font-medium">
+              Agenda de Mantenimientos
             </Link>
             <FiChevronRight className="w-3.5 h-3.5 text-slate-400" />
             <span className="text-slate-800 font-semibold">Planificación Preventiva</span>
@@ -33,11 +33,11 @@ const PlanificarMantenimiento = () => {
         </div>
 
         <Link
-          to="/inventario"
+          to="/mantenimientos"
           className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm self-start sm:self-center"
         >
           <FiArrowLeft className="w-4 h-4" />
-          <span>Volver al Inventario</span>
+          <span>Volver a Mantenimientos</span>
         </Link>
       </div>
 

@@ -9,7 +9,7 @@
  *    - id, codigoQr, nombre, categoria, modelo, numeroSerie, ubicacion, estado, fechaRegistro
  * 2. Incidencias: (ms-incidencias/prisma/schema.prisma)
  *    - id_incidencia, id_activo, id_reportante, titulo, descripcion, fecha_creacion
- * 3. Órdenes de Trabajo: (ms-incidencias/prisma/schema.prisma + TAL-62)
+ * 3. Órdenes de Trabajo: (ms-incidencias/prisma/schema.prisma)
  *    - id_orden, incidencia_id, tecnico_id, estado, prioridad, instrucciones, diagnostico_tecnico,
  *      fecha_asignacion, fecha_inicio, fecha_termino
  * 4. Historial de Estados: (ms-incidencias/prisma/schema.prisma)

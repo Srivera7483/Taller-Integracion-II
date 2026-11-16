@@ -10,7 +10,7 @@ import {
 } from 'react-icons/fi';
 
 /**
- * TAL-169: Vista corporativa de Error 404 (Página No Encontrada)
+ * Vista corporativa de Error 404 (Página No Encontrada)
  * Captura rutas inexistentes en React Router y provee navegación de rescate
  * hacia el Panel de Control y módulos principales del sistema.
  */
