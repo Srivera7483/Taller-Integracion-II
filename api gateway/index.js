@@ -291,7 +291,15 @@ const buildGateway = (options = {}) => {
         });
 
         upstreamSocket.on('nueva-incidencia', (payload) => {
+            io.to('incidencias').emit('nueva_incidencia', payload);
             io.to('incidencias').emit('nueva-incidencia', payload);
+            io.to('coordinadores').emit('nueva_incidencia', payload);
+        });
+
+        upstreamSocket.on('nueva_incidencia', (payload) => {
+            io.to('incidencias').emit('nueva_incidencia', payload);
+            io.to('incidencias').emit('nueva-incidencia', payload);
+            io.to('coordinadores').emit('nueva_incidencia', payload);
         });
     }
 

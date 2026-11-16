@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
 import StatusFilter from '../components/StatusFilter';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
 import BotonExportarExcel from '../components/BotonExportarExcel';
 import { hasPermission } from '../services/authService';
+import { useWebSocket } from '../hooks/useWebSocket';
+import {
+  aplicarActualizacionIncidenciaEnVivo,
+  aplicarNuevaIncidenciaEnVivo,
+} from '../utils/realtimeIncidencias';
 import {
   FiSearch,
   FiPlus,
@@ -88,9 +93,26 @@ const Incidencias = () => {
     );
   };
 
-  const cargarIncidenciasReales = async () => {
+  const [filasRecientesWs, setFilasRecientesWs] = useState({});
+
+  const marcarFilaDestacada = useCallback((idInc) => {
+    if (!idInc) return;
+    setFilasRecientesWs((prev) => ({ ...prev, [idInc]: true }));
+    setTimeout(() => {
+      setFilasRecientesWs((prev) => {
+        if (!prev[idInc]) return prev;
+        const copia = { ...prev };
+        delete copia[idInc];
+        return copia;
+      });
+    }, 2200);
+  }, []);
+
+  const cargarIncidenciasReales = useCallback(async ({ silent = false } = {}) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
       const [response, resumenResp] = await Promise.all([
         api.get('/incidencias?limite=50'),
         api.get('/incidencias/resumen').catch(() => null),
@@ -104,21 +126,50 @@ const Incidencias = () => {
         setTotalGlobal(lista.length);
       }
     } catch (error) {
-      console.error('Error obteniendo incidencias:', error);
-      showToast('Error al conectar con la base de datos de incidencias', 'error');
+      if (!silent) {
+        console.error('Error obteniendo incidencias:', error);
+        showToast('Error al conectar con la base de datos de incidencias', 'error');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  };
+  }, [showToast]);
+
+  // TAL-187: Actualización reactiva en vivo (< 500ms, sin parpadeos ni pérdida de scroll o foco)
+  useWebSocket(
+    {
+      onIncidenciaActualizada: (payload) => {
+        const idInc = payload?.id_incidencia || payload?.id;
+        setIncidencias((prev) => aplicarActualizacionIncidenciaEnVivo(prev, payload).lista);
+        marcarFilaDestacada(idInc);
+        void cargarIncidenciasReales({ silent: true });
+      },
+      onNuevaIncidencia: (payload) => {
+        const idInc = payload?.id_incidencia || payload?.id;
+        setIncidencias((prev) => {
+          const { lista, esNueva } = aplicarNuevaIncidenciaEnVivo(prev, payload);
+          if (esNueva) {
+            setTotalGlobal((totPrev) => (typeof totPrev === 'number' ? totPrev + 1 : lista.length));
+          }
+          return lista;
+        });
+        marcarFilaDestacada(idInc);
+        void cargarIncidenciasReales({ silent: true });
+      },
+    },
+    { salas: ['incidencias', 'coordinadores'] },
+  );
 
   useEffect(() => {
     void cargarIncidenciasReales();
     const handleIncidenciaCreada = () => {
-      void cargarIncidenciasReales();
+      void cargarIncidenciasReales({ silent: true });
     };
     window.addEventListener('incidencia-creada', handleIncidenciaCreada);
     return () => window.removeEventListener('incidencia-creada', handleIncidenciaCreada);
-  }, []);
+  }, [cargarIncidenciasReales]);
 
   // Función auxiliar para obtener el nombre del estado
   const getNombreEstado = (estado) => {
@@ -389,8 +440,15 @@ const Incidencias = () => {
                   const estaCompletada = ['completada', 'resuelta', 'cerrada'].includes(estadoTexto.toLowerCase());
                   const esRechazado = ['rechazado', 'rechazada'].includes(estadoTexto.toLowerCase());
 
+                  const esDestacadaWs = Boolean(idTexto && filasRecientesWs[idTexto]);
+
                   return (
-                    <tr key={idTexto} className="hover:bg-gray-50/70 transition-colors">
+                    <tr
+                      key={idTexto}
+                      className={`hover:bg-gray-50/70 transition-colors duration-300 ${
+                        esDestacadaWs ? 'bg-emerald-50/70' : ''
+                      }`}
+                    >
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <Link to={`/incidencias/${idTexto}`} className="font-mono text-xs font-bold text-primary hover:underline flex items-center gap-1">
