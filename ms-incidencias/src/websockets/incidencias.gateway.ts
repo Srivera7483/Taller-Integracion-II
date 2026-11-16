@@ -14,10 +14,28 @@ import { Logger } from '@nestjs/common';
 export interface IncidenciaActualizadaPayload {
   id_incidencia: string;
   nuevo_estado: string;
+  prioridad?: string | null;
+  titulo?: string;
+  id_activo?: string;
+  id_tecnico?: string | null;
   usuario_responsable: string | null;
   id_edificio?: string | null;
   timestamp: string;
   tipo_evento: 'CAMBIO_ESTADO' | 'ASIGNACION_ORDEN';
+}
+
+export interface NuevaIncidenciaPayload {
+  id_incidencia: string;
+  id?: string;
+  titulo: string;
+  descripcion?: string;
+  prioridad?: string;
+  id_activo?: string;
+  id_reportante?: string;
+  estado?: { id_estado?: number; nombre_estado: string } | string | null;
+  fecha_creacion?: string | Date;
+  id_edificio?: string | null;
+  timestamp: string;
 }
 
 export interface EmisionResultado {
@@ -224,6 +242,36 @@ export class IncidenciasGateway
 
     return {
       tiempoMs: duracion,
+      rooms: Array.from(salasTarget),
+      payload,
+    };
+  }
+
+  /**
+   * Emite el evento `nueva_incidencia` hacia la sala general `incidencias`,
+   * `coordinadores` y la sala del edificio (`edificio_${id_edificio}`).
+   */
+  emitirNuevaIncidencia(
+    payload: NuevaIncidenciaPayload,
+    idEdificio?: string | null,
+  ) {
+    const inicio = performance.now();
+    const salasTarget = new Set<string>(['incidencias', 'coordinadores']);
+
+    const edificio = idEdificio ?? payload.id_edificio;
+    if (edificio) {
+      salasTarget.add(`edificio_${edificio}`);
+    }
+
+    if (this.server) {
+      for (const sala of salasTarget) {
+        this.server.to(sala).emit('nueva_incidencia', payload);
+        this.server.to(sala).emit('nueva-incidencia', payload);
+      }
+    }
+
+    return {
+      tiempoMs: performance.now() - inicio,
       rooms: Array.from(salasTarget),
       payload,
     };

@@ -14,6 +14,8 @@ import {
 import StatusBadge from '../components/StatusBadge';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
 import { getUsuarioActual } from '../services/authService';
+import { useWebSocket } from '../hooks/useWebSocket';
+import { formatearNombreEstadoCanonico } from '../utils/realtimeIncidencias';
 import api from '../services/api';
 
 const DetalleOrden = () => {
@@ -55,6 +57,31 @@ const DetalleOrden = () => {
   useEffect(() => {
     void cargarOrden();
   }, [idOrden]);
+
+  // TAL-187: Sincronización en vivo del estado y asignación de la orden vía WebSocket
+  useWebSocket(
+    {
+      onIncidenciaActualizada: (payload) => {
+        setOrden((prev) => {
+          if (!prev) return prev;
+          const idIncEvento = payload?.id_incidencia || payload?.id;
+          if (idIncEvento && String(idIncEvento) !== String(prev.incidencia_id)) {
+            return prev;
+          }
+          return {
+            ...prev,
+            estado: payload?.nuevo_estado
+              ? formatearNombreEstadoCanonico(payload.nuevo_estado)
+              : prev.estado,
+            ...(payload?.tipo_evento === 'ASIGNACION_ORDEN' && payload?.usuario_responsable
+              ? { tecnico_id: payload.usuario_responsable }
+              : {}),
+          };
+        });
+      },
+    },
+    { idIncidencia: orden?.incidencia_id },
+  );
 
   const handleCierreExitoso = (datosActualizados) => {
     setOrden((prev) => ({

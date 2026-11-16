@@ -321,6 +321,20 @@ export class IncidenciasService {
       `La incidencia "${creada.titulo}" fue reportada correctamente.`,
     );
 
+    if (this.incidenciasGateway) {
+      const idEdificio = await this.obtenerEdificioDeActivo(creada.id_activo);
+      this.incidenciasGateway.emitirNuevaIncidencia(
+        {
+          ...creada,
+          id_incidencia: creada.id_incidencia,
+          id: creada.id_incidencia,
+          id_edificio: idEdificio,
+          timestamp: new Date().toISOString(),
+        },
+        idEdificio,
+      );
+    }
+
     if (this.esIncidenciaCritica(prioridadAsignada) && this.rabbitmqProducer) {
       this.rabbitmqProducer
         .emitirIncidenciaCritica({
@@ -739,7 +753,25 @@ export class IncidenciasService {
       ...incidenciaConEstadoActual,
     });
 
-    return this.toApiIncidencia(actualizada);
+    const apiIncidencia = this.toApiIncidencia(actualizada);
+
+    if (this.incidenciasGateway) {
+      const idEdificio = await this.obtenerEdificioDeActivo(apiIncidencia.id_activo);
+      this.incidenciasGateway.emitirIncidenciaActualizada(
+        {
+          id_incidencia: idIncidencia,
+          nuevo_estado: apiIncidencia.estado?.nombre_estado || 'Reportada',
+          prioridad: apiIncidencia.prioridad,
+          usuario_responsable: null,
+          id_edificio: idEdificio,
+          timestamp: new Date().toISOString(),
+          tipo_evento: 'CAMBIO_ESTADO',
+        },
+        idEdificio,
+      );
+    }
+
+    return apiIncidencia;
   }
 
   private async notificarIncidencia(

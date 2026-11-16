@@ -13,6 +13,12 @@ import {
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { useWebSocket } from '../hooks/useWebSocket';
+import {
+  aplicarActualizacionIncidenciaEnVivo,
+  aplicarNuevaIncidenciaEnVivo,
+  sincronizarResumenMetricasEnVivo,
+} from '../utils/realtimeIncidencias';
 import api from '../services/api';
 
 const Dashboard = () => {
@@ -66,6 +72,7 @@ const Dashboard = () => {
 
   const {
     items: incidencias,
+    setItems: setIncidencias,
     loading,
     loadingMore,
     hasMore,
@@ -78,6 +85,66 @@ const Dashboard = () => {
     fetchFunction: fetchIncidenciasCallback,
     limit: 15, // Límite estipulado en TAL-112
   });
+
+  const [filasRecientesWs, setFilasRecientesWs] = useState({});
+
+  const marcarFilaDestacada = useCallback((idInc) => {
+    if (!idInc) return;
+    setFilasRecientesWs((prev) => ({ ...prev, [idInc]: true }));
+    setTimeout(() => {
+      setFilasRecientesWs((prev) => {
+        if (!prev[idInc]) return prev;
+        const copia = { ...prev };
+        delete copia[idInc];
+        return copia;
+      });
+    }, 2200);
+  }, []);
+
+  // TAL-187: Sincronización reactiva en vivo vía WebSocket (< 500ms, sin perder scroll ni foco)
+  const { isConnected: wsConectado } = useWebSocket(
+    {
+      onIncidenciaActualizada: (payload) => {
+        const idInc = payload?.id_incidencia || payload?.id;
+        setIncidencias((prev) => {
+          const { lista, itemAnterior, itemActualizado, modificado } =
+            aplicarActualizacionIncidenciaEnVivo(prev, payload);
+          if (modificado) {
+            setResumenGlobal((resPrev) =>
+              sincronizarResumenMetricasEnVivo(resPrev, {
+                tipo: 'ACTUALIZADA',
+                itemAnterior,
+                itemNuevo: itemActualizado,
+                payload,
+              }),
+            );
+          }
+          return lista;
+        });
+        marcarFilaDestacada(idInc);
+        void cargarResumenGlobal();
+      },
+      onNuevaIncidencia: (payload) => {
+        const idInc = payload?.id_incidencia || payload?.id;
+        setIncidencias((prev) => {
+          const { lista, esNueva, item } = aplicarNuevaIncidenciaEnVivo(prev, payload);
+          if (esNueva) {
+            setResumenGlobal((resPrev) =>
+              sincronizarResumenMetricasEnVivo(resPrev, {
+                tipo: 'NUEVA',
+                itemNuevo: item,
+                payload,
+              }),
+            );
+          }
+          return lista;
+        });
+        marcarFilaDestacada(idInc);
+        void cargarResumenGlobal();
+      },
+    },
+    { salas: ['incidencias', 'coordinadores'] },
+  );
 
   useEffect(() => {
     const handleIncidenciaCreada = () => {
@@ -203,13 +270,22 @@ const Dashboard = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h3 className="font-semibold text-gray-900 text-sm">Órdenes de Trabajo e Incidencias Recientes</h3>
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                 {resumenMetricas.total > incidencias.length
                   ? `${incidencias.length} de ${resumenMetricas.total} registros cargados`
                   : `${incidencias.length} registros cargados`}
               </span>
+              {wsConectado && (
+                <span
+                  id="indicador-tiempo-real-dashboard"
+                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+                  <span>En vivo</span>
+                </span>
+              )}
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
               Listado con desplazamiento infinito de reportes activos en la plataforma
@@ -289,11 +365,15 @@ const Dashboard = () => {
                     inc.codigo_qr_activo ||
                     (inc.id_activo ? `${inc.id_activo.substring(0, 8)}...` : null);
 
+                  const esDestacadaWs = Boolean(idTexto && filasRecientesWs[idTexto]);
+
                   return (
                     <tr
                       key={idTexto || `inc-${index}`}
                       ref={isSentinel ? sentinelRef : null}
-                      className="hover:bg-gray-50 transition-colors"
+                      className={`hover:bg-gray-50 transition-colors duration-300 ${
+                        esDestacadaWs ? 'bg-emerald-50/70' : ''
+                      }`}
                     >
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
