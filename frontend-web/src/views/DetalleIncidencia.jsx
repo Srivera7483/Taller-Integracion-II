@@ -12,7 +12,9 @@ import {
   FiUploadCloud,
   FiMaximize2,
   FiAlertCircle,
-  FiPlusCircle
+  FiPlusCircle,
+  FiRepeat,
+  FiUserCheck
 } from 'react-icons/fi';
 import StatusBadge from '../components/StatusBadge';
 import api from '../services/api';
@@ -25,10 +27,6 @@ import {
   adjuntarEvidenciaIncidencia
 } from '../services/incidenciasStorage';
 
-/**
- * Componente TarjetaEvidenciaCloudinary (TAL-136)
- * Despliega la evidencia fotográfica de la incidencia con animación fluida de carga.
- */
 const TarjetaEvidenciaCloudinary = ({ url, nombre, onAmpliar }) => {
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState(false);
@@ -160,6 +158,15 @@ const DetalleIncidencia = () => {
   const [mostrarSubidorNuevo, setMostrarSubidorNuevo] = useState(false);
   const [imagenModal, setImagenModal] = useState({ url: null, nombre: null });
 
+  const obtenerUsuarioSesion = () => {
+    try {
+      const raw = localStorage.getItem('usuario');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
   useEffect(() => {
     const handleCambioTecnico = () => {
       setTecnicoActual(getTecnicoActual());
@@ -179,7 +186,11 @@ const DetalleIncidencia = () => {
         if (response.data) {
           const apiData = response.data;
           const idTecnicoApi =
-            apiData.id_tecnico || apiData.orden_trabajo?.id_tecnico || null;
+            apiData.id_tecnico_asignado ||
+            apiData.id_tecnico ||
+            apiData.orden_trabajo?.id_tecnico ||
+            apiData.ordenes_trabajo?.[0]?.id_tecnico ||
+            null;
           const nombreTecnicoApi =
             apiData.nombre_tecnico ||
             apiData.orden_trabajo?.nombre_tecnico ||
@@ -193,8 +204,18 @@ const DetalleIncidencia = () => {
 
           setIncidencia({
             id: apiData.id_incidencia || idIncidencia,
-            id_orden: apiData.id_orden || apiData.orden_trabajo?.id_orden || null,
+            id_orden:
+              apiData.id_orden ||
+              apiData.orden_trabajo?.id_orden ||
+              apiData.ordenes_trabajo?.[0]?.id_orden ||
+              null,
             id_tecnico: idTecnicoApi,
+            id_tecnico_asignado: idTecnicoApi,
+            orden_trabajo: apiData.orden_trabajo || apiData.ordenes_trabajo?.[0] || null,
+            ordenes_trabajo: Array.isArray(apiData.ordenes_trabajo) ? apiData.ordenes_trabajo : [],
+            historial_asignaciones: Array.isArray(apiData.historial_asignaciones)
+              ? apiData.historial_asignaciones
+              : [],
             titulo: apiData.titulo,
             descripcion: apiData.descripcion,
             id_activo: apiData.id_activo,
@@ -272,6 +293,7 @@ const DetalleIncidencia = () => {
       materialesUsados: datosActualizados.materialesUsados,
       fechaCierre: datosActualizados.fechaCierre,
     }));
+    void cargarIncidencia();
   };
 
   const handleEvidenciaSubidaDesdeDetalle = (urlEvidencia) => {
@@ -295,19 +317,20 @@ const DetalleIncidencia = () => {
     return <div className="p-8 text-center text-red-500 font-medium">Error al cargar la incidencia.</div>;
   }
 
-  const estaResuelta = incidencia.estado?.toLowerCase() === 'resuelta';
-  const estaCompletada = incidencia.estado?.toLowerCase() === 'completada';
-  const estaRechazada = incidencia.estado?.toLowerCase() === 'rechazada';
+  const estadoLower = (incidencia.estado || '').toLowerCase();
+  const estaResuelta = estadoLower === 'resuelta';
+  const estaCompletada = estadoLower === 'completada';
+  const estaRechazada = estadoLower === 'rechazada' || estadoLower === 'rechazado';
+  const estaCerrada = estaCompletada || estaResuelta || estaRechazada || estadoLower === 'cerrada';
 
-  const obtenerUsuarioSesion = () => {
-    try {
-      const raw = localStorage.getItem('usuario');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  };
   const usuarioSesion = obtenerUsuarioSesion();
+  const rolSesion = usuarioSesion?.rol?.nombre_rol || usuarioSesion?.rol || '';
+  const rolNormalizado = (typeof rolSesion === 'string' ? rolSesion : '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  const esSupervisor = rolNormalizado === 'SUPERVISOR' || rolNormalizado === 'ADMINISTRADOR';
+
   const idUsuarioSesion =
     usuarioSesion?.id_usuario || usuarioSesion?.id || usuarioSesion?.userId || null;
   const nombreUsuarioSesion = `${usuarioSesion?.nombre || ''} ${usuarioSesion?.apellido || ''}`
@@ -316,10 +339,17 @@ const DetalleIncidencia = () => {
 
   const nombreAsignado = (incidencia.asignado || '').trim().toLowerCase();
   const nombreActual = (tecnicoActual?.nombre || '').trim().toLowerCase();
+  const idTecnicoVigente =
+    incidencia.id_tecnico_asignado ||
+    incidencia.id_tecnico ||
+    incidencia.orden_trabajo?.id_tecnico ||
+    incidencia.ordenes_trabajo?.[0]?.id_tecnico ||
+    null;
+
   const coincidePorIdTecnico = Boolean(
     idUsuarioSesion &&
-      incidencia.id_tecnico &&
-      incidencia.id_tecnico === idUsuarioSesion
+      idTecnicoVigente &&
+      String(idTecnicoVigente).toLowerCase() === String(idUsuarioSesion).toLowerCase()
   );
   const coincidePorNombreSesion =
     Boolean(nombreAsignado) &&
@@ -338,6 +368,9 @@ const DetalleIncidencia = () => {
     coincidePorIdTecnico || coincidePorNombreSesion || coincidePorTecnicoLocal;
 
   const evidencias = Array.isArray(incidencia.evidencias) ? incidencia.evidencias : [];
+  const historialAsignaciones = Array.isArray(incidencia.historial_asignaciones)
+    ? incidencia.historial_asignaciones
+    : [];
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -379,9 +412,27 @@ const DetalleIncidencia = () => {
           </div>
           <div>
             <h4 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Técnico Asignado</h4>
-            <div className="flex items-center gap-2 text-gray-800 font-medium">
-              <FiUser className="w-4 h-4 text-blue-600" aria-hidden="true" />
-              <span>{incidencia.asignado || 'Sin asignar'}</span>
+            <div className="flex items-center justify-between gap-2 text-gray-800 font-medium">
+              <div className="flex items-center gap-2">
+                <FiUser className="w-4 h-4 text-blue-600" aria-hidden="true" />
+                <span>{incidencia.asignado || 'Sin asignar'}</span>
+              </div>
+              {esSupervisor && !estaCerrada && (
+                <Link
+                  to={`/incidencias/asignar?incidenciaId=${incidencia.id}`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary-50 text-primary border border-primary-200 hover:bg-primary-100 transition-colors"
+                >
+                  {incidencia.asignado ? (
+                    <>
+                      <FiRepeat className="w-3.5 h-3.5" /> Reasignar
+                    </>
+                  ) : (
+                    <>
+                      <FiUserCheck className="w-3.5 h-3.5" /> Asignar
+                    </>
+                  )}
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -392,6 +443,50 @@ const DetalleIncidencia = () => {
             {incidencia.descripcion}
           </p>
         </div>
+
+        {/* Historial de Asignaciones / Órdenes de Trabajo */}
+        {historialAsignaciones.length > 0 && (
+          <div className="pt-3 border-t border-gray-100 space-y-2">
+            <h4 className="text-xs uppercase tracking-wider text-gray-600 font-semibold">
+              Trazabilidad de Asignaciones ({historialAsignaciones.length})
+            </h4>
+            <div className="space-y-2">
+              {historialAsignaciones.map((item) => (
+                <div
+                  key={item.id_orden}
+                  className={`p-3 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                    item.vigente
+                      ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                      : 'bg-gray-50 border-gray-200 text-gray-600'
+                  }`}
+                >
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold">
+                        {item.nombre_tecnico || (item.id_tecnico ? `ID ${item.id_tecnico.substring(0, 8)}` : 'Técnico')}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          item.vigente
+                            ? 'bg-emerald-200 text-emerald-900'
+                            : 'bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        {item.vigente ? 'Vigente' : 'Histórica'}
+                      </span>
+                    </div>
+                    {item.diagnostico_tecnico && (
+                      <p className="text-[11px] opacity-90">{item.diagnostico_tecnico}</p>
+                    )}
+                  </div>
+                  <span className="font-mono text-[11px] opacity-80">
+                    {item.fecha_creacion ? new Date(item.fecha_creacion).toLocaleString() : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sección de Evidencia Fotográfica y Cloudinary */}
@@ -579,17 +674,22 @@ const DetalleIncidencia = () => {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         orden={{
-          id_orden: incidencia.id_orden || `ORD-${incidencia.id}`,
+          id_orden: incidencia.orden_trabajo?.id_orden || incidencia.id_orden || `ORD-${incidencia.id}`,
           incidencia_id: incidencia.id,
+          id_incidencia: incidencia.id,
           id: incidencia.id,
+          id_tecnico: incidencia.orden_trabajo?.id_tecnico || incidencia.id_tecnico_asignado,
+          id_tecnico_asignado: incidencia.orden_trabajo?.id_tecnico || incidencia.id_tecnico_asignado,
+          nombre_tecnico: incidencia.orden_trabajo?.nombre_tecnico || incidencia.asignado,
+          orden_trabajo: incidencia.orden_trabajo,
+          ordenes_trabajo: incidencia.ordenes_trabajo,
           titulo: incidencia.titulo,
           id_activo: incidencia.id_activo,
-          tecnico_nombre: incidencia.asignado,
           resolucion: incidencia.resolucion,
           horasInvertidas: incidencia.horasInvertidas,
           materialesUsados: incidencia.materialesUsados,
         }}
-        tecnicoActual={tecnicoActual}
+        tecnicoActual={usuarioSesion || tecnicoActual}
         onCierreExitoso={handleCierreExitoso}
       />
     </div>

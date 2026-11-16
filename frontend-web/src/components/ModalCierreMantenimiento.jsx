@@ -93,17 +93,40 @@ const ModalCierreMantenimiento = ({
 
   if (!isOpen || !orden) return null;
 
-  // Validación de Ownership / Asignación:
-  // Solo el técnico asignado a esta tarea específica puede acceder al formulario.
-  const nombreAsignado = (orden.tecnico_nombre || orden.asignado || '').trim().toLowerCase();
-  const nombreActual = (tecnicoActual?.nombre || '').trim().toLowerCase();
-  
+// Validación estricta de Ownership / Asignación por UUID:
+  // Solo el técnico titular vigente de la orden puede operar el formulario.
+  const idTecnicoOrden = String(
+    orden.id_tecnico_asignado ||
+      orden.id_tecnico ||
+      orden.tecnico_id ||
+      orden.orden_trabajo?.id_tecnico ||
+      orden.ordenes_trabajo?.[0]?.id_tecnico ||
+      orden.incidencia?.id_tecnico_asignado ||
+      orden.incidencia?.ordenes_trabajo?.[0]?.id_tecnico ||
+      ''
+  ).trim().toLowerCase();
+
+  const idUsuarioActual = String(
+    tecnicoActual?.id_usuario ||
+      tecnicoActual?.id ||
+      tecnicoActual?.userId ||
+      tecnicoActual?.sub ||
+      ''
+  ).trim().toLowerCase();
+
   const esTecnicoAsignado =
-    Boolean(nombreAsignado) &&
-    (nombreAsignado === nombreActual ||
-      nombreAsignado.includes(nombreActual) ||
-      nombreActual.includes(nombreAsignado) ||
-      orden.tecnico_id === tecnicoActual?.id);
+    Boolean(idTecnicoOrden) &&
+    Boolean(idUsuarioActual) &&
+    idTecnicoOrden === idUsuarioActual;
+
+  const nombreTecnicoAsignado =
+    orden.nombre_tecnico ||
+    orden.tecnico_nombre ||
+    orden.orden_trabajo?.nombre_tecnico ||
+    orden.ordenes_trabajo?.[0]?.nombre_tecnico ||
+    orden.asignado ||
+    idTecnicoOrden ||
+    'Otro técnico';
 
   // Validaciones según el modo
   const resolucionValida = resolucion.trim().length >= 10;
@@ -165,6 +188,11 @@ const ModalCierreMantenimiento = ({
     });
   };
 
+  const extraerMensajeError = (error, fallbackMensaje) => {
+    const raw = error?.response?.data?.message || error?.message || fallbackMensaje;
+    return Array.isArray(raw) ? raw.join(', ') : String(raw);
+  };
+
   // Envío final para COMPLETAR MANTENIMIENTO
   const handleGuardarCierre = async () => {
     if (!esTecnicoAsignado) {
@@ -184,45 +212,55 @@ const ModalCierreMantenimiento = ({
     setErrorValidacion(null);
     setIsSubmitting(true);
 
+    const idIncidenciaBackend = orden.id_incidencia || orden.incidencia_id || orden.id;
+    const idOrdenBackend = orden.id_orden || orden.orden_trabajo?.id_orden || null;
+
     const payloadCierre = {
-      incidenciaId: orden.incidencia_id || orden.id,
-      ordenId: orden.id_orden || orden.id,
+      incidenciaId: idIncidenciaBackend,
+      ordenId: idOrdenBackend || orden.id,
       resolucion: resolucion.trim(),
       horasInvertidas: Number(horasInvertidas),
       materialesUsados: sinMateriales ? [] : materialesUsados,
-      tecnicoNombre: tecnicoActual?.nombre || orden.tecnico_nombre || 'Técnico Responsable',
-      tecnicoId: tecnicoActual?.id || orden.tecnico_id || 'tec-01',
+      tecnicoNombre: tecnicoActual?.nombre || nombreTecnicoAsignado,
+      tecnicoId: idUsuarioActual,
     };
 
     try {
-      // 1. Guardar de forma reactiva y persistente en el frontend (cookies / localStorage)
-      const resultadoLocal = completarMantenimientoTecnico(payloadCierre);
-
-      // 2. Intentar actualizar en el backend real mediante el API Gateway si está disponible
-      try {
-        const idIncidenciaBackend = orden.incidencia_id || orden.id;
-        await api.patch(`/incidencias/${idIncidenciaBackend}/estado`, {
-          id_estado: 6, // Estado Completada
+      // 1. Registrar diagnóstico técnico en la orden vigente (valida ownership y vigencia en backend)
+      if (idOrdenBackend) {
+        await api.patch(`/ordenes-trabajo/${idOrdenBackend}/diagnostico`, {
+          diagnostico_tecnico: resolucion.trim(),
         });
-
-        if (orden.id_orden) {
-          await api.patch(`/ordenes-trabajo/${orden.id_orden}/diagnostico`, {
-            diagnostico_tecnico: resolucion.trim(),
-          });
-        }
-      } catch {
-        // Fallback silencioso
       }
+
+      // 2. Actualizar el estado de la incidencia en PostgreSQL (id_estado: 6 = Completada)
+      const { data: incidenciaActualizada } = await api.patch(
+        `/incidencias/${idIncidenciaBackend}/estado`,
+        {
+          id_estado: 6,
+        }
+      );
+
+      // 3. Sincronizar estado local reactivo tras confirmar persistencia en el backend
+      const resultadoLocal = completarMantenimientoTecnico(payloadCierre);
 
       showToast('¡Mantenimiento técnico confirmado! La tarea pasó a estado Completada.', 'success');
 
       if (onCierreExitoso) {
-        onCierreExitoso(resultadoLocal);
+        onCierreExitoso({
+          ...resultadoLocal,
+          ...(incidenciaActualizada || {}),
+        });
       }
 
       onClose();
-    } catch {
-      showToast('Error al registrar la confirmación del mantenimiento', 'error');
+    } catch (error) {
+      const mensajeError = extraerMensajeError(
+        error,
+        'Error al registrar la confirmación del mantenimiento en el servidor.'
+      );
+      setErrorValidacion(mensajeError);
+      showToast(mensajeError, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -243,44 +281,54 @@ const ModalCierreMantenimiento = ({
     setErrorValidacion(null);
     setIsSubmitting(true);
 
+    const idIncidenciaBackend = orden.id_incidencia || orden.incidencia_id || orden.id;
+    const idOrdenBackend = orden.id_orden || orden.orden_trabajo?.id_orden || null;
+
     const payloadRechazo = {
-      incidenciaId: orden.incidencia_id || orden.id,
-      ordenId: orden.id_orden || orden.id,
+      incidenciaId: idIncidenciaBackend,
+      ordenId: idOrdenBackend || orden.id,
       motivoRechazo: motivoRechazo.trim(),
-      tecnicoNombre: tecnicoActual?.nombre || orden.tecnico_nombre || 'Técnico Responsable',
-      tecnicoId: tecnicoActual?.id || orden.tecnico_id || 'tec-01',
+      tecnicoNombre: tecnicoActual?.nombre || nombreTecnicoAsignado,
+      tecnicoId: idUsuarioActual,
     };
 
     try {
-      // 1. Guardar en cookies / persistencia local con estado RECHAZADO
-      const resultadoLocal = rechazarIncidenciaTecnico(payloadRechazo);
+      // 1. Registrar el motivo de rechazo en el diagnóstico de la orden vigente
+      if (idOrdenBackend) {
+        await api.patch(`/ordenes-trabajo/${idOrdenBackend}/diagnostico`, {
+          diagnostico_tecnico: `[RECHAZADO]: ${motivoRechazo.trim()}`,
+        });
+      }
 
-      // 2. Intentar actualizar en el backend si está disponible (id_estado: 5 = Rechazada)
-      try {
-        const idIncidenciaBackend = orden.incidencia_id || orden.id;
-        await api.patch(`/incidencias/${idIncidenciaBackend}/estado`, {
+      // 2. Actualizar el estado de la incidencia en PostgreSQL (id_estado: 5 = Rechazada)
+      const { data: incidenciaActualizada } = await api.patch(
+        `/incidencias/${idIncidenciaBackend}/estado`,
+        {
           id_estado: 5,
           motivo_rechazo: motivoRechazo.trim(),
-        });
-
-        if (orden.id_orden) {
-          await api.patch(`/ordenes-trabajo/${orden.id_orden}/diagnostico`, {
-            diagnostico_tecnico: `[RECHAZADO]: ${motivoRechazo.trim()}`,
-          });
         }
-      } catch {
-        // Fallback silencioso
-      }
+      );
+
+      // 3. Sincronizar estado local reactivo tras confirmar persistencia en el backend
+      const resultadoLocal = rechazarIncidenciaTecnico(payloadRechazo);
 
       showToast('Incidencia rechazada. El motivo ha sido registrado para el reportante.', 'info');
 
       if (onCierreExitoso) {
-        onCierreExitoso(resultadoLocal);
+        onCierreExitoso({
+          ...resultadoLocal,
+          ...(incidenciaActualizada || {}),
+        });
       }
 
       onClose();
-    } catch {
-      showToast('Error al registrar el rechazo de la incidencia', 'error');
+    } catch (error) {
+      const mensajeError = extraerMensajeError(
+        error,
+        'Error al registrar el rechazo de la incidencia en el servidor.'
+      );
+      setErrorValidacion(mensajeError);
+      showToast(mensajeError, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -320,9 +368,9 @@ const ModalCierreMantenimiento = ({
                 {modoAccion === 'RECHAZAR' ? 'Rechazar Incidencia' : 'Confirmación de Mantenimiento Técnico'}
               </h3>
               <p className="text-xs text-white/80 mt-0.5 flex items-center gap-2">
-                <span>Orden: <strong>{orden.id_orden || orden.id}</strong></span>
+                <span>Orden: <strong>{orden.id_orden || orden.orden_trabajo?.id_orden || orden.id}</strong></span>
                 <span>•</span>
-                <span>Activo: <strong>{orden.id_activo || 'N/A'}</strong></span>
+                <span>Activo: <strong>{orden.nombre_activo || orden.id_activo || 'N/A'}</strong></span>
               </p>
             </div>
           </div>
@@ -356,11 +404,11 @@ const ModalCierreMantenimiento = ({
                   <p className="text-sm text-amber-800 leading-relaxed">
                     Esta orden de mantenimiento está asignada a:{' '}
                     <strong className="text-amber-950 underline font-semibold">
-                      {orden.tecnico_nombre || orden.asignado || 'Otro técnico'}
+                      {nombreTecnicoAsignado}
                     </strong>.
                   </p>
                   <p className="text-xs text-amber-700 bg-amber-100/60 p-3 rounded-lg border border-amber-200">
-                    <strong>Regla de negocio:</strong> Solo el técnico asignado puede reportar la finalización o el rechazo justificado de la incidencia.
+                    <strong>Regla de negocio:</strong> Solo el técnico asignado vigente puede reportar la finalización o el rechazo justificado de la incidencia.
                   </p>
                   <div className="text-xs text-gray-600 pt-1">
                     Tu perfil activo actualmente es: <strong className="text-gray-900">{tecnicoActual?.nombre || 'Técnico no identificado'}</strong>.
@@ -394,7 +442,7 @@ const ModalCierreMantenimiento = ({
                   <FiUser className="w-4 h-4 text-primary flex-shrink-0" />
                   <div>
                     <span className="text-gray-600 block text-[10px] uppercase font-semibold">Técnico Responsable</span>
-                    <strong className="text-primary-950 font-semibold">{tecnicoActual?.nombre || orden.tecnico_nombre}</strong>
+                    <strong className="text-primary-950 font-semibold">{tecnicoActual?.nombre || nombreTecnicoAsignado}</strong>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -457,7 +505,7 @@ const ModalCierreMantenimiento = ({
                 </button>
               </div>
 
-              {/* Banner de error de validación */}
+              {/* Banner de error de validación o error HTTP del backend */}
               {errorValidacion && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs flex items-center gap-2 animate-fadeIn">
                   <FiAlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />

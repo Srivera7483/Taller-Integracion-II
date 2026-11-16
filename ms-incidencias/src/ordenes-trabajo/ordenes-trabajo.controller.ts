@@ -3,6 +3,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -17,32 +18,32 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { RequirePermissions } from '../auth/permissions.decorator';
 import type { JwtUser } from '../auth/auth.types';
 
 import { AsignarOrdenDto } from './dto/asignar-orden.dto';
 import { FiltrarOrdenesDto } from './dto/filtrar-ordenes.dto';
 import { ActualizarDiagnosticoDto } from '../incidencias/dto/actualizar-diagnostico.dto';
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
-import { PermissionsGuard } from '../auth/permissions.guard';
-import { RequirePermissions } from '../auth/permissions.decorator';
 
 @Controller('ordenes-trabajo')
 @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class OrdenesTrabajoController {
-  constructor(private readonly ordenesService: OrdenesTrabajoService) { }
+  constructor(private readonly ordenesService: OrdenesTrabajoService) {}
 
   @Post('asignar')
   @HttpCode(HttpStatus.CREATED)
-
   @Roles('SUPERVISOR', 'ADMINISTRADOR')
   @RequirePermissions('ordenes:asignar')
   async asignarOrden(
     @Body() body: AsignarOrdenDto,
     @CurrentUser() user: JwtUser,
+    @Headers('authorization') authHeader?: string,
   ) {
     const idUsuario = user.sub || user.userId;
     if (!idUsuario) throw new UnauthorizedException('Usuario autenticado inválido');
-    return this.ordenesService.asignarOrden(body, idUsuario);
+    return this.ordenesService.asignarOrden(body, idUsuario, authHeader);
   }
 
   @Get('mis-ordenes')
@@ -104,6 +105,7 @@ export class OrdenesTrabajoController {
       id_orden,
       body.diagnostico_tecnico,
       idUsuario,
+      user.rol || user.role,
     );
   }
 }
