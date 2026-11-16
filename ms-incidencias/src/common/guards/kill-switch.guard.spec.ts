@@ -1,13 +1,26 @@
 import { ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { KillSwitchGuard } from './kill-switch.guard';
 
-describe('KillSwitchGuard (TAL-4)', () => {
+describe('KillSwitchGuard (TAL-4 & TAL-210)', () => {
   let guard: KillSwitchGuard;
   const originalEnv = process.env;
+  let tempEnvPath: string;
 
   beforeEach(() => {
     process.env = { ...originalEnv };
+    // Aislamos la ruta de .env en disco para que el .env local no interfiera con los tests
+    tempEnvPath = path.join(os.tmpdir(), `.env.test.${Date.now()}.${Math.random()}`);
+    process.env.ENV_FILE_PATH = tempEnvPath;
     guard = new KillSwitchGuard();
+  });
+
+  afterEach(() => {
+    if (tempEnvPath && fs.existsSync(tempEnvPath)) {
+      fs.unlinkSync(tempEnvPath);
+    }
   });
 
   afterAll(() => {
@@ -25,12 +38,12 @@ describe('KillSwitchGuard (TAL-4)', () => {
     } as unknown as ExecutionContext & { setHeaderMock: jest.Mock };
   };
 
-  it('permite cualquier petición cuando el Kill Switch está inactivo', () => {
+  it('arranca en modo seguro por defecto (inactivo) cuando no hay variables definidas', () => {
     delete process.env.KILL_SWITCH_INCIDENCIAS_ENABLED;
     delete process.env.KILL_SWITCH_ENABLED;
 
-    const context = createMockContext('POST');
-    expect(guard.canActivate(context)).toBe(true);
+    expect(guard.isKillSwitchActive()).toBe(false);
+    expect(guard.canActivate(createMockContext('POST'))).toBe(true);
   });
 
   it('permite peticiones de lectura (GET) incluso cuando el Kill Switch está activo', () => {
@@ -66,5 +79,34 @@ describe('KillSwitchGuard (TAL-4)', () => {
       }
     }
   });
-});
 
+  it('TAL-210: conmuta en caliente al modificar KILL_SWITCH_INCIDENCIAS_ENABLED en archivo .env sin reiniciar', () => {
+    // 1. Estado inicial en disco: false
+    fs.writeFileSync(tempEnvPath, 'KILL_SWITCH_INCIDENCIAS_ENABLED=false\n', 'utf-8');
+    expect(guard.canActivate(createMockContext('POST'))).toBe(true);
+
+    // 2. Modificación en caliente en disco: true (sin recrear instancia del guard)
+    fs.writeFileSync(
+      tempEnvPath,
+      'KILL_SWITCH_INCIDENCIAS_ENABLED=true\nKILL_SWITCH_MOTIVO="Suspensión en caliente"\n',
+      'utf-8',
+    );
+    expect(() => guard.canActivate(createMockContext('POST'))).toThrow(HttpException);
+    expect(guard.canActivate(createMockContext('GET'))).toBe(true);
+
+    // 3. Reversión en caliente en disco: false
+    fs.writeFileSync(tempEnvPath, 'KILL_SWITCH_INCIDENCIAS_ENABLED=false\n', 'utf-8');
+    expect(guard.canActivate(createMockContext('POST'))).toBe(true);
+  });
+
+  it('TAL-210: permite conmutación directa en memoria mediante setHotState y retorno a .env', () => {
+    delete process.env.KILL_SWITCH_INCIDENCIAS_ENABLED;
+    expect(guard.canActivate(createMockContext('DELETE'))).toBe(true);
+
+    guard.setHotState(true, 'Corte administrativo inmediato');
+    expect(() => guard.canActivate(createMockContext('DELETE'))).toThrow(HttpException);
+
+    guard.setHotState(null);
+    expect(guard.canActivate(createMockContext('DELETE'))).toBe(true);
+  });
+});
