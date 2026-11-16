@@ -3,6 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import api, { cancelPendingRetries } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import {
+  MODO_MANTENIMIENTO_PATH,
+  extraerMotivo,
+  guardarInfoKillSwitch,
+  isKillSwitchError,
+} from '../services/killSwitchService';
 
 const AxiosInterceptor = ({ children }) => {
   const { showToast } = useToast();
@@ -24,8 +30,24 @@ const AxiosInterceptor = ({ children }) => {
           return Promise.reject(error);
         }
 
-        // Ignorar verificaciones de salud en segundo plano
-        if (error.config?.url?.includes('/health')) {
+        // Ignorar verificaciones de salud y consultas de estado del Kill Switch en segundo plano
+        if (error.config?.url?.includes('/health') || error.config?.url?.includes('/kill-switch')) {
+          return Promise.reject(error);
+        }
+
+        // TAL-188: Kill Switch activo (503 + X-Kill-Switch) -> pantalla global de mantenimiento.
+        // No se tocan los borradores locales (localStorage "draft:*").
+        if (isKillSwitchError(error)) {
+          const info = {
+            killSwitch: true,
+            motivo: extraerMotivo(error.response.data),
+            servicios_afectados: error.response.data?.servicios_afectados || [],
+            from: location.pathname === MODO_MANTENIMIENTO_PATH ? '/dashboard' : location.pathname,
+          };
+          if (location.pathname !== MODO_MANTENIMIENTO_PATH) {
+            guardarInfoKillSwitch(info);
+            navigate(MODO_MANTENIMIENTO_PATH, { state: info });
+          }
           return Promise.reject(error);
         }
 

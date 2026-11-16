@@ -22,6 +22,7 @@ import {
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { planificarMantenimiento, fetchActivosParaMantenimiento } from '../services/mantenimientosService';
+import { useDraftState } from '../hooks/useDraftState';
 
 const TIPOS_MANTENIMIENTO = [
   { id: 'Preventivo', label: 'Mantenimiento Preventivo Periódico', desc: 'Revisión integral según manual del fabricante' },
@@ -67,11 +68,11 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
   const [activos, setActivos] = useState([]);
   const [cargandoActivos, setCargandoActivos] = useState(true);
 
-  // Estados del formulario
-  const [idActivo, setIdActivo] = useState(assetFromParam);
-  const [fechaProgramada, setFechaProgramada] = useState('');
-  const [tipo, setTipo] = useState('Preventivo');
-  const [descripcion, setDescripcion] = useState('');
+  // Estados del formulario (TAL-188: borradores locales que sobreviven a la pantalla de mantenimiento)
+  const [idActivo, setIdActivo] = useDraftState('mantenimiento', 'idActivo', assetFromParam, { preferInitial: true });
+  const [fechaProgramada, setFechaProgramada] = useDraftState('mantenimiento', 'fechaProgramada', '');
+  const [tipo, setTipo] = useDraftState('mantenimiento', 'tipo', 'Preventivo');
+  const [descripcion, setDescripcion] = useDraftState('mantenimiento', 'descripcion', '');
 
   // Control y validación
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -15,6 +15,8 @@ import {
 import StatusBadge from '../components/StatusBadge';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
+import { isKillSwitchError } from '../services/killSwitchService';
+import { useDraftState } from '../hooks/useDraftState';
 
 const AsignarTecnico = () => {
   const [searchParams] = useSearchParams();
@@ -25,10 +27,10 @@ const AsignarTecnico = () => {
   const [tecnicos, setTecnicos] = useState([]);
   const [loadingDatos, setLoadingDatos] = useState(true);
 
-  // Formularios y envíos
-  const [selectedIncidenciaId, setSelectedIncidenciaId] = useState('');
-  const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
-  const [notasInstrucciones, setNotasInstrucciones] = useState('');
+  // Formularios y envíos (TAL-188: borradores locales que sobreviven a la pantalla de mantenimiento)
+  const [selectedIncidenciaId, setSelectedIncidenciaId] = useDraftState('asignacion', 'incidenciaId', '');
+  const [selectedTecnicoId, setSelectedTecnicoId] = useDraftState('asignacion', 'tecnicoId', '');
+  const [notasInstrucciones, setNotasInstrucciones] = useDraftState('asignacion', 'notas', '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Estados de respuesta de la API
@@ -165,7 +167,9 @@ const AsignarTecnico = () => {
       let res;
       try {
         res = await api.post('/ordenes-trabajo', payload);
-      } catch {
+      } catch (errPrimario) {
+        // TAL-188: con Kill Switch activo no tiene sentido probar el endpoint alternativo
+        if (isKillSwitchError(errPrimario)) throw errPrimario;
         res = await api.post('/incidencias/ordenes-trabajo/asignar', payload);
       }
 

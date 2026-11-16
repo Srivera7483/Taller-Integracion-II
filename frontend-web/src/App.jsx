@@ -25,6 +25,7 @@ import PlanificarMantenimiento from './views/PlanificarMantenimiento';
 import Mantenimientos from './views/Mantenimientos';
 import NotFound from './views/NotFound';
 import ServerError from './views/ServerError';
+import ModoMantenimiento from './views/ModoMantenimiento';
 
 
 function App() {
@@ -38,6 +39,8 @@ function App() {
             {/* Rutas globales de error */}
             <Route path="/500" element={<ServerError />} />
             <Route path="/error" element={<ServerError />} />
+            {/* TAL-188: Pantalla global de bloqueo por Kill Switch */}
+            <Route path="/modo-mantenimiento" element={<ModoMantenimiento />} />
 
             {/* Ruta pública sin Layout */}
             <Route element={<PublicRoute />}>
