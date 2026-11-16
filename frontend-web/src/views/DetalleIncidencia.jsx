@@ -20,6 +20,7 @@ import StatusBadge from '../components/StatusBadge';
 import api from '../services/api';
 import AprobacionReportante from '../components/AprobacionReportante';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
+import ModalPrevisualizadorImagen from '../components/ModalPrevisualizadorImagen';
 import EvidenciaUploader from '../components/EvidenciaUploader';
 import { useToast } from '../context/ToastContext';
 import { getUsuarioActual, hasPermission } from '../services/authService';
@@ -172,6 +173,7 @@ const DetalleIncidencia = () => {
   const usuarioSesion = getUsuarioActual();
   const puedeClasificar = hasPermission('incidencias:clasificar_prioridad');
   const puedeResolver = hasPermission('incidencias:resolver');
+  const puedeSubirEvidencia = hasPermission('evidencias:subir');
 
   const cargarIncidencia = async () => {
     try {
@@ -305,12 +307,53 @@ const DetalleIncidencia = () => {
     void cargarIncidencia();
   };
 
-  const handleEvidenciaSubidaDesdeDetalle = (urlEvidencia) => {
-    setIncidencia((prev) => ({
-      ...prev,
-      evidencias: [...(prev.evidencias || []), urlEvidencia],
-    }));
-    setMostrarSubidorNuevo(false);
+  const handleEvidenciaSubidaDesdeDetalle = async (evidenciaPayload) => {
+    try {
+      let urlSubida = null;
+      const file = evidenciaPayload?.file;
+
+      if (file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('id_tipo_evidencia', '1');
+
+        const uploadResp = await api.post(`/incidencias/${idIncidencia}/evidencias`, formData);
+        urlSubida = uploadResp.data?.url_cloudinary || uploadResp.data?.url_evidencia;
+      } else {
+        const urlParam =
+          typeof evidenciaPayload === 'string'
+            ? evidenciaPayload
+            : (evidenciaPayload?.previewUrl || evidenciaPayload?.cloudinaryResult?.url);
+
+        if (urlParam) {
+          const uploadResp = await api.post(`/incidencias/${idIncidencia}/evidencias`, {
+            id_tipo_evidencia: 1,
+            url_evidencia: urlParam,
+          });
+          urlSubida = uploadResp.data?.url_cloudinary || uploadResp.data?.url_evidencia || urlParam;
+        }
+      }
+
+      const urlFinal =
+        urlSubida ||
+        (typeof evidenciaPayload === 'string' ? evidenciaPayload : evidenciaPayload?.previewUrl);
+
+      if (urlFinal) {
+        setIncidencia((prev) => ({
+          ...prev,
+          evidencias: [...(prev.evidencias || []), urlFinal],
+        }));
+        showToast('Evidencia fotográfica guardada en Cloudinary exitosamente', 'success');
+      }
+    } catch (err) {
+      const msg =
+        err.response?.data?.mensaje ||
+        err.response?.data?.message ||
+        'Error al guardar la evidencia fotográfica.';
+      showToast(msg, 'error');
+    } finally {
+      setMostrarSubidorNuevo(false);
+    }
   };
 
   const handleAbrirPrevisualizador = (url, nombre) => {
@@ -520,7 +563,7 @@ const DetalleIncidencia = () => {
               Imágenes adjuntadas por el reportante para respaldo del fallo.
             </p>
           </div>
-          {!mostrarSubidorNuevo && (
+          {puedeSubirEvidencia && !mostrarSubidorNuevo && (
             <button
               type="button"
               onClick={() => setMostrarSubidorNuevo(true)}
@@ -532,7 +575,7 @@ const DetalleIncidencia = () => {
           )}
         </div>
 
-        {mostrarSubidorNuevo && (
+        {puedeSubirEvidencia && mostrarSubidorNuevo && (
           <div className="bg-slate-50 border border-primary-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-primary">Subir nueva evidencia para esta incidencia:</span>
@@ -557,12 +600,12 @@ const DetalleIncidencia = () => {
               const urlResuelta =
                 typeof evItem === 'string'
                   ? evItem
-                  : evItem?.url_evidencia || evItem?.url_cloudinary || '';
+                  : evItem?.url_cloudinary || evItem?.url_evidencia || evItem?.url || '';
               const nombreResuelto =
                 incidencia.imagenAdjuntaNombre ||
                 (typeof evItem === 'object' && evItem?.tipo?.nombre_tipo
                   ? `evidencia_${evItem.tipo.nombre_tipo.toLowerCase()}_${idx + 1}.webp`
-                  : `evidencia_incidencia_${idx + 1}.webp`);
+                  : `Incidencia: ${incidencia.id}${evidencias.length > 1 ? ` (Foto ${idx + 1})` : ''}`);
               return (
                 <TarjetaEvidenciaCloudinary
                   key={evItem?.id_evidencia || idx}
@@ -580,14 +623,16 @@ const DetalleIncidencia = () => {
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
               Esta incidencia no incluyó fotos al momento de ser creada. Puedes adjuntar una prueba ahora.
             </p>
-            <button
-              type="button"
-              onClick={() => setMostrarSubidorNuevo(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
-            >
-              <FiUploadCloud className="w-4 h-4" />
-              <span>Subir Evidencia a Cloudinary</span>
-            </button>
+            {puedeSubirEvidencia && (
+              <button
+                type="button"
+                onClick={() => setMostrarSubidorNuevo(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
+              >
+                <FiUploadCloud className="w-4 h-4" />
+                <span>Subir Evidencia a Cloudinary</span>
+              </button>
+            )}
           </div>
         ) : null}
       </div>
@@ -724,6 +769,14 @@ const DetalleIncidencia = () => {
         }}
         tecnicoActual={usuarioSesion}
         onCierreExitoso={handleCierreExitoso}
+      />
+
+      {/* Modal Previsualizador de Imagen Cloudinary en Alta Resolución */}
+      <ModalPrevisualizadorImagen
+        isOpen={Boolean(imagenModal.url)}
+        onClose={() => setImagenModal({ url: null, nombre: null })}
+        imageUrl={imagenModal.url}
+        imageName={imagenModal.nombre}
       />
     </div>
   );

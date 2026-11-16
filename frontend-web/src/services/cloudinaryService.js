@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 /**
- * Servicio de Integración para Cloudinary
+ * Servicio de Integración para Cloudinary (TAL-136)
  * 
  * Prepara la arquitectura para la subida de evidencias fotográficas a Cloudinary.
  * Cuando las variables de entorno estén presentes, realiza el POST directo a Cloudinary API.
@@ -10,14 +10,19 @@ import axios from 'axios';
  * las animaciones del uploader y el estado de carga (isLoading).
  */
 
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || import.meta.env.CLOUDINARY_CLOUD_NAME || '';
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || import.meta.env.CLOUDINARY_UPLOAD_PRESET || '';
 
 /**
  * Indica si Cloudinary cuenta con credenciales activas configuradas.
  */
 export const isCloudinaryConfigured = () => {
-  return Boolean(CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET);
+  return Boolean(
+    CLOUDINARY_CLOUD_NAME &&
+    CLOUDINARY_UPLOAD_PRESET &&
+    CLOUDINARY_CLOUD_NAME !== 'tu_cloud_name' &&
+    CLOUDINARY_UPLOAD_PRESET !== 'tu_preset'
+  );
 };
 
 /**
@@ -63,7 +68,7 @@ export const uploadImageToCloudinary = async (file, { onProgress, latencyMs = 16
     };
   }
 
-  // 2. Modo Preparado / Simulado de Latencia (Criterio de aceptación)
+  // 2. Modo Preparado / Simulado de Latencia (Criterio TAL-136)
   // Permite evaluar las transiciones fluidas de "Subir Evidencia" -> "Procesando..." -> "Subido"
   return new Promise((resolve, reject) => {
     let progress = 10;

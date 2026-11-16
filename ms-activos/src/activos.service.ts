@@ -676,6 +676,7 @@ export class ActivosService {
             OR: [
               { codigoQr: { equals: codigoBuscado, mode: 'insensitive' } },
               { id: codigoBuscado.toLowerCase() },
+              { numeroSerie: { equals: codigoBuscado, mode: 'insensitive' } },
             ],
           },
         });
@@ -689,7 +690,7 @@ export class ActivosService {
 
     if (!activo) {
       activo = this.activosEnMemoria.find(
-        (item) => item.codigoQr.toUpperCase() === codigoBuscado || item.id === codigoBuscado.toLowerCase(),
+        (item) => item.codigoQr.toUpperCase() === codigoBuscado || item.id === codigoBuscado.toLowerCase() || item.numeroSerie?.toUpperCase() === codigoBuscado,
       ) || null;
     }
 
