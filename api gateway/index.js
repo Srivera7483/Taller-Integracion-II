@@ -6,6 +6,31 @@ const fastifyCors = require('@fastify/cors');
 const rateLimit = require('@fastify/rate-limit');
 const RateLimitStore = require('./rate-limit-store');
 const KillSwitchManager = require('./kill-switch');
+const { Server: IoServer } = require('socket.io');
+const { io: createIoClient } = require('socket.io-client');
+
+const DEFAULT_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+    'http://127.0.0.1:3000',
+    'http://localhost:8081',
+    'http://localhost:19006',
+];
+
+const getAllowedOrigins = (customOrigins) => {
+    const rawOrigins = customOrigins ?? process.env.CORS_ORIGINS;
+    if (!rawOrigins) {
+        return DEFAULT_ALLOWED_ORIGINS;
+    }
+    if (Array.isArray(rawOrigins)) {
+        return rawOrigins;
+    }
+    return String(rawOrigins)
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter((origin) => origin.length > 0);
+};
 
 const getTrustProxy = (value) => {
     if (typeof value !== 'string') {
@@ -220,16 +245,199 @@ const buildGateway = (options = {}) => {
         replyOptions: { onError: handleProxyError }
     });
 
+    // TAL-2: Configuración de Socket.io sobre el servidor HTTP nativo de Fastify
+    const allowedOrigins = getAllowedOrigins(options.corsOrigins);
+    const io = new IoServer(fastify.server, {
+        cors: {
+            origin: allowedOrigins,
+            methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+            credentials: true,
+        },
+        transports: ['websocket', 'polling'],
+        allowEIO3: true,
+    });
+
+    // Middleware CORS del lado de Socket.io sincronizado con HTTP
+    io.use((socket, next) => {
+        const origin = socket.handshake.headers.origin;
+        const currentAllowed = getAllowedOrigins(options.corsOrigins);
+        if (!origin || currentAllowed.includes('*') || currentAllowed.includes(origin)) {
+            socket.data.origin = origin;
+            return next();
+        }
+        return next(new Error('[Ciberseguridad - CORS] Origen no autorizado para Socket.io'));
+    });
+
+    let upstreamSocket = null;
+    if (options.enableUpstreamSocket) {
+        const incidenciasWsUrl = options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002';
+        upstreamSocket = createIoClient(incidenciasWsUrl, {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            query: { rol: 'COORDINADOR', userId: 'api-gateway-bridge' },
+        });
+
+        upstreamSocket.on('incidencia_actualizada', (payload) => {
+            io.to('incidencias').emit('incidencia_actualizada', payload);
+            io.to('coordinadores').emit('incidencia_actualizada', payload);
+            if (payload?.id_incidencia) {
+                io.to(`incidencia_${payload.id_incidencia}`).emit('incidencia_actualizada', payload);
+            }
+            if (payload?.id_edificio) {
+                io.to(`edificio_${payload.id_edificio}`).emit('incidencia_actualizada', payload);
+            }
+        });
+
+        upstreamSocket.on('nueva-incidencia', (payload) => {
+            io.to('incidencias').emit('nueva-incidencia', payload);
+        });
+    }
+
+    io.on('connection', (socket) => {
+        const origin = socket.handshake.headers.origin;
+        const query = socket.handshake.query || {};
+        const userId = query.userId || 'anonymous';
+
+        fastify.log.info(`[Socket.io] Cliente conectado: ${socket.id}, origen: ${origin || 'direct'}, userId: ${userId}`);
+
+        // Unirse a la sala general de incidencias y salas por query (compatibilidad TAL-185 / TAL-186)
+        socket.join('incidencias');
+
+        if (query.incidencia) {
+            const roomInc = `incidencia_${query.incidencia}`;
+            socket.join(roomInc);
+            upstreamSocket?.emit('join_room', { room: roomInc });
+        }
+        if (query.edificio) {
+            const roomEd = `edificio_${query.edificio}`;
+            socket.join(roomEd);
+            upstreamSocket?.emit('join_room', { room: roomEd });
+        }
+        if (query.rol) {
+            const rolUpper = String(query.rol).toUpperCase();
+            socket.join(`rol_${rolUpper}`);
+            if (['COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolUpper)) {
+                socket.join('coordinadores');
+            }
+        }
+
+        socket.on('join_room', (data, ack) => {
+            const salasUnidas = [];
+            if (typeof data === 'string' && data) {
+                socket.join(data);
+                salasUnidas.push(data);
+            } else if (data && typeof data === 'object') {
+                if (data.room) {
+                    socket.join(data.room);
+                    salasUnidas.push(data.room);
+                }
+                if (Array.isArray(data.rooms)) {
+                    for (const room of data.rooms) {
+                        if (room) {
+                            socket.join(room);
+                            salasUnidas.push(room);
+                        }
+                    }
+                }
+                if (data.id_incidencia) {
+                    const roomInc = `incidencia_${data.id_incidencia}`;
+                    socket.join(roomInc);
+                    salasUnidas.push(roomInc);
+                }
+                if (data.id_edificio) {
+                    const roomEd = `edificio_${data.id_edificio}`;
+                    socket.join(roomEd);
+                    salasUnidas.push(roomEd);
+                }
+                if (data.rol) {
+                    const rolUpper = String(data.rol).toUpperCase();
+                    socket.join(`rol_${rolUpper}`);
+                    salasUnidas.push(`rol_${rolUpper}`);
+                    if (['COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolUpper)) {
+                        socket.join('coordinadores');
+                        salasUnidas.push('coordinadores');
+                    }
+                }
+            }
+            if (salasUnidas.length > 0) {
+                upstreamSocket?.emit('join_room', { rooms: salasUnidas });
+            }
+            const response = { status: 'joined', rooms: salasUnidas };
+            if (typeof ack === 'function') {
+                ack(response);
+            }
+            return response;
+        });
+
+        socket.on('leave_room', (data, ack) => {
+            const room = typeof data === 'string' ? data : data?.room;
+            if (room) {
+                socket.leave(room);
+                upstreamSocket?.emit('leave_room', { room });
+                const response = { status: 'left', room };
+                if (typeof ack === 'function') {
+                    ack(response);
+                }
+                return response;
+            }
+            const errResponse = { status: 'error', message: 'Sala no especificada' };
+            if (typeof ack === 'function') {
+                ack(errResponse);
+            }
+            return errResponse;
+        });
+
+        socket.on('disconnect', (reason) => {
+            fastify.log.info(`[Socket.io] Cliente desconectado: ${socket.id}, reason: ${reason}`);
+            // Limpiar listeners y descriptores para evitar fugas de memoria (CA-2 TAL-2)
+            socket.removeAllListeners();
+        });
+
+        socket.on('error', (error) => {
+            fastify.log.error(error, `[Socket.io] Error en socket ${socket.id}`);
+            socket.disconnect();
+        });
+    });
+
+    io.emitIncidencias = (event, data) => {
+        io.to('incidencias').emit(event, data);
+    };
+
+    io.emitToClient = (socketId, event, data) => {
+        const clientSocket = io.sockets.sockets.get(socketId);
+        if (clientSocket) {
+            clientSocket.emit(event, data);
+        }
+    };
+
+    fastify.addHook('onClose', async () => {
+        if (upstreamSocket) {
+            upstreamSocket.removeAllListeners();
+            upstreamSocket.disconnect();
+        }
+        await new Promise((resolve) => {
+            io.close(() => resolve());
+        });
+    });
+
+    fastify.io = io;
+    fastify.fastify = fastify;
+    fastify.httpServer = fastify.server;
+
     return fastify;
 };
 
 const start = async () => {
-    const fastify = buildGateway();
+    const fastify = buildGateway({
+        enableUpstreamSocket: process.env.GATEWAY_WS_BRIDGE !== 'false',
+    });
     const port = Number(process.env.GATEWAY_PORT ?? process.env.PORT ?? 3000);
 
     try {
         await fastify.listen({ port, host: '0.0.0.0' });
-        fastify.log.info(`API Gateway ejecutándose en http://localhost:${port}`);
+        fastify.log.info(`API Gateway y Socket.io ejecutándose en http://localhost:${port}`);
     } catch (error) {
         fastify.log.error(error);
         process.exit(1);
@@ -240,4 +448,4 @@ if (require.main === module) {
     start();
 }
 
-module.exports = { buildGateway, start };
+module.exports = { buildGateway, start, getAllowedOrigins, DEFAULT_ALLOWED_ORIGINS };
