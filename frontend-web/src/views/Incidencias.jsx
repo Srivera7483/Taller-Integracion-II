@@ -198,9 +198,18 @@ const Incidencias = () => {
   };
 
   const abrirModalParaIncidencia = (inc) => {
+    // Tomar explícitamente la orden más reciente (índice 0 o la que viene en orden_trabajo)
+    const ordenVigente = inc.orden_trabajo || inc.ordenes_trabajo?.[0] || inc;
+
     setOrdenSeleccionadaParaCierre({
-      id_orden: inc.id_orden || `ORD-${inc.id_incidencia}`,
+      id_orden: ordenVigente.id_orden || inc.id_orden,
       incidencia_id: inc.id_incidencia,
+      id_incidencia: inc.id_incidencia,
+      id_tecnico: ordenVigente.id_tecnico || inc.id_tecnico,
+      id_tecnico_asignado: ordenVigente.id_tecnico || inc.id_tecnico,
+      nombre_tecnico: ordenVigente.nombre_tecnico || inc.nombre_tecnico,
+      orden_trabajo: ordenVigente,
+      ordenes_trabajo: inc.ordenes_trabajo || [],
       titulo: inc.titulo,
       id_activo: inc.id_activo,
       estado: getNombreEstado(inc.estado),

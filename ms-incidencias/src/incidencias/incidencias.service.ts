@@ -31,11 +31,10 @@ const incidenciaConEstadoActual = {
       include: { estado: { select: { id_estado: true, nombre_estado: true } } },
     },
     evidencias: {
-      select: { url_cloudinary: true }
+      select: { url_cloudinary: true },
     },
     ordenes_trabajo: {
-      take: 1,
-      orderBy: { fecha_creacion: 'desc' as const },
+      orderBy: [{ fecha_creacion: 'desc' as const }, { id_orden: 'desc' as const }],
     },
   },
 } satisfies Prisma.IncidenciasDefaultArgs;
@@ -67,6 +66,27 @@ export class IncidenciasService {
     prioridad: PrioridadIncidencia,
   ): boolean {
     return prioridad === PrioridadIncidencia.alta;
+  }
+
+  /**
+   * TAL-221: Verifica que el técnico que intenta operar sobre una incidencia
+   * sea exactamente el titular de la Orden de Trabajo vigente (más reciente).
+   */
+  private async verificarOwnershipTecnico(
+    idIncidencia: string,
+    idTecnico: string,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<void> {
+    const ultimaOrden = await client.ordenTrabajo.findFirst({
+      where: { id_incidencia: idIncidencia },
+      orderBy: [{ fecha_creacion: 'desc' }, { id_orden: 'desc' }],
+    });
+
+    if (!ultimaOrden || ultimaOrden.id_tecnico !== idTecnico) {
+      throw new ForbiddenException(
+        'Acceso denegado: Esta incidencia no está asignada a tu usuario o fue reasignada a otro técnico.',
+      );
+    }
   }
 
   async listar(query: ListarIncidenciasQueryDto, authHeader?: string) {
@@ -215,7 +235,7 @@ export class IncidenciasService {
       const estadoInicial = await transaction.estadoIncidencia.findFirst({
         where: { nombre_estado: 'Reportada' },
       });
-      
+
       if (!estadoInicial) {
         throw new InternalServerErrorException('No está configurado el estado inicial');
       }
@@ -325,10 +345,14 @@ export class IncidenciasService {
       const idEstadoActual = incidencia.historial_estados?.[0]?.estado?.id_estado;
       const rolUpper = this.normalizarRol(rolUsuario);
 
-      if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR') {
+      if (rolUpper === 'TECNICO') {
+        await this.verificarOwnershipTecnico(incidenciaId, usuarioId, transaction);
+      }
+
+      if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR' && rolUpper !== 'ADMINISTRADOR') {
         throw new ForbiddenException('Solo un SUPERVISOR puede pasar de Reportada a Asignada');
       }
-      if (idEstadoActual === 2 && (idEstadoNuevo === 3 || idEstadoNuevo === 6) && (rolUpper !== 'TECNICO' && rolUpper !== 'TÉCNICO' && rolUpper !== 'ADMINISTRADOR')) {
+      if (idEstadoActual === 2 && (idEstadoNuevo === 3 || idEstadoNuevo === 6) && (rolUpper !== 'TECNICO' && rolUpper !== 'ADMINISTRADOR')) {
         throw new ForbiddenException('Solo un TECNICO puede pasar de Asignada a Resuelta o Completada');
       }
       if (idEstadoActual === 3 && (idEstadoNuevo === 4 || idEstadoNuevo === 5) && rolUpper !== 'REPORTANTE' && rolUpper !== 'ADMINISTRADOR') {
@@ -385,8 +409,6 @@ export class IncidenciasService {
     }));
   }
 
-  
-
   async listarEvidencias(id: string) {
     await this.assertIncidenciaExists(id);
     const evidencias = await this.prisma.evidencia.findMany({
@@ -396,8 +418,6 @@ export class IncidenciasService {
     });
     return evidencias.map((evidencia) => this.toApiEvidencia(evidencia));
   }
-
-
 
   async crearEvidencia(id: string, body: CrearEvidenciaDto) {
     await this.assertIncidenciaExists(id);
@@ -410,7 +430,7 @@ export class IncidenciasService {
       data: {
         id_incidencia: id,
         id_tipo_evidencia: tipo.id_tipo_evidencia,
-        url_cloudinary: body.url_evidencia.trim(), 
+        url_cloudinary: body.url_evidencia.trim(),
       },
       include: { tipo_evidencia: { select: { id_tipo_evidencia: true, nombre_tipo: true } } },
     });
@@ -419,7 +439,7 @@ export class IncidenciasService {
 
   async procesarYGuardarEvidencia(idIncidencia: string, idTipoEvidencia: number, file: any) {
     await this.assertIncidenciaExists(idIncidencia);
-    
+
     if (!idTipoEvidencia) {
       throw new BadRequestException('id_tipo_evidencia es requerido');
     }
@@ -487,17 +507,19 @@ export class IncidenciasService {
     rolUsuario: string,
     emailUsuario?: string,
   ) {
-    const rolUpper = rolUsuario.toUpperCase();
-    if (rolUpper !== 'TÉCNICO' && rolUpper !== 'TECNICO') {
+    const rolUpper = this.normalizarRol(rolUsuario);
+    if (rolUpper !== 'TECNICO') {
       throw new ForbiddenException(
         'Acceso denegado: Solo los técnicos pueden resolver incidencias.',
       );
     }
 
     const resultado = await this.prisma.$transaction(async (transaction) => {
+      await this.verificarOwnershipTecnico(idIncidencia, idTecnico, transaction);
+
       const ultimoHistorial = await transaction.historialEstados.findFirst({
         where: { id_incidencia: idIncidencia },
-        orderBy: { fecha_creacion: 'desc' },
+        orderBy: [{ fecha_creacion: 'desc' }, { id_historial: 'desc' }],
         include: { estado: true },
       });
 
@@ -619,6 +641,15 @@ export class IncidenciasService {
     const nombreReportante = formatearUsuario(incidencia.id_reportante);
     const infoActivo = resolutores?.activosPorId?.get(incidencia.id_activo);
 
+    const historialAsignaciones = (incidencia.ordenes_trabajo ?? []).map((ot, index) => ({
+      id_orden: ot.id_orden,
+      id_tecnico: ot.id_tecnico,
+      nombre_tecnico: formatearUsuario(ot.id_tecnico),
+      diagnostico_tecnico: ot.diagnostico_tecnico ?? null,
+      fecha_creacion: ot.fecha_creacion,
+      vigente: index === 0,
+    }));
+
     return {
       id_incidencia: incidencia.id_incidencia,
       id_activo: incidencia.id_activo,
@@ -628,6 +659,7 @@ export class IncidenciasService {
       nombre_reportante: nombreReportante,
       id_orden: ordenActiva?.id_orden ?? null,
       id_tecnico: idTecnico,
+      id_tecnico_asignado: idTecnico,
       nombre_tecnico: nombreTecnico,
       tecnico_asignado: nombreTecnico ?? idTecnico ?? null,
       fecha_asignacion: ordenActiva?.fecha_creacion ?? null,
@@ -642,6 +674,7 @@ export class IncidenciasService {
             fecha_creacion: ordenActiva.fecha_creacion,
           }
         : null,
+      historial_asignaciones: historialAsignaciones,
       titulo: incidencia.titulo,
       descripcion: incidencia.descripcion,
       estado: estado || null,
@@ -731,7 +764,9 @@ export class IncidenciasService {
 
   private async resolverActivos(
     authHeader?: string,
-  ): Promise<Map<string, { nombre: string; codigoQr?: string }>> {
+  ): Promise<
+    Map<string, { nombre: string; codigoQr?: string }>
+  > {
     const mapa = new Map<string, { nombre: string; codigoQr?: string }>();
     try {
       if (typeof this.httpService?.get === 'function') {
