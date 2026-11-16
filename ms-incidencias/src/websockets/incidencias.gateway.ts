@@ -77,6 +77,25 @@ export class IncidenciasGateway
     this.logger.log(`[WS] Cliente desconectado: ${client.id}`);
   }
 
+  @SubscribeMessage('unirse_sala')
+  handleUnirseSala(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data:
+      | string
+      | {
+          room?: string;
+          sala?: string;
+          rooms?: string[];
+          salas?: string[];
+          id_incidencia?: string;
+          id_edificio?: string;
+          rol?: string;
+        },
+  ) {
+    return this.handleJoinRoom(client, data);
+  }
+
   @SubscribeMessage('join_room')
   handleJoinRoom(
     @ConnectedSocket() client: Socket,
@@ -85,7 +104,9 @@ export class IncidenciasGateway
       | string
       | {
           room?: string;
+          sala?: string;
           rooms?: string[];
+          salas?: string[];
           id_incidencia?: string;
           id_edificio?: string;
           rol?: string;
@@ -97,16 +118,20 @@ export class IncidenciasGateway
       client.join(data);
       salasUnidas.push(data);
     } else if (data) {
-      if (data.room) {
-        client.join(data.room);
-        salasUnidas.push(data.room);
+      const roomName = data.room || data.sala;
+      if (roomName) {
+        client.join(roomName);
+        salasUnidas.push(roomName);
       }
-      if (Array.isArray(data.rooms)) {
-        for (const r of data.rooms) {
-          if (r) {
-            client.join(r);
-            salasUnidas.push(r);
-          }
+      const roomList = Array.isArray(data.rooms)
+        ? data.rooms
+        : Array.isArray(data.salas)
+          ? data.salas
+          : [];
+      for (const r of roomList) {
+        if (r) {
+          client.join(r);
+          salasUnidas.push(r);
         }
       }
       if (data.id_incidencia) {
@@ -134,12 +159,21 @@ export class IncidenciasGateway
     return { status: 'joined', rooms: salasUnidas };
   }
 
+  @SubscribeMessage('dejar_sala')
+  handleDejarSala(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: string | { room?: string; sala?: string },
+  ) {
+    return this.handleLeaveRoom(client, data);
+  }
+
   @SubscribeMessage('leave_room')
   handleLeaveRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: string | { room?: string },
+    @MessageBody() data: string | { room?: string; sala?: string },
   ) {
-    const room = typeof data === 'string' ? data : data?.room;
+    const room =
+      typeof data === 'string' ? data : data?.room || data?.sala;
     if (room) {
       client.leave(room);
       return { status: 'left', room };
