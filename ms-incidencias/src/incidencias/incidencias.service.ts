@@ -507,15 +507,29 @@ export class IncidenciasService {
     rolUsuario: string,
     emailUsuario?: string,
   ) {
-    const rolUpper = this.normalizarRol(rolUsuario);
-    if (rolUpper !== 'TECNICO') {
+    const rolNorm = this.normalizarRol(rolUsuario);
+    const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm);
+
+    if (!['TECNICO', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm)) {
       throw new ForbiddenException(
-        'Acceso denegado: Solo los técnicos pueden resolver incidencias.',
+        'Acceso denegado: Solo el técnico asignado, supervisores o administradores pueden resolver incidencias.',
       );
     }
 
     const resultado = await this.prisma.$transaction(async (transaction) => {
-      await this.verificarOwnershipTecnico(idIncidencia, idTecnico, transaction);
+      if (!esSupervisorOAdmin) {
+        await this.verificarOwnershipTecnico(idIncidencia, idTecnico, transaction);
+      } else {
+        const orden = await transaction.ordenTrabajo.findFirst({
+          where: { id_incidencia: idIncidencia },
+          orderBy: [{ fecha_creacion: 'desc' }, { id_orden: 'desc' }],
+        });
+        if (!orden) {
+          throw new BadRequestException(
+            'No existe una orden de trabajo para esta incidencia. Primero debes registrar el diagnóstico.',
+          );
+        }
+      }
 
       const ultimoHistorial = await transaction.historialEstados.findFirst({
         where: { id_incidencia: idIncidencia },
@@ -529,9 +543,10 @@ export class IncidenciasService {
         );
       }
 
-      const nombreEstadoActual = ultimoHistorial.estado.nombre_estado.toUpperCase();
+      const nombreEstadoActual =
+        ultimoHistorial.estado.nombre_estado.trim().toUpperCase();
 
-      if (nombreEstadoActual !== 'ASIGNADA') {
+      if (!['REPORTADA', 'ASIGNADA'].includes(nombreEstadoActual)) {
         throw new BadRequestException(
           `Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`,
         );
@@ -570,6 +585,13 @@ export class IncidenciasService {
         include: { estado: true },
       });
 
+      if (typeof (transaction.ordenTrabajo as any)?.updateMany === 'function') {
+        await transaction.ordenTrabajo.updateMany({
+          where: { id_incidencia: idIncidencia },
+          data: { fecha_cierre: new Date() },
+        });
+      }
+
       return { historial: nuevoHistorial, titulo: incidencia.titulo };
     });
 
@@ -579,6 +601,40 @@ export class IncidenciasService {
       `La incidencia "${resultado.titulo}" fue resuelta.`,
     );
     return resultado.historial;
+  }
+
+  async clasificarPrioridad(idIncidencia: string, prioridadRaw: string) {
+    const normalizada = (prioridadRaw || '').trim().toLowerCase();
+    const mapPrioridad: Record<string, string> = {
+      baja: 'baja',
+      media: 'media',
+      alta: 'alta',
+      critica: 'critica',
+      'crítica': 'critica',
+    };
+
+    const prioridadEnum = mapPrioridad[normalizada];
+    if (!prioridadEnum) {
+      throw new BadRequestException(
+        'Prioridad no válida. Valores permitidos: Baja, Media, Alta, Crítica',
+      );
+    }
+
+    const incidencia = await this.prisma.incidencias.findUnique({
+      where: { id_incidencia: idIncidencia },
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException('Incidencia no encontrada');
+    }
+
+    const actualizada = await this.prisma.incidencias.update({
+      where: { id_incidencia: idIncidencia },
+      data: { prioridad: prioridadEnum as any },
+      ...incidenciaConEstadoActual,
+    });
+
+    return this.toApiIncidencia(actualizada);
   }
 
   private async notificarIncidencia(

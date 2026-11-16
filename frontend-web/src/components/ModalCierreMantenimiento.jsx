@@ -16,7 +16,6 @@ import {
 } from 'react-icons/fi';
 import { LuTriangleAlert, LuCircleAlert, LuInfo } from 'react-icons/lu';
 import { useToast } from '../context/ToastContext';
-import { completarMantenimientoTecnico, rechazarIncidenciaTecnico } from '../services/incidenciasService';
 import api from '../services/api';
 
 // Lista de materiales e insumos comunes para selección rápida táctil en tablets
@@ -114,10 +113,18 @@ const ModalCierreMantenimiento = ({
       ''
   ).trim().toLowerCase();
 
+  const rolActual = (
+    typeof tecnicoActual?.rol === 'string'
+      ? tecnicoActual.rol
+      : tecnicoActual?.rol?.nombre_rol || ''
+  ).toUpperCase();
+  const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolActual);
+
   const esTecnicoAsignado =
-    Boolean(idTecnicoOrden) &&
-    Boolean(idUsuarioActual) &&
-    idTecnicoOrden === idUsuarioActual;
+    esSupervisorOAdmin ||
+    (Boolean(idTecnicoOrden) &&
+      Boolean(idUsuarioActual) &&
+      idTecnicoOrden === idUsuarioActual);
 
   const nombreTecnicoAsignado =
     orden.nombre_tecnico ||
@@ -214,42 +221,36 @@ const ModalCierreMantenimiento = ({
 
     const idIncidenciaBackend = orden.id_incidencia || orden.incidencia_id || orden.id;
     const idOrdenBackend = orden.id_orden || orden.orden_trabajo?.id_orden || null;
-
-    const payloadCierre = {
-      incidenciaId: idIncidenciaBackend,
-      ordenId: idOrdenBackend || orden.id,
-      resolucion: resolucion.trim(),
-      horasInvertidas: Number(horasInvertidas),
-      materialesUsados: sinMateriales ? [] : materialesUsados,
-      tecnicoNombre: tecnicoActual?.nombre || nombreTecnicoAsignado,
-      tecnicoId: idUsuarioActual,
-    };
+    const esOrdenUuid = Boolean(idOrdenBackend && !String(idOrdenBackend).startsWith('ORD-'));
 
     try {
-      // 1. Registrar diagnóstico técnico en la orden vigente (valida ownership y vigencia en backend)
-      if (idOrdenBackend) {
+      // 1. Registrar diagnóstico técnico en la orden vigente en PostgreSQL
+      if (esOrdenUuid) {
         await api.patch(`/ordenes-trabajo/${idOrdenBackend}/diagnostico`, {
+          diagnostico_tecnico: resolucion.trim(),
+        });
+      } else {
+        await api.post('/ordenes-trabajo/diagnostico', {
+          id_incidencia: idIncidenciaBackend,
+          id_tecnico: idTecnicoOrden || idUsuarioActual,
           diagnostico_tecnico: resolucion.trim(),
         });
       }
 
-      // 2. Actualizar el estado de la incidencia en PostgreSQL (id_estado: 6 = Completada)
-      const { data: incidenciaActualizada } = await api.patch(
-        `/incidencias/${idIncidenciaBackend}/estado`,
-        {
-          id_estado: 6,
-        }
+      // 2. Marcar la incidencia como resuelta en PostgreSQL (registra fecha_cierre e historial)
+      await api.patch(`/incidencias/${idIncidenciaBackend}/resolver`);
+
+      showToast(
+        '¡Mantenimiento técnico confirmado! El diagnóstico fue registrado y la incidencia fue resuelta.',
+        'success'
       );
-
-      // 3. Sincronizar estado local reactivo tras confirmar persistencia en el backend
-      const resultadoLocal = completarMantenimientoTecnico(payloadCierre);
-
-      showToast('¡Mantenimiento técnico confirmado! La tarea pasó a estado Completada.', 'success');
 
       if (onCierreExitoso) {
         onCierreExitoso({
-          ...resultadoLocal,
-          ...(incidenciaActualizada || {}),
+          resolucion: resolucion.trim(),
+          horasInvertidas: Number(horasInvertidas),
+          materialesUsados: sinMateriales ? [] : materialesUsados,
+          fechaCierre: new Date().toISOString(),
         });
       }
 
@@ -283,18 +284,11 @@ const ModalCierreMantenimiento = ({
 
     const idIncidenciaBackend = orden.id_incidencia || orden.incidencia_id || orden.id;
     const idOrdenBackend = orden.id_orden || orden.orden_trabajo?.id_orden || null;
-
-    const payloadRechazo = {
-      incidenciaId: idIncidenciaBackend,
-      ordenId: idOrdenBackend || orden.id,
-      motivoRechazo: motivoRechazo.trim(),
-      tecnicoNombre: tecnicoActual?.nombre || nombreTecnicoAsignado,
-      tecnicoId: idUsuarioActual,
-    };
+    const esOrdenUuid = Boolean(idOrdenBackend && !String(idOrdenBackend).startsWith('ORD-'));
 
     try {
       // 1. Registrar el motivo de rechazo en el diagnóstico de la orden vigente
-      if (idOrdenBackend) {
+      if (esOrdenUuid) {
         await api.patch(`/ordenes-trabajo/${idOrdenBackend}/diagnostico`, {
           diagnostico_tecnico: `[RECHAZADO]: ${motivoRechazo.trim()}`,
         });
@@ -309,14 +303,12 @@ const ModalCierreMantenimiento = ({
         }
       );
 
-      // 3. Sincronizar estado local reactivo tras confirmar persistencia en el backend
-      const resultadoLocal = rechazarIncidenciaTecnico(payloadRechazo);
-
-      showToast('Incidencia rechazada. El motivo ha sido registrado para el reportante.', 'info');
+      showToast('Incidencia rechazada en PostgreSQL. El motivo ha sido registrado.', 'info');
 
       if (onCierreExitoso) {
         onCierreExitoso({
-          ...resultadoLocal,
+          resolucion: `[RECHAZADO]: ${motivoRechazo.trim()}`,
+          estado: 'Rechazada',
           ...(incidenciaActualizada || {}),
         });
       }

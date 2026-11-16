@@ -394,7 +394,8 @@ export class OrdenesTrabajoService {
     }
 
     const rolUpper = (rolUsuario || '').toUpperCase();
-    if (rolUpper !== 'ADMINISTRADOR' && orden.id_tecnico !== idTecnicoPeticion) {
+    const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolUpper);
+    if (!esSupervisorOAdmin && orden.id_tecnico !== idTecnicoPeticion) {
       throw new ForbiddenException(
         'Acceso denegado: Solo el técnico actualmente asignado puede registrar el diagnóstico o resolución.',
       );
@@ -405,6 +406,70 @@ export class OrdenesTrabajoService {
     return this.prisma.ordenTrabajo.update({
       where: { id_orden: idOrden },
       data: { diagnostico_tecnico: diagnosticoSanitizado },
+    });
+  }
+
+  async registrarDiagnostico(
+    dto: AsignarOrdenDto,
+    idUsuario: string,
+    rolUsuario?: string,
+  ) {
+    if (!dto.id_incidencia) {
+      throw new BadRequestException('El ID de la incidencia es obligatorio');
+    }
+
+    if (!dto.diagnostico_tecnico?.trim()) {
+      throw new BadRequestException('El diagnóstico es obligatorio');
+    }
+
+    const rolNorm = (rolUsuario || '').toUpperCase();
+    const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm);
+    const idTecnico = esSupervisorOAdmin
+      ? dto.id_tecnico || idUsuario
+      : idUsuario;
+
+    if (!idTecnico) {
+      throw new BadRequestException('El ID del técnico es obligatorio');
+    }
+
+    const diagnosticoSanitizado =
+      sanitizeStringXss(dto.diagnostico_tecnico).trim();
+
+    return this.prisma.$transaction(async (transaction) => {
+      const incidencia = await transaction.incidencias.findUnique({
+        where: { id_incidencia: dto.id_incidencia },
+        select: { id_incidencia: true },
+      });
+
+      if (!incidencia) {
+        throw new NotFoundException('Incidencia no encontrada');
+      }
+
+      const ordenExistente = await transaction.ordenTrabajo.findFirst({
+        where: { id_incidencia: dto.id_incidencia },
+        orderBy: [{ fecha_creacion: 'desc' }, { id_orden: 'desc' }],
+      });
+
+      if (ordenExistente) {
+        if (ordenExistente.id_tecnico !== idUsuario && !esSupervisorOAdmin) {
+          throw new ForbiddenException(
+            'Solo el técnico asignado, un supervisor o un administrador pueden modificar esta orden.',
+          );
+        }
+
+        return transaction.ordenTrabajo.update({
+          where: { id_orden: ordenExistente.id_orden },
+          data: { diagnostico_tecnico: diagnosticoSanitizado },
+        });
+      }
+
+      return transaction.ordenTrabajo.create({
+        data: {
+          id_incidencia: dto.id_incidencia,
+          id_tecnico: idTecnico,
+          diagnostico_tecnico: diagnosticoSanitizado,
+        },
+      });
     });
   }
 }
