@@ -323,22 +323,22 @@ const buildGateway = (options = {}) => {
             }
         }
 
-        socket.on('join_room', (data, ack) => {
+        const handleJoinRoom = (data, ack) => {
             const salasUnidas = [];
             if (typeof data === 'string' && data) {
                 socket.join(data);
                 salasUnidas.push(data);
             } else if (data && typeof data === 'object') {
-                if (data.room) {
-                    socket.join(data.room);
-                    salasUnidas.push(data.room);
+                const roomName = data.room || data.sala;
+                if (roomName) {
+                    socket.join(roomName);
+                    salasUnidas.push(roomName);
                 }
-                if (Array.isArray(data.rooms)) {
-                    for (const room of data.rooms) {
-                        if (room) {
-                            socket.join(room);
-                            salasUnidas.push(room);
-                        }
+                const roomList = Array.isArray(data.rooms) ? data.rooms : Array.isArray(data.salas) ? data.salas : [];
+                for (const room of roomList) {
+                    if (room) {
+                        socket.join(room);
+                        salasUnidas.push(room);
                     }
                 }
                 if (data.id_incidencia) {
@@ -369,10 +369,10 @@ const buildGateway = (options = {}) => {
                 ack(response);
             }
             return response;
-        });
+        };
 
-        socket.on('leave_room', (data, ack) => {
-            const room = typeof data === 'string' ? data : data?.room;
+        const handleLeaveRoom = (data, ack) => {
+            const room = typeof data === 'string' ? data : (data?.room || data?.sala);
             if (room) {
                 socket.leave(room);
                 upstreamSocket?.emit('leave_room', { room });
@@ -387,7 +387,12 @@ const buildGateway = (options = {}) => {
                 ack(errResponse);
             }
             return errResponse;
-        });
+        };
+
+        socket.on('join_room', handleJoinRoom);
+        socket.on('unirse_sala', handleJoinRoom);
+        socket.on('leave_room', handleLeaveRoom);
+        socket.on('dejar_sala', handleLeaveRoom);
 
         socket.on('disconnect', (reason) => {
             fastify.log.info(`[Socket.io] Cliente desconectado: ${socket.id}, reason: ${reason}`);

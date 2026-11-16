@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test:unit": "node --test src/pwa.test.mjs src/context/NetworkStatusContext.test.mjs src/components/ConnectivityBadge.test.mjs src/killswitch.test.mjs",
+    "test:unit": "node --test src/pwa.test.mjs src/context/NetworkStatusContext.test.mjs src/components/ConnectivityBadge.test.mjs src/killswitch.test.mjs src/hooks/useWebSocket.test.mjs",
     "cypress:open": "node cypress/run-cypress.mjs open",
     "cypress:run": "node cypress/run-cypress.mjs run",
     "test:e2e": "node cypress/run-cypress.mjs run --spec cypress/e2e/flujo-critico-incidencia.cy.js"
@@ -20,6 +20,7 @@
     "react-dom": "^19.2.8",
     "react-icons": "^5.7.0",
     "react-router-dom": "^7.18.4",
+    "socket.io-client": "^4.8.4",
     "workbox-window": "^7.4.1"
   },
   "devDependencies": {
