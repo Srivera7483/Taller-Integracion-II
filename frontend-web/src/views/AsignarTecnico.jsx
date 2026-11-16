@@ -16,6 +16,8 @@ import {
 import StatusBadge from '../components/StatusBadge';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
+import { isKillSwitchError } from '../services/killSwitchService';
+import { useDraftState } from '../hooks/useDraftState';
 
 const ESTADOS_CERRADOS = ['resuelta', 'completada', 'cerrada', 'rechazada', 'cancelada'];
 
@@ -27,9 +29,10 @@ const AsignarTecnico = () => {
   const [tecnicos, setTecnicos] = useState([]);
   const [loadingDatos, setLoadingDatos] = useState(true);
 
-  const [selectedIncidenciaId, setSelectedIncidenciaId] = useState('');
-  const [selectedTecnicoId, setSelectedTecnicoId] = useState('');
-  const [notasInstrucciones, setNotasInstrucciones] = useState('');
+  // Formularios y envíos (TAL-188: borradores locales que sobreviven a la pantalla de mantenimiento)
+  const [selectedIncidenciaId, setSelectedIncidenciaId] = useDraftState('asignacion', 'incidenciaId', '');
+  const [selectedTecnicoId, setSelectedTecnicoId] = useDraftState('asignacion', 'tecnicoId', '');
+  const [notasInstrucciones, setNotasInstrucciones] = useDraftState('asignacion', 'notas', '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [ordenEmitida, setOrdenEmitida] = useState(null);
@@ -194,6 +197,9 @@ const AsignarTecnico = () => {
       );
       await cargarDatosReales();
     } catch (error) {
+      if (isKillSwitchError(error)) {
+        return;
+      }
       const mensajeError =
         error.response?.data?.message || 'Fallo al registrar la asignación en el servidor.';
       setErrorApi(Array.isArray(mensajeError) ? mensajeError.join(', ') : mensajeError);

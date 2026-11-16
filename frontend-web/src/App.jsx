@@ -25,6 +25,7 @@ const PlanificarMantenimiento = lazy(() => import('./views/PlanificarMantenimien
 const Mantenimientos = lazy(() => import('./views/Mantenimientos'));
 const NotFound = lazy(() => import('./views/NotFound'));
 const ServerError = lazy(() => import('./views/ServerError'));
+const ModoMantenimiento = lazy(() => import('./views/ModoMantenimiento'));
 
 const RouteFallback = () => (
   <div className="flex items-center justify-center min-h-[40vh] text-sm text-gray-500">
@@ -44,6 +45,8 @@ function App() {
                 {/* Rutas globales de error */}
                 <Route path="/500" element={<ServerError />} />
                 <Route path="/error" element={<ServerError />} />
+                {/* TAL-188: Pantalla global de bloqueo por Kill Switch */}
+                <Route path="/modo-mantenimiento" element={<ModoMantenimiento />} />
 
                 {/* Ruta pública sin Layout */}
                 <Route element={<PublicRoute />}>

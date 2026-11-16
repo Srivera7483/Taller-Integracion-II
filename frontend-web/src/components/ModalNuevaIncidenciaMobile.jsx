@@ -20,6 +20,8 @@ import {
 import { useToast } from '../context/ToastContext';
 import { createIncidencia, saveIncidencia } from '../services/incidenciasService';
 import api from '../services/api';
+import { isKillSwitchError } from '../services/killSwitchService';
+import { useDraftState, clearDrafts } from '../hooks/useDraftState';
 
 const MAX_FILE_SIZE_BYTES = 5242880; // 5MB
 
@@ -54,12 +56,12 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
   const { showToast } = useToast();
   const fileInputRef = useRef(null);
 
-  // Estados del formulario simplificado
-  const [titulo, setTitulo] = useState('');
-  const [idActivo, setIdActivo] = useState('');
-  const [categoria, setCategoria] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [ubicacion, setUbicacion] = useState('');
+  // Estados del formulario simplificado (TAL-188: borradores locales)
+  const [titulo, setTitulo] = useDraftState('incidencia-mobile', 'titulo', '');
+  const [idActivo, setIdActivo] = useDraftState('incidencia-mobile', 'idActivo', '');
+  const [categoria, setCategoria] = useDraftState('incidencia-mobile', 'categoria', '');
+  const [descripcion, setDescripcion] = useDraftState('incidencia-mobile', 'descripcion', '');
+  const [ubicacion, setUbicacion] = useDraftState('incidencia-mobile', 'ubicacion', '');
 
   // Evidencia fotográfica
   const [archivoImagen, setArchivoImagen] = useState(null);
@@ -248,7 +250,12 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
     try {
       const resp = await createIncidencia(payloadApi);
       idGenerado = resp?.id_incidencia || resp?.id;
-    } catch {
+    } catch (err) {
+      // TAL-188: con Kill Switch activo se conserva el borrador y no se guarda nada local
+      if (isKillSwitchError(err)) {
+        setIsSubmitting(false);
+        return;
+      }
       // Continuar con fallback local
     }
 
@@ -282,6 +289,7 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
 
     // Guardar en cookies / almacenamiento local y emitir evento
     saveIncidencia(nuevaIncidenciaLocal);
+    clearDrafts('incidencia-mobile'); // Envío exitoso: el borrador ya no es necesario
     window.dispatchEvent(new Event('incidencia-creada'));
 
     setIsSubmitting(false);

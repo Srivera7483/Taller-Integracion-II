@@ -19,6 +19,7 @@ import {
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { planificarMantenimiento, fetchActivosParaMantenimiento } from '../services/mantenimientosService';
+import { useDraftState } from '../hooks/useDraftState';
 
 const calcularFechaMinima = () => {
   const ahora = new Date(Date.now() + 5 * 60 * 1000);
@@ -46,9 +47,9 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
   const [activos, setActivos] = useState([]);
   const [cargandoActivos, setCargandoActivos] = useState(true);
 
-  // Estados del formulario alineados con la tabla MANTENIMIENTOS_PREVENTIVOS del MER
-  const [idActivo, setIdActivo] = useState(assetFromParam);
-  const [fechaProgramada, setFechaProgramada] = useState('');
+  // Estados del formulario alineados con la tabla MANTENIMIENTOS_PREVENTIVOS del MER (TAL-188: borradores locales)
+  const [idActivo, setIdActivo] = useDraftState('mantenimiento', 'idActivo', assetFromParam, { preferInitial: true });
+  const [fechaProgramada, setFechaProgramada] = useDraftState('mantenimiento', 'fechaProgramada', '');
 
   // Control y validación
   const [isSubmitting, setIsSubmitting] = useState(false);

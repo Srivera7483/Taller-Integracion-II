@@ -18,6 +18,7 @@ import { createIncidencia } from '../services/incidenciasService';
 import ModalPrevisualizadorImagen from './ModalPrevisualizadorImagen';
 import ImageUploader from './ImageUploader';
 import api from '../services/api';
+import { useDraftState, clearDrafts } from '../hooks/useDraftState';
 
 const MAX_FILE_SIZE_BYTES = 5242880;
 const MENSAJE_ERROR_LIMITE_5MB = 'El archivo supera el límite de 5MB';
@@ -47,13 +48,13 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     searchParams.get('id') || 
     '';
 
-  // Estado del formulario
-  const [titulo, setTitulo] = useState('');
-  const [idActivo, setIdActivo] = useState(assetFromUrl);
+  // Estado del formulario (TAL-188: borradores locales que sobreviven a la pantalla de mantenimiento)
+  const [titulo, setTitulo] = useDraftState('incidencia', 'titulo', '');
+  const [idActivo, setIdActivo] = useDraftState('incidencia', 'idActivo', assetFromUrl, { preferInitial: true });
   const [isUrlPreloaded, setIsUrlPreloaded] = useState(Boolean(assetFromUrl));
-  const [categoria, setCategoria] = useState('');
-  const [descripcion, setDescripcion] = useState('');
-  const [ubicacion, setUbicacion] = useState('');
+  const [categoria, setCategoria] = useDraftState('incidencia', 'categoria', '');
+  const [descripcion, setDescripcion] = useDraftState('incidencia', 'descripcion', '');
+  const [ubicacion, setUbicacion] = useDraftState('incidencia', 'ubicacion', '');
 
   // Archivo adjunto y estados para previsualizador de imágenes (TAL-133 y TAL-136)
   const fileInputRef = useRef(null);
@@ -386,6 +387,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     };
 
     saveIncidencia(nuevaIncidenciaLocal);
+    clearDrafts('incidencia'); // Envío exitoso: el borrador ya no es necesario
 
     setIsSubmitting(false);
     showToast(`¡Incidencia ${nuevaIncidenciaLocal.id} registrada con éxito!`, 'success');
