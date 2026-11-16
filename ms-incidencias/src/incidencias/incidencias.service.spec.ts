@@ -363,4 +363,73 @@ const transaction = {
       expect(resumen.cerradas).toBe(1);
     });
   });
+
+  describe('TAL-185: Emisión WebSocket y Sincronización RabbitMQ (TAL-11)', () => {
+    it('emite el evento incidencia_actualizada por WebSocket y RabbitMQ al actualizar estado', async () => {
+      const mockGateway = {
+        emitirIncidenciaActualizada: jest.fn().mockReturnValue({ tiempoMs: 1.5 }),
+      } as any;
+      const mockRabbitmq = {
+        emitirIncidenciaActualizada: jest.fn().mockResolvedValue(true),
+      } as any;
+
+      const customService = new IncidenciasService(
+        prisma,
+        httpService,
+        mockRabbitmq,
+        undefined as any,
+        undefined as any,
+        undefined as any,
+        mockGateway,
+      );
+
+      const incidenciaPendiente = {
+        ...incidenciaCreada,
+        historial_estados: [
+          { estado: { id_estado: 1, nombre_estado: 'Reportada' } },
+        ],
+      };
+      const incidenciaAsignada = {
+        ...incidenciaCreada,
+        historial_estados: [
+          { estado: { id_estado: 2, nombre_estado: 'Asignada' } },
+        ],
+      };
+
+      transaction.incidencias.findUnique
+        .mockResolvedValueOnce(incidenciaPendiente)
+        .mockResolvedValueOnce(incidenciaAsignada);
+      transaction.estadoIncidencia.findUnique.mockResolvedValue({
+        id_estado: 2,
+        nombre_estado: 'Asignada',
+      });
+
+      const resultado = await customService.actualizarEstado(
+        'incidencia-1',
+        2,
+        'supervisor-1',
+        'SUPERVISOR',
+      );
+
+      expect(resultado).toBeDefined();
+      expect(mockGateway.emitirIncidenciaActualizada).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id_incidencia: 'incidencia-1',
+          nuevo_estado: 'Asignada',
+          usuario_responsable: 'supervisor-1',
+          tipo_evento: 'CAMBIO_ESTADO',
+        }),
+        null,
+      );
+      expect(mockRabbitmq.emitirIncidenciaActualizada).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evento: 'INCIDENCIA_ACTUALIZADA',
+          id_incidencia: 'incidencia-1',
+          nuevo_estado: 'Asignada',
+          usuario_responsable: 'supervisor-1',
+          tipo_evento: 'CAMBIO_ESTADO',
+        }),
+      );
+    });
+  });
 });

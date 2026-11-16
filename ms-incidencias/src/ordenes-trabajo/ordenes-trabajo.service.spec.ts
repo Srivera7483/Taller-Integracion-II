@@ -152,6 +152,57 @@ describe('listarPorTecnico', () => {
         ),
       ).rejects.toThrow(NotFoundException);
     });
+
+    it('TAL-185: emite evento de incidencia_actualizada por WebSocket y RabbitMQ al asignar orden', async () => {
+      findUniqueIncidencia.mockResolvedValue({
+        id_incidencia: 'inc-1',
+        id_activo: 'activo-edificio-1',
+      });
+      createOrden.mockResolvedValue({
+        id_orden: 'orden-1',
+        id_incidencia: 'inc-1',
+        id_tecnico: 'tecnico-1',
+        diagnostico_tecnico: null,
+      });
+
+      const mockGateway = {
+        emitirIncidenciaActualizada: jest.fn().mockReturnValue({ tiempoMs: 2 }),
+      } as any;
+      const mockRabbitmq = {
+        emitirIncidenciaActualizada: jest.fn().mockResolvedValue(true),
+      } as any;
+
+      const serviceConWs = new OrdenesTrabajoService(
+        prisma,
+        mockGateway,
+        mockRabbitmq,
+      );
+
+      const resultado = await serviceConWs.asignarOrden(
+        { id_incidencia: 'inc-1', id_tecnico: 'tecnico-1' },
+        'admin-1',
+      );
+
+      expect(resultado).toBeDefined();
+      expect(mockGateway.emitirIncidenciaActualizada).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id_incidencia: 'inc-1',
+          nuevo_estado: 'ASIGNADA',
+          usuario_responsable: 'tecnico-1',
+          tipo_evento: 'ASIGNACION_ORDEN',
+        }),
+        null,
+      );
+      expect(mockRabbitmq.emitirIncidenciaActualizada).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evento: 'ORDEN_TRABAJO_ASIGNADA',
+          id_incidencia: 'inc-1',
+          nuevo_estado: 'ASIGNADA',
+          usuario_responsable: 'tecnico-1',
+          tipo_evento: 'ASIGNACION_ORDEN',
+        }),
+      );
+    });
   });
 
   describe('actualizarDiagnostico', () => {

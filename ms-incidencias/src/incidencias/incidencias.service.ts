@@ -20,6 +20,10 @@ import { ExportarIncidenciasService } from './exportar-incidencias.service';
 import type { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { RabbitmqProducerService } from '../rabbitmq/rabbitmq-producer.service';
 import { CloudinaryService } from './cloudinary.service';
+import {
+  IncidenciasGateway,
+  IncidenciaActualizadaPayload,
+} from '../websockets/incidencias.gateway';
 
 const incidenciaConEstadoActual = {
   include: {
@@ -52,6 +56,7 @@ export class IncidenciasService {
     process.env.MS_ACTIVOS_URL ?? 'http://localhost:3003';
   private readonly authUrl =
     process.env.MS_AUTH_URL ?? 'http://localhost:3001';
+  private readonly edificioPorActivoCache = new Map<string, string>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -60,7 +65,50 @@ export class IncidenciasService {
     private readonly prioridadDinamicaService: PrioridadDinamicaService = new PrioridadDinamicaService(),
     private readonly exportarIncidenciasService: ExportarIncidenciasService = new ExportarIncidenciasService(),
     private readonly cloudinaryService: CloudinaryService = new CloudinaryService(),
+    private readonly incidenciasGateway?: IncidenciasGateway,
   ) {}
+
+  async obtenerEdificioDeActivo(
+    idActivo?: string | null,
+    authHeader?: string,
+  ): Promise<string | null> {
+    if (!idActivo) return null;
+    if (this.edificioPorActivoCache.has(idActivo)) {
+      return this.edificioPorActivoCache.get(idActivo) ?? null;
+    }
+
+    try {
+      if (typeof this.httpService?.get === 'function') {
+        const resp = await firstValueFrom(
+          this.httpService.get(`${this.activosUrl}/api/v1/activos/${idActivo}`, {
+            timeout: 1500,
+            ...(authHeader ? { headers: { Authorization: authHeader } } : {}),
+          }),
+        );
+        const data = resp?.data?.datos || resp?.data;
+        const edificio =
+          data?.id_edificio ||
+          data?.idEdificio ||
+          data?.edificio ||
+          (data?.ubicacion ? this.extraerEdificio(data.ubicacion) : null);
+        if (edificio) {
+          const edificioStr = String(edificio);
+          this.edificioPorActivoCache.set(idActivo, edificioStr);
+          return edificioStr;
+        }
+      }
+    } catch {
+      // Ignorar fallback si ms-activos no responde
+    }
+
+    return null;
+  }
+
+  private extraerEdificio(ubicacion: string): string | null {
+    if (!ubicacion) return null;
+    const match = ubicacion.match(/(?:Edificio\s+([A-Za-z0-9_-]+))/i);
+    return match ? match[1] : ubicacion.split('-')[0].trim();
+  }
 
   private esIncidenciaCritica(
     prioridad: PrioridadIncidencia,
@@ -390,6 +438,40 @@ export class IncidenciasService {
         `La incidencia "${resultado.incidencia.titulo}" fue resuelta.`,
       );
     }
+
+    // Emisión en tiempo real vía WebSocket y Broker RabbitMQ (TAL-185 / TAL-11)
+    const idEdificio = await this.obtenerEdificioDeActivo(
+      resultado.incidencia.id_activo,
+    );
+    const nuevoEstado =
+      resultado.incidencia.estado?.nombre_estado || 'DESCONOCIDO';
+
+    const payloadWs: IncidenciaActualizadaPayload = {
+      id_incidencia: incidenciaId,
+      nuevo_estado: nuevoEstado,
+      usuario_responsable: usuarioId,
+      id_edificio: idEdificio,
+      timestamp: new Date().toISOString(),
+      tipo_evento: 'CAMBIO_ESTADO',
+    };
+
+    if (this.incidenciasGateway) {
+      this.incidenciasGateway.emitirIncidenciaActualizada(payloadWs, idEdificio);
+    }
+
+    if (this.rabbitmqProducer) {
+      this.rabbitmqProducer
+        .emitirIncidenciaActualizada({
+          evento: 'INCIDENCIA_ACTUALIZADA',
+          ...payloadWs,
+        })
+        .catch((err) => {
+          this.logger.error(
+            `[RABBITMQ] Error no controlado al emitir actualización: ${err}`,
+          );
+        });
+    }
+
     return resultado.incidencia;
   }
 
@@ -558,7 +640,7 @@ export class IncidenciasService {
 
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: idIncidencia },
-        select: { titulo: true },
+        select: { titulo: true, id_activo: true },
       });
 
       if (!incidencia) {
@@ -581,7 +663,11 @@ export class IncidenciasService {
         });
       }
 
-      return { historial: nuevoHistorial, titulo: incidencia.titulo };
+      return {
+        historial: nuevoHistorial,
+        titulo: incidencia.titulo,
+        id_activo: incidencia.id_activo,
+      };
     });
 
     await this.notificarIncidencia(
@@ -589,6 +675,36 @@ export class IncidenciasService {
       `Incidencia Resuelta: ${resultado.titulo}`,
       `La incidencia "${resultado.titulo}" fue resuelta.`,
     );
+
+    // Emisión en tiempo real vía WebSocket y Broker RabbitMQ (TAL-185 / TAL-11)
+    const idEdificio = await this.obtenerEdificioDeActivo(resultado.id_activo);
+
+    const payloadWs: IncidenciaActualizadaPayload = {
+      id_incidencia: idIncidencia,
+      nuevo_estado: 'RESUELTA',
+      usuario_responsable: idTecnico,
+      id_edificio: idEdificio,
+      timestamp: new Date().toISOString(),
+      tipo_evento: 'CAMBIO_ESTADO',
+    };
+
+    if (this.incidenciasGateway) {
+      this.incidenciasGateway.emitirIncidenciaActualizada(payloadWs, idEdificio);
+    }
+
+    if (this.rabbitmqProducer) {
+      this.rabbitmqProducer
+        .emitirIncidenciaActualizada({
+          evento: 'INCIDENCIA_ACTUALIZADA',
+          ...payloadWs,
+        })
+        .catch((err) => {
+          this.logger.error(
+            `[RABBITMQ] Error no controlado al emitir resolución: ${err}`,
+          );
+        });
+    }
+
     return resultado.historial;
   }
 
@@ -832,6 +948,14 @@ export class IncidenciasService {
                 nombre: item.nombre || 'Activo sin nombre',
                 codigoQr: item.codigoQr || item.codigo_qr,
               });
+              const ed =
+                item.id_edificio ||
+                item.idEdificio ||
+                item.edificio ||
+                (item.ubicacion ? this.extraerEdificio(item.ubicacion) : null);
+              if (ed) {
+                this.edificioPorActivoCache.set(id, String(ed));
+              }
             }
           }
         }

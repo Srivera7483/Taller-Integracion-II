@@ -2,12 +2,20 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { AsignarOrdenDto } from './dto/asignar-orden.dto';
 import { FiltrarOrdenesDto } from './dto/filtrar-ordenes.dto';
 import { sanitizeStringXss } from '../validators/sanitize-xss.pipe';
+import {
+  IncidenciasGateway,
+  IncidenciaActualizadaPayload,
+} from '../websockets/incidencias.gateway';
+import { RabbitmqProducerService } from '../rabbitmq/rabbitmq-producer.service';
 
 const ESTADOS_CERRADOS = [
   'completada',
@@ -19,7 +27,59 @@ const ESTADOS_CERRADOS = [
 
 @Injectable()
 export class OrdenesTrabajoService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(OrdenesTrabajoService.name);
+  private readonly activosUrl =
+    process.env.MS_ACTIVOS_URL ?? 'http://localhost:3003';
+  private readonly edificioPorActivoCache = new Map<string, string>();
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly incidenciasGateway?: IncidenciasGateway,
+    private readonly rabbitmqProducer?: RabbitmqProducerService,
+    private readonly httpService?: HttpService,
+  ) {}
+
+  async obtenerEdificioDeActivo(
+    idActivo?: string | null,
+    authHeader?: string,
+  ): Promise<string | null> {
+    if (!idActivo) return null;
+    if (this.edificioPorActivoCache.has(idActivo)) {
+      return this.edificioPorActivoCache.get(idActivo) ?? null;
+    }
+
+    try {
+      if (typeof this.httpService?.get === 'function') {
+        const resp = await firstValueFrom(
+          this.httpService.get(`${this.activosUrl}/api/v1/activos/${idActivo}`, {
+            timeout: 1500,
+            ...(authHeader ? { headers: { Authorization: authHeader } } : {}),
+          }),
+        );
+        const data = resp?.data?.datos || resp?.data;
+        const edificio =
+          data?.id_edificio ||
+          data?.idEdificio ||
+          data?.edificio ||
+          (data?.ubicacion ? this.extraerEdificio(data.ubicacion) : null);
+        if (edificio) {
+          const edificioStr = String(edificio);
+          this.edificioPorActivoCache.set(idActivo, edificioStr);
+          return edificioStr;
+        }
+      }
+    } catch {
+      // Fallback silencioso
+    }
+
+    return null;
+  }
+
+  private extraerEdificio(ubicacion: string): string | null {
+    if (!ubicacion) return null;
+    const match = ubicacion.match(/(?:Edificio\s+([A-Za-z0-9_-]+))/i);
+    return match ? match[1] : ubicacion.split('-')[0].trim();
+  }
 
   /**
    * Valida contra ms-auth que el técnico exista en BD, esté activo y posea rol TECNICO.
@@ -123,7 +183,9 @@ export class OrdenesTrabajoService {
 
     await this.validarTecnicoEnAuth(dto.id_tecnico, authHeader);
 
-    return this.prisma.$transaction(async (transaction) => {
+    let idActivoIncidencia: string | null = null;
+
+    const resultadoOrden = await this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: dto.id_incidencia },
         include: {
@@ -144,6 +206,8 @@ export class OrdenesTrabajoService {
       if (!incidencia) {
         throw new NotFoundException('Incidencia no encontrada');
       }
+
+      idActivoIncidencia = incidencia.id_activo ?? null;
 
       const historialActual = incidencia.historial_estados?.[0] || null;
       const estadoActualObj = historialActual?.estado || null;
@@ -217,6 +281,40 @@ export class OrdenesTrabajoService {
           'Asignada',
       };
     });
+
+    // Emisión en tiempo real vía WebSocket y Broker RabbitMQ (TAL-185 / TAL-11)
+    const idEdificio = await this.obtenerEdificioDeActivo(
+      idActivoIncidencia,
+      authHeader,
+    );
+
+    const payloadWs: IncidenciaActualizadaPayload = {
+      id_incidencia: dto.id_incidencia,
+      nuevo_estado: 'ASIGNADA',
+      usuario_responsable: dto.id_tecnico,
+      id_edificio: idEdificio,
+      timestamp: new Date().toISOString(),
+      tipo_evento: 'ASIGNACION_ORDEN',
+    };
+
+    if (this.incidenciasGateway) {
+      this.incidenciasGateway.emitirIncidenciaActualizada(payloadWs, idEdificio);
+    }
+
+    if (this.rabbitmqProducer) {
+      this.rabbitmqProducer
+        .emitirIncidenciaActualizada({
+          evento: 'ORDEN_TRABAJO_ASIGNADA',
+          ...payloadWs,
+        })
+        .catch((err) => {
+          this.logger.error(
+            `[RABBITMQ] Error no controlado al emitir asignacion de orden: ${err}`,
+          );
+        });
+    }
+
+    return resultadoOrden;
   }
 
   async listarTodas(filtros?: FiltrarOrdenesDto) {

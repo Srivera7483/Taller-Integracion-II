@@ -2,7 +2,10 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import { ClientProxy, ClientProxyFactory, Transport } from '@nestjs/microservices';
 import { firstValueFrom, timeout } from 'rxjs';
-import { IncidenciaCriticaEvento } from './interfaces/incidencia-evento.interface';
+import {
+  IncidenciaCriticaEvento,
+  IncidenciaActualizadaEvento,
+} from './interfaces/incidencia-evento.interface';
 
 @Injectable()
 export class RabbitmqProducerService implements OnModuleInit, OnModuleDestroy {
@@ -56,6 +59,36 @@ export class RabbitmqProducerService implements OnModuleInit, OnModuleDestroy {
     } catch (error) {
       this.logger.warn(
         `[RABBITMQ] No se pudo publicar la incidencia ${payload.id_incidencia}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+
+      return false;
+    }
+  }
+
+  async emitirIncidenciaActualizada(
+    payload: IncidenciaActualizadaEvento,
+  ): Promise<boolean> {
+    try {
+      if (!this.client) {
+        return false;
+      }
+
+      await firstValueFrom(
+        this.client
+          .emit('incidencia_actualizada', payload)
+          .pipe(timeout(3000)),
+      );
+
+      this.logger.log(
+        `[RABBITMQ] Publicación finalizada (incidencia_actualizada): ${payload.id_incidencia}`,
+      );
+
+      return true;
+    } catch (error) {
+      this.logger.warn(
+        `[RABBITMQ] No se pudo publicar actualización de incidencia ${payload.id_incidencia}: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );

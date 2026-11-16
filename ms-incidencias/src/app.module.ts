@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { IncidenciasModule } from './incidencias/incidencias.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { OrdenesTrabajoModule } from './ordenes-trabajo/ordenes-trabajo.module';
+import { WebsocketsModule } from './websockets/websockets.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { KillSwitchGuard } from './common/guards/kill-switch.guard';
@@ -18,6 +19,7 @@ import { KillSwitchGuard } from './common/guards/kill-switch.guard';
     PrismaModule,
     IncidenciasModule,
     OrdenesTrabajoModule,
+    WebsocketsModule,
   ],
   controllers: [AppController],
   providers: [
