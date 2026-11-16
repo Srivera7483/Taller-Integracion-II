@@ -70,7 +70,8 @@ jobs:
             -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
             -Dsonar.qualitygate.wait=true
             -Dsonar.sources=ms-auth/src,ms-activos/src,ms-incidencias/src,ms-notificaciones/src,frontend-web/src
-            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts,**/*.spec.tsx,**/*.test.tsx
+            -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts,**/*.spec.tsx,**/*.test.tsx,**/*.test.mjs,**/*.cy.js
+            -Dsonar.coverage.exclusions=frontend-web/**
             -Dsonar.tests=ms-auth/src,ms-activos/src,ms-incidencias/src
             -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts
 
