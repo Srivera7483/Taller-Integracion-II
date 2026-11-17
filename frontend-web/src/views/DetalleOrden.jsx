@@ -29,23 +29,52 @@ const DetalleOrden = () => {
   const cargarOrden = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/ordenes-trabajo/${idOrden}`);
-      if (response.data) {
-        const apiOrden = response.data;
-        setOrden({
-          ...apiOrden,
-          id_orden: apiOrden.id_orden || idOrden,
-          incidencia_id: apiOrden.id_incidencia || apiOrden.incidencia_id,
-          incidencia_titulo: apiOrden.incidencia?.titulo || 'Orden de Trabajo',
-          id_activo: apiOrden.incidencia?.id_activo || 'N/A',
-          estado: apiOrden.estado || (apiOrden.fecha_cierre ? 'Completada' : 'Asignada'),
-          tecnico_nombre: apiOrden.tecnico_nombre || 'Técnico Asignado',
-          tecnico_id: apiOrden.id_tecnico,
-          fecha_emision: apiOrden.fecha_creacion || new Date().toISOString(),
-          resolucion: apiOrden.diagnostico_tecnico || null,
-          diagnostico_tecnico: apiOrden.diagnostico_tecnico || null,
-          fechaCierre: apiOrden.fecha_cierre || null,
-        });
+      setError(null);
+      try {
+        const response = await api.get(`/ordenes-trabajo/${idOrden}`);
+        if (response.data) {
+          const apiOrden = response.data;
+          setOrden({
+            ...apiOrden,
+            id_orden: apiOrden.id_orden || idOrden,
+            incidencia_id: apiOrden.id_incidencia || apiOrden.incidencia_id,
+            incidencia_titulo: apiOrden.incidencia?.titulo || 'Orden de Trabajo',
+            id_activo: apiOrden.incidencia?.id_activo || 'N/A',
+            estado: apiOrden.estado || (apiOrden.fecha_cierre ? 'Completada' : 'Asignada'),
+            tecnico_nombre: apiOrden.tecnico_nombre || 'Técnico Asignado',
+            tecnico_id: apiOrden.id_tecnico,
+            fecha_emision: apiOrden.fecha_creacion || new Date().toISOString(),
+            resolucion: apiOrden.diagnostico_tecnico || null,
+            diagnostico_tecnico: apiOrden.diagnostico_tecnico || null,
+            fechaCierre: apiOrden.fecha_cierre || null,
+          });
+          return;
+        }
+      } catch (ordenErr) {
+        const incResponse = await api.get(`/incidencias/${idOrden}`);
+        const inc = incResponse?.data?.datos || incResponse?.data;
+        if (inc) {
+          const ot = inc.orden_trabajo || {};
+          const estadoNombre =
+            typeof inc.estado === 'object' ? inc.estado?.nombre_estado : inc.estado;
+          setOrden({
+            ...ot,
+            id_orden: ot.id_orden || inc.id_orden || idOrden,
+            incidencia_id: inc.id_incidencia || inc.id || idOrden,
+            incidencia_titulo: inc.titulo || 'Orden de Trabajo',
+            id_activo: inc.id_activo || 'N/A',
+            estado: estadoNombre || 'Reportada',
+            tecnico_nombre: inc.nombre_tecnico || inc.tecnico_asignado || 'Técnico Asignado',
+            tecnico_id: ot.id_tecnico || inc.id_tecnico_asignado || inc.id_tecnico || null,
+            fecha_emision: ot.fecha_creacion || inc.fecha_creacion || new Date().toISOString(),
+            instrucciones: inc.descripcion || null,
+            resolucion: ot.diagnostico_tecnico || null,
+            diagnostico_tecnico: ot.diagnostico_tecnico || null,
+            fechaCierre: ot.fecha_cierre || null,
+          });
+          return;
+        }
+        throw ordenErr;
       }
     } catch (apiErr) {
       setError(apiErr);

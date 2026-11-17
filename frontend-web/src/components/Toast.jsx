@@ -1,29 +1,231 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  FiAlertTriangle,
+  FiBell,
+  FiCheckCircle,
+  FiExternalLink,
+  FiInfo,
+  FiVolume2,
+  FiVolumeX,
+  FiX,
+} from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
+import { useWebSocket, WS_EVENTS } from '../hooks/useWebSocket';
+import { getUsuarioActual } from '../services/authService';
+import {
+  TOAST_ACTION_LABEL,
+  TOAST_AUTO_DISMISS_MS,
+  TOAST_DEDUPE_WINDOW_MS,
+  construirAlertaToastDesdeWebSocket,
+} from '../utils/realtimeToastAlerts';
 
+const TYPE_STYLES = {
+  success: 'bg-emerald-700 text-white border-emerald-500/80',
+  error: 'bg-red-700 text-white border-red-500/80',
+  warning: 'bg-amber-600 text-white border-amber-400/80',
+  critical: 'bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 text-white border-amber-300/90',
+  info: 'bg-primary text-white border-primary/80',
+};
+
+const ToastIcon = ({ type }) => {
+  if (type === 'critical' || type === 'warning' || type === 'error') {
+    return <FiAlertTriangle className="w-5 h-5 shrink-0 mt-0.5 text-amber-200" aria-hidden="true" />;
+  }
+  if (type === 'success') {
+    return <FiCheckCircle className="w-5 h-5 shrink-0 mt-0.5 text-emerald-200" aria-hidden="true" />;
+  }
+  if (type === 'info') {
+    return <FiInfo className="w-5 h-5 shrink-0 mt-0.5 text-blue-200" aria-hidden="true" />;
+  }
+  return <FiBell className="w-5 h-5 shrink-0 mt-0.5 text-white" aria-hidden="true" />;
+};
+
+/**
+ * TAL-189: Sistema de Notificaciones Toast Flotantes en Tiempo Real.
+ * - Criterio 1: Aparece en la esquina superior derecha (`fixed top-4 right-4 z-50`) con sonido discreto opcional.
+ * - Criterio 2: Al hacer click en la alerta o en el botón 'Ver Orden', navega a la orden de trabajo correspondiente.
+ * - Criterio 3: Soporta cierre manual y auto-desvanecimiento tras 6 segundos (`TOAST_AUTO_DISMISS_MS = 6000`).
+ */
 const Toast = () => {
-  const { isVisible, message, type } = useToast();
+  const {
+    isVisible,
+    message,
+    type,
+    title,
+    actionLabel,
+    actionUrl,
+    soundEnabled,
+    showToast,
+    hideToast,
+    toggleSound,
+  } = useToast();
+
+  const navigate = useNavigate();
+  const dedupeMapRef = useRef(new Map());
+
+  const procesarEventoTiempoReal = useCallback(
+    (rawEventName, payload) => {
+      const usuarioActual = getUsuarioActual();
+      const alerta = construirAlertaToastDesdeWebSocket(rawEventName, payload, usuarioActual);
+      if (!alerta) return;
+
+      const ahora = Date.now();
+      const dedupeKey = alerta.dedupeKey || `${rawEventName}:${alerta.actionUrl}`;
+      const ultimoTiempo = dedupeMapRef.current.get(dedupeKey) || 0;
+
+      if (ahora - ultimoTiempo < TOAST_DEDUPE_WINDOW_MS) {
+        return;
+      }
+
+      dedupeMapRef.current.set(dedupeKey, ahora);
+      showToast(alerta);
+    },
+    [showToast],
+  );
+
+  // Integración directa con el canal de eventos WebSocket (TAL-186)
+  useWebSocket(
+    {
+      onOrdenAsignada: (payload) =>
+        procesarEventoTiempoReal(WS_EVENTS.ORDEN_ASIGNADA, payload),
+      onIncidenciaActualizada: (payload) =>
+        procesarEventoTiempoReal(WS_EVENTS.INCIDENCIA_ACTUALIZADA, payload),
+      onNuevaIncidencia: (payload) =>
+        procesarEventoTiempoReal(WS_EVENTS.NUEVA_INCIDENCIA, payload),
+      onEstadoCambiado: (payload) =>
+        procesarEventoTiempoReal(WS_EVENTS.ESTADO_CAMBIADO, payload),
+    },
+    { salas: ['incidencias', 'coordinadores'] },
+  );
+
+  // Puente de eventos DOM para disparo programático y pruebas E2E
+  useEffect(() => {
+    const handleCustomWsToast = (event) => {
+      const detail = event?.detail || {};
+      const eventName = detail.evento || detail.event || WS_EVENTS.INCIDENCIA_ACTUALIZADA;
+      const payload = detail.payload || detail;
+      procesarEventoTiempoReal(eventName, payload);
+    };
+
+    window.addEventListener('ws-toast-alert', handleCustomWsToast);
+    return () => {
+      window.removeEventListener('ws-toast-alert', handleCustomWsToast);
+    };
+  }, [procesarEventoTiempoReal]);
 
   if (!isVisible) return null;
 
-  const typeStyles = {
-    success: 'bg-emerald-700 text-white',
-    error: 'bg-red-700 text-white',
-    info: 'bg-primary text-white',
+  const currentStyle = TYPE_STYLES[type] || TYPE_STYLES.info;
+  const esInteractivo = Boolean(actionUrl);
+  const textoBoton = actionLabel || TOAST_ACTION_LABEL;
+
+  const handleNavegarOrden = (event) => {
+    if (event) {
+      event.stopPropagation();
+    }
+    if (!actionUrl) return;
+    hideToast();
+    navigate(actionUrl);
   };
 
-  const currentStyle = typeStyles[type] || typeStyles.info;
+  const handleCerrarManual = (event) => {
+    event.stopPropagation();
+    hideToast();
+  };
+
+  const handleToggleSonido = (event) => {
+    event.stopPropagation();
+    toggleSound();
+  };
+
+  const handleKeyDownAlerta = (event) => {
+    if (!esInteractivo) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleNavegarOrden(event);
+    }
+  };
 
   return (
     <div
-      role="status"
+      role={type === 'critical' || type === 'error' ? 'alert' : 'status'}
       id="toast-notification"
       data-cy="toast-notification"
       data-toast-type={type || 'info'}
-      aria-live="polite"
-      className={`fixed bottom-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg transition-all duration-300 ${currentStyle}`}
+      data-toast-duration={TOAST_AUTO_DISMISS_MS}
+      data-action-url={actionUrl || ''}
+      aria-live={type === 'critical' ? 'assertive' : 'polite'}
+      tabIndex={esInteractivo ? 0 : undefined}
+      onClick={esInteractivo ? handleNavegarOrden : undefined}
+      onKeyDown={esInteractivo ? handleKeyDownAlerta : undefined}
+      className={`fixed top-4 right-4 z-50 max-w-md w-[calc(100vw-2rem)] sm:w-auto sm:min-w-[340px] px-4 py-3.5 rounded-xl border shadow-2xl transition-all duration-300 ${currentStyle} ${
+        esInteractivo ? 'cursor-pointer hover:brightness-105' : ''
+      }`}
     >
-      <p className="font-medium">{message}</p>
+      <div className="flex items-start gap-3">
+        <ToastIcon type={type} />
+
+        <div className="flex-1 min-w-0">
+          {title && (
+            <p
+              id="toast-title"
+              data-cy="toast-title"
+              className="text-xs font-extrabold uppercase tracking-wider text-white/95 mb-0.5"
+            >
+              {title}
+            </p>
+          )}
+          <p id="toast-message" data-cy="toast-message" className="text-sm font-medium leading-snug break-words">
+            {message}
+          </p>
+
+          {esInteractivo && (
+            <div className="mt-2.5 flex items-center gap-2">
+              <button
+                type="button"
+                id="toast-ver-orden"
+                data-cy="toast-ver-orden"
+                onClick={handleNavegarOrden}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-gray-900 hover:bg-gray-100 text-xs font-bold shadow-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                <span>{textoBoton}</span>
+                <FiExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            id="toast-sound-toggle"
+            data-cy="toast-sound-toggle"
+            onClick={handleToggleSonido}
+            aria-label={soundEnabled ? 'Silenciar sonido de alertas' : 'Activar sonido de alertas'}
+            title={soundEnabled ? 'Sonido discreto activado' : 'Sonido discreto silenciado'}
+            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            {soundEnabled ? (
+              <FiVolume2 className="w-4 h-4" aria-hidden="true" />
+            ) : (
+              <FiVolumeX className="w-4 h-4" aria-hidden="true" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            id="toast-close-btn"
+            data-cy="toast-close-btn"
+            onClick={handleCerrarManual}
+            aria-label="Cerrar notificación"
+            title="Cerrar notificación"
+            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          >
+            <FiX className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
