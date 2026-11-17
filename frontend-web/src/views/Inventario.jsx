@@ -42,7 +42,7 @@ const EQUIPOS_BASE = [
     estado: 'En Mantenimiento',
   },
   {
-    id: 'SN-MPM2-2023-001',
+    id: '1cbf1781-1087-47f7-8761-b461f108af6f',
     codigoQr: 'SN-MPM2-2023-001',
     nombre: 'MacBook Pro M2 Max 16"',
     categoria: 'Portátiles',
@@ -51,7 +51,7 @@ const EQUIPOS_BASE = [
     estado: 'Operativo',
   },
   {
-    id: 'SN-RC-1111-042',
+    id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
     codigoQr: 'SN-RC-1111-042',
     nombre: 'Router Cisco C1111-8P ISR',
     categoria: 'Redes',
@@ -71,6 +71,17 @@ const normalizarEstado = (estado) => {
   };
   return mapping[estado] || estado;
 };
+
+const BotonReportarIncidencia = ({ idActivo, className = '' }) => (
+  <Link
+    to={`/incidencias/nueva?id_activo=${encodeURIComponent(idActivo)}`}
+    className={`inline-flex items-center gap-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors ${className}`}
+    title="Reportar incidencia para este equipo"
+  >
+    <FiAlertCircle className="w-3.5 h-3.5 text-rose-600" />
+    <span>Reportar Falla</span>
+  </Link>
+);
 
 const Inventario = () => {
   const [equipos, setEquipos] = useState(EQUIPOS_BASE);
@@ -179,7 +190,7 @@ const Inventario = () => {
 
       {/* Tabla de Equipos e Inventario */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas (TAL-144) */}
+        {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas */}
         <div className="md:hidden p-3 sm:p-4 space-y-3">
           {cargando && equipos.length === 0 ? (
             <div className="py-10 text-center text-gray-500 text-sm">
@@ -243,14 +254,7 @@ const Inventario = () => {
                       <span>Mantenimiento</span>
                     </Link>
 
-                    <Link
-                      to={`/incidencias/nueva?id_activo=${encodeURIComponent(idPrincipal)}`}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
-                      title="Reportar incidencia para este equipo"
-                    >
-                      <FiAlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                      <span>Reportar Falla</span>
-                    </Link>
+                    <BotonReportarIncidencia idActivo={idPrincipal} className="justify-center px-3 py-2" />
                   </div>
                 </div>
               );
@@ -258,7 +262,7 @@ const Inventario = () => {
           )}
         </div>
 
-        {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal (TAL-144) */}
+        {/* Vista Escritorio / Tablet Landscape (>= md): Tabla con Scroll Horizontal */}
         <div className="hidden md:block overflow-x-auto">
 
           <table className="w-full text-left text-sm text-gray-600">
@@ -333,14 +337,7 @@ const Inventario = () => {
                           </Link>
 
                           {/* Botón para Reportar Falla */}
-                          <Link
-                            to={`/incidencias/nueva?id_activo=${encodeURIComponent(idPrincipal)}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
-                            title="Reportar incidencia para este equipo"
-                          >
-                            <FiAlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                            <span>Reportar Falla</span>
-                          </Link>
+                          <BotonReportarIncidencia idActivo={idPrincipal} className="px-3 py-1.5" />
                         </div>
                       </td>
                     </tr>

@@ -5,7 +5,7 @@ import ModalNuevaIncidenciaMobile from './ModalNuevaIncidenciaMobile';
 import { hasPermission } from '../services/authService';
 
 /**
- * TAL-172: Floating Action Button (FAB) estilo Material Design para dispositivos móviles.
+ * Floating Action Button (FAB) estilo Material Design para dispositivos móviles.
  * 
  * Criterios de Aceptación:
  * 1. El FAB no interfiere con el scroll natural del usuario:

@@ -10,14 +10,19 @@ import axios from 'axios';
  * las animaciones del uploader y el estado de carga (isLoading).
  */
 
-const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '';
-const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || '';
+const CLOUDINARY_CLOUD_NAME = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || import.meta.env.CLOUDINARY_CLOUD_NAME || '';
+const CLOUDINARY_UPLOAD_PRESET = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || import.meta.env.CLOUDINARY_UPLOAD_PRESET || '';
 
 /**
  * Indica si Cloudinary cuenta con credenciales activas configuradas.
  */
 export const isCloudinaryConfigured = () => {
-  return Boolean(CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET);
+  return Boolean(
+    CLOUDINARY_CLOUD_NAME &&
+    CLOUDINARY_UPLOAD_PRESET &&
+    CLOUDINARY_CLOUD_NAME !== 'tu_cloud_name' &&
+    CLOUDINARY_UPLOAD_PRESET !== 'tu_preset'
+  );
 };
 
 /**

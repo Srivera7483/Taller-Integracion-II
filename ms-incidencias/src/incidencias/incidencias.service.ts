@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -13,15 +14,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
 import type { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
 import type { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
-import sharp from 'sharp';
-import * as path from 'path';
-import * as fs from 'fs/promises';
-import { v4 as uuidv4 } from 'uuid';
 import { PrioridadDinamicaService } from './prioridad-dinamica.service';
 import type { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 import { ExportarIncidenciasService } from './exportar-incidencias.service';
 import type { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { RabbitmqProducerService } from '../rabbitmq/rabbitmq-producer.service';
+import { CloudinaryService } from './cloudinary.service';
 
 const incidenciaConEstadoActual = {
   include: {
@@ -31,11 +29,11 @@ const incidenciaConEstadoActual = {
       include: { estado: { select: { id_estado: true, nombre_estado: true } } },
     },
     evidencias: {
-      select: { url_cloudinary: true }
+      include: { tipo_evidencia: true },
+      orderBy: { fecha_creacion: 'desc' as const },
     },
     ordenes_trabajo: {
-      take: 1,
-      orderBy: { fecha_creacion: 'desc' as const },
+      orderBy: [{ fecha_creacion: 'desc' as const }, { id_orden: 'desc' as const }],
     },
   },
 } satisfies Prisma.IncidenciasDefaultArgs;
@@ -61,12 +59,34 @@ export class IncidenciasService {
     private readonly rabbitmqProducer?: RabbitmqProducerService,
     private readonly prioridadDinamicaService: PrioridadDinamicaService = new PrioridadDinamicaService(),
     private readonly exportarIncidenciasService: ExportarIncidenciasService = new ExportarIncidenciasService(),
+    private readonly cloudinaryService: CloudinaryService = new CloudinaryService(),
   ) {}
 
   private esIncidenciaCritica(
     prioridad: PrioridadIncidencia,
   ): boolean {
     return prioridad === PrioridadIncidencia.alta;
+  }
+
+  /**
+   * TAL-221: Verifica que el técnico que intenta operar sobre una incidencia
+   * sea exactamente el titular de la Orden de Trabajo vigente (más reciente).
+   */
+  private async verificarOwnershipTecnico(
+    idIncidencia: string,
+    idTecnico: string,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ): Promise<void> {
+    const ultimaOrden = await client.ordenTrabajo.findFirst({
+      where: { id_incidencia: idIncidencia },
+      orderBy: [{ fecha_creacion: 'desc' }, { id_orden: 'desc' }],
+    });
+
+    if (!ultimaOrden || ultimaOrden.id_tecnico !== idTecnico) {
+      throw new ForbiddenException(
+        'Acceso denegado: Esta incidencia no está asignada a tu usuario o fue reasignada a otro técnico.',
+      );
+    }
   }
 
   async listar(query: ListarIncidenciasQueryDto, authHeader?: string) {
@@ -215,7 +235,7 @@ export class IncidenciasService {
       const estadoInicial = await transaction.estadoIncidencia.findFirst({
         where: { nombre_estado: 'Reportada' },
       });
-      
+
       if (!estadoInicial) {
         throw new InternalServerErrorException('No está configurado el estado inicial');
       }
@@ -325,10 +345,14 @@ export class IncidenciasService {
       const idEstadoActual = incidencia.historial_estados?.[0]?.estado?.id_estado;
       const rolUpper = this.normalizarRol(rolUsuario);
 
-      if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR') {
+      if (rolUpper === 'TECNICO') {
+        await this.verificarOwnershipTecnico(incidenciaId, usuarioId, transaction);
+      }
+
+      if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR' && rolUpper !== 'ADMINISTRADOR') {
         throw new ForbiddenException('Solo un SUPERVISOR puede pasar de Reportada a Asignada');
       }
-      if (idEstadoActual === 2 && (idEstadoNuevo === 3 || idEstadoNuevo === 6) && (rolUpper !== 'TECNICO' && rolUpper !== 'TÉCNICO' && rolUpper !== 'ADMINISTRADOR')) {
+      if (idEstadoActual === 2 && (idEstadoNuevo === 3 || idEstadoNuevo === 6) && (rolUpper !== 'TECNICO' && rolUpper !== 'ADMINISTRADOR')) {
         throw new ForbiddenException('Solo un TECNICO puede pasar de Asignada a Resuelta o Completada');
       }
       if (idEstadoActual === 3 && (idEstadoNuevo === 4 || idEstadoNuevo === 5) && rolUpper !== 'REPORTANTE' && rolUpper !== 'ADMINISTRADOR') {
@@ -385,8 +409,6 @@ export class IncidenciasService {
     }));
   }
 
-  
-
   async listarEvidencias(id: string) {
     await this.assertIncidenciaExists(id);
     const evidencias = await this.prisma.evidencia.findMany({
@@ -397,20 +419,45 @@ export class IncidenciasService {
     return evidencias.map((evidencia) => this.toApiEvidencia(evidencia));
   }
 
-
-
-  async crearEvidencia(id: string, body: CrearEvidenciaDto) {
+  async crearEvidencia(id: string, body?: CrearEvidenciaDto, file?: any) {
     await this.assertIncidenciaExists(id);
+
+    // Contrato OpenAPI: admite como máximo 5 evidencias y responde 409 al superar el límite
+    if (typeof this.prisma.evidencia?.count === 'function') {
+      const totalEvidencias = await this.prisma.evidencia.count({
+        where: { id_incidencia: id },
+      });
+      if (totalEvidencias >= 5) {
+        throw new ConflictException('La incidencia ya tiene el máximo de 5 evidencias permitidas.');
+      }
+    }
+
+    if (!file && (!body || !body.url_evidencia || !body.url_evidencia.trim())) {
+      throw new BadRequestException('Debe proporcionar un archivo de imagen o una url_evidencia válida.');
+    }
+
+    const idTipo = Number(body?.id_tipo_evidencia || 1);
     const tipo = await this.prisma.tipoEvidencia.findUnique({
-      where: { id_tipo_evidencia: body.id_tipo_evidencia },
+      where: { id_tipo_evidencia: idTipo },
     });
     if (!tipo) throw new BadRequestException('id_tipo_evidencia no válido');
+
+    let urlCloudinary = '';
+    if (file) {
+      urlCloudinary = await this.cloudinaryService.subirImagen(file);
+    } else if (body?.url_evidencia) {
+      const url = body.url_evidencia.trim();
+      if (!this.cloudinaryService.validarUrlEvidencia(url)) {
+        throw new BadRequestException('url_evidencia debe ser una dirección HTTPS válida');
+      }
+      urlCloudinary = url;
+    }
 
     const evidencia = await this.prisma.evidencia.create({
       data: {
         id_incidencia: id,
         id_tipo_evidencia: tipo.id_tipo_evidencia,
-        url_cloudinary: body.url_evidencia.trim(), 
+        url_cloudinary: urlCloudinary,
       },
       include: { tipo_evidencia: { select: { id_tipo_evidencia: true, nombre_tipo: true } } },
     });
@@ -418,45 +465,7 @@ export class IncidenciasService {
   }
 
   async procesarYGuardarEvidencia(idIncidencia: string, idTipoEvidencia: number, file: any) {
-    await this.assertIncidenciaExists(idIncidencia);
-    
-    if (!idTipoEvidencia) {
-      throw new BadRequestException('id_tipo_evidencia es requerido');
-    }
-
-    const tipo = await this.prisma.tipoEvidencia.findUnique({
-      where: { id_tipo_evidencia: idTipoEvidencia },
-    });
-    if (!tipo) throw new BadRequestException('id_tipo_evidencia no válido');
-
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    try {
-      await fs.access(uploadsDir);
-    } catch {
-      await fs.mkdir(uploadsDir, { recursive: true });
-    }
-
-    const fileId = uuidv4();
-    const fileName = `${fileId}.webp`;
-    const filePath = path.join(uploadsDir, fileName);
-
-    await sharp(file.buffer)
-      .resize({ width: 1080, withoutEnlargement: true })
-      .webp({ quality: 80 })
-      .toFile(filePath);
-
-    const publicUrl = `/uploads/${fileName}`;
-
-    const evidencia = await this.prisma.evidencia.create({
-      data: {
-        id_incidencia: idIncidencia,
-        id_tipo_evidencia: tipo.id_tipo_evidencia,
-        url_cloudinary: publicUrl,
-      },
-      include: { tipo_evidencia: { select: { id_tipo_evidencia: true, nombre_tipo: true } } },
-    });
-
-    return this.toApiEvidencia(evidencia);
+    return this.crearEvidencia(idIncidencia, { id_tipo_evidencia: idTipoEvidencia }, file);
   }
 
   async listarEstados() {
@@ -487,17 +496,33 @@ export class IncidenciasService {
     rolUsuario: string,
     emailUsuario?: string,
   ) {
-    const rolUpper = rolUsuario.toUpperCase();
-    if (rolUpper !== 'TÉCNICO' && rolUpper !== 'TECNICO') {
+    const rolNorm = this.normalizarRol(rolUsuario);
+    const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm);
+
+    if (!['TECNICO', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm)) {
       throw new ForbiddenException(
-        'Acceso denegado: Solo los técnicos pueden resolver incidencias.',
+        'Acceso denegado: Solo el técnico asignado, supervisores o administradores pueden resolver incidencias.',
       );
     }
 
     const resultado = await this.prisma.$transaction(async (transaction) => {
+      if (!esSupervisorOAdmin) {
+        await this.verificarOwnershipTecnico(idIncidencia, idTecnico, transaction);
+      } else {
+        const orden = await transaction.ordenTrabajo.findFirst({
+          where: { id_incidencia: idIncidencia },
+          orderBy: [{ fecha_creacion: 'desc' }, { id_orden: 'desc' }],
+        });
+        if (!orden) {
+          throw new BadRequestException(
+            'No existe una orden de trabajo para esta incidencia. Primero debes registrar el diagnóstico.',
+          );
+        }
+      }
+
       const ultimoHistorial = await transaction.historialEstados.findFirst({
         where: { id_incidencia: idIncidencia },
-        orderBy: { fecha_creacion: 'desc' },
+        orderBy: [{ fecha_creacion: 'desc' }, { id_historial: 'desc' }],
         include: { estado: true },
       });
 
@@ -507,9 +532,10 @@ export class IncidenciasService {
         );
       }
 
-      const nombreEstadoActual = ultimoHistorial.estado.nombre_estado.toUpperCase();
+      const nombreEstadoActual =
+        ultimoHistorial.estado.nombre_estado.trim().toUpperCase();
 
-      if (nombreEstadoActual !== 'ASIGNADA') {
+      if (!['REPORTADA', 'ASIGNADA'].includes(nombreEstadoActual)) {
         throw new BadRequestException(
           `Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`,
         );
@@ -548,6 +574,13 @@ export class IncidenciasService {
         include: { estado: true },
       });
 
+      if (typeof (transaction.ordenTrabajo as any)?.updateMany === 'function') {
+        await transaction.ordenTrabajo.updateMany({
+          where: { id_incidencia: idIncidencia },
+          data: { fecha_cierre: new Date() },
+        });
+      }
+
       return { historial: nuevoHistorial, titulo: incidencia.titulo };
     });
 
@@ -557,6 +590,40 @@ export class IncidenciasService {
       `La incidencia "${resultado.titulo}" fue resuelta.`,
     );
     return resultado.historial;
+  }
+
+  async clasificarPrioridad(idIncidencia: string, prioridadRaw: string) {
+    const normalizada = (prioridadRaw || '').trim().toLowerCase();
+    const mapPrioridad: Record<string, string> = {
+      baja: 'baja',
+      media: 'media',
+      alta: 'alta',
+      critica: 'critica',
+      'crítica': 'critica',
+    };
+
+    const prioridadEnum = mapPrioridad[normalizada];
+    if (!prioridadEnum) {
+      throw new BadRequestException(
+        'Prioridad no válida. Valores permitidos: Baja, Media, Alta, Crítica',
+      );
+    }
+
+    const incidencia = await this.prisma.incidencias.findUnique({
+      where: { id_incidencia: idIncidencia },
+    });
+
+    if (!incidencia) {
+      throw new NotFoundException('Incidencia no encontrada');
+    }
+
+    const actualizada = await this.prisma.incidencias.update({
+      where: { id_incidencia: idIncidencia },
+      data: { prioridad: prioridadEnum as any },
+      ...incidenciaConEstadoActual,
+    });
+
+    return this.toApiIncidencia(actualizada);
   }
 
   private async notificarIncidencia(
@@ -619,6 +686,15 @@ export class IncidenciasService {
     const nombreReportante = formatearUsuario(incidencia.id_reportante);
     const infoActivo = resolutores?.activosPorId?.get(incidencia.id_activo);
 
+    const historialAsignaciones = (incidencia.ordenes_trabajo ?? []).map((ot, index) => ({
+      id_orden: ot.id_orden,
+      id_tecnico: ot.id_tecnico,
+      nombre_tecnico: formatearUsuario(ot.id_tecnico),
+      diagnostico_tecnico: ot.diagnostico_tecnico ?? null,
+      fecha_creacion: ot.fecha_creacion,
+      vigente: index === 0,
+    }));
+
     return {
       id_incidencia: incidencia.id_incidencia,
       id_activo: incidencia.id_activo,
@@ -628,6 +704,7 @@ export class IncidenciasService {
       nombre_reportante: nombreReportante,
       id_orden: ordenActiva?.id_orden ?? null,
       id_tecnico: idTecnico,
+      id_tecnico_asignado: idTecnico,
       nombre_tecnico: nombreTecnico,
       tecnico_asignado: nombreTecnico ?? idTecnico ?? null,
       fecha_asignacion: ordenActiva?.fecha_creacion ?? null,
@@ -642,10 +719,11 @@ export class IncidenciasService {
             fecha_creacion: ordenActiva.fecha_creacion,
           }
         : null,
+      historial_asignaciones: historialAsignaciones,
       titulo: incidencia.titulo,
       descripcion: incidencia.descripcion,
       estado: estado || null,
-      evidencias: incidencia.evidencias?.map((e) => e.url_cloudinary) || [],
+      evidencias: incidencia.evidencias?.map((e) => this.toApiEvidencia(e as any)) || [],
       fecha_creacion: incidencia.fecha_creacion,
       prioridad: incidencia.prioridad ?? calculo.prioridad_relativa,
       prioridad_original: incidencia.prioridad ?? calculo.prioridad_original,
@@ -723,15 +801,19 @@ export class IncidenciasService {
       id_evidencia: evidencia.id_evidencia,
       id_incidencia: evidencia.id_incidencia,
       id_tipo_evidencia: evidencia.id_tipo_evidencia,
+      tipo: evidencia.tipo_evidencia,
       tipo_evidencia: evidencia.tipo_evidencia,
       url_evidencia: evidencia.url_cloudinary,
+      url_cloudinary: evidencia.url_cloudinary,
       fecha_creacion: evidencia.fecha_creacion,
     };
   }
 
   private async resolverActivos(
     authHeader?: string,
-  ): Promise<Map<string, { nombre: string; codigoQr?: string }>> {
+  ): Promise<
+    Map<string, { nombre: string; codigoQr?: string }>
+  > {
     const mapa = new Map<string, { nombre: string; codigoQr?: string }>();
     try {
       if (typeof this.httpService?.get === 'function') {

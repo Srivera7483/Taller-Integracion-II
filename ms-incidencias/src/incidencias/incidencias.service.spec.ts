@@ -15,10 +15,11 @@ describe('IncidenciasService notifications', () => {
       { estado: { id_estado: 1, nombre_estado: 'Reportada' } },
     ],
   };
-  const transaction = {
+const transaction = {
     estadoIncidencia: { findFirst: jest.fn(), findUnique: jest.fn() },
     incidencias: { create: jest.fn(), findUnique: jest.fn() },
     historialEstados: { create: jest.fn() },
+    ordenTrabajo: { findFirst: jest.fn().mockResolvedValue({ id_orden: 'ord-1', id_tecnico: 'tecnico-1' }) }, // <--- Añadir esta línea
   };
   const prisma = {
     $transaction: jest.fn(

@@ -24,17 +24,21 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
+import { PermissionsGuard } from '../auth/permissions.guard';
+import { RequirePermissions } from '../auth/permissions.decorator';
 import type { JwtUser } from '../auth/auth.types';
 import { CrearEvidenciaDto } from './dto/crear-evidencia.dto';
 import { CrearIncidenciaDto } from './dto/crear-incidencia.dto';
 import { ActualizarEstadoDto } from './dto/actualizar-estado.dto';
+import { ClasificarPrioridadDto } from './dto/clasificar-prioridad.dto';
 import { ListarIncidenciasQueryDto } from './dto/listar-incidencias-query.dto';
 import { PrioridadDinamicaQueryDto } from './dto/prioridad-dinamica-query.dto';
 import { ExportarIncidenciasQueryDto } from './dto/exportar-incidencias-query.dto';
 import { IncidenciasService } from './incidencias.service';
+import { FileMimeValidationPipe } from '../validators/file-mime.pipe';
 
 @Controller('incidencias')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class IncidenciasController {
   constructor(private readonly incidenciasService: IncidenciasService) { }
 
@@ -128,8 +132,22 @@ export class IncidenciasController {
     );
   }
 
+  @Patch(':id_incidencia/prioridad')
+  @Roles('SUPERVISOR', 'ADMINISTRADOR')
+  @RequirePermissions('incidencias:clasificar_prioridad')
+  async clasificarPrioridad(
+    @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
+    @Body() body: ClasificarPrioridadDto,
+  ) {
+    return this.incidenciasService.clasificarPrioridad(
+      idIncidencia,
+      body.prioridad,
+    );
+  }
+
   @Patch(':id_incidencia/resolver')
-  @Roles('TECNICO', 'TÉCNICO')
+  @Roles('TECNICO', 'TÉCNICO', 'SUPERVISOR', 'ADMINISTRADOR')
+  @RequirePermissions('incidencias:resolver')
   async resolverIncidencia(
     @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
     @CurrentUser() usuario: JwtUser,
@@ -159,29 +177,33 @@ export class IncidenciasController {
   }
 
   @Post(':id_incidencia/evidencias')
+  @Roles('REPORTANTE', 'TECNICO', 'TÉCNICO', 'SUPERVISOR', 'ADMINISTRADOR', 'ADMIN')
+  @RequirePermissions('evidencias:subir')
+  @UseInterceptors(FileInterceptor('file'))
   crearEvidencia(
     @Param('id_incidencia', ParseUUIDPipe) id: string,
     @Body() body: CrearEvidenciaDto,
+    @UploadedFile(new FileMimeValidationPipe({ required: false })) file?: any,
   ) {
+    if (file) {
+      return this.incidenciasService.crearEvidencia(id, body, file);
+    }
     return this.incidenciasService.crearEvidencia(id, body);
   }
 
   @Post(':id_incidencia/evidencias/upload')
+  @Roles('REPORTANTE', 'TECNICO', 'TÉCNICO', 'SUPERVISOR', 'ADMINISTRADOR', 'ADMIN')
+  @RequirePermissions('evidencias:subir')
   @UseInterceptors(FileInterceptor('file'))
   async uploadEvidencia(
     @Param('id_incidencia', ParseUUIDPipe) id: string,
     @Body('id_tipo_evidencia') id_tipo_evidencia: string,
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addFileTypeValidator({
-          fileType: /(jpg|jpeg|png)$/,
-        })
-        .build({
-          errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
-        }),
-    )
-    file: any,
+    @UploadedFile(new FileMimeValidationPipe({ required: true })) file: any,
   ) {
-    return this.incidenciasService.procesarYGuardarEvidencia(id, Number(id_tipo_evidencia), file);
+    return this.incidenciasService.procesarYGuardarEvidencia(
+      id,
+      Number(id_tipo_evidencia),
+      file,
+    );
   }
 }

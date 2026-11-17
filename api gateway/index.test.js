@@ -593,3 +593,138 @@ test('TAL-4: Desactivar el Kill Switch reanuda inmediatamente las operaciones de
     assert.equal(allowedRes.statusCode, 200);
     assert.equal(JSON.parse(allowedRes.body).creada, true);
 });
+
+// TAL-2: Pruebas de Sincronización WebSockets y Gateway en Tiempo Real
+const { io: createSocketClient } = require('socket.io-client');
+
+test('TAL-2 (CA-1): Cliente web establece conexión WebSocket estable y recibe eventos de la sala incidencias y directos', async (t) => {
+    const app = buildGateway({
+        ...unavailableServices,
+        corsOrigins: ['http://localhost:5173'],
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = app.server.address();
+
+    t.after(async () => {
+        await app.close();
+    });
+
+    await new Promise((resolve, reject) => {
+        const client = createSocketClient(`http://127.0.0.1:${port}`, {
+            query: { userId: 'tecnico-01', rol: 'COORDINADOR', edificio: 'ed-1' },
+            transports: ['websocket', 'polling'],
+            extraHeaders: { origin: 'http://localhost:5173' },
+        });
+
+        client.on('connect_error', (err) => {
+            client.close();
+            reject(err);
+        });
+
+        client.on('connect', () => {
+            assert.ok(client.id);
+
+            let receivedBroadcast = null;
+            let receivedDirect = null;
+
+            const checkDone = () => {
+                if (receivedBroadcast && receivedDirect) {
+                    assert.equal(receivedBroadcast.id, 'inc-100');
+                    assert.equal(receivedDirect.mensaje, 'Mensaje directo');
+                    client.disconnect();
+                    resolve();
+                }
+            };
+
+            client.on('nueva-incidencia', (payload) => {
+                receivedBroadcast = payload;
+                checkDone();
+            });
+
+            client.on('alerta-directa', (payload) => {
+                receivedDirect = payload;
+                checkDone();
+            });
+
+            app.io.emitIncidencias('nueva-incidencia', { id: 'inc-100', estado: 'PENDIENTE' });
+            app.io.emitToClient(client.id, 'alerta-directa', { mensaje: 'Mensaje directo' });
+        });
+    });
+});
+
+test('TAL-2: Middleware CORS de Socket.io rechaza orígenes no autorizados', async (t) => {
+    const app = buildGateway({
+        ...unavailableServices,
+        corsOrigins: ['http://localhost:5173'],
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = app.server.address();
+
+    t.after(async () => {
+        await app.close();
+    });
+
+    await new Promise((resolve, reject) => {
+        const unauthorizedClient = createSocketClient(`http://127.0.0.1:${port}`, {
+            transports: ['websocket', 'polling'],
+            reconnection: false,
+            extraHeaders: { origin: 'http://sitio-malicioso.evil.com' },
+        });
+
+        unauthorizedClient.on('connect', () => {
+            unauthorizedClient.close();
+            reject(new Error('No debía permitir conectar desde un origen no autorizado'));
+        });
+
+        unauthorizedClient.on('connect_error', (err) => {
+            assert.ok(err.message.includes('Origen no autorizado') || err.message.includes('websocket error'));
+            unauthorizedClient.close();
+            resolve();
+        });
+    });
+});
+
+test('TAL-2 (CA-2): Soporta unión dinámica de salas (join_room/leave_room), reconexión limpia y cierre de descriptores sin fugas de memoria', async (t) => {
+    const app = buildGateway(unavailableServices);
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = app.server.address();
+
+    t.after(async () => {
+        await app.close();
+    });
+
+    const client = createSocketClient(`http://127.0.0.1:${port}`, {
+        transports: ['websocket', 'polling'],
+        extraHeaders: { origin: 'http://localhost:5173' },
+    });
+
+    await new Promise((resolve, reject) => {
+        client.on('connect_error', reject);
+        client.on('connect', resolve);
+    });
+
+    const firstSocketId = client.id;
+    assert.ok(app.io.sockets.sockets.has(firstSocketId));
+
+    const joinAck = await new Promise((resolve) => {
+        client.emit('join_room', { id_incidencia: '42', rol: 'SUPERVISOR' }, resolve);
+    });
+    assert.equal(joinAck.status, 'joined');
+    assert.ok(joinAck.rooms.includes('incidencia_42'));
+    assert.ok(joinAck.rooms.includes('coordinadores'));
+
+    const leaveAck = await new Promise((resolve) => {
+        client.emit('leave_room', { room: 'incidencia_42' }, resolve);
+    });
+    assert.equal(leaveAck.status, 'left');
+
+    // Desconexión limpia y verificación de liberación del descriptor en el servidor
+    await new Promise((resolve) => {
+        app.io.sockets.sockets.get(firstSocketId).on('disconnect', () => {
+            setImmediate(resolve);
+        });
+        client.disconnect();
+    });
+
+    assert.equal(app.io.sockets.sockets.has(firstSocketId), false);
+});
