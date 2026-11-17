@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   FiX,
   FiCheckCircle,
@@ -16,6 +16,8 @@ import {
 } from 'react-icons/fi';
 import { LuTriangleAlert, LuCircleAlert, LuInfo } from 'react-icons/lu';
 import { useToast } from '../context/ToastContext';
+import NetworkStatusContext from '../context/NetworkStatusContext';
+import OfflineActionModal, { ACTION_TYPES } from './OfflineActionModal';
 import api from '../services/api';
 
 // Lista de materiales e insumos comunes para selección rápida táctil en tablets
@@ -74,6 +76,13 @@ const ModalCierreMantenimiento = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorValidacion, setErrorValidacion] = useState(null);
 
+  // TAL-183: Estados de alerta y conectividad offline
+  const [isOfflineModalOpen, setIsOfflineModalOpen] = useState(false);
+  const [pendingActionType, setPendingActionType] = useState(null);
+  const networkContext = useContext(NetworkStatusContext);
+  const isOnline = networkContext?.isOnline ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const isServerReachable = networkContext?.isServerReachable ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
+
   // Reiniciar estado cuando se abre para una nueva orden
   useEffect(() => {
     if (isOpen && orden) {
@@ -92,25 +101,25 @@ const ModalCierreMantenimiento = ({
 
   if (!isOpen || !orden) return null;
 
-// Validación estricta de Ownership / Asignación por UUID:
+  // Validación estricta de Ownership / Asignación por UUID:
   // Solo el técnico titular vigente de la orden puede operar el formulario.
   const idTecnicoOrden = String(
     orden.id_tecnico_asignado ||
-      orden.id_tecnico ||
-      orden.tecnico_id ||
-      orden.orden_trabajo?.id_tecnico ||
-      orden.ordenes_trabajo?.[0]?.id_tecnico ||
-      orden.incidencia?.id_tecnico_asignado ||
-      orden.incidencia?.ordenes_trabajo?.[0]?.id_tecnico ||
-      ''
+    orden.id_tecnico ||
+    orden.tecnico_id ||
+    orden.orden_trabajo?.id_tecnico ||
+    orden.ordenes_trabajo?.[0]?.id_tecnico ||
+    orden.incidencia?.id_tecnico_asignado ||
+    orden.incidencia?.ordenes_trabajo?.[0]?.id_tecnico ||
+    ''
   ).trim().toLowerCase();
 
   const idUsuarioActual = String(
     tecnicoActual?.id_usuario ||
-      tecnicoActual?.id ||
-      tecnicoActual?.userId ||
-      tecnicoActual?.sub ||
-      ''
+    tecnicoActual?.id ||
+    tecnicoActual?.userId ||
+    tecnicoActual?.sub ||
+    ''
   ).trim().toLowerCase();
 
   const rolActual = (
@@ -217,6 +226,15 @@ const ModalCierreMantenimiento = ({
     }
 
     setErrorValidacion(null);
+
+    // TAL-183: Advertir si el técnico está fuera de línea antes de encolar
+    const estaDesconectado = !isOnline || !isServerReachable || (typeof navigator !== 'undefined' && !navigator.onLine);
+    if (estaDesconectado) {
+      setPendingActionType('COMPLETAR');
+      setIsOfflineModalOpen(true);
+      return;
+    }
+
     setIsSubmitting(true);
 
     const idIncidenciaBackend = orden.id_incidencia || orden.incidencia_id || orden.id;
@@ -256,6 +274,19 @@ const ModalCierreMantenimiento = ({
 
       onClose();
     } catch (error) {
+      const esFalloServidor =
+        !error.response ||
+        error.response?.status === 502 ||
+        error.response?.status === 503 ||
+        error.response?.status === 504 ||
+        error.code === 'ERR_NETWORK';
+
+      if (esFalloServidor) {
+        setPendingActionType('COMPLETAR');
+        setIsOfflineModalOpen(true);
+        return;
+      }
+
       const mensajeError = extraerMensajeError(
         error,
         'Error al registrar la confirmación del mantenimiento en el servidor.'
@@ -280,6 +311,15 @@ const ModalCierreMantenimiento = ({
     }
 
     setErrorValidacion(null);
+
+    // TAL-183: Advertir si el técnico está fuera de línea antes de encolar
+    const estaDesconectado = !isOnline || !isServerReachable || (typeof navigator !== 'undefined' && !navigator.onLine);
+    if (estaDesconectado) {
+      setPendingActionType('RECHAZAR');
+      setIsOfflineModalOpen(true);
+      return;
+    }
+
     setIsSubmitting(true);
 
     const idIncidenciaBackend = orden.id_incidencia || orden.incidencia_id || orden.id;
@@ -315,6 +355,19 @@ const ModalCierreMantenimiento = ({
 
       onClose();
     } catch (error) {
+      const esFalloServidor =
+        !error.response ||
+        error.response?.status === 502 ||
+        error.response?.status === 503 ||
+        error.response?.status === 504 ||
+        error.code === 'ERR_NETWORK';
+
+      if (esFalloServidor) {
+        setPendingActionType('RECHAZAR');
+        setIsOfflineModalOpen(true);
+        return;
+      }
+
       const mensajeError = extraerMensajeError(
         error,
         'Error al registrar el rechazo de la incidencia en el servidor.'
@@ -324,6 +377,46 @@ const ModalCierreMantenimiento = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleConfirmarOffline = () => {
+    setIsOfflineModalOpen(false);
+
+    try {
+      const colaLocal = JSON.parse(localStorage.getItem('cola_ordenes_offline') || '[]');
+      colaLocal.push({
+        id_orden: orden.id_orden || orden.id,
+        accion: pendingActionType,
+        resolucion: resolucion.trim(),
+        horas: horasInvertidas,
+        materiales: materialesUsados,
+        motivoRechazo: motivoRechazo.trim(),
+        timestamp: new Date().toISOString(),
+      });
+      localStorage.setItem('cola_ordenes_offline', JSON.stringify(colaLocal));
+    } catch {
+      // Manejo seguro si localStorage no está disponible
+    }
+
+    showToast(
+      'Estás trabajando sin conexión. Tu orden se guardará localmente y se enviará de forma automática al recuperar la señal.',
+      'info'
+    );
+
+    if (onCierreExitoso) {
+      onCierreExitoso({
+        resolucion: resolucion.trim() || `[RECHAZADO]: ${motivoRechazo.trim()}`,
+        estado: pendingActionType === 'RECHAZAR' ? 'Rechazada' : 'Completada',
+        esOffline: true,
+      });
+    }
+
+    onClose();
+  };
+
+  const handleCancelarOffline = () => {
+    setIsOfflineModalOpen(false);
+    setIsSubmitting(false);
   };
 
   return (
@@ -342,11 +435,10 @@ const ModalCierreMantenimiento = ({
         aria-labelledby="modal-cierre-titulo"
       >
         {/* Cabecera del Modal */}
-        <div className={`px-5 sm:px-6 py-4 flex items-center justify-between flex-shrink-0 text-white transition-colors duration-300 ${
-          modoAccion === 'RECHAZAR'
+        <div className={`px-5 sm:px-6 py-4 flex items-center justify-between flex-shrink-0 text-white transition-colors duration-300 ${modoAccion === 'RECHAZAR'
             ? 'bg-gradient-to-r from-red-700 via-rose-700 to-red-800'
             : 'bg-primary'
-        }`}>
+          }`}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white flex-shrink-0 border border-white/20">
               {modoAccion === 'RECHAZAR' ? (
@@ -468,11 +560,10 @@ const ModalCierreMantenimiento = ({
                     setErrorValidacion(null);
                   }}
                   disabled={isSubmitting}
-                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    modoAccion === 'COMPLETAR'
+                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${modoAccion === 'COMPLETAR'
                       ? 'bg-white text-emerald-800 shadow-xs border border-gray-200'
                       : 'text-gray-600 hover:text-gray-900'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   <FiCheckCircle className={`w-4 h-4 ${modoAccion === 'COMPLETAR' ? 'text-emerald-600' : 'text-gray-400'}`} />
                   <span>Completar Mantenimiento</span>
@@ -486,11 +577,10 @@ const ModalCierreMantenimiento = ({
                     setErrorValidacion(null);
                   }}
                   disabled={isSubmitting}
-                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    modoAccion === 'RECHAZAR'
+                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${modoAccion === 'RECHAZAR'
                       ? 'bg-red-50 text-red-800 shadow-xs border border-red-200'
                       : 'text-gray-600 hover:text-red-700'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   <LuTriangleAlert className={`w-4 h-4 ${modoAccion === 'RECHAZAR' ? 'text-red-600' : 'text-gray-400'}`} />
                   <span>Rechazar Incidencia</span>
@@ -668,11 +758,10 @@ const ModalCierreMantenimiento = ({
                             type="button"
                             onClick={() => setHorasPreset(h)}
                             disabled={isSubmitting}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                              Number(horasInvertidas) === h
+                            className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${Number(horasInvertidas) === h
                                 ? 'bg-primary text-white border-primary shadow-xs'
                                 : 'bg-white hover:bg-primary-50 text-gray-700 border-gray-300'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                           >
                             {h}h
                           </button>
@@ -836,11 +925,10 @@ const ModalCierreMantenimiento = ({
                   aria-label="Confirmar rechazo de incidencia"
                   onClick={handleGuardarRechazo}
                   disabled={isSubmitting || !motivoRechazoValido}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
-                    isSubmitting || !motivoRechazoValido
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${isSubmitting || !motivoRechazoValido
                       ? 'bg-gray-400 cursor-not-allowed opacity-60'
                       : 'bg-red-700 hover:bg-red-800 active:scale-98 shadow-red-700/20'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   {isSubmitting ? (
                     <>
@@ -864,11 +952,10 @@ const ModalCierreMantenimiento = ({
                   aria-label="Confirmar cierre de mantenimiento"
                   onClick={handleGuardarCierre}
                   disabled={isSubmitting || !isFormCompletarValido}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
-                    isSubmitting || !isFormCompletarValido
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${isSubmitting || !isFormCompletarValido
                       ? 'bg-gray-400 cursor-not-allowed opacity-60'
                       : 'bg-primary hover:bg-primary-hover active:scale-98 shadow-primary/20'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                    } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                 >
                   {isSubmitting ? (
                     <>
@@ -890,6 +977,15 @@ const ModalCierreMantenimiento = ({
           </div>
         )}
       </div>
+
+      {/* TAL-183: Modal Informativo y Alerta de Sincronización Diferida para Técnicos */}
+      <OfflineActionModal
+        isOpen={isOfflineModalOpen}
+        actionType={ACTION_TYPES.ORDEN}
+        onConfirm={handleConfirmarOffline}
+        onCancel={handleCancelarOffline}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 };
