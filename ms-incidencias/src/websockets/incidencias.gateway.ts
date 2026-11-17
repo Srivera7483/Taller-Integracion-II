@@ -15,6 +15,9 @@ export interface IncidenciaActualizadaPayload {
   id_incidencia: string;
   nuevo_estado: string;
   prioridad?: string | null;
+  accion?: string;
+  tipo_cambio?: string;
+  cambio_prioridad?: boolean;
   titulo?: string;
   id_activo?: string;
   id_tecnico?: string | null;
@@ -223,9 +226,11 @@ export class IncidenciasGateway
     }
 
     if (this.server) {
+      let emisor: any = this.server;
       for (const sala of salasTarget) {
-        this.server.to(sala).emit('incidencia_actualizada', payload);
+        emisor = emisor.to(sala);
       }
+      emisor.emit('incidencia_actualizada', payload);
     }
 
     const duracion = performance.now() - inicio;

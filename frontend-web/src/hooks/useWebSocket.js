@@ -547,8 +547,29 @@ export const useWebSocket = (callbacks = {}, options = {}) => {
 
     socketRef.current = sock;
 
+    const eventosRecientesRef = new Map();
+
     const registrarEventoRecibido = (rawEventName, rawPayload) => {
       if (unmountedRef.current) return;
+
+      // Deduplicación contra ráfagas de red y alias (ej. 'nueva_incidencia' y 'nueva-incidencia')
+      const idRecurso = rawPayload?.id_incidencia || rawPayload?.id_orden || rawPayload?.id || '';
+      const subTipo = rawPayload?.nuevo_estado || rawPayload?.estado || rawPayload?.tipo_evento || '';
+      if (idRecurso) {
+        const ahora = Date.now();
+        const clave = `${String(rawEventName).replace('-', '_')}:${idRecurso}:${subTipo}`;
+        const previo = eventosRecientesRef.get(clave);
+        if (previo && ahora - previo < 1500) {
+          return;
+        }
+        eventosRecientesRef.set(clave, ahora);
+        if (eventosRecientesRef.size > 50) {
+          for (const [k, v] of eventosRecientesRef.entries()) {
+            if (ahora - v > 10000) eventosRecientesRef.delete(k);
+          }
+        }
+      }
+
       const { tipoNormalizado, payloadNormalizado } = despacharEventoTipado(
         rawEventName,
         rawPayload,

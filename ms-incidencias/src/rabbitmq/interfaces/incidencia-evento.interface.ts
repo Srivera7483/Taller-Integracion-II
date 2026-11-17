@@ -16,6 +16,12 @@ export interface IncidenciaActualizadaEvento {
   evento: 'INCIDENCIA_ACTUALIZADA' | 'ORDEN_TRABAJO_ASIGNADA';
   id_incidencia: string;
   nuevo_estado: string;
+  titulo?: string;
+  prioridad?: PrioridadIncidencia | string | null;
+  id_activo?: string;
+  accion?: string;
+  tipo_cambio?: string;
+  cambio_prioridad?: boolean;
   usuario_responsable: string | null;
   id_edificio?: string | null;
   timestamp: string;
