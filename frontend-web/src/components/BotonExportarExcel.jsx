@@ -5,7 +5,7 @@ import { exportarReporteIncidencias } from '../services/incidenciasService';
 import { useToast } from '../context/ToastContext';
 
 /**
- * TAL-132: Componente para exportar el reporte de incidencias a Excel (.xlsx) y CSV.
+ * Componente para exportar el reporte de incidencias a Excel (.xlsx) y CSV.
  * Cumple con los criterios de aceptación:
  * 1. Estado de carga ("Cargando...") y deshabilitado para evitar spam de clics.
  * 2. Descarga forzada en navegador vía window.URL.createObjectURL y elemento <a>.
@@ -47,8 +47,7 @@ const BotonExportarExcel = ({
       setTimeout(() => {
         setDescargaExitosa(false);
       }, 3000);
-    } catch (error) {
-      console.error('Error al exportar incidencias:', error);
+    } catch {
       showToast(
         'No se pudo generar el reporte. Verifica la conexión con el servidor.',
         'error'

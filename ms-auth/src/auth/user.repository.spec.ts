@@ -17,35 +17,71 @@ describe('UserRepository', () => {
     userRepository = new UserRepository(prismaService);
   });
 
-  describe('findById', () => {
-    it('debe buscar usuario por id e incluir la relación role', async () => {
-      const mockUser = { id: 'uuid-123', email: 'test@example.com', role: { name: 'TECNICO' } };
-      vi.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockUser as any);
 
-      const result = await userRepository.findById('uuid-123');
+describe('findById', () => {
+  it('debe buscar usuario por id e incluir el rol y sus permisos', async () => {
+    const mockUser = {
+      id: 'uuid-123',
+      email: 'test@example.com',
+      role: { name: 'TECNICO' },
+    };
 
-      expect(prismaService.user.findUnique).toHaveBeenCalledWith({
-        where: { id: 'uuid-123' },
-        include: { role: true },
-      });
-      expect(result).toEqual(mockUser);
+    vi.spyOn(prismaService.user, 'findUnique')
+      .mockResolvedValue(mockUser as any);
+
+    const result = await userRepository.findById('uuid-123');
+
+    expect(prismaService.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 'uuid-123' },
+      include: {
+        role: {
+          include: {
+            permisos: {
+              include: {
+                permiso: true,
+              },
+            },
+          },
+        },
+      },
     });
+
+    expect(result).toEqual(mockUser);
   });
+});
 
   describe('findByEmail', () => {
-    it('debe buscar usuario por correo e incluir la relación role', async () => {
-      const mockUser = { id: 'uuid-123', email: 'admin@test.com', role: { name: 'ADMINISTRADOR' } };
-      vi.spyOn(prismaService.user, 'findUnique').mockResolvedValue(mockUser as any);
+    it('debe buscar usuario por correo e incluir el rol y sus permisos', async () => {
+      const mockUser = {
+        id: 'uuid-123',
+        email: 'admin@test.com',
+        role: { name: 'ADMINISTRADOR' },
+      };
+
+      vi.spyOn(prismaService.user, 'findUnique')
+        .mockResolvedValue(mockUser as any);
 
       const result = await userRepository.findByEmail('admin@test.com');
 
       expect(prismaService.user.findUnique).toHaveBeenCalledWith({
         where: { email: 'admin@test.com' },
-        include: { role: true },
+        include: {
+          role: {
+            include: {
+              permisos: {
+                include: {
+                  permiso: true,
+                },
+              },
+            },
+          },
+        },
       });
+
       expect(result).toEqual(mockUser);
     });
   });
+
 
   describe('updateRole', () => {
     it('debe actualizar el rol usando la sintaxis connect de Prisma', async () => {

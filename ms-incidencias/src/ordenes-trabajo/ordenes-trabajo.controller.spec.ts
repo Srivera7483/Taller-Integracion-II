@@ -117,6 +117,7 @@ describe('OrdenesTrabajoController (TAL-55: Inyección de Identidad)', () => {
   describe('asignarOrden', () => {
     it('inyecta el userId del supervisor autenticado al crear la orden', async () => {
       const mockUser: JwtUser = {
+        sub: 'supervisor-uuid-99',
         userId: 'supervisor-uuid-99',
         role: 'SUPERVISOR',
       };
@@ -129,7 +130,11 @@ describe('OrdenesTrabajoController (TAL-55: Inyección de Identidad)', () => {
 
       await controller.asignarOrden(dto, mockUser);
 
-      expect(service.asignarOrden).toHaveBeenCalledWith(dto, 'supervisor-uuid-99');
+      expect(service.asignarOrden).toHaveBeenCalledWith(
+        dto,
+        'supervisor-uuid-99',
+        undefined,
+      );
     });
   });
 });

@@ -20,6 +20,7 @@ describe('AuthService', () => {
     userRepositoryMock = {
       findByEmail: vi.fn(),
       findById: vi.fn(),
+      findMany: vi.fn(),
       updateRole: vi.fn(),
     };
 
@@ -136,7 +137,7 @@ describe('AuthService', () => {
       expect(jwtMock.sign).toHaveBeenCalledWith(
         expect.objectContaining({ sub: 'user-123', tokenUse: 'access' }),
       );
-      expect(result).toEqual({ accessToken: 'signed-token' });
+      expect(result).toEqual({accessToken: 'signed-token', permissions: []});
     });
 
     it.each(['JsonWebTokenError', 'TokenExpiredError'])(

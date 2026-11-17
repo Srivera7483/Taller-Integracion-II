@@ -37,6 +37,12 @@ export class RabbitmqTopologyService {
     try {
       const channel = await connection.createChannel();
 
+      const rawDlqRoutingKey = this.configService.get<string>('RABBITMQ_DLQ_ROUTING_KEY');
+      const dlqRoutingKey =
+        !rawDlqRoutingKey || rawDlqRoutingKey === 'incidencias_criticas'
+          ? 'dead-letter'
+          : rawDlqRoutingKey;
+
       const options: RabbitmqTopologyOptions = {
         exchange: this.configService.get<string>('RABBITMQ_EXCHANGE') ??
           'uct.activos.events',
@@ -50,7 +56,7 @@ export class RabbitmqTopologyService {
             durable: true,
             deadLetterExchange:
               this.configService.get<string>('RABBITMQ_DLX') ?? 'uct.dlx',
-            deadLetterRoutingKey: this.configService.get<string>('RABBITMQ_DLQ_ROUTING_KEY') ?? 'dead-letter',
+            deadLetterRoutingKey: dlqRoutingKey,
           },
           {
             name: this.configService.get<string>('RABBITMQ_QUEUE_AUDITORIA') ??
@@ -59,7 +65,7 @@ export class RabbitmqTopologyService {
             durable: true,
             deadLetterExchange:
               this.configService.get<string>('RABBITMQ_DLX') ?? 'uct.dlx',
-            deadLetterRoutingKey: this.configService.get<string>('RABBITMQ_DLQ_ROUTING_KEY') ?? 'dead-letter',
+            deadLetterRoutingKey: dlqRoutingKey,
           },
         ],
         dlq: {
@@ -67,7 +73,7 @@ export class RabbitmqTopologyService {
             this.configService.get<string>('RABBITMQ_DLX') ?? 'uct.dlx',
           queue: this.configService.get<string>('RABBITMQ_DLQ') ??
             'dead-letter.queue',
-          routingKey: 'dead-letter',
+          routingKey: dlqRoutingKey,
           durable: true,
           messageTtl: Number(
             this.configService.get<string>('RABBITMQ_MESSAGE_TTL') ?? '300000',

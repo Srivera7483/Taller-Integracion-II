@@ -1,5 +1,13 @@
 
 import { Body, Controller, Logger, Post } from '@nestjs/common';
+import {
+  Ctx,
+  EventPattern,
+  Payload,
+  RmqContext,
+} from '@nestjs/microservices';
+import { CreateNotificacionDto } from './dto/create-notificacion.dto';
+import { NotificacionesService } from './notificaciones.service';
 import { NotificacionEventoDto } from '../rabbitmq/dto/notificacion-evento.dto';
 import { AuditoriaEventoDto } from '../rabbitmq/dto/auditoria-evento.dto';
 import { RabbitmqPublisherService } from '../rabbitmq/rabbitmq-publisher.service';
@@ -9,13 +17,13 @@ export class NotificacionesController {
   private readonly logger = new Logger(NotificacionesController.name);
 
   constructor(
+    private readonly notificacionesService: NotificacionesService,
     private readonly rabbitmqPublisherService: RabbitmqPublisherService,
   ) {}
 
   @Post('notificar')
-  notificar(@Body() payload: NotificacionEventoDto) {
-    this.logger.warn(`Notificación HTTP recibida: ${JSON.stringify(payload)}`);
-    return { status: 'encolada' };
+  notificar(@Body() payload: CreateNotificacionDto) {
+    return this.notificacionesService.encolar(payload);
   }
 
   @Post('eventos/notificaciones')
@@ -34,5 +42,21 @@ export class NotificacionesController {
       payload,
     );
     return { status: ok ? 'publicado' : 'error' };
+  }
+
+  @EventPattern('incidencia_critica')
+  recibirIncidenciaCritica(
+    @Payload() payload: any,
+    @Ctx() context: unknown,
+  ): void {
+    this.logger.warn(
+      `[RABBITMQ] Incidencia crítica recibida: ${JSON.stringify(payload)}`,
+    );
+
+    const rmqContext = context as RmqContext;
+    const channel = rmqContext.getChannelRef();
+    const message = rmqContext.getMessage();
+
+    channel.ack(message);
   }
 }

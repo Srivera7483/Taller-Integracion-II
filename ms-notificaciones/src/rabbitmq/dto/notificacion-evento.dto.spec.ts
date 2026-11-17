@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import { validate, ValidationError } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { NotificacionEventoDto, TipoNotificacion, PrioridadNotificacion } from './notificacion-evento.dto';

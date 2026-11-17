@@ -19,6 +19,7 @@ enum PrioridadIncidencia {
   baja
   media
   alta
+  critica
 }
 
 model Incidencias {
@@ -58,6 +59,7 @@ model OrdenTrabajo {
   id_tecnico          String      @db.Uuid
   diagnostico_tecnico String?     @db.Text
   fecha_creacion      DateTime    @default(now()) @db.Timestamp()
+  fecha_cierre        DateTime?   @db.Timestamp()
 
   incidencia          Incidencias @relation(fields: [id_incidencia], references: [id_incidencia], onDelete: Cascade)
 

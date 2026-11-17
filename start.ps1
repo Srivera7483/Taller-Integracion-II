@@ -51,6 +51,45 @@ if (Test-Path "ms-auth\.env") {
     }
 }
 
+# Sincronización de credenciales de Cloudinary desde .env raíz hacia ms-incidencias y frontend-web
+if (Test-Path ".env") {
+    $cName = ""
+    $cPreset = ""
+    Get-Content ".env" | ForEach-Object {
+        if ($_ -match "^\s*CLOUDINARY_CLOUD_NAME\s*=\s*(.+)") { $cName = $matches[1].Trim() }
+        if ($_ -match "^\s*CLOUDINARY_UPLOAD_PRESET\s*=\s*(.+)") { $cPreset = $matches[1].Trim() }
+    }
+
+    if ($cName -and $cPreset) {
+        if (Test-Path "ms-incidencias\.env") {
+            $cInc = Get-Content "ms-incidencias\.env"
+            if ($cInc -match "CLOUDINARY_CLOUD_NAME=") {
+                $cInc = $cInc -replace "^CLOUDINARY_CLOUD_NAME=.*", "CLOUDINARY_CLOUD_NAME=$cName"
+            } else {
+                $cInc += "CLOUDINARY_CLOUD_NAME=$cName"
+            }
+            if ($cInc -match "CLOUDINARY_UPLOAD_PRESET=") {
+                $cInc = $cInc -replace "^CLOUDINARY_UPLOAD_PRESET=.*", "CLOUDINARY_UPLOAD_PRESET=$cPreset"
+            } else {
+                $cInc += "CLOUDINARY_UPLOAD_PRESET=$cPreset"
+            }
+            $cInc | Set-Content "ms-incidencias\.env"
+            Write-Host "  [OK] Credenciales Cloudinary sincronizadas en ms-incidencias." -ForegroundColor Green
+        }
+
+        $frontendEnvPath = "frontend-web\.env"
+        $frontendEnvLines = @(
+            "VITE_API_URL=http://localhost:3000/api/v1",
+            "VITE_CLOUDINARY_CLOUD_NAME=$cName",
+            "VITE_CLOUDINARY_UPLOAD_PRESET=$cPreset",
+            "CLOUDINARY_CLOUD_NAME=$cName",
+            "CLOUDINARY_UPLOAD_PRESET=$cPreset"
+        )
+        $frontendEnvLines | Set-Content $frontendEnvPath
+        Write-Host "  [OK] Credenciales Cloudinary sincronizadas en frontend-web." -ForegroundColor Green
+    }
+}
+
 # Sincronizar dependencias de MS Notificaciones antes de Docker
 Write-Host "  -> Sincronizando dependencias de ms-notificaciones..." -ForegroundColor Cyan
 
@@ -105,112 +144,99 @@ foreach ($db in $bases) {
 }
 
 
-Write-Host "`n[5/7] Verificando dependencias y migraciones de Prisma..." -ForegroundColor Yellow
-
-$OldPreference = $ErrorActionPreference # solo en este proceso
+Write-Host "`n[5/7] Sincronizando bases de datos desde schema.prisma..." -ForegroundColor Yellow
 
 $serviciosPrisma = @("ms-auth", "ms-activos", "ms-incidencias")
-foreach ($srv in $serviciosPrisma) {
-    Write-Host "  -> Procesando $srv..." -ForegroundColor DarkGray
-    Push-Location $srv
 
-    $ErrorActionPreference = "Continue"
+foreach ($srv in $serviciosPrisma) {
+    Write-Host "  -> Procesando $srv..." -ForegroundColor Cyan
+
+    Push-Location $srv
 
     try {
         if (-not (Test-Path "node_modules")) {
-            Write-Host "     Instalando paquetes con pnpm..." -ForegroundColor DarkGray
-            pnpm.cmd install --silent
+            Write-Host "     Instalando dependencias con pnpm..." -ForegroundColor DarkGray
+
+            pnpm.cmd install
+
+            if ($LASTEXITCODE -ne 0) {
+                throw "Error instalando dependencias de $srv"
+            }
         }
-        pnpm.cmd exec prisma generate > $null 2>&1
-        pnpm.cmd exec prisma db push --skip-generate > $null 2>&1
-        Write-Host "     Esquema y tablas de $srv sincronizadas exitosamente." -ForegroundColor Green
-    } catch {
-        Write-Host "     [AVISO] Ocurrio un detalle durante la migracion de $($srv): $_" -ForegroundColor Yellow
-    } finally {
+
+        Write-Host "     Sincronizando schema.prisma..." -ForegroundColor DarkGray
+
+        pnpm.cmd exec prisma db push
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Error ejecutando prisma db push en $srv"
+        }
+
+        Write-Host "     Generando Prisma Client..." -ForegroundColor DarkGray
+
+        pnpm.cmd exec prisma generate
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Error generando Prisma Client en $srv"
+        }
+
+        Write-Host "     [OK] $srv sincronizado correctamente." -ForegroundColor Green
+    }
+    finally {
         Pop-Location
     }
 }
 
-$ErrorActionPreference = $OldPreference
-
 
 # sixseven xddxdxd
 # [6/7] Aplicando migraciones y agregando datos de prueba...
-Write-Host "`n[6/7] Aplicando migraciones y agregando datos de prueba..." -ForegroundColor Yellow
+Write-Host "`n[6/7] Ejecutando seeds de datos iniciales..." -ForegroundColor Yellow
 
 # Seed de MS Auth
 Push-Location "ms-auth"
 try {
-    Write-Host "Ingreso a ms-auth" -ForegroundColor Cyan
+    Write-Host "  -> Ejecutando seed de ms-auth..." -ForegroundColor Cyan
 
     node prisma/seed.cjs
 
     if ($LASTEXITCODE -ne 0) {
-        throw "El seed de ms-auth terminó con código $LASTEXITCODE"
+        throw "Error ejecutando seed de ms-auth"
     }
 
-    Write-Host "  -> Permisos y asociaciones de roles ingresados correctamente." -ForegroundColor Green
-}
-catch {
-    Write-Host "  [AVISO] No se pudo ejecutar el seed de ms-auth: $_" -ForegroundColor Yellow
+    Write-Host "     [OK] Seed de ms-auth completado." -ForegroundColor Green
 }
 finally {
     Pop-Location
 }
 
-# Reconstruir base de datos de MS Incidencias
+# Seed de MS Incidencias
 Push-Location "ms-incidencias"
 try {
-    Write-Host "Reconstruyendo incidencias_db..." -ForegroundColor Cyan
+    Write-Host "  -> Ejecutando seed de ms-incidencias..." -ForegroundColor Cyan
 
-    # Recrear tablas mediante las migraciones existentes
-    pnpm.cmd exec prisma migrate reset --force --skip-seed
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Error al reconstruir incidencias_db"
-    }
-
-    # Sincronizar el schema.prisma actual (incluye prioridad)
-    pnpm.cmd exec prisma db push
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Error al sincronizar schema.prisma"
-    }
-
-    # Regenerar Prisma Client
-    pnpm.cmd exec prisma generate
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Error al generar Prisma Client"
-    }
-
-    # Insertar datos iniciales
     pnpm.cmd exec prisma db seed
 
     if ($LASTEXITCODE -ne 0) {
-        throw "Error al ejecutar seed de ms-incidencias"
+        throw "Error ejecutando seed de ms-incidencias"
     }
 
-    Write-Host "Base de incidencias preparada correctamente." -ForegroundColor Green
+    Write-Host "     [OK] Seed de ms-incidencias completado." -ForegroundColor Green
 }
 finally {
     Pop-Location
 }
 
-# Seed raíz: incidencias de prueba
+# Seed raíz
 if (Test-Path "seed.cjs") {
-    try {
-        node seed.cjs
+    Write-Host "  -> Ejecutando seed raíz..." -ForegroundColor Cyan
 
-        if ($LASTEXITCODE -ne 0) {
-            throw "El seed raíz terminó con código $LASTEXITCODE"
-        }
+    node seed.cjs
 
-        Write-Host "  -> Incidencias de prueba ingresadas correctamente." -ForegroundColor Green
+    if ($LASTEXITCODE -ne 0) {
+        throw "Error ejecutando seed raíz"
     }
-    catch {
-        Write-Host "  [AVISO] No se pudo ejecutar seed.cjs: $_" -ForegroundColor Yellow
-    }
+
+    Write-Host "     [OK] Seed raíz completado." -ForegroundColor Green
 }
 
 
