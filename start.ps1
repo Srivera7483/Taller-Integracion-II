@@ -95,7 +95,7 @@ Write-Host "  -> Sincronizando dependencias de ms-notificaciones..." -Foreground
 
 Push-Location "ms-notificaciones"
 try {
-    pnpm.cmd install
+    pnpm.cmd install --ignore-workspace --ignore-scripts
 
     if ($LASTEXITCODE -ne 0) {
         throw "Error al instalar dependencias de ms-notificaciones"
