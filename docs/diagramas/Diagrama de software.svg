@@ -26,7 +26,7 @@
   <rect width="1420" height="1280" fill="#FFFFFF" />
 
   <!-- Encabezado -->
-  <text x="710" y="36" text-anchor="middle" class="title">Diagrama de Arquitectura de Software — SCGI UCT (Estado DEV Sprint 3)</text>
+  <text x="710" y="36" text-anchor="middle" class="title">Diagrama de Arquitectura de Software — SCGI UCT</text>
   <text x="710" y="58" text-anchor="middle" class="subtitle">4 Microservicios + API Gateway Unificado (Fastify &amp; Socket.io) + RabbitMQ con DLQ + Cloudinary en MS Incidencias</text>
 
   <!-- 1. CAPA DE PRESENTACION -->
@@ -53,8 +53,8 @@
 
   <rect x="360" y="332" width="700" height="90" rx="12" fill="#FEF9C3" stroke="#EAB308" stroke-width="2.2" />
   <text x="710" y="357" text-anchor="middle" class="node-title">API Gateway Unificado (Node.js + Fastify + Socket.io)</text>
-  <text x="710" y="377" text-anchor="middle" class="node-sub">Proxy HTTP (/api/v1/*)  •  CORS  •  Rate Limit Login  •  Kill Switch (TAL-4)</text>
-  <text x="710" y="396" text-anchor="middle" class="node-sub">Servidor WebSocket + Puente en Tiempo Real hacia MS Incidencias (TAL-2)</text>
+  <text x="710" y="377" text-anchor="middle" class="node-sub">Proxy HTTP (/api/v1/*)  •  CORS  •  Rate Limit Login  •  Kill Switch</text>
+  <text x="710" y="396" text-anchor="middle" class="node-sub">Servidor WebSocket + Puente en Tiempo Real hacia MS Incidencias</text>
   <text x="710" y="414" text-anchor="middle" class="node-port">Puerto: 3000 (HTTP + WS)</text>
 
   <!-- Flechas Presentacion <-> Gateway -->
@@ -74,7 +74,7 @@
   <rect x="70" y="558" width="250" height="128" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
   <text x="195" y="585" text-anchor="middle" class="node-title">MS Autenticación</text>
   <text x="195" y="606" text-anchor="middle" class="node-sub">NestJS + Express + JWT</text>
-  <text x="195" y="625" text-anchor="middle" class="node-sub">RBAC por Permisos (TAL-97)</text>
+  <text x="195" y="625" text-anchor="middle" class="node-sub">RBAC por Permisos</text>
   <text x="195" y="644" text-anchor="middle" class="node-sub">Gestión de Usuarios y Sesiones</text>
   <text x="195" y="668" text-anchor="middle" class="node-port">Puerto: 3001</text>
 
@@ -84,7 +84,7 @@
   <text x="550" y="598" text-anchor="middle" class="node-sub">NestJS + Express + IncidenciasGateway (WS)</text>
   <text x="550" y="617" text-anchor="middle" class="node-sub">Órdenes de Trabajo + Prioridad + RBAC</text>
   <text x="550" y="636" text-anchor="middle" class="node-sub">Gestión de Archivos y Evidencias (Multer + Sharp)</text>
-  <text x="550" y="655" text-anchor="middle" class="node-sub">Integración Cloudinary (TAL-191)</text>
+  <text x="550" y="655" text-anchor="middle" class="node-sub">Integración Cloudinary</text>
   <text x="550" y="678" text-anchor="middle" class="node-port">Puerto: 3002 (REST + Socket.io)</text>
 
   <!-- MS Activos -->
@@ -92,7 +92,7 @@
   <text x="905" y="585" text-anchor="middle" class="node-title">MS Activos</text>
   <text x="905" y="606" text-anchor="middle" class="node-sub">NestJS + Express</text>
   <text x="905" y="625" text-anchor="middle" class="node-sub">Inventario, QR y Trazabilidad</text>
-  <text x="905" y="644" text-anchor="middle" class="node-sub">Cron Mantenimientos (TAL-202)</text>
+  <text x="905" y="644" text-anchor="middle" class="node-sub">Cron Mantenimientos</text>
   <text x="905" y="668" text-anchor="middle" class="node-port">Puerto: 3003</text>
 
   <!-- MS Notificaciones -->
@@ -145,7 +145,7 @@
   <text x="840" y="822" text-anchor="middle" class="node-sub">Exchange Topic: uct.activos.events  •  DLX: uct.dlx</text>
   <text x="840" y="842" text-anchor="middle" class="node-sub">Colas: notificaciones.queue, auditoria.queue, incidencias_criticas</text>
   <text x="840" y="862" text-anchor="middle" class="node-sub">Dead Letter Queue: dead-letter.queue (TTL 5m, máx 3 reintentos)</text>
-  <text x="840" y="883" text-anchor="middle" class="node-sub">Health Check &amp; Setup Automático (TAL-176 + TAL-208)</text>
+  <text x="840" y="883" text-anchor="middle" class="node-sub">Health Check &amp; Setup Automático de Colas</text>
   <text x="840" y="904" text-anchor="middle" class="node-port">Puertos: 5672 (AMQP) / 15672 (Panel HTTP)</text>
 
   <!-- Flujo AMQP Incidencias -> RabbitMQ -> Notificaciones -->
@@ -169,8 +169,8 @@
 
   <!-- Flecha MS Incidencias -> Cloudinary (reemplaza el antiguo MS Archivos) -->
   <path d="M 465 692 L 465 920 L 245 920 L 245 1052" fill="none" stroke="#15803D" stroke-width="2.2" marker-end="url(#arrow)" />
-  <rect x="255" y="909" width="196" height="22" rx="4" class="badge-bg" />
-  <text x="353" y="924" text-anchor="middle" class="edge-label">Sube Evidencias API (TAL-191)</text>
+  <rect x="275" y="909" width="156" height="22" rx="4" class="badge-bg" />
+  <text x="353" y="924" text-anchor="middle" class="edge-label">Sube Evidencias API</text>
 
   <!-- 5. CAPA DE PERSISTENCIA FISICA -->
   <rect x="395" y="1005" width="985" height="175" rx="10" fill="#ECFEFF" stroke="#67E8F9" stroke-width="1.8" />
@@ -213,5 +213,5 @@
   <!-- Pie de pagina infraestructura -->
   <rect x="40" y="1202" width="1340" height="54" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" />
   <text x="710" y="1226" text-anchor="middle" class="node-title">Entorno, Orquestación y CI/CD</text>
-  <text x="710" y="1246" text-anchor="middle" class="node-sub">Desarrollo Local: Docker Compose (DBs + RabbitMQ + MS Notificaciones) + start.ps1   |   CI: GitHub Actions (TAL-220)   |   Producción PaaS: Kubero (TAL-213)</text>
+  <text x="710" y="1246" text-anchor="middle" class="node-sub">Desarrollo Local: Docker Compose (DBs + RabbitMQ + MS Notificaciones) + start.ps1   |   CI: GitHub Actions   |   Producción PaaS: Kubero</text>
 </svg>
