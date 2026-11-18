@@ -99,8 +99,30 @@ services:
     ports:
       - "127.0.0.1:${NOTIFICACIONES_PORT:-3004}:3004"
 
+  redis:
+      image: redis:7-alpine
+      container_name: redis
+      restart: unless-stopped
+      ports:
+        - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+      command: >
+        redis-server
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --save 60 1
+        --appendonly no
+      volumes:
+        - redis_data:/data
+      healthcheck:
+        test: ["CMD", "redis-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+
 volumes:
   auth_db_data:
   activos_db_data:
   incidencias_db_data:
   rabbitmq_data:
+  redis_data:
