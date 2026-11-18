@@ -4,14 +4,20 @@
  *
  * Criterios de Aceptación:
  * 1. Las alertas emergentes aparecen en la esquina superior derecha con sonido discreto opcional.
- * 2. Al hacer click en la alerta, navega a la orden de trabajo correspondiente (botón 'Ver Orden').
+ * 2. Al hacer click en la alerta, navega a la orden de trabajo o ticket correspondiente (botón 'Ver Orden').
  * 3. Soporta cierre manual y auto-desvanecimiento tras 6 segundos.
  */
 
 export const TOAST_AUTO_DISMISS_MS = 6000;
 export const TOAST_DEDUPE_WINDOW_MS = 2000;
+export const TOAST_MAX_DEDUPE_ENTRIES = 50;
 export const TOAST_SOUND_STORAGE_KEY = 'inframanager:toast_sound_enabled';
 export const TOAST_ACTION_LABEL = 'Ver Orden';
+
+export const PERMISOS_SALA_COORDINADORES = Object.freeze([
+  'ordenes:asignar',
+  'incidencias:clasificar_prioridad',
+]);
 
 const normalizarTexto = (valor = '') =>
   String(valor)
@@ -46,13 +52,13 @@ export const esCriticidadAlta = (rawPrioridad) => {
 };
 
 /**
- * Extrae los identificadores del usuario autenticado para comparar destinatarios.
+ * Extrae los identificadores del usuario autenticado para comparar destinatarios y permisos.
  * @param {Object|null|undefined} usuario
- * @returns {{ userId: string, correo: string, rol: string }}
+ * @returns {{ userId: string, correo: string, rol: string, permissions: string[] }}
  */
 export const extraerIdentidadUsuario = (usuario) => {
   if (!usuario || typeof usuario !== 'object') {
-    return { userId: '', correo: '', rol: '' };
+    return { userId: '', correo: '', rol: '', permissions: [] };
   }
 
   const rawId = usuario.id_usuario || usuario.id || usuario.userId || usuario.sub || '';
@@ -63,39 +69,103 @@ export const extraerIdentidadUsuario = (usuario) => {
     (typeof usuario.rol === 'string' ? usuario.rol : '') ||
     usuario.nombre_rol ||
     '';
+  const permissions = Array.isArray(usuario.permissions) ? usuario.permissions : [];
 
   return {
     userId: String(rawId).trim(),
     correo: String(rawCorreo).trim().toLowerCase(),
     rol: String(rawRol).trim().toUpperCase(),
+    permissions,
   };
 };
 
 /**
- * Verifica si el evento corresponde a una asignación de orden dirigida al técnico logueado.
- * @param {string} rawEventName
- * @param {Object} payload
- * @param {Object|null} usuarioActual
+ * Determina si el usuario autenticado posee permisos para suscribirse a la sala `coordinadores`.
+ * Evita que usuarios sin permisos de coordinación/asignación se unan a dicha sala.
+ *
+ * @param {Object|null} usuario
+ * @param {string[]} [permisosExplicitos]
  * @returns {boolean}
  */
-export const esAsignacionParaTecnicoLogueado = (rawEventName, payload = {}, usuarioActual = null) => {
+export const puedeSuscribirseASalaCoordinadores = (usuario = null, permisosExplicitos = null) => {
+  if (!usuario || typeof usuario !== 'object') {
+    return false;
+  }
+
+  const { permissions: permisosUsuario } = extraerIdentidadUsuario(usuario);
+  const listaPermisos = Array.isArray(permisosExplicitos) ? permisosExplicitos : permisosUsuario;
+
+  return listaPermisos.some((permiso) => PERMISOS_SALA_COORDINADORES.includes(permiso));
+};
+
+/**
+ * Resuelve la lista de salas WebSocket a las que debe suscribirse `Toast.jsx`
+ * según los permisos reales del usuario autenticado.
+ *
+ * @param {Object|null} usuario
+ * @param {string[]} [permisosExplicitos]
+ * @returns {string[]}
+ */
+export const resolverSalasSuscripcionToast = (usuario = null, permisosExplicitos = null) => {
+  if (!usuario || typeof usuario !== 'object') {
+    return [];
+  }
+
+  const salas = ['incidencias'];
+  if (puedeSuscribirseASalaCoordinadores(usuario, permisosExplicitos)) {
+    salas.push('coordinadores');
+  }
+  return salas;
+};
+
+/**
+ * Determina si el evento corresponde a una operación de asignación de orden de trabajo.
+ * @param {string} rawEventName
+ * @param {Object} payload
+ * @returns {boolean}
+ */
+export const esEventoDeAsignacion = (rawEventName, payload = {}) => {
   if (!payload || typeof payload !== 'object') return false;
 
   const tipoEvento = String(payload.tipo_evento || payload.evento || '').toUpperCase();
   const estadoNorm = normalizarTexto(payload.nuevo_estado || payload.estado || '');
   const eventoNorm = normalizarTexto(rawEventName || '');
 
-  const esEventoAsignacion =
+  return (
     eventoNorm === 'orden_asignada' ||
     tipoEvento === 'ASIGNACION_ORDEN' ||
     tipoEvento === 'ORDEN_TRABAJO_ASIGNADA' ||
-    (estadoNorm === 'asignada' && Boolean(payload.id_tecnico || payload.usuario_responsable));
+    (estadoNorm === 'asignada' &&
+      Boolean(payload.id_tecnico || payload.tecnico_id || payload.usuario_responsable))
+  );
+};
 
-  if (!esEventoAsignacion) return false;
+/**
+ * Verifica si el evento corresponde a una asignación de orden dirigida específicamente al técnico logueado.
+ * @param {string} rawEventName
+ * @param {Object} payload
+ * @param {Object|null} usuarioActual
+ * @returns {boolean}
+ */
+export const esAsignacionParaTecnicoLogueado = (rawEventName, payload = {}, usuarioActual = null) => {
+  if (!payload || typeof payload !== 'object' || !usuarioActual) return false;
+
+  if (!esEventoDeAsignacion(rawEventName, payload)) {
+    return false;
+  }
 
   const { userId, correo } = extraerIdentidadUsuario(usuarioActual);
+  if (!userId && !correo) {
+    return false;
+  }
+
   const idTecnicoDestino = String(
-    payload.id_tecnico || payload.tecnico_id || payload.usuario_responsable || '',
+    payload.id_tecnico ||
+      payload.tecnico_id ||
+      payload.id_tecnico_asignado ||
+      payload.orden_trabajo?.id_tecnico ||
+      payload.usuario_responsable ||
+      '',
   ).trim();
   const correoTecnicoDestino = String(payload.correo_tecnico || payload.email_tecnico || '')
     .trim()
@@ -117,7 +187,11 @@ export const esAsignacionParaTecnicoLogueado = (rawEventName, payload = {}, usua
 };
 
 /**
- * Criterio 2: Resuelve la ruta de navegación directa hacia la orden de trabajo o ticket.
+ * Criterio 2: Resuelve la ruta de navegación directa respetando la entidad correspondiente:
+ * - Si existe `id_orden`, redirige a `/ordenes/:idOrden` (`DetalleOrden.jsx`).
+ * - Si solo existe `id_incidencia`, redirige a `/incidencias/:idIncidencia` (`DetalleIncidencia.jsx`).
+ * No utiliza `id_incidencia` como sustituto de `id_orden`.
+ *
  * @param {Object} payload
  * @returns {string}
  */
@@ -146,7 +220,7 @@ export const resolverRutaOrdenTrabajo = (payload = {}) => {
     payload.id_incidencia || payload.incidencia_id || payload.idIncidencia || payload.id || null;
 
   if (idIncidencia) {
-    return `/ordenes/${encodeURIComponent(String(idIncidencia).trim())}`;
+    return `/incidencias/${encodeURIComponent(String(idIncidencia).trim())}`;
   }
 
   return '/incidencias';
@@ -154,39 +228,65 @@ export const resolverRutaOrdenTrabajo = (payload = {}) => {
 
 /**
  * Evalúa un evento entrante de WebSocket y construye la configuración del Toast interactivo
- * si es una alerta de criticidad ALTA/CRÍTICA o una asignación al técnico logueado.
+ * si es una alerta de criticidad ALTA/CRÍTICA dirigida al usuario o una asignación al técnico logueado.
+ *
+ * Garantiza que nunca se notifique a un técnico sobre asignaciones o alertas destinadas a otro técnico,
+ * incluso cuando la incidencia tenga prioridad ALTA o CRÍTICA.
  *
  * @param {string} rawEventName
  * @param {Object} payload
  * @param {Object|null} usuarioActual
+ * @param {string[]} [permisosExplicitos]
  * @returns {Object|null}
  */
 export const construirAlertaToastDesdeWebSocket = (
   rawEventName,
   payload = {},
   usuarioActual = null,
+  permisosExplicitos = null,
 ) => {
-  if (!payload || typeof payload !== 'object') {
+  if (!payload || typeof payload !== 'object' || !usuarioActual) {
     return null;
   }
 
+  const { userId, correo } = extraerIdentidadUsuario(usuarioActual);
+  if (!userId && !correo) {
+    return null;
+  }
+
+  const esAsignacion = esEventoDeAsignacion(rawEventName, payload);
   const asignadaAlUsuario = esAsignacionParaTecnicoLogueado(rawEventName, payload, usuarioActual);
   const rawPrioridad = payload.prioridad || payload.criticidad || payload.nivel || null;
   const criticidadAlta = esCriticidadAlta(rawPrioridad);
 
-  // Si es una asignación explícita a otro técnico distinto y no es de criticidad alta, ignorar
-  const { userId } = extraerIdentidadUsuario(usuarioActual);
-  const idTecnicoEvento = String(
-    payload.id_tecnico || payload.tecnico_id || payload.usuario_responsable || '',
-  ).trim();
-  const esAsignacion =
-    normalizarTexto(rawEventName) === 'orden_asignada' ||
-    String(payload.tipo_evento || '').toUpperCase() === 'ASIGNACION_ORDEN';
+  // Si es un evento de asignación y el usuario actual NO es el técnico destinatario,
+  // jamás debe notificarse como alerta propia (ni siquiera si la prioridad es alta/crítica).
+  if (esAsignacion && !asignadaAlUsuario) {
+    return null;
+  }
 
-  if (esAsignacion && !asignadaAlUsuario && userId && idTecnicoEvento && userId !== idTecnicoEvento) {
-    if (!criticidadAlta) {
-      return null;
-    }
+  // Si el evento (aunque no sea de tipo orden_asignada) trae un técnico destinatario explícito
+  // distinto al usuario actual y el usuario no tiene permisos de coordinación, ignorar.
+  const idTecnicoExplicito = String(
+    payload.id_tecnico ||
+      payload.tecnico_id ||
+      payload.id_tecnico_asignado ||
+      payload.orden_trabajo?.id_tecnico ||
+      '',
+  ).trim();
+  const correoTecnicoExplicito = String(payload.correo_tecnico || payload.email_tecnico || '')
+    .trim()
+    .toLowerCase();
+
+  const coincideTecnicoExplicito =
+    (userId && idTecnicoExplicito && userId === idTecnicoExplicito) ||
+    (correo && correoTecnicoExplicito && correo === correoTecnicoExplicito);
+
+  const tieneTecnicoAjeno =
+    (Boolean(idTecnicoExplicito) || Boolean(correoTecnicoExplicito)) && !coincideTecnicoExplicito;
+
+  if (tieneTecnicoAjeno && !puedeSuscribirseASalaCoordinadores(usuarioActual, permisosExplicitos)) {
+    return null;
   }
 
   if (!asignadaAlUsuario && !criticidadAlta) {
@@ -217,7 +317,7 @@ export const construirAlertaToastDesdeWebSocket = (
       motivo: 'ORDEN_ASIGNADA',
       duration: TOAST_AUTO_DISMISS_MS,
       playSound: true,
-      dedupeKey: `ORDEN:${idOrden || ''}:${idIncidencia || ''}:${idTecnicoEvento}`,
+      dedupeKey: `ORDEN:${idOrden || ''}:${idIncidencia || ''}:${userId || correo}`,
     };
   }
 
@@ -241,6 +341,49 @@ export const construirAlertaToastDesdeWebSocket = (
     playSound: true,
     dedupeKey: `ALTA:${idIncidencia || ''}:${idOrden || ''}:${etiquetaPrioridad}`,
   };
+};
+
+/**
+ * Purga entradas expiradas del mapa de deduplicación, acota su tamaño máximo
+ * para evitar acumulación indefinida en memoria y verifica si la clave actual es duplicada.
+ *
+ * @param {Map<string, number>} dedupeMap
+ * @param {string} dedupeKey
+ * @param {number} [ahora=Date.now()]
+ * @param {number} [ttlMs=TOAST_DEDUPE_WINDOW_MS]
+ * @param {number} [maxEntries=TOAST_MAX_DEDUPE_ENTRIES]
+ * @returns {boolean} `true` si la clave ya fue procesada dentro de la ventana temporal.
+ */
+export const esEventoToastDuplicado = (
+  dedupeMap,
+  dedupeKey,
+  ahora = Date.now(),
+  ttlMs = TOAST_DEDUPE_WINDOW_MS,
+  maxEntries = TOAST_MAX_DEDUPE_ENTRIES,
+) => {
+  if (!(dedupeMap instanceof Map) || !dedupeKey) {
+    return false;
+  }
+
+  for (const [clave, timestamp] of dedupeMap.entries()) {
+    if (ahora - timestamp >= ttlMs) {
+      dedupeMap.delete(clave);
+    }
+  }
+
+  const ultimoTiempo = dedupeMap.get(dedupeKey);
+  if (typeof ultimoTiempo === 'number' && ahora - ultimoTiempo < ttlMs) {
+    return true;
+  }
+
+  while (dedupeMap.size >= maxEntries) {
+    const claveMasAntigua = dedupeMap.keys().next().value;
+    if (claveMasAntigua === undefined) break;
+    dedupeMap.delete(claveMasAntigua);
+  }
+
+  dedupeMap.set(dedupeKey, ahora);
+  return false;
 };
 
 /**

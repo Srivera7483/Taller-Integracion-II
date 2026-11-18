@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   FiAlertTriangle,
   FiBell,
@@ -12,12 +12,18 @@ import {
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import { useWebSocket, WS_EVENTS } from '../hooks/useWebSocket';
-import { getUsuarioActual } from '../services/authService';
+import {
+  getAccessToken,
+  getPermissions,
+  getUsuarioActual,
+} from '../services/authService';
 import {
   TOAST_ACTION_LABEL,
   TOAST_AUTO_DISMISS_MS,
-  TOAST_DEDUPE_WINDOW_MS,
   construirAlertaToastDesdeWebSocket,
+  esEventoToastDuplicado,
+  extraerIdentidadUsuario,
+  resolverSalasSuscripcionToast,
 } from '../utils/realtimeToastAlerts';
 
 const TYPE_STYLES = {
@@ -42,9 +48,30 @@ const ToastIcon = ({ type }) => {
 };
 
 /**
+ * Subcomponente de suscripción WebSocket vinculado al ciclo de vida de la sesión autenticada.
+ * - Solo se monta cuando existe una sesión válida (`sesionActiva === true`).
+ * - Al cerrar sesión o cambiar de usuario (`key={sessionKey}`), se desmonta limpiando listeners
+ *   y cerrando la conexión WebSocket inmediatamente.
+ * - Suscribe únicamente a las salas permitidas según los permisos del usuario.
+ */
+const ToastRealtimeSubscriber = ({ salas, onEvent }) => {
+  useWebSocket(
+    {
+      onOrdenAsignada: (payload) => onEvent(WS_EVENTS.ORDEN_ASIGNADA, payload),
+      onIncidenciaActualizada: (payload) => onEvent(WS_EVENTS.INCIDENCIA_ACTUALIZADA, payload),
+      onNuevaIncidencia: (payload) => onEvent(WS_EVENTS.NUEVA_INCIDENCIA, payload),
+      onEstadoCambiado: (payload) => onEvent(WS_EVENTS.ESTADO_CAMBIADO, payload),
+    },
+    { autoConnect: true, salas },
+  );
+
+  return null;
+};
+
+/**
  * TAL-189: Sistema de Notificaciones Toast Flotantes en Tiempo Real.
  * - Criterio 1: Aparece en la esquina superior derecha (`fixed top-4 right-4 z-50`) con sonido discreto opcional.
- * - Criterio 2: Al hacer click en la alerta o en el botón 'Ver Orden', navega a la orden de trabajo correspondiente.
+ * - Criterio 2: Al hacer click en la alerta o en el botón 'Ver Orden', navega a la orden de trabajo o incidencia correspondiente.
  * - Criterio 3: Soporta cierre manual y auto-desvanecimiento tras 6 segundos (`TOAST_AUTO_DISMISS_MS = 6000`).
  */
 const Toast = () => {
@@ -62,41 +89,79 @@ const Toast = () => {
   } = useToast();
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const [, setSessionRevision] = useState(0);
   const dedupeMapRef = useRef(new Map());
+  const prevSessionKeyRef = useRef('');
+
+  // Evaluar estado de sesión actual en cada render (incluyendo cambios de ruta login/logout)
+  const token = getAccessToken();
+  const usuarioActual = getUsuarioActual();
+  const { userId, correo, rol } = extraerIdentidadUsuario(usuarioActual);
+  const sesionActiva = Boolean(token && usuarioActual && (userId || correo));
+  const permisosUsuario = sesionActiva ? getPermissions() : [];
+  const salasPermitidas = sesionActiva
+    ? resolverSalasSuscripcionToast(usuarioActual, permisosUsuario)
+    : [];
+  const sessionKey = sesionActiva
+    ? `${token}:${userId || correo}:${rol}:${salasPermitidas.join(',')}`
+    : '';
+
+  // Sincronizar cambios de inicio/cierre de sesión disparados por authService o storage
+  useEffect(() => {
+    const handleCambioSesion = () => {
+      setSessionRevision((rev) => rev + 1);
+    };
+
+    window.addEventListener('tecnico-cambiado', handleCambioSesion);
+    window.addEventListener('storage', handleCambioSesion);
+    return () => {
+      window.removeEventListener('tecnico-cambiado', handleCambioSesion);
+      window.removeEventListener('storage', handleCambioSesion);
+    };
+  }, []);
+
+  // Limpiar caché de deduplicación y alertas activas al cerrar o cambiar de sesión
+  useEffect(() => {
+    if (prevSessionKeyRef.current && prevSessionKeyRef.current !== sessionKey) {
+      dedupeMapRef.current.clear();
+      if (actionUrl) {
+        hideToast();
+      }
+    }
+    prevSessionKeyRef.current = sessionKey;
+  }, [sessionKey, actionUrl, hideToast, location.pathname]);
+
+  useEffect(() => {
+    const mapActual = dedupeMapRef.current;
+    return () => {
+      mapActual.clear();
+    };
+  }, []);
 
   const procesarEventoTiempoReal = useCallback(
     (rawEventName, payload) => {
-      const usuarioActual = getUsuarioActual();
-      const alerta = construirAlertaToastDesdeWebSocket(rawEventName, payload, usuarioActual);
+      const tokenVigente = getAccessToken();
+      const usuarioVigente = getUsuarioActual();
+      if (!tokenVigente || !usuarioVigente) return;
+
+      const permisosVigentes = getPermissions();
+      const alerta = construirAlertaToastDesdeWebSocket(
+        rawEventName,
+        payload,
+        usuarioVigente,
+        permisosVigentes,
+      );
       if (!alerta) return;
 
-      const ahora = Date.now();
       const dedupeKey = alerta.dedupeKey || `${rawEventName}:${alerta.actionUrl}`;
-      const ultimoTiempo = dedupeMapRef.current.get(dedupeKey) || 0;
-
-      if (ahora - ultimoTiempo < TOAST_DEDUPE_WINDOW_MS) {
+      if (esEventoToastDuplicado(dedupeMapRef.current, dedupeKey, Date.now())) {
         return;
       }
 
-      dedupeMapRef.current.set(dedupeKey, ahora);
       showToast(alerta);
     },
     [showToast],
-  );
-
-  // Integración directa con el canal de eventos WebSocket (TAL-186)
-  useWebSocket(
-    {
-      onOrdenAsignada: (payload) =>
-        procesarEventoTiempoReal(WS_EVENTS.ORDEN_ASIGNADA, payload),
-      onIncidenciaActualizada: (payload) =>
-        procesarEventoTiempoReal(WS_EVENTS.INCIDENCIA_ACTUALIZADA, payload),
-      onNuevaIncidencia: (payload) =>
-        procesarEventoTiempoReal(WS_EVENTS.NUEVA_INCIDENCIA, payload),
-      onEstadoCambiado: (payload) =>
-        procesarEventoTiempoReal(WS_EVENTS.ESTADO_CAMBIADO, payload),
-    },
-    { salas: ['incidencias', 'coordinadores'] },
   );
 
   // Puente de eventos DOM para disparo programático y pruebas E2E
@@ -113,8 +178,6 @@ const Toast = () => {
       window.removeEventListener('ws-toast-alert', handleCustomWsToast);
     };
   }, [procesarEventoTiempoReal]);
-
-  if (!isVisible) return null;
 
   const currentStyle = TYPE_STYLES[type] || TYPE_STYLES.info;
   const esInteractivo = Boolean(actionUrl);
@@ -148,85 +211,105 @@ const Toast = () => {
   };
 
   return (
-    <div
-      role={type === 'critical' || type === 'error' ? 'alert' : 'status'}
-      id="toast-notification"
-      data-cy="toast-notification"
-      data-toast-type={type || 'info'}
-      data-toast-duration={TOAST_AUTO_DISMISS_MS}
-      data-action-url={actionUrl || ''}
-      aria-live={type === 'critical' ? 'assertive' : 'polite'}
-      tabIndex={esInteractivo ? 0 : undefined}
-      onClick={esInteractivo ? handleNavegarOrden : undefined}
-      onKeyDown={esInteractivo ? handleKeyDownAlerta : undefined}
-      className={`fixed top-4 right-4 z-50 max-w-md w-[calc(100vw-2rem)] sm:w-auto sm:min-w-[340px] px-4 py-3.5 rounded-xl border shadow-2xl transition-all duration-300 ${currentStyle} ${
-        esInteractivo ? 'cursor-pointer hover:brightness-105' : ''
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <ToastIcon type={type} />
+    <>
+      {sesionActiva && (
+        <ToastRealtimeSubscriber
+          key={sessionKey}
+          salas={salasPermitidas}
+          onEvent={procesarEventoTiempoReal}
+        />
+      )}
 
-        <div className="flex-1 min-w-0">
-          {title && (
-            <p
-              id="toast-title"
-              data-cy="toast-title"
-              className="text-xs font-extrabold uppercase tracking-wider text-white/95 mb-0.5"
-            >
-              {title}
-            </p>
-          )}
-          <p id="toast-message" data-cy="toast-message" className="text-sm font-medium leading-snug break-words">
-            {message}
-          </p>
+      {isVisible && (
+        <div
+          role={type === 'critical' || type === 'error' ? 'alert' : 'status'}
+          id="toast-notification"
+          data-cy="toast-notification"
+          data-toast-type={type || 'info'}
+          data-toast-duration={TOAST_AUTO_DISMISS_MS}
+          data-action-url={actionUrl || ''}
+          aria-live={type === 'critical' ? 'assertive' : 'polite'}
+          tabIndex={esInteractivo ? 0 : undefined}
+          onClick={esInteractivo ? handleNavegarOrden : undefined}
+          onKeyDown={esInteractivo ? handleKeyDownAlerta : undefined}
+          className={`fixed top-4 right-4 z-50 max-w-md w-[calc(100vw-2rem)] sm:w-auto sm:min-w-[340px] px-4 py-3.5 rounded-xl border shadow-2xl transition-all duration-300 ${currentStyle} ${
+            esInteractivo ? 'cursor-pointer hover:brightness-105' : ''
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <ToastIcon type={type} />
 
-          {esInteractivo && (
-            <div className="mt-2.5 flex items-center gap-2">
+            <div className="flex-1 min-w-0">
+              {title && (
+                <p
+                  id="toast-title"
+                  data-cy="toast-title"
+                  className="text-xs font-extrabold uppercase tracking-wider text-white/95 mb-0.5"
+                >
+                  {title}
+                </p>
+              )}
+              <p
+                id="toast-message"
+                data-cy="toast-message"
+                className="text-sm font-medium leading-snug break-words"
+              >
+                {message}
+              </p>
+
+              {esInteractivo && (
+                <div className="mt-2.5 flex items-center gap-2">
+                  <button
+                    type="button"
+                    id="toast-ver-orden"
+                    data-cy="toast-ver-orden"
+                    onClick={handleNavegarOrden}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-gray-900 hover:bg-gray-100 text-xs font-bold shadow-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  >
+                    <span>{textoBoton}</span>
+                    <FiExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
-                id="toast-ver-orden"
-                data-cy="toast-ver-orden"
-                onClick={handleNavegarOrden}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white text-gray-900 hover:bg-gray-100 text-xs font-bold shadow-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                id="toast-sound-toggle"
+                data-cy="toast-sound-toggle"
+                onClick={handleToggleSonido}
+                aria-label={
+                  soundEnabled ? 'Silenciar sonido de alertas' : 'Activar sonido de alertas'
+                }
+                title={
+                  soundEnabled ? 'Sonido discreto activado' : 'Sonido discreto silenciado'
+                }
+                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
               >
-                <span>{textoBoton}</span>
-                <FiExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                {soundEnabled ? (
+                  <FiVolume2 className="w-4 h-4" aria-hidden="true" />
+                ) : (
+                  <FiVolumeX className="w-4 h-4" aria-hidden="true" />
+                )}
+              </button>
+
+              <button
+                type="button"
+                id="toast-close-btn"
+                data-cy="toast-close-btn"
+                onClick={handleCerrarManual}
+                aria-label="Cerrar notificación"
+                title="Cerrar notificación"
+                className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              >
+                <FiX className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
-          )}
+          </div>
         </div>
-
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            id="toast-sound-toggle"
-            data-cy="toast-sound-toggle"
-            onClick={handleToggleSonido}
-            aria-label={soundEnabled ? 'Silenciar sonido de alertas' : 'Activar sonido de alertas'}
-            title={soundEnabled ? 'Sonido discreto activado' : 'Sonido discreto silenciado'}
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            {soundEnabled ? (
-              <FiVolume2 className="w-4 h-4" aria-hidden="true" />
-            ) : (
-              <FiVolumeX className="w-4 h-4" aria-hidden="true" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            id="toast-close-btn"
-            data-cy="toast-close-btn"
-            onClick={handleCerrarManual}
-            aria-label="Cerrar notificación"
-            title="Cerrar notificación"
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/15 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-          >
-            <FiX className="w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 
