@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1420" height="1280" viewBox="0 0 1420 1280">
+  <defs>
+    <style>
+      .title { font-family: 'Segoe UI', Arial, sans-serif; font-size: 22px; font-weight: 700; fill: #0F172A; }
+      .subtitle { font-family: 'Segoe UI', Arial, sans-serif; font-size: 13px; font-weight: 500; fill: #475569; }
+      .layer-title { font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px; font-weight: 700; fill: #1E293B; }
+      .node-title { font-family: 'Segoe UI', Arial, sans-serif; font-size: 15px; font-weight: 700; fill: #0F172A; }
+      .node-sub { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12.5px; font-weight: 500; fill: #334155; }
+      .node-port { font-family: 'Consolas', 'Segoe UI', monospace; font-size: 12px; font-weight: 700; fill: #1D4ED8; }
+      .edge-label { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11.5px; font-weight: 600; fill: #1E293B; }
+      .badge-bg { fill: #FFFFFF; stroke: #CBD5E1; stroke-width: 1; }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#1E293B" />
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#2563EB" />
+    </marker>
+    <marker id="arrow-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#475569" />
+    </marker>
+  </defs>
+
+  <!-- Fondo blanco -->
+  <rect width="1420" height="1280" fill="#FFFFFF" />
+
+  <!-- Encabezado -->
+  <text x="710" y="36" text-anchor="middle" class="title">Diagrama de Arquitectura de Software — SCGI UCT (Estado DEV Sprint 3)</text>
+  <text x="710" y="58" text-anchor="middle" class="subtitle">4 Microservicios + API Gateway Unificado (Fastify &amp; Socket.io) + RabbitMQ con DLQ + Cloudinary en MS Incidencias</text>
+
+  <!-- 1. CAPA DE PRESENTACION -->
+  <rect x="250" y="80" width="920" height="145" rx="10" fill="#FAF5FF" stroke="#D8B4FE" stroke-width="1.8" />
+  <text x="270" y="104" text-anchor="start" class="layer-title">Capa de Presentación</text>
+
+  <!-- Web PWA -->
+  <rect x="305" y="120" width="370" height="88" rx="8" fill="#F0FDF4" stroke="#22C55E" stroke-width="1.8" />
+  <text x="490" y="144" text-anchor="middle" class="node-title">Aplicación Web (PWA)</text>
+  <text x="490" y="164" text-anchor="middle" class="node-sub">React 19 + Vite + Tailwind + vite-plugin-pwa</text>
+  <text x="490" y="182" text-anchor="middle" class="node-sub">Socket.io Client (useWebSocket) + Modo Mantenimiento</text>
+  <text x="490" y="199" text-anchor="middle" class="node-port">Puerto: 5173</text>
+
+  <!-- App Movil -->
+  <rect x="745" y="120" width="370" height="88" rx="8" fill="#F0FDF4" stroke="#22C55E" stroke-width="1.8" />
+  <text x="930" y="144" text-anchor="middle" class="node-title">Aplicación Móvil</text>
+  <text x="930" y="164" text-anchor="middle" class="node-sub">React Native + Expo</text>
+  <text x="930" y="182" text-anchor="middle" class="node-sub">Contrato OpenAPI v1.3.0 (SCGI API)</text>
+  <text x="930" y="199" text-anchor="middle" class="node-port">Cliente REST Móvil</text>
+
+  <!-- 2. CAPA DE ENRUTAMIENTO, SEGURIDAD Y TIEMPO REAL -->
+  <rect x="250" y="295" width="920" height="142" rx="10" fill="#ECFEFF" stroke="#5EEAD4" stroke-width="1.8" />
+  <text x="270" y="319" text-anchor="start" class="layer-title">Capa de Enrutamiento, Seguridad y Tiempo Real</text>
+
+  <rect x="360" y="332" width="700" height="90" rx="12" fill="#FEF9C3" stroke="#EAB308" stroke-width="2.2" />
+  <text x="710" y="357" text-anchor="middle" class="node-title">API Gateway Unificado (Node.js + Fastify + Socket.io)</text>
+  <text x="710" y="377" text-anchor="middle" class="node-sub">Proxy HTTP (/api/v1/*)  •  CORS  •  Rate Limit Login  •  Kill Switch (TAL-4)</text>
+  <text x="710" y="396" text-anchor="middle" class="node-sub">Servidor WebSocket + Puente en Tiempo Real hacia MS Incidencias (TAL-2)</text>
+  <text x="710" y="414" text-anchor="middle" class="node-port">Puerto: 3000 (HTTP + WS)</text>
+
+  <!-- Flechas Presentacion <-> Gateway -->
+  <line x1="490" y1="208" x2="640" y2="330" stroke="#2563EB" stroke-width="2" marker-start="url(#arrow-blue)" marker-end="url(#arrow-blue)" />
+  <rect x="460" y="250" width="178" height="22" rx="4" class="badge-bg" />
+  <text x="549" y="265" text-anchor="middle" class="edge-label" fill="#1D4ED8">HTTP REST + WebSockets</text>
+
+  <line x1="930" y1="208" x2="810" y2="330" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="822" y="250" width="84" height="22" rx="4" class="badge-bg" />
+  <text x="864" y="265" text-anchor="middle" class="edge-label">HTTP REST</text>
+
+  <!-- 3. CAPA DE LOGICA DE NEGOCIO / MICROSERVICIOS -->
+  <rect x="40" y="505" width="1340" height="445" rx="10" fill="#FFF7ED" stroke="#FDBA74" stroke-width="1.8" />
+  <text x="365" y="530" text-anchor="middle" class="layer-title">Capa de Lógica de Negocio (4 Microservicios)</text>
+
+  <!-- MS Autenticacion -->
+  <rect x="70" y="558" width="250" height="128" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
+  <text x="195" y="585" text-anchor="middle" class="node-title">MS Autenticación</text>
+  <text x="195" y="606" text-anchor="middle" class="node-sub">NestJS + Express + JWT</text>
+  <text x="195" y="625" text-anchor="middle" class="node-sub">RBAC por Permisos (TAL-97)</text>
+  <text x="195" y="644" text-anchor="middle" class="node-sub">Gestión de Usuarios y Sesiones</text>
+  <text x="195" y="668" text-anchor="middle" class="node-port">Puerto: 3001</text>
+
+  <!-- MS Incidencias (consolida evidencias Cloudinary) -->
+  <rect x="395" y="552" width="310" height="140" rx="8" fill="#DBEAFE" stroke="#2563EB" stroke-width="2.5" />
+  <text x="550" y="578" text-anchor="middle" class="node-title">MS Incidencias</text>
+  <text x="550" y="598" text-anchor="middle" class="node-sub">NestJS + Express + IncidenciasGateway (WS)</text>
+  <text x="550" y="617" text-anchor="middle" class="node-sub">Órdenes de Trabajo + Prioridad + RBAC</text>
+  <text x="550" y="636" text-anchor="middle" class="node-sub">Gestión de Archivos y Evidencias (Multer + Sharp)</text>
+  <text x="550" y="655" text-anchor="middle" class="node-sub">Integración Cloudinary (TAL-191)</text>
+  <text x="550" y="678" text-anchor="middle" class="node-port">Puerto: 3002 (REST + Socket.io)</text>
+
+  <!-- MS Activos -->
+  <rect x="780" y="558" width="250" height="128" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
+  <text x="905" y="585" text-anchor="middle" class="node-title">MS Activos</text>
+  <text x="905" y="606" text-anchor="middle" class="node-sub">NestJS + Express</text>
+  <text x="905" y="625" text-anchor="middle" class="node-sub">Inventario, QR y Trazabilidad</text>
+  <text x="905" y="644" text-anchor="middle" class="node-sub">Cron Mantenimientos (TAL-202)</text>
+  <text x="905" y="668" text-anchor="middle" class="node-port">Puerto: 3003</text>
+
+  <!-- MS Notificaciones -->
+  <rect x="1100" y="558" width="250" height="128" rx="8" fill="#EFF6FF" stroke="#3B82F6" stroke-width="2" />
+  <text x="1225" y="585" text-anchor="middle" class="node-title">MS Notificaciones</text>
+  <text x="1225" y="606" text-anchor="middle" class="node-sub">NestJS + Nodemailer + Handlebars</text>
+  <text x="1225" y="625" text-anchor="middle" class="node-sub">Consumidores AMQP (Notif / Audit)</text>
+  <text x="1225" y="644" text-anchor="middle" class="node-sub">Endpoints HTTP (/notificar, /eventos/*)</text>
+  <text x="1225" y="668" text-anchor="middle" class="node-port">Puerto: 3004</text>
+
+  <!-- Bus de enrutamiento Gateway -> Microservicios -->
+  <line x1="710" y1="422" x2="710" y2="462" stroke="#1E293B" stroke-width="2" />
+  <line x1="195" y1="462" x2="1225" y2="462" stroke="#1E293B" stroke-width="2" />
+
+  <line x1="195" y1="462" x2="195" y2="554" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="135" y="451" width="120" height="22" rx="4" class="badge-bg" />
+  <text x="195" y="466" text-anchor="middle" class="edge-label">Proxy /api/v1/auth</text>
+
+  <line x1="550" y1="462" x2="550" y2="548" stroke="#2563EB" stroke-width="2.2" marker-start="url(#arrow-blue)" marker-end="url(#arrow-blue)" />
+  <rect x="445" y="451" width="210" height="22" rx="4" class="badge-bg" />
+  <text x="550" y="466" text-anchor="middle" class="edge-label">Proxy /incidencias + WS Bridge</text>
+
+  <line x1="905" y1="462" x2="905" y2="554" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="836" y="451" width="138" height="22" rx="4" class="badge-bg" />
+  <text x="905" y="466" text-anchor="middle" class="edge-label">Proxy /api/v1/activos</text>
+
+  <line x1="1225" y1="462" x2="1225" y2="554" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="1142" y="451" width="166" height="22" rx="4" class="badge-bg" />
+  <text x="1225" y="466" text-anchor="middle" class="edge-label">Proxy /api/v1/notificaciones</text>
+
+  <!-- Comunicacion inter-servicio REST -->
+  <line x1="395" y1="622" x2="324" y2="622" stroke="#475569" stroke-width="1.8" stroke-dasharray="5,4" marker-end="url(#arrow-gray)" />
+  <rect x="323" y="592" width="70" height="28" rx="4" class="badge-bg" />
+  <text x="358" y="604" text-anchor="middle" class="edge-label">Valida</text>
+  <text x="358" y="616" text-anchor="middle" class="edge-label">Usuario</text>
+
+  <line x1="705" y1="622" x2="776" y2="622" stroke="#475569" stroke-width="1.8" stroke-dasharray="5,4" marker-end="url(#arrow-gray)" />
+  <rect x="708" y="592" width="69" height="28" rx="4" class="badge-bg" />
+  <text x="742" y="604" text-anchor="middle" class="edge-label">Valida</text>
+  <text x="742" y="616" text-anchor="middle" class="edge-label">Activo</text>
+
+  <!-- Llamada HTTP directa a MS Notificaciones -->
+  <path d="M 650 692 L 650 725 L 1165 725 L 1165 690" fill="none" stroke="#475569" stroke-width="1.8" stroke-dasharray="5,4" marker-end="url(#arrow-gray)" />
+  <rect x="815" y="714" width="180" height="22" rx="4" class="badge-bg" />
+  <text x="905" y="729" text-anchor="middle" class="edge-label">POST /notificar (HTTP interno)</text>
+
+  <!-- RabbitMQ Broker -->
+  <rect x="630" y="772" width="420" height="148" rx="22" fill="#F1F5F9" stroke="#64748B" stroke-width="2.2" />
+  <text x="840" y="800" text-anchor="middle" class="node-title">Message Broker — RabbitMQ 3 Management</text>
+  <text x="840" y="822" text-anchor="middle" class="node-sub">Exchange Topic: uct.activos.events  •  DLX: uct.dlx</text>
+  <text x="840" y="842" text-anchor="middle" class="node-sub">Colas: notificaciones.queue, auditoria.queue, incidencias_criticas</text>
+  <text x="840" y="862" text-anchor="middle" class="node-sub">Dead Letter Queue: dead-letter.queue (TTL 5m, máx 3 reintentos)</text>
+  <text x="840" y="883" text-anchor="middle" class="node-sub">Health Check &amp; Setup Automático (TAL-176 + TAL-208)</text>
+  <text x="840" y="904" text-anchor="middle" class="node-port">Puertos: 5672 (AMQP) / 15672 (Panel HTTP)</text>
+
+  <!-- Flujo AMQP Incidencias -> RabbitMQ -> Notificaciones -->
+  <path d="M 595 692 L 595 846 L 626 846" fill="none" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="520" y="782" width="148" height="22" rx="4" class="badge-bg" />
+  <text x="594" y="797" text-anchor="middle" class="edge-label">Publica Eventos AMQP</text>
+
+  <path d="M 1050 846 L 1225 846 L 1225 690" fill="none" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="1142" y="782" width="166" height="22" rx="4" class="badge-bg" />
+  <text x="1225" y="797" text-anchor="middle" class="edge-label">Consume Eventos + DLQ</text>
+
+  <!-- 4. SERVICIOS EXTERNOS SAAS (CLOUDINARY) -->
+  <rect x="40" y="1005" width="320" height="175" rx="10" fill="#F0FDF4" stroke="#86EFAC" stroke-width="1.8" />
+  <text x="200" y="1030" text-anchor="middle" class="layer-title">Servicios Externos SaaS</text>
+
+  <path d="M 85 1068 C 85 1054, 315 1054, 315 1068 L 315 1140 C 315 1154, 85 1154, 85 1140 Z" fill="#F8FAFC" stroke="#475569" stroke-width="1.8" />
+  <ellipse cx="200" cy="1068" rx="115" ry="12" fill="#E2E8F0" stroke="#475569" stroke-width="1.8" />
+  <text x="200" y="1102" text-anchor="middle" class="node-title">Cloudinary CDN</text>
+  <text x="200" y="1122" text-anchor="middle" class="node-sub">Almacenamiento de Evidencias WebP</text>
+  <text x="200" y="1140" text-anchor="middle" class="node-sub">Subida Directa desde MS Incidencias</text>
+
+  <!-- Flecha MS Incidencias -> Cloudinary (reemplaza el antiguo MS Archivos) -->
+  <path d="M 465 692 L 465 920 L 245 920 L 245 1052" fill="none" stroke="#15803D" stroke-width="2.2" marker-end="url(#arrow)" />
+  <rect x="255" y="909" width="196" height="22" rx="4" class="badge-bg" />
+  <text x="353" y="924" text-anchor="middle" class="edge-label">Sube Evidencias API (TAL-191)</text>
+
+  <!-- 5. CAPA DE PERSISTENCIA FISICA -->
+  <rect x="395" y="1005" width="985" height="175" rx="10" fill="#ECFEFF" stroke="#67E8F9" stroke-width="1.8" />
+  <text x="415" y="1030" text-anchor="start" class="layer-title">Capa de Persistencia Física (PostgreSQL 16 + Prisma)</text>
+
+  <!-- auth_db -->
+  <path d="M 440 1066 C 440 1052, 680 1052, 680 1066 L 680 1144 C 680 1158, 440 1158, 440 1144 Z" fill="#FFF1F2" stroke="#E11D48" stroke-width="1.8" />
+  <ellipse cx="560" cy="1066" rx="120" ry="12" fill="#FFE4E6" stroke="#E11D48" stroke-width="1.8" />
+  <text x="560" y="1098" text-anchor="middle" class="node-title">auth_db</text>
+  <text x="560" y="1117" text-anchor="middle" class="node-sub">USUARIOS, ROLES, PERMISOS</text>
+  <text x="560" y="1136" text-anchor="middle" class="node-port">PostgreSQL Docker: 5435</text>
+
+  <!-- incidencias_db -->
+  <path d="M 767 1066 C 767 1052, 1007 1052, 1007 1066 L 1007 1144 C 1007 1158, 767 1158, 767 1144 Z" fill="#FFF1F2" stroke="#E11D48" stroke-width="1.8" />
+  <ellipse cx="887" cy="1066" rx="120" ry="12" fill="#FFE4E6" stroke="#E11D48" stroke-width="1.8" />
+  <text x="887" y="1098" text-anchor="middle" class="node-title">incidencias_db</text>
+  <text x="887" y="1117" text-anchor="middle" class="node-sub">INCIDENCIAS, ÓRDENES, EVIDENCIAS</text>
+  <text x="887" y="1136" text-anchor="middle" class="node-port">PostgreSQL Docker: 5434</text>
+
+  <!-- activos_db -->
+  <path d="M 1095 1066 C 1095 1052, 1335 1052, 1335 1066 L 1335 1144 C 1335 1158, 1095 1158, 1095 1144 Z" fill="#FFF1F2" stroke="#E11D48" stroke-width="1.8" />
+  <ellipse cx="1215" cy="1066" rx="120" ry="12" fill="#FFE4E6" stroke="#E11D48" stroke-width="1.8" />
+  <text x="1215" y="1098" text-anchor="middle" class="node-title">activos_db</text>
+  <text x="1215" y="1117" text-anchor="middle" class="node-sub">ACTIVOS, MANTENIMIENTOS</text>
+  <text x="1215" y="1136" text-anchor="middle" class="node-port">PostgreSQL Docker: 5433</text>
+
+  <!-- Flechas Microservicios -> Bases de Datos -->
+  <path d="M 195 686 L 195 975 L 560 975 L 560 1050" fill="none" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="440" y="964" width="90" height="22" rx="4" class="badge-bg" />
+  <text x="485" y="979" text-anchor="middle" class="edge-label">Lee y Escribe</text>
+
+  <path d="M 525 692 L 525 942 L 887 942 L 887 1050" fill="none" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="665" y="931" width="90" height="22" rx="4" class="badge-bg" />
+  <text x="710" y="946" text-anchor="middle" class="edge-label">Lee y Escribe</text>
+
+  <path d="M 1030 622 L 1076 622 L 1076 975 L 1215 975 L 1215 1050" fill="none" stroke="#1E293B" stroke-width="2" marker-end="url(#arrow)" />
+  <rect x="1115" y="964" width="90" height="22" rx="4" class="badge-bg" />
+  <text x="1160" y="979" text-anchor="middle" class="edge-label">Lee y Escribe</text>
+
+  <!-- Pie de pagina infraestructura -->
+  <rect x="40" y="1202" width="1340" height="54" rx="8" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.5" />
+  <text x="710" y="1226" text-anchor="middle" class="node-title">Entorno, Orquestación y CI/CD</text>
+  <text x="710" y="1246" text-anchor="middle" class="node-sub">Desarrollo Local: Docker Compose (DBs + RabbitMQ + MS Notificaciones) + start.ps1   |   CI: GitHub Actions (TAL-220)   |   Producción PaaS: Kubero (TAL-213)</text>
+</svg>

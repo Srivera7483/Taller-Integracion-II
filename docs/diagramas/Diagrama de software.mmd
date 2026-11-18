@@ -1,0 +1,46 @@
+flowchart TB
+    subgraph Presentacion["Capa de Presentación"]
+        Web["Aplicación Web (PWA)<br/>React + Vite + Tailwind + vite-plugin-pwa<br/>Puerto: 5173 | Offline + WebSockets"]
+        Mobile["Aplicación Móvil<br/>React Native + Expo<br/>Consumo REST (OpenAPI v1.3.0)"]
+    end
+
+    subgraph Enrutamiento["Capa de Enrutamiento, Seguridad y Tiempo Real"]
+        Gateway{{"API Gateway<br/>Node.js + Fastify + Socket.io<br/>CORS | Rate Limit | Kill Switch (TAL-4)<br/>Puerto: 3000"}}
+    end
+
+    Web -->|"HTTP REST + WebSockets"| Gateway
+    Mobile -->|"HTTP REST"| Gateway
+
+    subgraph Negocio["Capa de Lógica de Negocio / Microservicios (4 Microservicios)"]
+        MSAuth["MS Autenticación<br/>NestJS + Express + JWT<br/>RBAC Permisos (TAL-97)<br/>Puerto: 3001"]
+        MSInc["MS Incidencias<br/>NestJS + Express + Socket.io (TAL-185)<br/>Multer + Sharp + Cloudinary (TAL-191)<br/>Puerto: 3002"]
+        MSAct["MS Activos<br/>NestJS + Express<br/>Cron Mantenimientos (TAL-202)<br/>Puerto: 3003"]
+        MSNotif["MS Notificaciones<br/>NestJS + Nodemailer<br/>Consumers AMQP + HTTP<br/>Puerto: 3004"]
+        Rabbit(("Message Broker (RabbitMQ)<br/>uct.activos.events (topic)<br/>notificaciones.queue | auditoria.queue<br/>DLX: uct.dlx -> dead-letter.queue<br/>Puertos: 5672 / 15672"))
+
+        MSInc -.->|"Valida Usuario REST"| MSAuth
+        MSInc -.->|"Valida Activo REST"| MSAct
+        MSInc -->|"POST /notificar HTTP"| MSNotif
+        MSInc -->|"Publica Eventos AMQP"| Rabbit
+        Rabbit -->|"Consume Eventos + DLQ"| MSNotif
+    end
+
+    Gateway -->|"Proxy /api/v1/auth"| MSAuth
+    Gateway <-->|"Proxy /incidencias, /ordenes-trabajo + WS"| MSInc
+    Gateway -->|"Proxy /activos, /mantenimientos"| MSAct
+    Gateway -->|"Proxy /api/v1/notificaciones"| MSNotif
+
+    subgraph SaaS["Servicios Externos SaaS"]
+        Cloudinary[("Cloudinary<br/>Almacenamiento WebP<br/>de Evidencias")]
+    end
+
+    subgraph Persistencia["Capa de Persistencia Física (PostgreSQL 16 + Prisma)"]
+        AuthDB[("auth_db<br/>Puerto Docker: 5435")]
+        IncDB[("incidencias_db<br/>Puerto Docker: 5434")]
+        ActDB[("activos_db<br/>Puerto Docker: 5433")]
+    end
+
+    MSInc -->|"Sube Evidencias API (TAL-191)"| Cloudinary
+    MSAuth -->|"Lee y Escribe"| AuthDB
+    MSInc -->|"Lee y Escribe"| IncDB
+    MSAct -->|"Lee y Escribe"| ActDB
