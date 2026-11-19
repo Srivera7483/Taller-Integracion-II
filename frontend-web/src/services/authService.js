@@ -1,5 +1,6 @@
-import api from './api';
+import api from './api.js';
 import axios from 'axios';
+import { limpiarDatosOffline } from './storage/offlineDb.js';
 
 /**
  * Servicio de gestión de autenticación, almacenamiento de tokens y control de sesión.
@@ -98,13 +99,20 @@ export const guardarSesion = ({ accessToken, refreshToken, usuario }) => {
 };
 
 /**
- * Limpia el estado de autenticación de forma integral y notifica el cierre de sesión.
+ * Limpia el estado de autenticación de forma integral, purga los catálogos
+ * offline de IndexedDB (TAL-195 Criterio 3) y notifica el cierre de sesión.
  */
 export const limpiarSesion = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('usuario');
-  window.dispatchEvent(new Event('tecnico-cambiado'));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('usuario');
+  }
+  const limpiezaPromise = limpiarDatosOffline().catch(() => false);
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new Event('tecnico-cambiado'));
+  }
+  return limpiezaPromise;
 };
 
 /**
@@ -240,7 +248,7 @@ export const cerrarSesion = async () => {
       }
     });
   } finally {
-    limpiarSesion();
+    await limpiarSesion();
   }
 };
 
