@@ -5,7 +5,7 @@ import NotificacionesDropdown from './NotificacionesDropdown';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import NetworkStatusIndicator from './NetworkStatusIndicator';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
-import { hasPermission } from '../services/authService';
+import { hasPermission, limpiarSesion } from '../services/authService';
 
 const Layout = () => {
   const location = useLocation();
@@ -55,9 +55,7 @@ const Layout = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('usuario');
+    void limpiarSesion();
     navigate('/login');
   };
 
