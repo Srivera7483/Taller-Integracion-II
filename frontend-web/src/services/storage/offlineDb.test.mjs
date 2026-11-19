@@ -303,4 +303,138 @@ describe('TAL-195: Implementación de IndexedDB en Frontend para Catálogo Offli
     assert.equal(ordenesTrasLogout.length, 0, 'La tienda ordenes debe quedar vacía al cerrar sesión');
     assert.equal(colaTrasLogout.length, 0, 'La tienda cola_acciones debe quedar vacía al cerrar sesión');
   });
+
+  test('Alineación MER y Contrato OpenAPI v1.3.0: Preserva columnas MER y soporta rutas /activos/codigo-qr/:qr, /estados-activo y /estados-incidencia', async () => {
+    let modoOffline = false;
+
+    const activoOpenApi = {
+      id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      codigo_qr: 'ACT-2026-0001',
+      nombre: 'Proyector Láser Epson PowerLite',
+      descripcion: 'Proyector láser 5200 lúmenes',
+      marca: 'Epson',
+      modelo: 'PowerLite L520U',
+      numero_serie: 'SN-EPS-9921',
+      estado: { id_estado_activo: 1, nombre_estado: 'Operativo' },
+      categoria: { id_categoria: 2, nombre_categoria: 'Audiovisual' },
+      ubicacion: {
+        id_ubicacion: 10,
+        nombre_espacio: 'Auditorio Principal',
+        edificio: { id_edificio: 1, nombre_edificio: 'Edificio A' },
+      },
+      fecha_creacion: '2026-10-31T18:00:00.000Z',
+    };
+
+    const incidenciaOpenApi = {
+      id_incidencia: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      id_reportante: '1cbf1781-1087-47f7-8761-b461f108af6f',
+      titulo: 'Lámpara sin proyección HDMI',
+      descripcion: 'No detecta señal en puerto HDMI 1',
+      prioridad: 'alta',
+      estado: { id_estado: 3, nombre_estado: 'Asignada' },
+      orden_trabajo: {
+        id_orden: '550e8400-e29b-41d4-a716-446655440000',
+        id_incidencia: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        id_tecnico: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+        diagnostico_tecnico: 'Revisión de tarjeta de video interna',
+        fecha_creacion: '2026-10-31T19:00:00.000Z',
+      },
+      evidencias: [
+        {
+          id_evidencia: '7c9e6679-7425-40de-944b-e07fc1f90ae7',
+          id_incidencia: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+          tipo: { id_tipo_evidencia: 1, nombre_tipo: 'ANTES' },
+          url_evidencia: 'https://res.cloudinary.com/demo/image/upload/sample.webp',
+          fecha_creacion: '2026-10-31T18:05:00.000Z',
+        },
+      ],
+      fecha_creacion: '2026-10-31T18:00:00.000Z',
+    };
+
+    api.defaults.adapter = async (config) => {
+      if (modoOffline) {
+        const err = new Error('Network Error');
+        err.code = 'ERR_NETWORK';
+        err.config = config;
+        err.request = {};
+        throw err;
+      }
+      if (config.url.includes('/activos/codigo-qr/')) {
+        return { data: activoOpenApi, status: 200, statusText: 'OK', headers: {}, config };
+      }
+      if (config.url.includes('/estados-activo')) {
+        return {
+          data: [{ id_estado_activo: 1, nombre_estado: 'Operativo' }],
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        };
+      }
+      if (config.url.includes('/estados-incidencia')) {
+        return {
+          data: [{ id_estado: 3, nombre_estado: 'Asignada' }],
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        };
+      }
+      if (config.url.includes('/incidencias')) {
+        return { data: [incidenciaOpenApi], status: 200, statusText: 'OK', headers: {}, config };
+      }
+      return { data: [], status: 200, statusText: 'OK', headers: {}, config };
+    };
+
+    // Navegación online sobre rutas del contrato OpenAPI v1.3.0
+    await api.get('/activos/codigo-qr/ACT-2026-0001');
+    await api.get('/incidencias?id_activo=f47ac10b-58cc-4372-a567-0e02b2c3d479&id_estado=3&limite=20');
+    await api.get('/estados-activo');
+    await api.get('/estados-incidencia');
+
+    await new Promise((r) => setTimeout(r, 20));
+
+    // Pérdida de conexión: lectura offline respetando rutas y parámetros del contrato OpenAPI v1.3.0
+    modoOffline = true;
+
+    const qrOffline = await api.get('/activos/codigo-qr/ACT-2026-0001');
+    assert.equal(qrOffline.status, 200);
+    assert.equal(qrOffline.fromOfflineCache, true);
+    assert.equal(qrOffline.data.id_activo, 'f47ac10b-58cc-4372-a567-0e02b2c3d479');
+    assert.equal(qrOffline.data.codigo_qr, 'ACT-2026-0001');
+    assert.equal(qrOffline.data.id_estado_activo, 1);
+    assert.equal(qrOffline.data.id_categoria, 2);
+    assert.equal(qrOffline.data.id_ubicacion, 10);
+
+    const incFiltradasOffline = await api.get(
+      '/incidencias?id_activo=f47ac10b-58cc-4372-a567-0e02b2c3d479&id_estado=3&limite=20',
+    );
+    assert.equal(incFiltradasOffline.status, 200);
+    assert.equal(incFiltradasOffline.fromOfflineCache, true);
+    assert.equal(incFiltradasOffline.data.length, 1);
+    assert.equal(incFiltradasOffline.data[0].id_reportante, '1cbf1781-1087-47f7-8761-b461f108af6f');
+    assert.equal(
+      incFiltradasOffline.data[0].diagnostico_tecnico,
+      'Revisión de tarjeta de video interna',
+    );
+
+    const ordenesPorTecnicoOffline = await api.get(
+      '/ordenes-trabajo?id_tecnico=9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
+    );
+    assert.equal(ordenesPorTecnicoOffline.status, 200);
+    assert.equal(ordenesPorTecnicoOffline.fromOfflineCache, true);
+    assert.equal(ordenesPorTecnicoOffline.data.length, 1);
+    assert.equal(ordenesPorTecnicoOffline.data[0].id_orden, '550e8400-e29b-41d4-a716-446655440000');
+
+    const estActivosOffline = await api.get('/estados-activo');
+    assert.equal(estActivosOffline.status, 200);
+    assert.equal(estActivosOffline.fromOfflineCache, true);
+    assert.ok(estActivosOffline.data.some((e) => e.nombre_estado === 'Operativo'));
+
+    const estIncidenciasOffline = await api.get('/estados-incidencia');
+    assert.equal(estIncidenciasOffline.status, 200);
+    assert.equal(estIncidenciasOffline.fromOfflineCache, true);
+    assert.ok(estIncidenciasOffline.data.some((e) => e.nombre_estado === 'Asignada'));
+  });
 });

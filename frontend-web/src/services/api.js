@@ -269,7 +269,16 @@ const extraerRutaRelativaApi = (rawUrl = '') => {
     .replace(/^\/api/i, '');
   const [pathname = '', queryString = ''] = sinBase.split('?');
   const rutaLimpia = `/${pathname.replace(/^\/+/, '').replace(/\/+$/, '')}`;
-  return { pathname: rutaLimpia, queryString };
+  const queryParams = {};
+  if (queryString) {
+    queryString.split('&').forEach((pair) => {
+      const [k, v] = pair.split('=');
+      if (k) {
+        queryParams[decodeURIComponent(k)] = v !== undefined ? decodeURIComponent(v) : '';
+      }
+    });
+  }
+  return { pathname: rutaLimpia, queryString, queryParams };
 };
 
 /**
@@ -300,7 +309,7 @@ const construirPayloadColeccionOffline = (datos = []) => {
 
 /**
  * Criterio 1 (TAL-195): Al navegar con internet, guarda en segundo plano el catálogo
- * de activos, órdenes/incidencias y estados en IndexedDB.
+ * de activos, órdenes/incidencias y estados en IndexedDB (alineado con OpenAPI v1.3.0 y MER).
  */
 export const sincronizarRespuestaGetEnIndexedDB = async (response) => {
   if (!response || !response.config || response.fromOfflineCache) return;
@@ -311,11 +320,19 @@ export const sincronizarRespuestaGetEnIndexedDB = async (response) => {
   const data = response.data;
   if (!data) return;
 
-  // 1. Catálogo de Activos (/activos o /activos/:id)
+  // 1. Catálogo de Activos (/activos, /activos/{id_activo}, /activos/codigo-qr/{codigo_qr})
   if (pathname === '/activos') {
     const lista = extraerColeccionRespuesta(data);
     if (Array.isArray(lista) && lista.length > 0) {
       await guardarActivosOffline(lista);
+    }
+    return;
+  }
+  const matchActivoQr = pathname.match(/^\/activos\/(?:codigo-qr|qr)\/([^/]+)$/i);
+  if (matchActivoQr) {
+    const item = data?.datos || data?.data || data;
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      await guardarActivosOffline([item]);
     }
     return;
   }
@@ -357,15 +374,20 @@ export const sincronizarRespuestaGetEnIndexedDB = async (response) => {
     return;
   }
 
-  // 3. Catálogo de Estados (/estados, /incidencias/estados, /activos/estados)
+  // 3. Catálogo de Estados (/estados-incidencia, /estados-activo, /estados, /incidencias/estados, /activos/estados)
   if (
+    pathname === '/estados-incidencia' ||
+    pathname === '/estados-activo' ||
     pathname === '/estados' ||
     pathname === '/incidencias/estados' ||
     pathname === '/activos/estados'
   ) {
     const lista = extraerColeccionRespuesta(data);
     if (Array.isArray(lista) && lista.length > 0) {
-      const tipo = pathname.startsWith('/activos') ? 'activo' : 'incidencia';
+      const tipo =
+        pathname === '/estados-activo' || pathname.startsWith('/activos')
+          ? 'activo'
+          : 'incidencia';
       await guardarEstadosOffline(lista, tipo);
     }
   }
@@ -373,15 +395,15 @@ export const sincronizarRespuestaGetEnIndexedDB = async (response) => {
 
 /**
  * Criterio 2 (TAL-195): Si se pierde la conexión, lee los datos desde IndexedDB
- * en lugar de arrojar error de red.
+ * en lugar de arrojar error de red (alineado con OpenAPI v1.3.0 y MER).
  */
 export const intentarLecturaOfflineDesdeIndexedDB = async (config) => {
   if (!config || config.useOfflineCache === false) return null;
   const method = String(config.method || 'get').toUpperCase();
   if (method !== 'GET') return null;
 
-  const { pathname } = extraerRutaRelativaApi(config.url || '');
-  const params = config.params || {};
+  const { pathname, queryParams } = extraerRutaRelativaApi(config.url || '');
+  const params = { ...queryParams, ...(config.params || {}) };
 
   const crearRespuestaOffline = (payload) => ({
     data: payload,
@@ -396,6 +418,15 @@ export const intentarLecturaOfflineDesdeIndexedDB = async (config) => {
     const activos = await obtenerActivosOffline(params);
     if (activos.length > 0) {
       return crearRespuestaOffline(construirPayloadColeccionOffline(activos));
+    }
+    return null;
+  }
+
+  const matchActivoQr = pathname.match(/^\/activos\/(?:codigo-qr|qr)\/([^/]+)$/i);
+  if (matchActivoQr) {
+    const activo = await obtenerActivoPorIdOffline(decodeURIComponent(matchActivoQr[1]));
+    if (activo) {
+      return crearRespuestaOffline(activo);
     }
     return null;
   }
@@ -446,11 +477,18 @@ export const intentarLecturaOfflineDesdeIndexedDB = async (config) => {
   }
 
   if (
+    pathname === '/estados-incidencia' ||
+    pathname === '/estados-activo' ||
     pathname === '/estados' ||
     pathname === '/incidencias/estados' ||
     pathname === '/activos/estados'
   ) {
-    const tipo = pathname.startsWith('/activos') ? 'activo' : null;
+    const tipo =
+      pathname === '/estados-activo' || pathname.startsWith('/activos')
+        ? 'activo'
+        : pathname === '/estados-incidencia' || pathname.startsWith('/incidencias')
+          ? 'incidencia'
+          : null;
     const estados = await obtenerEstadosOffline(tipo);
     if (estados.length > 0) {
       return crearRespuestaOffline(construirPayloadColeccionOffline(estados));

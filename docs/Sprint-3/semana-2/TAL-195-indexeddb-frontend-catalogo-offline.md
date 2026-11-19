@@ -38,7 +38,35 @@ El esquema define cuatro tiendas de objetos (*Object Stores*):
 
 ---
 
-## 3. Verificación de Criterios de Aceptación
+## 3. Alineación con Diagrama MER, Contrato OpenAPI v1.3.0 y Diagrama de Software
+
+### 3.1. Alineación con el Diagrama MER (Modelo Entidad-Relación)
+Los normalizadores e índices de `offlineDb.js` preservan las claves primarias, foráneas y atributos en español sin tildes del MER:
+- **`ACTIVOS` + `ESTADOS_ACTIVO` + `CATEGORIAS` + `UBICACIONES`:**
+  - `id_activo` (UUID), `codigo_qr` (UK), `nombre`, `descripcion`, `marca`, `modelo`, `numero_serie`, `id_estado_activo` (FK), `id_categoria` (FK), `id_ubicacion` (FK), `fecha_creacion`, `fecha_eliminacion`.
+- **`INCIDENCIAS` + `ORDENES_TRABAJO` + `ESTADOS_INCIDENCIA` + `EVIDENCIAS`:**
+  - `id_incidencia` (UUID), `id_orden` (UUID), `id_activo` (UUID `Ref_ASSETS_DB`), `id_reportante` (UUID `Ref_AUTH_DB`), `id_tecnico` (UUID `Ref_AUTH_DB`), `id_estado` (FK), `titulo`, `descripcion`, `prioridad` (`baja | media | alta`), `diagnostico_tecnico`, `evidencias` (`url_evidencia` / `url_cloudinary`), `fecha_creacion`.
+
+### 3.2. Alineación con el Contrato OpenAPI v1.3.0 (`openapi.yaml`)
+El interceptor de `api.js` sincroniza en segundo plano y resuelve sin conexión todas las rutas y parámetros de consulta del contrato OpenAPI v1.3.0 bajo `/api/v1`:
+- **Servicio de Activos:**
+  - `GET /activos` (parámetros `busqueda`, `limite`).
+  - `GET /activos/{id_activo}` (`obtenerActivoPorId`).
+  - `GET /activos/codigo-qr/{codigo_qr}` (`obtenerActivoPorCodigoQr`).
+  - `GET /estados-activo` (`listarEstadosActivo`).
+- **Servicio de Incidencias y Órdenes de Trabajo:**
+  - `GET /incidencias` (parámetros `id_activo`, `id_estado`, `limite`).
+  - `GET /incidencias/{id_incidencia}` (`obtenerIncidencia`).
+  - `GET /ordenes-trabajo` (parámetros `id_incidencia`, `id_tecnico`).
+  - `GET /ordenes-trabajo/{id_orden}` (`obtenerOrdenTrabajo`).
+  - `GET /estados-incidencia` (`listarEstadosIncidencia`).
+
+### 3.3. Alineación con el Diagrama de Arquitectura de Software
+- Respeta la separación de fronteras del diagrama de arquitectura: **`frontend-web` (React 19 + Vite PWA + IndexedDB + Service Worker)** se comunica únicamente con el **API Gateway (`:3000`)**, manteniendo el catálogo local en `IndexedDB` del navegador del técnico y limpiándolo de forma segura al cerrar sesión.
+
+---
+
+## 4. Verificación de Criterios de Aceptación
 
 | # | Criterio de Aceptación (Jira) | Estado | Evidencia Técnica |
 | :--- | :--- | :---: | :--- |

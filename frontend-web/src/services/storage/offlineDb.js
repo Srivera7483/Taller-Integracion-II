@@ -40,7 +40,12 @@ export const OFFLINE_DB_SCHEMA = Object.freeze({
     [STORE_NAMES.ACTIVOS]: Object.freeze({
       keyPath: 'id',
       indexes: Object.freeze([
+        { name: 'id_activo', keyPath: 'id_activo', unique: false },
+        { name: 'codigo_qr', keyPath: 'codigo_qr', unique: false },
         { name: 'codigoQr', keyPath: 'codigoQr', unique: false },
+        { name: 'id_estado_activo', keyPath: 'id_estado_activo', unique: false },
+        { name: 'id_categoria', keyPath: 'id_categoria', unique: false },
+        { name: 'id_ubicacion', keyPath: 'id_ubicacion', unique: false },
         { name: 'categoria', keyPath: 'categoria', unique: false },
         { name: 'estado', keyPath: 'estado', unique: false },
         { name: 'ubicacion', keyPath: 'ubicacion', unique: false },
@@ -52,13 +57,17 @@ export const OFFLINE_DB_SCHEMA = Object.freeze({
         { name: 'id_incidencia', keyPath: 'id_incidencia', unique: false },
         { name: 'id_orden', keyPath: 'id_orden', unique: false },
         { name: 'id_tecnico', keyPath: 'id_tecnico', unique: false },
-        { name: 'estado', keyPath: 'estado_normalizado', unique: false },
         { name: 'id_activo', keyPath: 'id_activo', unique: false },
+        { name: 'id_reportante', keyPath: 'id_reportante', unique: false },
+        { name: 'id_estado', keyPath: 'id_estado', unique: false },
+        { name: 'estado', keyPath: 'estado_normalizado', unique: false },
       ]),
     }),
     [STORE_NAMES.ESTADOS]: Object.freeze({
       keyPath: 'id',
       indexes: Object.freeze([
+        { name: 'id_estado', keyPath: 'id_estado', unique: false },
+        { name: 'id_estado_activo', keyPath: 'id_estado_activo', unique: false },
         { name: 'tipo', keyPath: 'tipo', unique: false },
         { name: 'nombre_estado', keyPath: 'nombre_estado', unique: false },
       ]),
@@ -391,13 +400,43 @@ export const normalizarActivoOffline = (activo) => {
       ? activo.estado?.nombre_estado || activo.estado?.nombre || 'Operativo'
       : activo.estado || 'Operativo';
 
+  const idEstadoActivo =
+    activo.id_estado_activo ??
+    (typeof activo.estado === 'object' ? activo.estado?.id_estado_activo : null) ??
+    null;
+
+  const idCategoria =
+    activo.id_categoria ??
+    (typeof activo.categoria === 'object' ? activo.categoria?.id_categoria : null) ??
+    null;
+
+  const idUbicacion =
+    activo.id_ubicacion ??
+    (typeof activo.ubicacion === 'object' ? activo.ubicacion?.id_ubicacion : null) ??
+    null;
+
+  const numeroSerie = activo.numero_serie || activo.numeroSerie || null;
+
   return {
     ...clonarRegistro(activo),
     id,
     id_activo: activo.id_activo || id,
-    codigoQr: activo.codigoQr || activo.codigo_qr || id,
     codigo_qr: activo.codigo_qr || activo.codigoQr || id,
+    codigoQr: activo.codigoQr || activo.codigo_qr || id,
     nombre: activo.nombre || `Activo ${id}`,
+    descripcion: activo.descripcion ?? null,
+    marca: activo.marca ?? null,
+    modelo: activo.modelo ?? null,
+    numero_serie: numeroSerie,
+    numeroSerie,
+    id_estado_activo: idEstadoActivo,
+    id_categoria: idCategoria,
+    id_ubicacion: idUbicacion,
+    estado_objeto: typeof activo.estado === 'object' ? clonarRegistro(activo.estado) : null,
+    categoria_objeto:
+      typeof activo.categoria === 'object' ? clonarRegistro(activo.categoria) : null,
+    ubicacion_objeto:
+      typeof activo.ubicacion === 'object' ? clonarRegistro(activo.ubicacion) : null,
     categoria:
       typeof activo.categoria === 'object'
         ? activo.categoria?.nombre_categoria || activo.categoria?.nombre || 'General'
@@ -407,6 +446,8 @@ export const normalizarActivoOffline = (activo) => {
         ? activo.ubicacion?.nombre_espacio || activo.ubicacion?.nombre || 'Sin ubicación'
         : activo.ubicacion || 'Sin ubicación',
     estado: estadoTexto,
+    fecha_creacion: activo.fecha_creacion || new Date().toISOString(),
+    fecha_eliminacion: activo.fecha_eliminacion ?? null,
     actualizado_en: activo.actualizado_en || new Date().toISOString(),
   };
 };
@@ -440,10 +481,21 @@ export const normalizarOrdenOffline = (orden) => {
     orden.tecnico_id ||
     null;
 
+  const idEstado =
+    orden.id_estado ??
+    (typeof orden.estado === 'object' ? orden.estado?.id_estado : null) ??
+    null;
+
   const estadoNormalizado =
     typeof orden.estado === 'object'
       ? orden.estado?.nombre_estado || orden.estado?.nombre || 'Pendiente'
       : orden.estado || 'Pendiente';
+
+  const diagnosticoTecnico =
+    orden.diagnostico_tecnico ??
+    ordenTrabajo?.diagnostico_tecnico ??
+    orden.resolucion ??
+    null;
 
   return {
     ...clonarRegistro(orden),
@@ -452,7 +504,14 @@ export const normalizarOrdenOffline = (orden) => {
     id_orden: idOrden,
     id_tecnico: idTecnico ? String(idTecnico) : null,
     id_activo: orden.id_activo || orden.incidencia?.id_activo || null,
+    id_reportante: orden.id_reportante || orden.incidencia?.id_reportante || null,
+    id_estado: idEstado,
+    prioridad: orden.prioridad || 'media',
+    diagnostico_tecnico: diagnosticoTecnico,
+    evidencias: Array.isArray(orden.evidencias) ? orden.evidencias : [],
     estado_normalizado: estadoNormalizado,
+    fecha_creacion:
+      orden.fecha_creacion || ordenTrabajo?.fecha_creacion || new Date().toISOString(),
     actualizado_en: orden.actualizado_en || new Date().toISOString(),
   };
 };
@@ -512,8 +571,9 @@ export const guardarActivosOffline = async (activosInput = []) => {
   const estadosExtraidos = new Map();
   for (const item of normalizados) {
     await ejecutarRequest(storeActivos.put(item));
-    if (item.estado) {
-      const est = normalizarEstadoOffline(item.estado, 'activo');
+    const fuenteEstado = item.estado_objeto || item.estado;
+    if (fuenteEstado) {
+      const est = normalizarEstadoOffline(fuenteEstado, 'activo');
       if (est) estadosExtraidos.set(est.id, est);
     }
   }
@@ -541,14 +601,22 @@ export const obtenerActivosOffline = async (filtros = {}) => {
   const store = tx.objectStore(STORE_NAMES.ACTIVOS);
   const registros = (await ejecutarRequest(store.getAll())) || [];
 
-  return registros.filter((item) => {
-    if (filtros.id_activo) {
-      const target = String(filtros.id_activo).toLowerCase();
+  const filtrados = registros.filter((item) => {
+    const idTarget = filtros.id_activo || filtros.codigo_qr || filtros.codigoQr;
+    if (idTarget) {
+      const target = String(idTarget).toLowerCase();
       const coincideId =
         String(item.id || '').toLowerCase() === target ||
         String(item.id_activo || '').toLowerCase() === target ||
+        String(item.codigo_qr || '').toLowerCase() === target ||
         String(item.codigoQr || '').toLowerCase() === target;
       if (!coincideId) return false;
+    }
+    if (filtros.id_categoria !== undefined && filtros.id_categoria !== null && filtros.id_categoria !== '') {
+      if (Number(item.id_categoria) !== Number(filtros.id_categoria)) return false;
+    }
+    if (filtros.id_estado_activo !== undefined && filtros.id_estado_activo !== null && filtros.id_estado_activo !== '') {
+      if (Number(item.id_estado_activo) !== Number(filtros.id_estado_activo)) return false;
     }
     if (filtros.categoria && String(item.categoria).toLowerCase() !== String(filtros.categoria).toLowerCase()) {
       return false;
@@ -560,8 +628,13 @@ export const obtenerActivosOffline = async (filtros = {}) => {
       const q = String(filtros.busqueda).toLowerCase().trim();
       const texto = [
         item.id,
+        item.id_activo,
+        item.codigo_qr,
         item.codigoQr,
         item.nombre,
+        item.descripcion,
+        item.marca,
+        item.modelo,
         item.categoria,
         item.ubicacion,
         item.numeroSerie,
@@ -574,6 +647,9 @@ export const obtenerActivosOffline = async (filtros = {}) => {
     }
     return true;
   });
+
+  const limite = Number(filtros.limite || filtros.limit || 0);
+  return limite > 0 ? filtrados.slice(0, limite) : filtrados;
 };
 
 /**
@@ -654,7 +730,7 @@ export const obtenerOrdenesOffline = async (filtros = {}) => {
   const store = tx.objectStore(STORE_NAMES.ORDENES);
   const registros = (await ejecutarRequest(store.getAll())) || [];
 
-  return registros.filter((item) => {
+  const filtrados = registros.filter((item) => {
     if (filtros.id_tecnico) {
       const idTecFiltro = String(filtros.id_tecnico).toLowerCase();
       const idTecItem = String(
@@ -662,8 +738,19 @@ export const obtenerOrdenesOffline = async (filtros = {}) => {
       ).toLowerCase();
       if (idTecItem !== idTecFiltro) return false;
     }
+    if (filtros.id_incidencia) {
+      if (String(item.id_incidencia || '').toLowerCase() !== String(filtros.id_incidencia).toLowerCase()) {
+        return false;
+      }
+    }
     if (filtros.id_activo) {
       if (String(item.id_activo || '').toLowerCase() !== String(filtros.id_activo).toLowerCase()) {
+        return false;
+      }
+    }
+    if (filtros.id_estado !== undefined && filtros.id_estado !== null && filtros.id_estado !== '') {
+      const idEstItem = item.id_estado ?? item.estado?.id_estado;
+      if (Number(idEstItem) !== Number(filtros.id_estado)) {
         return false;
       }
     }
@@ -679,6 +766,7 @@ export const obtenerOrdenesOffline = async (filtros = {}) => {
         item.id_orden,
         item.titulo,
         item.descripcion,
+        item.diagnostico_tecnico,
         item.id_activo,
         item.nombre_activo,
         item.codigo_qr_activo,
@@ -690,6 +778,9 @@ export const obtenerOrdenesOffline = async (filtros = {}) => {
     }
     return true;
   });
+
+  const limite = Number(filtros.limite || filtros.limit || 0);
+  return limite > 0 ? filtrados.slice(0, limite) : filtrados;
 };
 
 /**
