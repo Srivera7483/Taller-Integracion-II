@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EstadoNotificacion {
+  PENDIENTE
+  ENVIADO
+  FALLIDO
+  SIMULADO
+}
+
+enum TipoNotificacion {
+  EMAIL
+  SMS
+  PUSH
+  WEBHOOK
+}
+
+enum TipoEventoNotificacion {
+  INCIDENCIA_CRITICA
+  ORDEN_ASIGNADA
+  INCIDENCIA_RESUELTA
+  INCIDENCIA_ACTUALIZADA
+  MANTENIMIENTO_PREVENTIVO
+  GENERAL
+}
+
+model Notificacion {
+  id_notificacion String                 @id @default(uuid()) @db.Uuid
+  tipo            TipoNotificacion       @default(EMAIL)
+  evento          TipoEventoNotificacion @default(GENERAL)
+  destinatario    String                 @db.VarChar(255)
+  asunto          String                 @db.VarChar(255)
+  cuerpo          String                 @db.Text
+  estado          EstadoNotificacion     @default(PENDIENTE)
+  reintentos      Int                    @default(0)
+  error           String?                @db.Text
+  id_referencia   String?                @db.VarChar(100)
+  metadata        Json?
+  fecha_creacion  DateTime               @default(now()) @db.Timestamp()
+  fecha_envio     DateTime?              @db.Timestamp()
+
+  @@index([destinatario])
+  @@index([estado])
+  @@index([evento])
+  @@map("NOTIFICACIONES")
+}

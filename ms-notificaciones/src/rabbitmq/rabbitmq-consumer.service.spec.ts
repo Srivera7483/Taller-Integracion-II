@@ -149,6 +149,32 @@ describe('RabbitmqConsumerService', () => {
       expect(ackSpy).toHaveBeenCalledWith(msg);
     });
 
+    it('debe hacer NACK con requeue=true y NO confirmar el mensaje original si la republicación retorna false', async () => {
+      const msg = buildMessage(0);
+      mockChannel.publish.mockReturnValueOnce(false); // buffer saturado
+      const ackSpy = mockChannel.ack as jest.Mock;
+      const nackSpy = mockChannel.nack as jest.Mock;
+
+      await (service as any).handleFailure(msg, 0, 'Buffer lleno', 'notificaciones.queue');
+
+      expect(ackSpy).not.toHaveBeenCalled();
+      expect(nackSpy).toHaveBeenCalledWith(msg, false, true);
+    });
+
+    it('debe hacer NACK con requeue=true y NO confirmar el mensaje original si publish lanza excepción', async () => {
+      const msg = buildMessage(0);
+      mockChannel.publish.mockImplementationOnce(() => {
+        throw new Error('Socket closed');
+      });
+      const ackSpy = mockChannel.ack as jest.Mock;
+      const nackSpy = mockChannel.nack as jest.Mock;
+
+      await (service as any).handleFailure(msg, 0, 'Socket error', 'notificaciones.queue');
+
+      expect(ackSpy).not.toHaveBeenCalled();
+      expect(nackSpy).toHaveBeenCalledWith(msg, false, true);
+    });
+
     it('debe hacer nack tras el tercer intento fallido consecutivo', async () => {
       const msg = buildMessage(2);
       const nackSpy = mockChannel.nack as jest.Mock;

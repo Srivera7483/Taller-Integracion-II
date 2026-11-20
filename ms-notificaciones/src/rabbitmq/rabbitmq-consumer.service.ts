@@ -1,4 +1,11 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  Optional,
+  forwardRef,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as amqp from 'amqplib';
 import { plainToInstance } from 'class-transformer';
@@ -6,6 +13,7 @@ import { validate, ValidationError } from 'class-validator';
 import { RabbitmqTopologyService } from './rabbitmq-topology.service';
 import { NotificacionEventoDto } from './dto/notificacion-evento.dto';
 import { AuditoriaEventoDto } from './dto/auditoria-evento.dto';
+import { NotificacionesService } from '../notificaciones/notificaciones.service';
 
 export interface ProcessMessageResult {
   success: boolean;
@@ -25,10 +33,14 @@ export class RabbitmqConsumerService implements OnModuleDestroy {
   private connection?: any;
   private channel?: any;
   private readonly queues: string[];
+  private notificationHandler?: (dto: NotificacionEventoDto) => Promise<unknown>;
 
   constructor(
     private readonly configService: ConfigService,
     private readonly topologyService: RabbitmqTopologyService,
+    @Optional()
+    @Inject(forwardRef(() => NotificacionesService))
+    private readonly notificacionesService?: NotificacionesService,
   ) {
     this.url =
       this.configService.get<string>('RABBITMQ_URL') ??
@@ -42,6 +54,12 @@ export class RabbitmqConsumerService implements OnModuleDestroy {
       this.configService.get<string>('RABBITMQ_QUEUE_AUDITORIA') ??
         'auditoria.queue',
     ];
+  }
+
+  registerNotificationHandler(
+    handler: (dto: NotificacionEventoDto) => Promise<unknown>,
+  ): void {
+    this.notificationHandler = handler;
   }
 
   async onModuleInit() {
@@ -70,7 +88,11 @@ export class RabbitmqConsumerService implements OnModuleDestroy {
         );
 
         try {
-          const result = await this.process(msg.content, msg.properties.headers || {}, queue);
+          const result = await this.process(
+            msg.content,
+            msg.properties.headers || {},
+            queue,
+          );
           if (result.success) {
             this.channel!.ack(msg);
           } else {
@@ -87,7 +109,9 @@ export class RabbitmqConsumerService implements OnModuleDestroy {
       });
     }
 
-    this.logger.log(`Consumidores RabbitMQ iniciados en: ${this.queues.join(', ')}`);
+    this.logger.log(
+      `Consumidores RabbitMQ iniciados en: ${this.queues.join(', ')}`,
+    );
   }
 
   async stop() {
@@ -96,7 +120,9 @@ export class RabbitmqConsumerService implements OnModuleDestroy {
       await this.connection?.close();
     } catch (error) {
       this.logger.warn(
-        `Error cerrando conexión RabbitMQ: ${error instanceof Error ? error.message : String(error)}`,
+        `Error cerrando conexión RabbitMQ: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
     }
   }
@@ -123,9 +149,27 @@ export class RabbitmqConsumerService implements OnModuleDestroy {
         const messages = errors.map((e) =>
           Object.values(e.constraints ?? {}).join(', '),
         );
-        throw new Error(`NotificacionEventoDto inválido: ${messages.join('; ')}`);
+        throw new Error(
+          `NotificacionEventoDto inválido: ${messages.join('; ')}`,
+        );
       }
-      this.logger.log(`[RABBITMQ] Procesando notificación: ${JSON.stringify(dto)}`);
+      this.logger.log(
+        `[RABBITMQ] Procesando notificación: ${JSON.stringify(dto)}`,
+      );
+
+      // Despacho real de correo y persistencia de trazabilidad
+      if (this.notificacionesService) {
+        const resultadoEnvio =
+          await this.notificacionesService.procesarEventoNotificacion(dto);
+        if (resultadoEnvio.status === 'fallida') {
+          return {
+            success: false,
+            error: resultadoEnvio.error ?? 'Fallo al despachar notificación',
+          };
+        }
+      } else if (this.notificationHandler) {
+        await this.notificationHandler(dto);
+      }
     } else if (queue === 'auditoria.queue') {
       const dto = plainToInstance(AuditoriaEventoDto, parsed);
       const errors: ValidationError[] = await validate(dto);
@@ -140,7 +184,6 @@ export class RabbitmqConsumerService implements OnModuleDestroy {
       this.logger.log(`[RABBITMQ] Mensaje recibido en ${queue}: ${raw}`);
     }
 
-    // Lógica de dominio: por defecto éxito (demostración).
     return { success: true };
   }
 
@@ -151,7 +194,9 @@ export class RabbitmqConsumerService implements OnModuleDestroy {
     queue = 'unknown',
   ) {
     this.logger.warn(
-      `[RABBITMQ] Fallo procesando mensaje en ${queue}: ${error}. Reintentos: ${retryCount + 1}/${this.maxRetries}`,
+      `[RABBITMQ] Fallo procesando mensaje en ${queue}: ${error}. Reintentos: ${
+        retryCount + 1
+      }/${this.maxRetries}`,
     );
 
     if (retryCount + 1 >= this.maxRetries) {
@@ -170,16 +215,36 @@ export class RabbitmqConsumerService implements OnModuleDestroy {
       'x-retry-count': retryCount + 1,
     };
 
-    this.channel!.publish(
-      msg.fields.exchange,
-      msg.fields.routingKey,
-      Buffer.from(payload),
-      {
-        persistent: true,
-        headers: retryHeaders,
-      },
-    );
+    let publishOk = false;
+    try {
+      publishOk = this.channel!.publish(
+        msg.fields.exchange,
+        msg.fields.routingKey,
+        Buffer.from(payload),
+        {
+          persistent: true,
+          headers: retryHeaders,
+        },
+      );
+    } catch (pubError) {
+      this.logger.error(
+        `[RABBITMQ] Excepción al republicar mensaje para reintento en ${queue}: ${
+          pubError instanceof Error ? pubError.message : String(pubError)
+        }. Reencolando mensaje original sin confirmar.`,
+      );
+      this.channel!.nack(msg, false, true);
+      return;
+    }
 
+    if (!publishOk) {
+      this.logger.error(
+        `[RABBITMQ] La republicación no fue aceptada por el canal en ${queue} (buffer saturado). Reencolando mensaje original sin confirmar.`,
+      );
+      this.channel!.nack(msg, false, true);
+      return;
+    }
+
+    // Confirmar mensaje original ÚNICAMENTE tras verificar que la republicación fue aceptada por el broker
     this.channel!.ack(msg);
   }
 }
