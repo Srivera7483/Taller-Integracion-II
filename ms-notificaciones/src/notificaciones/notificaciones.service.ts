@@ -35,7 +35,7 @@ export class NotificacionesService {
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Endpoint REST: Encola y despacha un correo directo
@@ -291,8 +291,8 @@ export class NotificacionesService {
     );
     const fechaProgramada = String(
       evento.fecha_programada ??
-        evento.fechaProgramada ??
-        new Date().toLocaleDateString('es-CL'),
+      evento.fechaProgramada ??
+      new Date().toLocaleDateString('es-CL'),
     );
 
     const destinatario = this.obtenerDestinatario(evento, [
@@ -513,9 +513,8 @@ export class NotificacionesService {
       });
       notificacionId = registroInicial.id_notificacion;
     } catch (dbError) {
-      const dbErrMsg = `Fallo crítico de persistencia en NOTIFICACIONES: ${
-        dbError instanceof Error ? dbError.message : String(dbError)
-      }. Se cancela el envío para no informar envíos sin trazabilidad.`;
+      const dbErrMsg = `Fallo crítico de persistencia en NOTIFICACIONES: ${dbError instanceof Error ? dbError.message : String(dbError)
+        }. Se cancela el envío para no informar envíos sin trazabilidad.`;
       this.logger.error(dbErrMsg);
       return {
         status: 'fallida',
@@ -550,9 +549,8 @@ export class NotificacionesService {
         },
       });
     } catch (updateError) {
-      const updateErrMsg = `Fallo al actualizar trazabilidad final en NOTIFICACIONES (${notificacionId}): ${
-        updateError instanceof Error ? updateError.message : String(updateError)
-      }`;
+      const updateErrMsg = `Fallo al actualizar trazabilidad final en NOTIFICACIONES (${notificacionId}): ${updateError instanceof Error ? updateError.message : String(updateError)
+        }`;
       this.logger.error(updateErrMsg);
       return {
         status: 'fallida',
@@ -604,8 +602,7 @@ export class NotificacionesService {
       };
     } catch (dbErr) {
       this.logger.error(
-        `No se pudo registrar fallo en NOTIFICACIONES: ${
-          dbErr instanceof Error ? dbErr.message : String(dbErr)
+        `No se pudo registrar fallo en NOTIFICACIONES: ${dbErr instanceof Error ? dbErr.message : String(dbErr)
         }`,
       );
       return {

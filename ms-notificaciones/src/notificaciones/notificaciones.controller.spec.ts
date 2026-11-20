@@ -6,12 +6,15 @@ import {
   PrioridadNotificacion,
   TipoNotificacion,
 } from '../rabbitmq/dto/notificacion-evento.dto';
-import { AuditoriaEventoDto } from '../rabbitmq/dto/auditoria-evento.dto';
+import {
+  AuditoriaEventoDto,
+  TipoAccionAuditoria,
+} from '../rabbitmq/dto/auditoria-evento.dto';
 
 describe('NotificacionesController', () => {
   let controller: NotificacionesController;
-  let serviceMock: jest.Mocked<Partial<NotificacionesService>>;
-  let publisherMock: jest.Mocked<Partial<RabbitmqPublisherService>>;
+  let serviceMock: Record<string, jest.Mock>;
+  let publisherMock: Record<string, jest.Mock>;
 
   beforeEach(() => {
     serviceMock = {
@@ -91,7 +94,7 @@ describe('NotificacionesController', () => {
 
     it('POST /eventos/auditoria debe publicar vía RabbitmqPublisherService', async () => {
       const dto: AuditoriaEventoDto = {
-        accion: 'ACTUALIZACION',
+        accion: TipoAccionAuditoria.ACTUALIZACION,
         entidad: 'Incidencia',
         idEntidad: 'inc-1',
         usuarioId: 'u1',
@@ -165,7 +168,7 @@ describe('NotificacionesController', () => {
     });
 
     it('recibirIncidenciaCritica debe hacer NACK y NO hacer ACK si el procesamiento falla', async () => {
-      serviceMock.procesarIncidenciaCritica!.mockResolvedValueOnce({
+      serviceMock.procesarIncidenciaCritica.mockResolvedValueOnce({
         status: 'fallida',
         error: 'Error de servidor SMTP',
         fallback: false,
@@ -247,7 +250,7 @@ describe('NotificacionesController', () => {
     });
 
     it('recibirIncidenciaActualizada debe hacer NACK si el despacho de resolución falla', async () => {
-      serviceMock.procesarIncidenciaResuelta!.mockResolvedValueOnce({
+      serviceMock.procesarIncidenciaResuelta.mockResolvedValueOnce({
         status: 'fallida',
         error: 'DB Down',
         fallback: false,

@@ -25,7 +25,7 @@ export class NotificacionesController {
   constructor(
     private readonly notificacionesService: NotificacionesService,
     private readonly rabbitmqPublisherService: RabbitmqPublisherService,
-  ) {}
+  ) { }
 
   @Post('notificar')
   @HttpCode(HttpStatus.OK)
@@ -108,8 +108,7 @@ export class NotificacionesController {
       }
     } catch (error) {
       this.logger.error(
-        `[RABBITMQ] Error procesando incidencia crítica recibida: ${
-          error instanceof Error ? error.message : String(error)
+        `[RABBITMQ] Error procesando incidencia crítica recibida: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       // En caso de fallo, NO hacer ack: hacer nack con requeue=false para derivar al DLX
@@ -142,8 +141,7 @@ export class NotificacionesController {
       } else {
         // Estado intermedio (ej: 'EN_PROCESO', 'REPORTADA'): no corresponde a resolución
         this.logger.log(
-          `[RABBITMQ] Evento de actualización ignorado para notificación de resolución (estado no resolutivo: '${
-            payload.nuevo_estado ?? payload.nombre_estado ?? payload.estado
+          `[RABBITMQ] Evento de actualización ignorado para notificación de resolución (estado no resolutivo: '${payload.nuevo_estado ?? payload.nombre_estado ?? payload.estado
           }')`,
         );
         if (channel && message) {
@@ -164,8 +162,7 @@ export class NotificacionesController {
       }
     } catch (error) {
       this.logger.error(
-        `[RABBITMQ] Error procesando actualización de incidencia: ${
-          error instanceof Error ? error.message : String(error)
+        `[RABBITMQ] Error procesando actualización de incidencia: ${error instanceof Error ? error.message : String(error)
         }`,
       );
       if (channel && message) {
@@ -177,9 +174,9 @@ export class NotificacionesController {
   private esEstadoResolucion(payload: any): boolean {
     const estadoRaw = String(
       payload.nuevo_estado ??
-        payload.nombre_estado ??
-        payload.estado ??
-        '',
+      payload.nombre_estado ??
+      payload.estado ??
+      '',
     )
       .trim()
       .toUpperCase();
