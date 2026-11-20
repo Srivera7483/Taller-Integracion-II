@@ -145,12 +145,13 @@ describe('NotificacionesController', () => {
     });
   });
 
-  describe('Consumidores EventPattern de RabbitMQ', () => {
-    it('recibirIncidenciaCritica debe procesar y confirmar mensaje (ack)', async () => {
+  describe('Consumidores EventPattern de RabbitMQ (Control Estricto de ACK/NACK)', () => {
+    it('recibirIncidenciaCritica debe confirmar (ack) ÚNICAMENTE en caso de éxito', async () => {
       const payload = { id_incidencia: 'crit-99', titulo: 'Fuego' };
       const ackMock = jest.fn();
+      const nackMock = jest.fn();
       const mockContext = {
-        getChannelRef: () => ({ ack: ackMock }),
+        getChannelRef: () => ({ ack: ackMock, nack: nackMock }),
         getMessage: () => ({ content: Buffer.from('msg') }),
       };
 
@@ -159,35 +160,60 @@ describe('NotificacionesController', () => {
       expect(serviceMock.procesarIncidenciaCritica).toHaveBeenCalledWith(
         payload,
       );
-      expect(ackMock).toHaveBeenCalled();
+      expect(ackMock).toHaveBeenCalledTimes(1);
+      expect(nackMock).not.toHaveBeenCalled();
     });
 
-    it('recibirIncidenciaActualizada debe procesar orden cuando tiene técnico y orden', async () => {
+    it('recibirIncidenciaCritica debe hacer NACK y NO hacer ACK si el procesamiento falla', async () => {
+      serviceMock.procesarIncidenciaCritica!.mockResolvedValueOnce({
+        status: 'fallida',
+        error: 'Error de servidor SMTP',
+        fallback: false,
+      });
+
+      const payload = { id_incidencia: 'crit-99', titulo: 'Fuego' };
+      const ackMock = jest.fn();
+      const nackMock = jest.fn();
+      const mockContext = {
+        getChannelRef: () => ({ ack: ackMock, nack: nackMock }),
+        getMessage: () => ({ content: Buffer.from('msg') }),
+      };
+
+      await controller.recibirIncidenciaCritica(payload, mockContext);
+
+      expect(ackMock).not.toHaveBeenCalled();
+      expect(nackMock).toHaveBeenCalledWith(expect.any(Object), false, false);
+    });
+
+    it('recibirIncidenciaActualizada debe procesar orden asignada cuando tiene id_orden e id_tecnico', async () => {
       const payload = {
         id_incidencia: 'inc-10',
         id_orden: 'ord-10',
         id_tecnico: 'tec-10',
       };
       const ackMock = jest.fn();
+      const nackMock = jest.fn();
       const mockContext = {
-        getChannelRef: () => ({ ack: ackMock }),
+        getChannelRef: () => ({ ack: ackMock, nack: nackMock }),
         getMessage: () => ({ content: Buffer.from('msg') }),
       };
 
       await controller.recibirIncidenciaActualizada(payload, mockContext);
 
       expect(serviceMock.procesarOrdenAsignada).toHaveBeenCalledWith(payload);
-      expect(ackMock).toHaveBeenCalled();
+      expect(ackMock).toHaveBeenCalledTimes(1);
+      expect(nackMock).not.toHaveBeenCalled();
     });
 
-    it('recibirIncidenciaActualizada debe procesar resolución cuando no es asignación', async () => {
+    it('recibirIncidenciaActualizada debe procesar resolución si el estado es resolutivo (RESUELTA)', async () => {
       const payload = {
         id_incidencia: 'inc-10',
-        nombre_estado: 'CERRADA',
+        nombre_estado: 'RESUELTA',
       };
       const ackMock = jest.fn();
+      const nackMock = jest.fn();
       const mockContext = {
-        getChannelRef: () => ({ ack: ackMock }),
+        getChannelRef: () => ({ ack: ackMock, nack: nackMock }),
         getMessage: () => ({ content: Buffer.from('msg') }),
       };
 
@@ -196,7 +222,52 @@ describe('NotificacionesController', () => {
       expect(serviceMock.procesarIncidenciaResuelta).toHaveBeenCalledWith(
         payload,
       );
-      expect(ackMock).toHaveBeenCalled();
+      expect(ackMock).toHaveBeenCalledTimes(1);
+      expect(nackMock).not.toHaveBeenCalled();
+    });
+
+    it('recibirIncidenciaActualizada NO debe procesar resolución ante cambios no resolutivos (ej. EN_PROCESO)', async () => {
+      const payload = {
+        id_incidencia: 'inc-10',
+        nuevo_estado: 'EN_PROCESO',
+      };
+      const ackMock = jest.fn();
+      const nackMock = jest.fn();
+      const mockContext = {
+        getChannelRef: () => ({ ack: ackMock, nack: nackMock }),
+        getMessage: () => ({ content: Buffer.from('msg') }),
+      };
+
+      await controller.recibirIncidenciaActualizada(payload, mockContext);
+
+      expect(serviceMock.procesarIncidenciaResuelta).not.toHaveBeenCalled();
+      expect(serviceMock.procesarOrdenAsignada).not.toHaveBeenCalled();
+      expect(ackMock).toHaveBeenCalledTimes(1); // Descartado limpiamente
+      expect(nackMock).not.toHaveBeenCalled();
+    });
+
+    it('recibirIncidenciaActualizada debe hacer NACK si el despacho de resolución falla', async () => {
+      serviceMock.procesarIncidenciaResuelta!.mockResolvedValueOnce({
+        status: 'fallida',
+        error: 'DB Down',
+        fallback: false,
+      });
+
+      const payload = {
+        id_incidencia: 'inc-10',
+        nombre_estado: 'CERRADA',
+      };
+      const ackMock = jest.fn();
+      const nackMock = jest.fn();
+      const mockContext = {
+        getChannelRef: () => ({ ack: ackMock, nack: nackMock }),
+        getMessage: () => ({ content: Buffer.from('msg') }),
+      };
+
+      await controller.recibirIncidenciaActualizada(payload, mockContext);
+
+      expect(ackMock).not.toHaveBeenCalled();
+      expect(nackMock).toHaveBeenCalledWith(expect.any(Object), false, false);
     });
   });
 });

@@ -60,11 +60,12 @@ export interface MantenimientoPreventivoMailData {
 @Injectable()
 export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name);
-  private transporter!: Transporter;
+  private transporter: Transporter | null = null;
   private isFallbackMode = false;
   private defaultFrom = 'InfraManager <notificaciones@institucion.edu>';
+  private currentEnv = 'development';
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   onModuleInit(): void {
     this.inicializarTransporte();
@@ -78,6 +79,11 @@ export class MailService implements OnModuleInit {
     const secure =
       this.configService.get<string>('SMTP_SECURE') === 'true' || port === 465;
     const configuredFrom = this.configService.get<string>('MAIL_FROM');
+    const rawEnv = this.configService.get<string>('NODE_ENV') ?? process.env.NODE_ENV ?? 'development';
+    this.currentEnv = rawEnv.toLowerCase();
+    const allowFallbackExplicit =
+      this.currentEnv !== 'production' &&
+      this.configService.get<string>('ALLOW_SMTP_FALLBACK') === 'true';
 
     if (configuredFrom) {
       this.defaultFrom = configuredFrom;
@@ -95,17 +101,27 @@ export class MailService implements OnModuleInit {
       });
       this.isFallbackMode = false;
       this.logger.log(
-        `Transporte SMTP configurado hacia ${host}:${port} (${user})`,
+        `Transporte SMTP configurado hacia ${host}:${port} (${user}) [Entorno: ${this.currentEnv}]`,
       );
     } else {
-      // Fallback seguro en entorno local / desarrollo sin credenciales SMTP
-      this.transporter = nodemailer.createTransport({
-        jsonTransport: true,
-      });
-      this.isFallbackMode = true;
-      this.logger.warn(
-        'Transporte SMTP no configurado. Operando en modo FALLBACK SEGURO (jsonTransport simulado en memoria).',
-      );
+      // El modo fallback simulado SOLO se permite en entornos de desarrollo y pruebas
+      const isDevOrTest = this.currentEnv === 'development' || this.currentEnv === 'test';
+      if (isDevOrTest || allowFallbackExplicit) {
+        this.transporter = nodemailer.createTransport({
+          jsonTransport: true,
+        });
+        this.isFallbackMode = true;
+        this.logger.warn(
+          `Transporte SMTP no configurado. Operando en modo FALLBACK SEGURO (jsonTransport simulado en memoria) [Entorno: ${this.currentEnv}].`,
+        );
+      } else {
+        // En producción u otros entornos, NO se permite fallback silencioso
+        this.transporter = null;
+        this.isFallbackMode = false;
+        this.logger.error(
+          `Transporte SMTP no configurado en entorno '${this.currentEnv}'. El fallback simulado está estrictamente deshabilitado fuera de desarrollo.`,
+        );
+      }
     }
   }
 
@@ -113,7 +129,21 @@ export class MailService implements OnModuleInit {
     return this.isFallbackMode;
   }
 
+  isConfigured(): boolean {
+    return this.transporter !== null;
+  }
+
   async enviarCorreo(options: SendMailOptions): Promise<MailSendResult> {
+    if (!this.transporter) {
+      const errorMsg = `Transporte SMTP no configurado en entorno '${this.currentEnv}'. El envío real fue denegado y no se permite simulación en este entorno.`;
+      this.logger.error(errorMsg);
+      return {
+        success: false,
+        error: errorMsg,
+        isFallback: false,
+      };
+    }
+
     try {
       const info = await this.transporter.sendMail({
         from: options.from || this.defaultFrom,
@@ -125,11 +155,11 @@ export class MailService implements OnModuleInit {
 
       if (this.isFallbackMode) {
         this.logger.log(
-          `[FALLBACK SMTP] Correo simulado a: ${options.to} | Asunto: ${options.subject}`,
+          `[FALLBACK SMTP - SIMULADO] Correo simulado a: ${options.to} | Asunto: ${options.subject}`,
         );
       } else {
         this.logger.log(
-          `[SMTP] Correo enviado a: ${options.to} | ID: ${info.messageId}`,
+          `[SMTP REAL] Correo enviado a: ${options.to} | ID: ${info.messageId}`,
         );
       }
 

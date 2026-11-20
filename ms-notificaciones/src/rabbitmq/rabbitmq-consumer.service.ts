@@ -215,16 +215,36 @@ export class RabbitmqConsumerService implements OnModuleDestroy {
       'x-retry-count': retryCount + 1,
     };
 
-    this.channel!.publish(
-      msg.fields.exchange,
-      msg.fields.routingKey,
-      Buffer.from(payload),
-      {
-        persistent: true,
-        headers: retryHeaders,
-      },
-    );
+    let publishOk = false;
+    try {
+      publishOk = this.channel!.publish(
+        msg.fields.exchange,
+        msg.fields.routingKey,
+        Buffer.from(payload),
+        {
+          persistent: true,
+          headers: retryHeaders,
+        },
+      );
+    } catch (pubError) {
+      this.logger.error(
+        `[RABBITMQ] Excepción al republicar mensaje para reintento en ${queue}: ${
+          pubError instanceof Error ? pubError.message : String(pubError)
+        }. Reencolando mensaje original sin confirmar.`,
+      );
+      this.channel!.nack(msg, false, true);
+      return;
+    }
 
+    if (!publishOk) {
+      this.logger.error(
+        `[RABBITMQ] La republicación no fue aceptada por el canal en ${queue} (buffer saturado). Reencolando mensaje original sin confirmar.`,
+      );
+      this.channel!.nack(msg, false, true);
+      return;
+    }
+
+    // Confirmar mensaje original ÚNICAMENTE tras verificar que la republicación fue aceptada por el broker
     this.channel!.ack(msg);
   }
 }

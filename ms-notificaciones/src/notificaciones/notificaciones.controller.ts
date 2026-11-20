@@ -88,22 +88,33 @@ export class NotificacionesController {
       `[RABBITMQ] Incidencia crítica recibida: ${JSON.stringify(payload)}`,
     );
 
+    const rmqContext = context as RmqContext;
+    const channel = rmqContext?.getChannelRef?.();
+    const message = rmqContext?.getMessage?.();
+
     try {
-      await this.notificacionesService.procesarIncidenciaCritica(payload);
+      const resultado =
+        await this.notificacionesService.procesarIncidenciaCritica(payload);
+
+      if (resultado.status === 'fallida') {
+        throw new Error(
+          resultado.error ?? 'Fallo procesando notificación de incidencia crítica',
+        );
+      }
+
+      // Confirmar (ack) ÚNICAMENTE cuando el procesamiento y trazabilidad fueron exitosos
+      if (channel && message) {
+        channel.ack(message);
+      }
     } catch (error) {
       this.logger.error(
-        `Error procesando incidencia crítica recibida: ${
+        `[RABBITMQ] Error procesando incidencia crítica recibida: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
-    } finally {
-      if (context && typeof (context as any).getChannelRef === 'function') {
-        const rmqContext = context as RmqContext;
-        const channel = rmqContext.getChannelRef();
-        const message = rmqContext.getMessage();
-        if (channel && message) {
-          channel.ack(message);
-        }
+      // En caso de fallo, NO hacer ack: hacer nack con requeue=false para derivar al DLX
+      if (channel && message) {
+        channel.nack(message, false, false);
       }
     }
   }
@@ -117,27 +128,71 @@ export class NotificacionesController {
       `[RABBITMQ] Incidencia actualizada recibida: ${JSON.stringify(payload)}`,
     );
 
+    const rmqContext = context as RmqContext;
+    const channel = rmqContext?.getChannelRef?.();
+    const message = rmqContext?.getMessage?.();
+
     try {
+      let resultado;
+
       if (payload.id_orden && payload.id_tecnico) {
-        await this.notificacionesService.procesarOrdenAsignada(payload);
+        resultado = await this.notificacionesService.procesarOrdenAsignada(payload);
+      } else if (this.esEstadoResolucion(payload)) {
+        resultado = await this.notificacionesService.procesarIncidenciaResuelta(payload);
       } else {
-        await this.notificacionesService.procesarIncidenciaResuelta(payload);
-      }
-    } catch (error) {
-      this.logger.error(
-        `Error procesando actualización de incidencia: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    } finally {
-      if (context && typeof (context as any).getChannelRef === 'function') {
-        const rmqContext = context as RmqContext;
-        const channel = rmqContext.getChannelRef();
-        const message = rmqContext.getMessage();
+        // Estado intermedio (ej: 'EN_PROCESO', 'REPORTADA'): no corresponde a resolución
+        this.logger.log(
+          `[RABBITMQ] Evento de actualización ignorado para notificación de resolución (estado no resolutivo: '${
+            payload.nuevo_estado ?? payload.nombre_estado ?? payload.estado
+          }')`,
+        );
         if (channel && message) {
           channel.ack(message);
         }
+        return;
+      }
+
+      if (resultado && resultado.status === 'fallida') {
+        throw new Error(
+          resultado.error ?? 'Fallo procesando actualización de incidencia',
+        );
+      }
+
+      // Confirmar (ack) ÚNICAMENTE tras procesamiento exitoso
+      if (channel && message) {
+        channel.ack(message);
+      }
+    } catch (error) {
+      this.logger.error(
+        `[RABBITMQ] Error procesando actualización de incidencia: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      if (channel && message) {
+        channel.nack(message, false, false);
       }
     }
+  }
+
+  private esEstadoResolucion(payload: any): boolean {
+    const estadoRaw = String(
+      payload.nuevo_estado ??
+        payload.nombre_estado ??
+        payload.estado ??
+        '',
+    )
+      .trim()
+      .toUpperCase();
+
+    const estadosResolucion = [
+      'RESUELTA',
+      'RESUELTO',
+      'CERRADA',
+      'CERRADO',
+      'FINALIZADA',
+      'FINALIZADO',
+    ];
+
+    return estadosResolucion.includes(estadoRaw);
   }
 }

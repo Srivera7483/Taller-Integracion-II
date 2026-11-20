@@ -11,6 +11,7 @@ enum EstadoNotificacion {
   PENDIENTE
   ENVIADO
   FALLIDO
+  SIMULADO
 }
 
 enum TipoNotificacion {

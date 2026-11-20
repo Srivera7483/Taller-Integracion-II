@@ -29,6 +29,7 @@ describe('MailService', () => {
           SMTP_USER: 'test@institucion.edu',
           SMTP_PASS: 'secret',
           MAIL_FROM: 'InfraManager <notificaciones@institucion.edu>',
+          NODE_ENV: 'test',
         };
         return envs[key];
       }),
@@ -52,10 +53,14 @@ describe('MailService', () => {
         }),
       );
       expect(service.isFallback()).toBe(false);
+      expect(service.isConfigured()).toBe(true);
     });
 
-    it('debe activar fallback seguro cuando no hay credenciales SMTP', () => {
-      configService.get.mockReturnValue(undefined as any);
+    it('debe activar fallback seguro en entorno de desarrollo/test cuando no hay credenciales SMTP', () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'NODE_ENV') return 'development';
+        return undefined as any;
+      });
       service.inicializarTransporte();
 
       expect(nodemailer.createTransport).toHaveBeenCalledWith(
@@ -64,6 +69,28 @@ describe('MailService', () => {
         }),
       );
       expect(service.isFallback()).toBe(true);
+      expect(service.isConfigured()).toBe(true);
+    });
+
+    it('debe DESACTIVAR fallback en entorno de producción si faltan credenciales SMTP', async () => {
+      configService.get.mockImplementation((key: string) => {
+        if (key === 'NODE_ENV') return 'production';
+        return undefined as any;
+      });
+      service.inicializarTransporte();
+
+      expect(service.isFallback()).toBe(false);
+      expect(service.isConfigured()).toBe(false);
+
+      const res = await service.enviarCorreo({
+        to: 'dest@institucion.edu',
+        subject: 'Alerta Producción',
+        html: '<p>Test</p>',
+      });
+
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('no se permite simulación en este entorno');
+      expect(mockTransporter.sendMail).not.toHaveBeenCalled();
     });
   });
 
