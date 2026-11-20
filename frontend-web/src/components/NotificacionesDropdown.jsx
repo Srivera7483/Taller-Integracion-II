@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FiBell,
@@ -10,15 +10,22 @@ import {
 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWebSocket } from '../hooks/useWebSocket';
+import { getUsuarioActual } from '../services/authService';
+import api from '../services/api';
 import {
   NOTIFICACIONES_INICIALES,
   formatBadgeCount,
   normalizarEventoNotificacion,
   formatearPrioridadTexto,
+  calcularTiempoRelativo,
   contarNoLeidas,
   marcarTodasComoLeidas,
   marcarNotificacionComoLeida,
   agregarNotificacionSinDuplicados,
+  debeRecibirNotificacion,
+  obtenerStorageKeyNotificaciones,
+  obtenerRolUsuarioActual,
+  hidratarNotificacionesDesdeApi,
 } from '../utils/notificaciones.js';
 
 export {
@@ -26,10 +33,15 @@ export {
   formatBadgeCount,
   normalizarEventoNotificacion,
   formatearPrioridadTexto,
+  calcularTiempoRelativo,
   contarNoLeidas,
   marcarTodasComoLeidas,
   marcarNotificacionComoLeida,
   agregarNotificacionSinDuplicados,
+  debeRecibirNotificacion,
+  obtenerStorageKeyNotificaciones,
+  obtenerRolUsuarioActual,
+  hidratarNotificacionesDesdeApi,
 };
 
 /**
@@ -41,18 +53,129 @@ export {
 const NotificacionesDropdown = ({
   initialNotifications = NOTIFICACIONES_INICIALES,
   maxDisplay = 5,
-  wsSalas = ['incidencias', 'coordinadores'],
+  wsSalas = ['incidencias'],
 }) => {
   const [abierto, setAbierto] = useState(false);
-  const [notificaciones, setNotificaciones] = useState(initialNotifications);
+  const [notificaciones, setNotificaciones] = useState(() => {
+    try {
+      const usuario = getUsuarioActual();
+      const storageKey = obtenerStorageKeyNotificaciones(usuario);
+      if (storageKey && typeof localStorage !== 'undefined') {
+        const guardadas = localStorage.getItem(storageKey);
+        if (guardadas) {
+          const parsed = JSON.parse(guardadas);
+          if (Array.isArray(parsed)) {
+            return parsed;
+          }
+        }
+      }
+    } catch {
+      // Ignorar errores de lectura en storage
+    }
+    return initialNotifications;
+  });
   const [animarRebote, setAnimarRebote] = useState(false);
   const dropdownRef = useRef(null);
   const bounceTimerRef = useRef(null);
   const recentProcessedRef = useRef(new Map());
+  const notificacionesRef = useRef(notificaciones);
+
+  useEffect(() => {
+    notificacionesRef.current = notificaciones;
+  }, [notificaciones]);
 
   // Cuenta notificaciones no leídas
   const noLeidas = notificaciones.filter((n) => !n.leida).length;
   const prevNoLeidasRef = useRef(noLeidas);
+
+  // Sincronizar notificaciones en caso de cambio de usuario en la misma sesión
+  const usuarioActual = getUsuarioActual();
+  const idUsuarioActual = usuarioActual?.id_usuario || usuarioActual?.id || usuarioActual?.email || null;
+
+  useEffect(() => {
+    const storageKey = obtenerStorageKeyNotificaciones(usuarioActual);
+    if (storageKey && typeof localStorage !== 'undefined') {
+      try {
+        const guardadas = localStorage.getItem(storageKey);
+        if (guardadas) {
+          const parsed = JSON.parse(guardadas);
+          if (Array.isArray(parsed)) {
+            setNotificaciones(parsed);
+            return;
+          }
+        }
+      } catch {}
+    }
+    setNotificaciones(initialNotifications);
+  }, [idUsuarioActual]);
+
+  // Hidratar notificaciones iniciales desde PostgreSQL vía API Gateway (Opción A) ante carga en frío o inicio de sesión
+  useEffect(() => {
+    let activo = true;
+
+    const cargarHistorialServidor = async () => {
+      const usuario = getUsuarioActual();
+      if (!usuario) return;
+
+      try {
+        const alertasServidor = await hidratarNotificacionesDesdeApi(usuario, api);
+        if (!activo || !alertasServidor || alertasServidor.length === 0) return;
+
+        setNotificaciones((actuales) => {
+          let resultado = [...actuales];
+          for (const alerta of alertasServidor) {
+            const yaExiste = resultado.some(
+              (act) =>
+                (act.id && alerta.id && act.id === alerta.id) ||
+                (act.claveDeduplicacion &&
+                  alerta.claveDeduplicacion &&
+                  act.claveDeduplicacion === alerta.claveDeduplicacion) ||
+                (act.idReferencia &&
+                  alerta.idReferencia &&
+                  act.idReferencia === alerta.idReferencia &&
+                  act.tipo === alerta.tipo),
+            );
+            if (!yaExiste) {
+              resultado = agregarNotificacionSinDuplicados(resultado, alerta);
+            }
+          }
+          return resultado;
+        });
+      } catch {
+        // En caso de fallo de red, mantener el estado local silenciosamente
+      }
+    };
+
+    cargarHistorialServidor();
+
+    return () => {
+      activo = false;
+    };
+  }, [idUsuarioActual]);
+
+  // Persistir notificaciones en localStorage exclusivas para el usuario logueado
+  useEffect(() => {
+    try {
+      const usuario = getUsuarioActual();
+      const storageKey = obtenerStorageKeyNotificaciones(usuario);
+      if (storageKey && typeof localStorage !== 'undefined') {
+        localStorage.setItem(storageKey, JSON.stringify(notificaciones.slice(0, 30)));
+      }
+    } catch {
+      // Ignorar errores de cuota o serialización
+    }
+  }, [notificaciones]);
+
+  // Forzar actualización periódica para que los tiempos relativos avancen (Ahora mismo -> 1 minuto -> n minutos)
+  const [, setRelojTick] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setRelojTick((tick) => tick + 1);
+    }, 30000); // Recalcula cada 30 segundos
+
+    return () => clearInterval(timer);
+  }, []);
 
   // Disparar micro-animación de rebote (bounce)
   const dispararRebote = useCallback(() => {
@@ -85,16 +208,69 @@ const NotificacionesDropdown = ({
   // Manejador centralizado para eventos en tiempo real provenientes del WebSocket con deduplicación estricta
   const procesarEventoWebSocket = useCallback(
     (payload, eventName) => {
+      // 1. Filtrar si la notificación corresponde al usuario actual según su rol e ID
+      const usuario = getUsuarioActual();
+      if (!debeRecibirNotificacion(payload, eventName, usuario)) {
+        return;
+      }
+
       const idRecurso = payload?.id_incidencia || payload?.id_orden || payload?.id || payload?.titulo || '';
-      const subTipo =
-        payload?.accion ||
-        payload?.tipo_cambio ||
-        (payload?.cambio_prioridad ? `prioridad_${payload?.prioridad}` : null) ||
-        payload?.nuevo_estado ||
-        payload?.estado ||
-        payload?.prioridad ||
-        payload?.tipo_evento ||
-        eventName;
+
+      const esCambioPrioridad =
+        payload?.accion === 'CAMBIO_PRIORIDAD' ||
+        payload?.tipo_cambio === 'CAMBIO_PRIORIDAD' ||
+        payload?.cambio_prioridad === true ||
+        payload?.tipo_evento === 'CAMBIO_PRIORIDAD' ||
+        eventName === 'prioridad_cambiada' ||
+        eventName === 'cambio_prioridad';
+
+      const esAsignacionOrden =
+        eventName === 'orden_asignada' ||
+        payload?.tipo_evento === 'ASIGNACION_ORDEN' ||
+        payload?.tipo_evento === 'REASIGNACION_ORDEN' ||
+        payload?.evento === 'ORDEN_TRABAJO_ASIGNADA' ||
+        payload?.evento === 'ORDEN_TRABAJO_REASIGNADA' ||
+        payload?.accion === 'REASIGNACION' ||
+        payload?.es_reasignacion === true ||
+        Boolean(payload?.id_orden && (payload?.id_tecnico || payload?.usuario_responsable));
+
+      const esReasignacion = Boolean(
+        payload?.es_reasignacion === true ||
+        payload?.accion === 'REASIGNACION' ||
+        payload?.tipo_cambio === 'REASIGNACION' ||
+        payload?.tipo_evento === 'REASIGNACION_ORDEN' ||
+        payload?.evento === 'ORDEN_TRABAJO_REASIGNADA' ||
+        payload?.tecnico_anterior_id ||
+        (esAsignacionOrden &&
+          notificacionesRef.current.some(
+            (item) =>
+              item.tipo === 'orden' &&
+              item.idReferencia === (payload?.id_incidencia || payload?.id) &&
+              item.idTecnico &&
+              item.idTecnico !==
+                String(payload?.id_tecnico || payload?.usuario_responsable || '')
+                  .trim()
+                  .toLowerCase(),
+          ))
+      );
+
+      const payloadConReasignacion =
+        esReasignacion && !payload?.es_reasignacion
+          ? { ...payload, es_reasignacion: true }
+          : payload;
+
+      const subTipo = esCambioPrioridad && payload?.prioridad
+        ? `prioridad_${String(payload.prioridad).trim().toLowerCase()}`
+        : esAsignacionOrden
+        ? `orden_${esReasignacion ? 'reasig' : 'asig'}_${payload?.id_tecnico || payload?.usuario_responsable || ''}_${payload?.id_orden || ''}`
+        : payload?.accion ||
+          payload?.tipo_cambio ||
+          (payload?.cambio_prioridad ? `prioridad_${payload?.prioridad}` : null) ||
+          payload?.nuevo_estado ||
+          payload?.estado ||
+          payload?.prioridad ||
+          payload?.tipo_evento ||
+          eventName;
 
       const normEvent = ['estado_cambiado', 'incidencia_actualizada', 'incidencia-actualizada'].includes(
         String(eventName).replace('-', '_').toLowerCase(),
@@ -111,8 +287,8 @@ const NotificacionesDropdown = ({
       const ahora = Date.now();
       const previo = recentProcessedRef.current.get(dedupKey);
 
-      // Si el mismo evento para el mismo recurso llegó en los últimos 4 segundos, descartar la réplica
-      if (previo && ahora - previo < 4000) {
+      // Si el mismo evento idéntico para el mismo recurso llegó en los últimos 2 segundos, descartar la réplica
+      if (previo && ahora - previo < 2000) {
         return;
       }
       recentProcessedRef.current.set(dedupKey, ahora);
@@ -125,11 +301,11 @@ const NotificacionesDropdown = ({
         }
       }
 
-      const nuevaNotif = normalizarEventoNotificacion(payload, eventName);
+      const nuevaNotif = normalizarEventoNotificacion(payloadConReasignacion, eventName, usuario);
 
       setNotificaciones((prev) => {
         const listaActualizada = agregarNotificacionSinDuplicados(prev, nuevaNotif);
-        if (listaActualizada.length > prev.length) {
+        if (listaActualizada !== prev) {
           dispararRebote();
         }
         return listaActualizada;
@@ -138,16 +314,38 @@ const NotificacionesDropdown = ({
     [dispararRebote],
   );
 
+  // Complementar salas WebSocket con 'coordinadores' según el rol del usuario autenticado (TAL-186)
+  const rolActual = obtenerRolUsuarioActual(usuarioActual);
+  const esCoordinador = ['COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolActual);
+
+  const salasComplementadas = useMemo(() => {
+    const conjunto = new Set(Array.isArray(wsSalas) ? wsSalas : ['incidencias']);
+    if (esCoordinador) {
+      conjunto.add('coordinadores');
+    }
+    return Array.from(conjunto);
+  }, [wsSalas, esCoordinador]);
+
   // Conexión reactiva en tiempo real mediante el hook useWebSocket (TAL-186)
-  useWebSocket(
+  const { unirseSala, dejarSala } = useWebSocket(
     {
       onNuevaIncidencia: (payload) => procesarEventoWebSocket(payload, 'nueva_incidencia'),
       onIncidenciaActualizada: (payload) =>
         procesarEventoWebSocket(payload, 'incidencia_actualizada'),
       onOrdenAsignada: (payload) => procesarEventoWebSocket(payload, 'orden_asignada'),
+      onEstadoCambiado: (payload) => procesarEventoWebSocket(payload, 'estado_cambiado'),
     },
-    { autoConnect: true, salas: wsSalas },
+    { autoConnect: true, salas: salasComplementadas },
   );
+
+  // Sincronización reactiva de la sala coordinadores (TAL-186) ante cambios de sesión
+  useEffect(() => {
+    if (esCoordinador) {
+      void unirseSala('coordinadores');
+    } else {
+      void dejarSala('coordinadores');
+    }
+  }, [idUsuarioActual, esCoordinador, unirseSala, dejarSala]);
 
   // Cierra el menú al hacer clic afuera (ClickAway listener)
   useEffect(() => {
@@ -278,9 +476,6 @@ const NotificacionesDropdown = ({
                     <FiBell className="w-5 h-5" />
                   </div>
                   <p className="text-xs font-semibold text-gray-600">No hay notificaciones recientes</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    Se mostrarán aquí automáticamente cuando ocurran sucesos en tiempo real
-                  </p>
                 </div>
               ) : (
                 ultimasNotificaciones.map((item) => {
@@ -295,7 +490,7 @@ const NotificacionesDropdown = ({
                         setAbierto(false);
                       }}
                       data-testid={`notif-item-${item.id}`}
-                      className={`group relative flex items-start gap-3 p-3 rounded-xl transition-all duration-150 cursor-pointer block ${
+                      className={`group relative flex items-start gap-3 p-3 rounded-xl transition-all duration-150 cursor-pointer ${
                         item.leida
                           ? 'bg-transparent hover:bg-gray-50/80 opacity-75'
                           : 'bg-primary-50/40 hover:bg-primary-50/80'
@@ -332,16 +527,19 @@ const NotificacionesDropdown = ({
                           </p>
                           <span className="text-[10px] text-gray-500 flex items-center gap-0.5 flex-shrink-0">
                             <FiClock className="w-2.5 h-2.5" />
-                            {item.tiempo}
+                            {calcularTiempoRelativo(item.timestamp, item.tiempo)}
                           </span>
                         </div>
 
-                        <p className="text-xs text-gray-700 mt-0.5 font-medium leading-snug">
-                          {item.mensaje}
-                        </p>
+                        {/* Caja propia para el nombre de la incidencia con acople multilínea */}
+                        <div className="mt-0.5 w-full min-w-0">
+                          <p className="text-xs text-gray-700 font-medium leading-snug break-words whitespace-normal [overflow-wrap:anywhere]">
+                            {item.mensaje}
+                          </p>
+                        </div>
 
                         {item.detalle && (
-                          <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                          <p className="text-[11px] text-gray-500 mt-0.5 truncate break-words">
                             {item.detalle}
                           </p>
                         )}
@@ -362,11 +560,8 @@ const NotificacionesDropdown = ({
               )}
             </div>
 
-            {/* Pie del popover con enlace global a incidencias y estado en tiempo real */}
-            <div className="px-4 py-2.5 bg-gray-50/90 border-t border-gray-100 flex items-center justify-between text-xs">
-              <span className="text-[10px] text-gray-500 font-medium">
-                Alertas en tiempo real
-              </span>
+            {/* Pie del popover con enlace global a incidencias */}
+            <div className="px-4 py-2.5 bg-gray-50/90 border-t border-gray-100 flex items-center justify-end text-xs">
               <Link
                 to="/incidencias"
                 onClick={() => setAbierto(false)}

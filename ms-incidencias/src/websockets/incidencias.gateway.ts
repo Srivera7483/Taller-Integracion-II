@@ -20,7 +20,11 @@ export interface IncidenciaActualizadaPayload {
   cambio_prioridad?: boolean;
   titulo?: string;
   id_activo?: string;
+  id_orden?: string | null;
   id_tecnico?: string | null;
+  nombre_tecnico?: string | null;
+  es_reasignacion?: boolean;
+  tecnico_anterior_id?: string | null;
   usuario_responsable: string | null;
   id_edificio?: string | null;
   timestamp: string;
@@ -219,6 +223,12 @@ export class IncidenciasGateway
     const salasTarget = new Set<string>();
     salasTarget.add(`incidencia_${payload.id_incidencia}`);
     salasTarget.add('coordinadores');
+
+    // TAL-186 / TAL-190: Las asignaciones de orden también se transmiten hacia la sala 'incidencias'
+    // para que técnicos y reportantes en línea reciban su alerta en tiempo real en la campana
+    if (payload.tipo_evento === 'ASIGNACION_ORDEN') {
+      salasTarget.add('incidencias');
+    }
 
     const edificio = idEdificio ?? payload.id_edificio;
     if (edificio) {
