@@ -23,23 +23,26 @@ async function main() {
 
   const usuariosData = [
     // Administradores
-    { rut: '20123456-7', nombre: 'Diego Antonio', apellido: 'Hernández Martínez', email: 'administrador@uct.cl', role: rolAdmin.id },
-    { rut: '15234567-8', nombre: 'Eduardo', apellido: 'Necul', email: 'csanhueza@uct.cl', role: rolAdmin.id },
-    { rut: '16987654-3', nombre: 'Loreto', apellido: 'Paredes', email: 'lparedes@uct.cl', role: rolAdmin.id },
-    
-    // Supervisor
-    { rut: '17777777-7', nombre: 'Andrea', apellido: 'Méndez', email: 'supervisor@uct.cl', role: rolSupervisor.id },
-    
-    // Técnicos
-    { rut: '18765432-1', nombre: 'Felipe', apellido: 'Gutiérrez', email: 'tecnico@uct.cl', role: rolTecnico.id },
-    { rut: '19876543-2', nombre: 'Camila', apellido: 'Rojas', email: 'crojas@uct.cl', role: rolTecnico.id },
-    { rut: '17654321-0', nombre: 'Sebastián', apellido: 'Valenzuela', email: 'svalenzuela@uct.cl', role: rolTecnico.id },
-    { rut: '21345678-9', nombre: 'Macarena', apellido: 'Flores', email: 'mflores@uct.cl', role: rolTecnico.id },
-    { rut: '19456789-K', nombre: 'Rodrigo', apellido: 'Vergara', email: 'rvergara@uct.cl', role: rolTecnico.id },
-    
-    // Reportantes (Nuevos)
-    { rut: '22111222-3', nombre: 'Estudiante', apellido: 'Prueba', email: 'reportante@uct.cl', role: rolReportante.id },
-    { rut: '14555666-7', nombre: 'Profesor', apellido: 'Invitado', email: 'pinvitado@uct.cl', role: rolReportante.id },
+    { rut: '00000000-0', nombre: 'Admin', apellido: '01', email: 'administrador@uct.cl', role: rolAdmin.id },
+    { rut: '00000000-1', nombre: 'Diego Antonio', apellido: 'Hernández Martínez', email: 'dhernandez@uct.cl', role: rolAdmin.id },
+    { rut: '00000000-2', nombre: 'Loreto', apellido: 'Paredes', email: 'lparedes@uct.cl', role: rolAdmin.id },
+
+    // Supervisores
+    { rut: '10000000-0', nombre: 'Supervisor', apellido: '01', email: 'supervisor@uct.cl', role: rolSupervisor.id },
+    { rut: '10000000-1', nombre: 'Benjamin', apellido: 'Soto', email: 'bsoto@uct.cl', role: rolSupervisor.id },
+    { rut: '10000000-2', nombre: 'Sebastian', apellido: 'Rivera', email: 'srivera@uct.cl', role: rolSupervisor.id },
+
+    // Tecnicos
+    { rut: '20000000-0', nombre: 'Tecnico', apellido: '01', email: 'tecnico@uct.cl', role: rolTecnico.id },
+    { rut: '20000000-1', nombre: 'Eduardo', apellido: 'Necul', email: 'enecul@uct.cl', role: rolTecnico.id },
+    { rut: '20000000-2', nombre: 'Axel', apellido: 'Gonzalez', email: 'agonzalez@uct.cl', role: rolTecnico.id },
+    { rut: '20000000-3', nombre: 'Simon', apellido: 'Molina', email: 'smolina@uct.cl', role: rolTecnico.id },
+
+    // Reportantes
+    { rut: '30000000-0', nombre: 'Reportante', apellido: '01', email: 'reportante@uct.cl', role: rolReportante.id },
+    { rut: '30000000-1', nombre: 'Miku', apellido: 'Hatsune', email: 'mhatsune@uct.cl', role: rolReportante.id },
+    { rut: '30000000-2', nombre: 'Rin', apellido: 'Kagamine', email: 'rkagamine@uct.cl', role: rolReportante.id },
+    { rut: '30000000-3', nombre: 'Len', apellido: 'Kagamine', email: 'lkagamine@uct.cl', role: rolReportante.id },
   ];
 
   const tecnicosCreados = [];
@@ -48,10 +51,23 @@ async function main() {
   for (const u of usuariosData) {
     const user = await authPrisma.user.upsert({
       where: { rut_o_id: u.rut },
-      update: { passwordHash: hash, roleId: u.role },
-      create: { rut_o_id: u.rut, nombre: u.nombre, apellido: u.apellido, email: u.email, passwordHash: hash, roleId: u.role },
+      update: {
+        nombre: u.nombre,
+        apellido: u.apellido,
+        email: u.email,
+        passwordHash: hash,
+        roleId: u.role,
+      },
+      create: {
+        rut_o_id: u.rut,
+        nombre: u.nombre,
+        apellido: u.apellido,
+        email: u.email,
+        passwordHash: hash,
+        roleId: u.role,
+      },
     });
-    
+
     if (u.role === rolTecnico.id) tecnicosCreados.push(user.id || user.userId);
     if (u.role === rolReportante.id) reportantesCreados.push(user.id || user.userId);
   }
@@ -84,7 +100,7 @@ async function main() {
   console.log('✅ Activos (Computadores, Proyectores, Redes) creados.');
 
   const fechaHoy = new Date();
-  
+
   const mantenimientosBase = [
     { id_activo: activosCreados[0].id, dias: 5 },
     { id_activo: activosCreados[7].id, dias: 12 },
@@ -104,7 +120,7 @@ async function main() {
   console.log(`${mantenimientosBase.length} Mantenimientos preventivos programados.`);
 
   // ==========================================
-  // 3. ESTADOS E INCIDENCIAS (20 Históricas)
+  // 3. ESTADOS E INCIDENCIAS
   // ==========================================
   const estadosBase = [
     { id_estado: 1, nombre_estado: 'Reportada' }, { id_estado: 2, nombre_estado: 'Asignada' },
@@ -128,13 +144,13 @@ async function main() {
     const activo = activosCreados[Math.floor(Math.random() * activosCreados.length)];
     const problema = problemasEscolares[Math.floor(Math.random() * problemasEscolares.length)];
     const tecnicoResp = tecnicosCreados[Math.floor(Math.random() * tecnicosCreados.length)];
-    
+
     // <-- Seleccionamos un reportante aleatorio del nuevo arreglo en lugar del Admin
     const idReportanteAleatorio = reportantesCreados[Math.floor(Math.random() * reportantesCreados.length)];
-    
+
     const diasAtras = Math.floor(Math.random() * 30);
     const fechaCreacion = new Date(Date.now() - (diasAtras * 24 * 60 * 60 * 1000));
-    const estadoSimulado = Math.floor(Math.random() * 4) + 1; 
+    const estadoSimulado = Math.floor(Math.random() * 4) + 1;
 
     await incidenciasPrisma.incidencias.create({
       data: {
@@ -142,14 +158,14 @@ async function main() {
         id_activo: activo.id,
         id_reportante: idReportanteAleatorio,
         titulo: problema.t,
-        descripcion: `[Generado Demo] ${problema.d}`,
+        descripcion: problema.d,
         fecha_creacion: fechaCreacion,
         historial_estados: {
           create: [
             { id_historial: crypto.randomUUID(), id_estado: 1, id_usuario_cambio: idReportanteAleatorio, fecha_creacion: fechaCreacion },
-            ...(estadoSimulado > 1 ? [{ 
-              id_historial: crypto.randomUUID(), id_estado: estadoSimulado, id_usuario_cambio: tecnicoResp, 
-              fecha_creacion: new Date(fechaCreacion.getTime() + (2 * 60 * 60 * 1000)) 
+            ...(estadoSimulado > 1 ? [{
+              id_historial: crypto.randomUUID(), id_estado: estadoSimulado, id_usuario_cambio: tecnicoResp,
+              fecha_creacion: new Date(fechaCreacion.getTime() + (2 * 60 * 60 * 1000))
             }] : [])
           ]
         }
@@ -157,7 +173,6 @@ async function main() {
     });
   }
   console.log('20 Incidencias interconectadas registradas a nombre de los Reportantes.');
-  console.log('SISTEMA UCT LISTO PARA LA DEFENSA.');
 }
 
 main()

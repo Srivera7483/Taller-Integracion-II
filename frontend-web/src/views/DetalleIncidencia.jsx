@@ -25,6 +25,10 @@ import EvidenciaUploader from '../components/EvidenciaUploader';
 import { useToast } from '../context/ToastContext';
 import { getUsuarioActual, hasPermission } from '../services/authService';
 
+const esUuid = (valor) =>
+  typeof valor === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(valor);
+
 const getPriorityBadgeClass = (prioridad) => {
   const p = (
     typeof prioridad === 'string'
@@ -171,6 +175,10 @@ const DetalleIncidencia = () => {
   const [imagenModal, setImagenModal] = useState({ url: null, nombre: null });
 
   const usuarioSesion = getUsuarioActual();
+  const nombreSesionCompleto =
+    `${usuarioSesion?.nombre || ''} ${usuarioSesion?.apellido || ''}`.trim() ||
+    usuarioSesion?.nombre ||
+    null;
   const puedeClasificar = hasPermission('incidencias:clasificar_prioridad');
   const puedeResolver = hasPermission('incidencias:resolver');
   const puedeSubirEvidencia = hasPermission('evidencias:subir');
@@ -187,15 +195,78 @@ const DetalleIncidencia = () => {
           apiData.id_tecnico ||
           ordenAsociada?.id_tecnico ||
           null;
-        const nombreTecnicoApi =
+
+        const idUsuarioSesion =
+          usuarioSesion?.id_usuario || usuarioSesion?.id || usuarioSesion?.userId || null;
+        const nombreSesionCompleto =
+          `${usuarioSesion?.nombre || ''} ${usuarioSesion?.apellido || ''}`.trim() ||
+          usuarioSesion?.nombre ||
+          null;
+        const esMiAsignacion = Boolean(
+          idUsuarioSesion &&
+          idTecnicoApi &&
+          String(idTecnicoApi).toLowerCase() === String(idUsuarioSesion).toLowerCase()
+        );
+
+        let nombreTecnicoApi =
           apiData.nombre_tecnico ||
           ordenAsociada?.nombre_tecnico ||
           apiData.tecnico_asignado ||
           null;
+
+        // Principio de Ownership: si la incidencia pertenece al técnico en sesión, proyectar su nombre real
+        if ((!nombreTecnicoApi || esUuid(nombreTecnicoApi)) && esMiAsignacion && nombreSesionCompleto) {
+          nombreTecnicoApi = nombreSesionCompleto;
+        } else if (esUuid(nombreTecnicoApi)) {
+          nombreTecnicoApi = `ID ${nombreTecnicoApi.substring(0, 8)}`;
+        }
+
+        let nombreActivo = apiData.nombre_activo || null;
+        let codigoQrActivo = apiData.codigo_qr_activo || null;
+
+        // Si el activo no vino enriquecido o es un UUID, resolverlo puntualmente por su ID/QR
+        if ((!nombreActivo || esUuid(nombreActivo)) && apiData.id_activo) {
+          try {
+            const activoResp = await api.get(
+              `/activos/validar-qr?codigoQr=${encodeURIComponent(apiData.id_activo)}`
+            );
+            if (activoResp.data?.valido && activoResp.data?.activo) {
+              nombreActivo = activoResp.data.activo.nombre || nombreActivo;
+              codigoQrActivo =
+                activoResp.data.activo.codigoQr ||
+                activoResp.data.activo.codigo_qr ||
+                codigoQrActivo;
+            }
+          } catch {
+            // Silencioso ante fallo de resolución secundaria
+          }
+        }
+
         const diagnosticoApi =
           apiData.diagnostico_tecnico ||
           ordenAsociada?.diagnostico_tecnico ||
           null;
+
+        const historialAsignacionesProcesado = (
+          Array.isArray(apiData.historial_asignaciones)
+            ? apiData.historial_asignaciones
+            : []
+        ).map((item) => {
+          const esMiItem =
+            idUsuarioSesion &&
+            item.id_tecnico &&
+            String(item.id_tecnico).toLowerCase() === String(idUsuarioSesion).toLowerCase();
+          const nombreItem =
+            item.nombre_tecnico && !esUuid(item.nombre_tecnico)
+              ? item.nombre_tecnico
+              : esMiItem && nombreSesionCompleto
+              ? nombreSesionCompleto
+              : item.nombre_tecnico || null;
+          return {
+            ...item,
+            nombre_tecnico: nombreItem,
+          };
+        });
 
         setIncidencia({
           id: apiData.id_incidencia || idIncidencia,
@@ -207,14 +278,12 @@ const DetalleIncidencia = () => {
           id_tecnico_asignado: idTecnicoApi,
           orden_trabajo: ordenAsociada,
           ordenes_trabajo: Array.isArray(apiData.ordenes_trabajo) ? apiData.ordenes_trabajo : [],
-          historial_asignaciones: Array.isArray(apiData.historial_asignaciones)
-            ? apiData.historial_asignaciones
-            : [],
+          historial_asignaciones: historialAsignacionesProcesado,
           titulo: apiData.titulo,
           descripcion: apiData.descripcion,
           id_activo: apiData.id_activo,
-          nombre_activo: apiData.nombre_activo || null,
-          codigo_qr_activo: apiData.codigo_qr_activo || null,
+          nombre_activo: nombreActivo,
+          codigo_qr_activo: codigoQrActivo,
           nombre_reportante: apiData.nombre_reportante || null,
           prioridad: apiData.prioridad || apiData.prioridad_relativa || 'Media',
           prioridad_relativa: apiData.prioridad_relativa,
@@ -449,7 +518,7 @@ const DetalleIncidencia = () => {
               <span>
                 {incidencia.nombre_activo
                   ? `${incidencia.nombre_activo}${incidencia.codigo_qr_activo ? ` (${incidencia.codigo_qr_activo})` : ''}`
-                  : incidencia.codigo_qr_activo || incidencia.id_activo || 'N/A'}
+                  : incidencia.codigo_qr_activo || (incidencia.id_activo ? (esUuid(incidencia.id_activo) ? `ID ${incidencia.id_activo.substring(0, 8)}` : incidencia.id_activo) : 'N/A')}
               </span>
             </div>
           </div>
@@ -458,7 +527,13 @@ const DetalleIncidencia = () => {
             <div className="flex items-center justify-between gap-2 text-gray-800 font-medium">
               <div className="flex items-center gap-2">
                 <FiUser className="w-4 h-4 text-blue-600" aria-hidden="true" />
-                <span>{incidencia.asignado || 'Sin asignar'}</span>
+                <span>
+                  {esTecnicoAsignado && nombreSesionCompleto
+                    ? nombreSesionCompleto
+                    : (esUuid(incidencia.asignado)
+                        ? `ID ${incidencia.asignado.substring(0, 8)}`
+                        : incidencia.asignado || 'Sin asignar')}
+                </span>
               </div>
               {esSupervisor && !estaCerrada && (
                 <Link
@@ -731,7 +806,7 @@ const DetalleIncidencia = () => {
               <div className="text-xs space-y-1">
                 <p className="font-bold text-amber-950">Acceso restringido a la resolución</p>
                 <p>
-                  Esta incidencia está asignada a <strong>{incidencia.asignado || 'otro técnico'}</strong>. Solo el técnico asignado o usuarios con rol SUPERVISOR / ADMINISTRADOR pueden resolverla.
+                  Esta incidencia está asignada a <strong>{esTecnicoAsignado && nombreSesionCompleto ? nombreSesionCompleto : (incidencia.asignado || 'otro técnico')}</strong>. Solo el técnico asignado o usuarios con rol SUPERVISOR / ADMINISTRADOR pueden resolverla.
                 </p>
               </div>
             </div>
