@@ -1,11 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  EstadoNotificacion,
-  TipoEventoNotificacion,
-  TipoNotificacion,
-} from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import * as crypto from 'crypto';
 import {
   IncidenciaCriticaMailData,
   IncidenciaResueltaMailData,
@@ -20,11 +15,34 @@ import {
   PrioridadNotificacion,
 } from '../rabbitmq/dto/notificacion-evento.dto';
 
+export type EstadoNotificacion = 'ENVIADO' | 'SIMULADO' | 'FALLIDO';
+
+export type TipoEventoNotificacion =
+  | 'INCIDENCIA_CRITICA'
+  | 'ORDEN_ASIGNADA'
+  | 'INCIDENCIA_RESUELTA'
+  | 'INCIDENCIA_ACTUALIZADA'
+  | 'MANTENIMIENTO_PREVENTIVO'
+  | 'GENERAL';
+
 export interface EnvioNotificacionResult {
   status: 'enviada' | 'fallida';
   idNotificacion?: string;
   error?: string;
   fallback: boolean;
+  transient: boolean;
+}
+
+export interface NotificacionLogEstructurado {
+  correlationId: string;
+  evento: TipoEventoNotificacion;
+  destinatario: string;
+  asunto: string;
+  estado: EstadoNotificacion;
+  intentos?: number;
+  messageId?: string;
+  error?: string;
+  timestamp: string;
 }
 
 @Injectable()
@@ -32,7 +50,6 @@ export class NotificacionesService {
   private readonly logger = new Logger(NotificacionesService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly mailService: MailService,
     private readonly configService: ConfigService,
   ) { }
@@ -43,16 +60,28 @@ export class NotificacionesService {
   async notificar(
     payload: CreateNotificacionDto,
   ): Promise<EnvioNotificacionResult> {
-    this.logger.log(`Despachando notificación directa a: ${payload.email}`);
+    const correlationId = crypto.randomUUID();
+    this.logger.log(
+      `[REST] Despachando notificación directa (correlationId: ${correlationId}) a: ${payload.email}`,
+    );
 
     const destinatario = this.validarEmail(payload.email);
     if (!destinatario) {
       const errorMsg = `Formato de correo destinatario inválido: '${payload.email}'.`;
-      this.logger.error(errorMsg);
+      this.registrarLogEstructurado({
+        correlationId,
+        evento: 'GENERAL',
+        destinatario: payload.email || 'SIN_DESTINATARIO',
+        asunto: payload.asunto,
+        estado: 'FALLIDO',
+        error: errorMsg,
+        timestamp: new Date().toISOString(),
+      });
       return {
         status: 'fallida',
         error: errorMsg,
         fallback: false,
+        transient: false,
       };
     }
 
@@ -65,20 +94,37 @@ export class NotificacionesService {
       </div>
     `;
 
-    return this.registrarYEnviar({
-      tipo: TipoNotificacion.EMAIL,
-      evento: TipoEventoNotificacion.GENERAL,
+    const sendResult = await this.mailService.enviarCorreo({
+      to: destinatario,
+      subject: payload.asunto,
+      html: htmlContent,
+      text: payload.cuerpoMensaje,
+    });
+
+    const estadoFinal: EstadoNotificacion = !sendResult.success
+      ? 'FALLIDO'
+      : sendResult.isFallback
+        ? 'SIMULADO'
+        : 'ENVIADO';
+
+    this.registrarLogEstructurado({
+      correlationId,
+      evento: 'GENERAL',
       destinatario,
       asunto: payload.asunto,
-      cuerpo: payload.cuerpoMensaje,
-      sendEmailFn: () =>
-        this.mailService.enviarCorreo({
-          to: destinatario,
-          subject: payload.asunto,
-          html: htmlContent,
-          text: payload.cuerpoMensaje,
-        }),
+      estado: estadoFinal,
+      messageId: sendResult.messageId,
+      error: sendResult.error,
+      timestamp: new Date().toISOString(),
     });
+
+    return {
+      status: sendResult.success ? 'enviada' : 'fallida',
+      idNotificacion: correlationId,
+      error: sendResult.error,
+      fallback: sendResult.isFallback,
+      transient: !sendResult.success ? this.determinarSiErrorEsTransitorio(sendResult.error) : false,
+    };
   }
 
   /**
@@ -88,30 +134,36 @@ export class NotificacionesService {
     const idIncidencia = String(
       evento.id_incidencia ?? evento.idIncidencia ?? 'sin-id',
     );
+    const correlationId = this.obtenerCorrelationId(evento, idIncidencia);
     const titulo = String(evento.titulo ?? 'Incidencia Crítica Sin Título');
     const descripcion = String(
       evento.descripcion ?? 'Sin descripción detallada.',
     );
 
-    const destinatario = this.obtenerDestinatario(evento, [
-      'emailDestinatario',
-      'email',
-      'destinatario',
-    ], this.configService.get<string>('MAIL_ALERTAS_CRITICAS'));
+    const destinatario = this.obtenerDestinatario(
+      evento,
+      ['emailDestinatario', 'email', 'destinatario'],
+      this.configService.get<string>('MAIL_ALERTAS_CRITICAS'),
+    );
 
     if (!destinatario) {
       const errorMsg = `No se especificó un correo destinatario real para la incidencia crítica #${idIncidencia} (campo email ausente y MAIL_ALERTAS_CRITICAS no configurado). Se cancela el envío para evitar destinatarios ficticios.`;
-      this.logger.error(errorMsg);
-      return this.registrarFalloInmediato({
-        tipo: TipoNotificacion.EMAIL,
-        evento: TipoEventoNotificacion.INCIDENCIA_CRITICA,
+      this.registrarLogEstructurado({
+        correlationId,
+        evento: 'INCIDENCIA_CRITICA',
         destinatario: 'NO_ESPECIFICADO',
         asunto: `[ALERTA CRÍTICA] Incidencia #${idIncidencia.slice(0, 8)}: ${titulo}`,
-        cuerpo: descripcion,
+        estado: 'FALLIDO',
         error: errorMsg,
-        idReferencia: idIncidencia,
-        metadata: evento,
+        timestamp: new Date().toISOString(),
       });
+      return {
+        status: 'fallida',
+        idNotificacion: correlationId,
+        error: errorMsg,
+        fallback: false,
+        transient: false,
+      };
     }
 
     this.logger.warn(
@@ -128,20 +180,35 @@ export class NotificacionesService {
       fecha: evento.fecha_creacion ?? new Date().toISOString(),
     };
 
-    return this.registrarYEnviar({
-      tipo: TipoNotificacion.EMAIL,
-      evento: TipoEventoNotificacion.INCIDENCIA_CRITICA,
+    const sendResult = await this.mailService.enviarNotificacionIncidenciaCritica(
+      destinatario,
+      mailData,
+    );
+
+    const estadoFinal: EstadoNotificacion = !sendResult.success
+      ? 'FALLIDO'
+      : sendResult.isFallback
+        ? 'SIMULADO'
+        : 'ENVIADO';
+
+    this.registrarLogEstructurado({
+      correlationId,
+      evento: 'INCIDENCIA_CRITICA',
       destinatario,
       asunto: `[ALERTA CRÍTICA] Incidencia #${idIncidencia.slice(0, 8)}: ${titulo}`,
-      cuerpo: descripcion,
-      idReferencia: idIncidencia,
-      metadata: evento,
-      sendEmailFn: () =>
-        this.mailService.enviarNotificacionIncidenciaCritica(
-          destinatario,
-          mailData,
-        ),
+      estado: estadoFinal,
+      messageId: sendResult.messageId,
+      error: sendResult.error,
+      timestamp: new Date().toISOString(),
     });
+
+    return {
+      status: sendResult.success ? 'enviada' : 'fallida',
+      idNotificacion: correlationId,
+      error: sendResult.error,
+      fallback: sendResult.isFallback,
+      transient: !sendResult.success ? this.determinarSiErrorEsTransitorio(sendResult.error) : false,
+    };
   }
 
   /**
@@ -152,6 +219,7 @@ export class NotificacionesService {
     const idIncidencia = String(
       evento.id_incidencia ?? evento.idIncidencia ?? 'sin-incidencia',
     );
+    const correlationId = this.obtenerCorrelationId(evento, idOrden);
     const titulo = String(evento.titulo ?? 'Orden de Trabajo Asignada');
 
     const destinatario = this.obtenerDestinatario(evento, [
@@ -163,17 +231,22 @@ export class NotificacionesService {
 
     if (!destinatario) {
       const errorMsg = `No se especificó un correo técnico destinatario real para la orden #${idOrden}. Se cancela el envío para evitar destinatarios ficticios.`;
-      this.logger.error(errorMsg);
-      return this.registrarFalloInmediato({
-        tipo: TipoNotificacion.EMAIL,
-        evento: TipoEventoNotificacion.ORDEN_ASIGNADA,
+      this.registrarLogEstructurado({
+        correlationId,
+        evento: 'ORDEN_ASIGNADA',
         destinatario: 'NO_ESPECIFICADO',
         asunto: `[ORDEN ASIGNADA] Orden #${idOrden.slice(0, 8)} asignada`,
-        cuerpo: `Asignación de orden de trabajo para incidencia #${idIncidencia}`,
+        estado: 'FALLIDO',
         error: errorMsg,
-        idReferencia: idOrden,
-        metadata: evento,
+        timestamp: new Date().toISOString(),
       });
+      return {
+        status: 'fallida',
+        idNotificacion: correlationId,
+        error: errorMsg,
+        fallback: false,
+        transient: false,
+      };
     }
 
     this.logger.log(
@@ -189,20 +262,35 @@ export class NotificacionesService {
       diagnostico: evento.diagnostico_tecnico ?? evento.diagnostico,
     };
 
-    return this.registrarYEnviar({
-      tipo: TipoNotificacion.EMAIL,
-      evento: TipoEventoNotificacion.ORDEN_ASIGNADA,
+    const sendResult = await this.mailService.enviarNotificacionOrdenAsignada(
+      destinatario,
+      mailData,
+    );
+
+    const estadoFinal: EstadoNotificacion = !sendResult.success
+      ? 'FALLIDO'
+      : sendResult.isFallback
+        ? 'SIMULADO'
+        : 'ENVIADO';
+
+    this.registrarLogEstructurado({
+      correlationId,
+      evento: 'ORDEN_ASIGNADA',
       destinatario,
       asunto: `[ORDEN ASIGNADA] Orden #${idOrden.slice(0, 8)} asignada`,
-      cuerpo: `Asignación de orden de trabajo para incidencia #${idIncidencia}`,
-      idReferencia: idOrden,
-      metadata: evento,
-      sendEmailFn: () =>
-        this.mailService.enviarNotificacionOrdenAsignada(
-          destinatario,
-          mailData,
-        ),
+      estado: estadoFinal,
+      messageId: sendResult.messageId,
+      error: sendResult.error,
+      timestamp: new Date().toISOString(),
     });
+
+    return {
+      status: sendResult.success ? 'enviada' : 'fallida',
+      idNotificacion: correlationId,
+      error: sendResult.error,
+      fallback: sendResult.isFallback,
+      transient: !sendResult.success ? this.determinarSiErrorEsTransitorio(sendResult.error) : false,
+    };
   }
 
   /**
@@ -212,20 +300,36 @@ export class NotificacionesService {
     const idIncidencia = String(
       evento.id_incidencia ?? evento.idIncidencia ?? 'sin-id',
     );
+    const correlationId = this.obtenerCorrelationId(evento, idIncidencia);
     const titulo = String(evento.titulo ?? 'Incidencia Actualizada');
 
     // Validación estricta de estado resolutivo (Punto 2 de feedback)
+    const estadoObj =
+      typeof evento.estado === 'object' && evento.estado !== null
+        ? evento.estado.nombre_estado
+        : evento.estado;
+
     const nuevoEstado = String(
-      evento.nombre_estado ?? evento.nuevo_estado ?? evento.estado ?? '',
+      evento.nombre_estado ?? evento.nuevo_estado ?? estadoObj ?? '',
     ).trim();
 
     if (!this.esEstadoResolutivo(nuevoEstado)) {
       const errorMsg = `El estado '${nuevoEstado}' no corresponde a una resolución o cierre de incidencia. Notificación de resolución cancelada para evitar falsos positivos.`;
       this.logger.warn(errorMsg);
+      this.registrarLogEstructurado({
+        correlationId,
+        evento: 'INCIDENCIA_RESUELTA',
+        destinatario: 'NO_APLICA',
+        asunto: `[ACTUALIZACIÓN] Incidencia #${idIncidencia.slice(0, 8)}: ${nuevoEstado}`,
+        estado: 'FALLIDO',
+        error: errorMsg,
+        timestamp: new Date().toISOString(),
+      });
       return {
         status: 'fallida',
         error: errorMsg,
         fallback: false,
+        transient: false, // Error permanente: no se debe reintentar un estado no resolutivo
       };
     }
 
@@ -238,17 +342,22 @@ export class NotificacionesService {
 
     if (!destinatario) {
       const errorMsg = `No se especificó un correo destinatario real para la resolución de incidencia #${idIncidencia}. Se cancela el envío para evitar destinatarios ficticios.`;
-      this.logger.error(errorMsg);
-      return this.registrarFalloInmediato({
-        tipo: TipoNotificacion.EMAIL,
-        evento: TipoEventoNotificacion.INCIDENCIA_RESUELTA,
+      this.registrarLogEstructurado({
+        correlationId,
+        evento: 'INCIDENCIA_RESUELTA',
         destinatario: 'NO_ESPECIFICADO',
         asunto: `[ACTUALIZACIÓN] Incidencia #${idIncidencia.slice(0, 8)}: ${nuevoEstado}`,
-        cuerpo: `La incidencia #${idIncidencia} ha sido actualizada al estado ${nuevoEstado}`,
+        estado: 'FALLIDO',
         error: errorMsg,
-        idReferencia: idIncidencia,
-        metadata: evento,
+        timestamp: new Date().toISOString(),
       });
+      return {
+        status: 'fallida',
+        idNotificacion: correlationId,
+        error: errorMsg,
+        fallback: false,
+        transient: false,
+      };
     }
 
     this.logger.log(
@@ -263,20 +372,35 @@ export class NotificacionesService {
       tecnico: evento.tecnico ?? evento.nombreTecnico,
     };
 
-    return this.registrarYEnviar({
-      tipo: TipoNotificacion.EMAIL,
-      evento: TipoEventoNotificacion.INCIDENCIA_RESUELTA,
+    const sendResult = await this.mailService.enviarNotificacionIncidenciaResuelta(
+      destinatario,
+      mailData,
+    );
+
+    const estadoFinal: EstadoNotificacion = !sendResult.success
+      ? 'FALLIDO'
+      : sendResult.isFallback
+        ? 'SIMULADO'
+        : 'ENVIADO';
+
+    this.registrarLogEstructurado({
+      correlationId,
+      evento: 'INCIDENCIA_RESUELTA',
       destinatario,
       asunto: `[ACTUALIZACIÓN] Incidencia #${idIncidencia.slice(0, 8)}: ${nuevoEstado}`,
-      cuerpo: `La incidencia #${idIncidencia} ha sido actualizada al estado ${nuevoEstado}`,
-      idReferencia: idIncidencia,
-      metadata: evento,
-      sendEmailFn: () =>
-        this.mailService.enviarNotificacionIncidenciaResuelta(
-          destinatario,
-          mailData,
-        ),
+      estado: estadoFinal,
+      messageId: sendResult.messageId,
+      error: sendResult.error,
+      timestamp: new Date().toISOString(),
     });
+
+    return {
+      status: sendResult.success ? 'enviada' : 'fallida',
+      idNotificacion: correlationId,
+      error: sendResult.error,
+      fallback: sendResult.isFallback,
+      transient: !sendResult.success ? this.determinarSiErrorEsTransitorio(sendResult.error) : false,
+    };
   }
 
   /**
@@ -286,6 +410,7 @@ export class NotificacionesService {
     evento: any,
   ): Promise<EnvioNotificacionResult> {
     const idActivo = String(evento.id_activo ?? evento.idActivo ?? 'sin-activo');
+    const correlationId = this.obtenerCorrelationId(evento, idActivo);
     const nombreActivo = String(
       evento.nombreActivo ?? evento.nombre_activo ?? evento.nombre ?? 'Activo Institucional',
     );
@@ -295,26 +420,30 @@ export class NotificacionesService {
       new Date().toLocaleDateString('es-CL'),
     );
 
-    const destinatario = this.obtenerDestinatario(evento, [
-      'emailResponsable',
-      'email',
-      'correoResponsable',
-      'destinatario',
-    ], this.configService.get<string>('MAIL_ALERTAS_MANTENIMIENTO'));
+    const destinatario = this.obtenerDestinatario(
+      evento,
+      ['emailResponsable', 'email', 'correoResponsable', 'destinatario'],
+      this.configService.get<string>('MAIL_ALERTAS_MANTENIMIENTO'),
+    );
 
     if (!destinatario) {
       const errorMsg = `No se especificó un correo destinatario real para el mantenimiento del activo #${idActivo}. Se cancela el envío para evitar destinatarios ficticios.`;
-      this.logger.error(errorMsg);
-      return this.registrarFalloInmediato({
-        tipo: TipoNotificacion.EMAIL,
-        evento: TipoEventoNotificacion.MANTENIMIENTO_PREVENTIVO,
+      this.registrarLogEstructurado({
+        correlationId,
+        evento: 'MANTENIMIENTO_PREVENTIVO',
         destinatario: 'NO_ESPECIFICADO',
         asunto: `[MANTENIMIENTO PREVENTIVO] Activo ${nombreActivo}`,
-        cuerpo: `Mantenimiento preventivo programado para activo ${idActivo} el ${fechaProgramada}`,
+        estado: 'FALLIDO',
         error: errorMsg,
-        idReferencia: idActivo,
-        metadata: evento,
+        timestamp: new Date().toISOString(),
       });
+      return {
+        status: 'fallida',
+        idNotificacion: correlationId,
+        error: errorMsg,
+        fallback: false,
+        transient: false,
+      };
     }
 
     this.logger.log(
@@ -330,20 +459,36 @@ export class NotificacionesService {
       observaciones: evento.observaciones,
     };
 
-    return this.registrarYEnviar({
-      tipo: TipoNotificacion.EMAIL,
-      evento: TipoEventoNotificacion.MANTENIMIENTO_PREVENTIVO,
+    const sendResult =
+      await this.mailService.enviarNotificacionMantenimientoPreventivo(
+        destinatario,
+        mailData,
+      );
+
+    const estadoFinal: EstadoNotificacion = !sendResult.success
+      ? 'FALLIDO'
+      : sendResult.isFallback
+        ? 'SIMULADO'
+        : 'ENVIADO';
+
+    this.registrarLogEstructurado({
+      correlationId,
+      evento: 'MANTENIMIENTO_PREVENTIVO',
       destinatario,
       asunto: `[MANTENIMIENTO PREVENTIVO] Activo ${nombreActivo}`,
-      cuerpo: `Mantenimiento preventivo programado para activo ${idActivo} el ${fechaProgramada}`,
-      idReferencia: idActivo,
-      metadata: evento,
-      sendEmailFn: () =>
-        this.mailService.enviarNotificacionMantenimientoPreventivo(
-          destinatario,
-          mailData,
-        ),
+      estado: estadoFinal,
+      messageId: sendResult.messageId,
+      error: sendResult.error,
+      timestamp: new Date().toISOString(),
     });
+
+    return {
+      status: sendResult.success ? 'enviada' : 'fallida',
+      idNotificacion: correlationId,
+      error: sendResult.error,
+      fallback: sendResult.isFallback,
+      transient: !sendResult.success ? this.determinarSiErrorEsTransitorio(sendResult.error) : false,
+    };
   }
 
   /**
@@ -390,39 +535,66 @@ export class NotificacionesService {
         });
 
       default: {
+        const correlationId = dto.idCorrelacion ?? crypto.randomUUID();
         const destinatario = this.obtenerDestinatario(dto, ['destinatario']);
         if (!destinatario) {
-          const errorMsg = 'No se especificó un destinatario de correo válido para el evento genérico.';
-          this.logger.error(errorMsg);
+          const errorMsg =
+            'No se especificó un destinatario de correo válido para el evento genérico.';
+          this.registrarLogEstructurado({
+            correlationId,
+            evento: 'GENERAL',
+            destinatario: 'NO_ESPECIFICADO',
+            asunto: dto.asunto,
+            estado: 'FALLIDO',
+            error: errorMsg,
+            timestamp: new Date().toISOString(),
+          });
           return {
             status: 'fallida',
+            idNotificacion: correlationId,
             error: errorMsg,
             fallback: false,
+            transient: false,
           };
         }
 
-        return this.registrarYEnviar({
-          tipo: TipoNotificacion.EMAIL,
-          evento: TipoEventoNotificacion.GENERAL,
+        const sendResult = await this.mailService.enviarCorreo({
+          to: destinatario,
+          subject: dto.asunto,
+          html: `<div style="font-family: Arial, sans-serif;"><h2>${dto.asunto}</h2><p>${dto.cuerpo}</p></div>`,
+          text: dto.cuerpo,
+        });
+
+        const estadoFinal: EstadoNotificacion = !sendResult.success
+          ? 'FALLIDO'
+          : sendResult.isFallback
+            ? 'SIMULADO'
+            : 'ENVIADO';
+
+        this.registrarLogEstructurado({
+          correlationId,
+          evento: 'GENERAL',
           destinatario,
           asunto: dto.asunto,
-          cuerpo: dto.cuerpo,
-          idReferencia: dto.idCorrelacion,
-          metadata: dto.metadata,
-          sendEmailFn: () =>
-            this.mailService.enviarCorreo({
-              to: destinatario,
-              subject: dto.asunto,
-              html: `<div style="font-family: Arial, sans-serif;"><h2>${dto.asunto}</h2><p>${dto.cuerpo}</p></div>`,
-              text: dto.cuerpo,
-            }),
+          estado: estadoFinal,
+          messageId: sendResult.messageId,
+          error: sendResult.error,
+          timestamp: new Date().toISOString(),
         });
+
+        return {
+          status: sendResult.success ? 'enviada' : 'fallida',
+          idNotificacion: correlationId,
+          error: sendResult.error,
+          fallback: sendResult.isFallback,
+          transient: !sendResult.success ? this.determinarSiErrorEsTransitorio(sendResult.error) : false,
+        };
       }
     }
   }
 
   // =========================================================================
-  // Métodos Auxiliares de Validación y Persistencia en Dos Fases
+  // Métodos Auxiliares de Validación y Trazabilidad Estructurada
   // =========================================================================
 
   private esEstadoResolutivo(estado: string): boolean {
@@ -477,139 +649,49 @@ export class NotificacionesService {
     return null;
   }
 
-  /**
-   * Persistencia estricta en dos fases:
-   * 1. Registra estado PENDIENTE. Si falla la BD, aborta inmediatamente sin enviar correo.
-   * 2. Despacha el correo.
-   * 3. Actualiza a ENVIADO, SIMULADO (si fue fallback en desarrollo) o FALLIDO.
-   */
-  private async registrarYEnviar(params: {
-    tipo: TipoNotificacion;
-    evento: TipoEventoNotificacion;
-    destinatario: string;
-    asunto: string;
-    cuerpo: string;
-    idReferencia?: string;
-    metadata?: any;
-    sendEmailFn: () => Promise<MailSendResult>;
-  }): Promise<EnvioNotificacionResult> {
-    let notificacionId: string;
-
-    // 1. Fase Inicial de Persistencia (Garantía de Trazabilidad)
-    try {
-      const registroInicial = await this.prisma.notificacion.create({
-        data: {
-          tipo: params.tipo,
-          evento: params.evento,
-          destinatario: params.destinatario,
-          asunto: params.asunto,
-          cuerpo: params.cuerpo,
-          estado: EstadoNotificacion.PENDIENTE,
-          id_referencia: params.idReferencia,
-          metadata: params.metadata
-            ? JSON.parse(JSON.stringify(params.metadata))
-            : undefined,
-        },
-      });
-      notificacionId = registroInicial.id_notificacion;
-    } catch (dbError) {
-      const dbErrMsg = `Fallo crítico de persistencia en NOTIFICACIONES: ${dbError instanceof Error ? dbError.message : String(dbError)
-        }. Se cancela el envío para no informar envíos sin trazabilidad.`;
-      this.logger.error(dbErrMsg);
-      return {
-        status: 'fallida',
-        error: dbErrMsg,
-        fallback: false,
-      };
-    }
-
-    // 2. Fase de Envío de Correo
-    const sendResult = await params.sendEmailFn();
-
-    // 3. Determinación estricta del estado final (Punto 5 de feedback)
-    let estadoFinal: EstadoNotificacion;
-    if (!sendResult.success) {
-      estadoFinal = EstadoNotificacion.FALLIDO;
-    } else if (sendResult.isFallback) {
-      // Los correos simulados en fallback NUNCA se registran como ENVIADO
-      estadoFinal = EstadoNotificacion.SIMULADO;
-    } else {
-      estadoFinal = EstadoNotificacion.ENVIADO;
-    }
-
-    // 4. Actualización final en Base de Datos
-    try {
-      await this.prisma.notificacion.update({
-        where: { id_notificacion: notificacionId },
-        data: {
-          estado: estadoFinal,
-          error: sendResult.error ?? null,
-          fecha_envio:
-            sendResult.success && !sendResult.isFallback ? new Date() : null,
-        },
-      });
-    } catch (updateError) {
-      const updateErrMsg = `Fallo al actualizar trazabilidad final en NOTIFICACIONES (${notificacionId}): ${updateError instanceof Error ? updateError.message : String(updateError)
-        }`;
-      this.logger.error(updateErrMsg);
-      return {
-        status: 'fallida',
-        idNotificacion: notificacionId,
-        error: updateErrMsg,
-        fallback: sendResult.isFallback,
-      };
-    }
-
-    return {
-      status: sendResult.success ? 'enviada' : 'fallida',
-      idNotificacion: notificacionId,
-      error: sendResult.error,
-      fallback: sendResult.isFallback,
-    };
+  private obtenerCorrelationId(evento: any, fallbackId: string): string {
+    return String(
+      evento.idCorrelacion ??
+      evento.correlationId ??
+      evento.id_correlacion ??
+      fallbackId ??
+      crypto.randomUUID(),
+    );
   }
 
-  private async registrarFalloInmediato(params: {
-    tipo: TipoNotificacion;
-    evento: TipoEventoNotificacion;
-    destinatario: string;
-    asunto: string;
-    cuerpo: string;
-    error: string;
-    idReferencia?: string;
-    metadata?: any;
-  }): Promise<EnvioNotificacionResult> {
-    try {
-      const reg = await this.prisma.notificacion.create({
-        data: {
-          tipo: params.tipo,
-          evento: params.evento,
-          destinatario: params.destinatario,
-          asunto: params.asunto,
-          cuerpo: params.cuerpo,
-          estado: EstadoNotificacion.FALLIDO,
-          error: params.error,
-          id_referencia: params.idReferencia,
-          metadata: params.metadata
-            ? JSON.parse(JSON.stringify(params.metadata))
-            : undefined,
-        },
-      });
-      return {
-        status: 'fallida',
-        idNotificacion: reg.id_notificacion,
-        error: params.error,
-        fallback: false,
-      };
-    } catch (dbErr) {
-      this.logger.error(
-        `No se pudo registrar fallo en NOTIFICACIONES: ${dbErr instanceof Error ? dbErr.message : String(dbErr)
-        }`,
-      );
-      return {
-        status: 'fallida',
-        error: params.error,
-        fallback: false,
-      };
+  private determinarSiErrorEsTransitorio(error?: string): boolean {
+    if (!error) return false;
+    const errorLower = error.toLowerCase();
+    // Errores de red / conexión SMTP transitorios
+    const patronesTransitorios = [
+      'timeout',
+      'timedout',
+      'econnrefused',
+      'econnreset',
+      'etimedout',
+      'esockettimedout',
+      'eai_again',
+      'enotfound',
+      'network',
+      'connection refused',
+      'connection closed',
+      'broker',
+      'temporary',
+    ];
+
+    return patronesTransitorios.some((patron) => errorLower.includes(patron));
+  }
+
+  private registrarLogEstructurado(datos: NotificacionLogEstructurado): void {
+    const payloadConIntentos: NotificacionLogEstructurado = {
+      ...datos,
+      intentos: datos.intentos ?? 1,
+    };
+    const payloadJson = JSON.stringify(payloadConIntentos);
+    if (datos.estado === 'FALLIDO') {
+      this.logger.error(`[NOTIFICACION_AUDITORIA] ${payloadJson}`);
+    } else {
+      this.logger.log(`[NOTIFICACION_AUDITORIA] ${payloadJson}`);
     }
   }
 }

@@ -1,8 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { NotificacionesService } from './notificaciones.service';
-import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
-import { createMockPrismaService } from '../../test/mocks/prisma.mock';
 import {
   NotificacionEventoDto,
   PrioridadNotificacion,
@@ -11,14 +9,11 @@ import {
 
 describe('NotificacionesService', () => {
   let service: NotificacionesService;
-  let prismaMock: any;
   let mailServiceMock: any;
   let configServiceMock: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-
-    prismaMock = createMockPrismaService();
 
     mailServiceMock = {
       enviarCorreo: jest.fn().mockResolvedValue({
@@ -58,41 +53,32 @@ describe('NotificacionesService', () => {
     };
 
     service = new NotificacionesService(
-      prismaMock as unknown as PrismaService,
       mailServiceMock as unknown as MailService,
       configServiceMock as unknown as ConfigService,
     );
   });
 
   describe('notificar (REST)', () => {
-    it('debe registrar trazabilidad en dos fases (PENDIENTE -> ENVIADO) con correo real', async () => {
+    it('debe registrar logs estructurados y despachar correo con destinatario real', async () => {
+      const loggerSpy = jest.spyOn((service as any).logger, 'log');
       const dto = {
         email: 'usuario.real@institucion.edu',
         asunto: 'Bienvenido',
-        cuerpoMensaje: 'Cuerpo del mensaje',
+        cuerpoMensaje: 'Cuerpo del mensaje institucional',
       };
 
       const result = await service.notificar(dto);
 
-      expect(prismaMock.notificacion.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            destinatario: dto.email,
-            asunto: dto.asunto,
-            estado: 'PENDIENTE',
-          }),
-        }),
-      );
       expect(mailServiceMock.enviarCorreo).toHaveBeenCalledTimes(1);
-      expect(prismaMock.notificacion.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            estado: 'ENVIADO',
-          }),
-        }),
-      );
       expect(result.status).toBe('enviada');
-      expect(result.idNotificacion).toBe('mock-uuid-notificacion');
+      expect(result.fallback).toBe(false);
+      expect(result.transient).toBe(false);
+      expect(loggerSpy).toHaveBeenCalled();
+      const lastCall = String(loggerSpy.mock.calls[loggerSpy.mock.calls.length - 1][0]);
+      const jsonStart = lastCall.indexOf('{');
+      const logData = JSON.parse(lastCall.substring(jsonStart));
+      expect(logData.destinatario).toBe(dto.email);
+      expect(logData.estado).toBe('ENVIADO');
     });
 
     it('debe registrar estado SIMULADO cuando opera en fallback seguro de desarrollo', async () => {
@@ -112,34 +98,29 @@ describe('NotificacionesService', () => {
 
       expect(result.status).toBe('enviada');
       expect(result.fallback).toBe(true);
-      expect(prismaMock.notificacion.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            estado: 'SIMULADO',
-          }),
-        }),
-      );
+      expect(result.transient).toBe(false);
     });
 
-    it('debe abortar el envío y retornar fallida si falla la persistencia inicial en BD', async () => {
-      prismaMock.notificacion.create.mockRejectedValueOnce(
-        new Error('PostgreSQL Connection Refused'),
-      );
+    it('debe marcar error transitorio ante fallos temporales de red o timeout SMTP', async () => {
+      mailServiceMock.enviarCorreo.mockResolvedValueOnce({
+        success: false,
+        error: 'ETIMEDOUT connection to smtp.institucion.edu timed out',
+        isFallback: false,
+      });
 
       const dto = {
         email: 'usuario.real@institucion.edu',
-        asunto: 'Fallo BD',
-        cuerpoMensaje: 'Prueba',
+        asunto: 'Timeout',
+        cuerpoMensaje: 'Cuerpo',
       };
 
       const result = await service.notificar(dto);
 
       expect(result.status).toBe('fallida');
-      expect(result.error).toContain('Fallo crítico de persistencia en NOTIFICACIONES');
-      expect(mailServiceMock.enviarCorreo).not.toHaveBeenCalled();
+      expect(result.transient).toBe(true);
     });
 
-    it('debe rechazar correos con destinatario inválido sin enviar correo', async () => {
+    it('debe rechazar correos con destinatario inválido sin enviar correo y marcar como no transitorio', async () => {
       const dto = {
         email: 'correo-invalido-sin-arroba',
         asunto: 'Test Invalido',
@@ -149,6 +130,7 @@ describe('NotificacionesService', () => {
       const result = await service.notificar(dto);
 
       expect(result.status).toBe('fallida');
+      expect(result.transient).toBe(false);
       expect(result.error).toContain('Formato de correo destinatario inválido');
       expect(mailServiceMock.enviarCorreo).not.toHaveBeenCalled();
     });
@@ -175,6 +157,7 @@ describe('NotificacionesService', () => {
         }),
       );
       expect(result.status).toBe('enviada');
+      expect(result.transient).toBe(false);
     });
 
     it('debe usar MAIL_ALERTAS_CRITICAS institucional si evento no provee email', async () => {
@@ -195,7 +178,7 @@ describe('NotificacionesService', () => {
       expect(result.status).toBe('enviada');
     });
 
-    it('debe rechazar y registrar fallo si no hay ningún correo destinatario real', async () => {
+    it('debe rechazar y registrar fallo permanente si no hay ningún correo destinatario real', async () => {
       configServiceMock.get.mockReturnValue(undefined); // Sin MAIL_ALERTAS_CRITICAS
       const evento = {
         id_incidencia: 'inc-1234-abcd',
@@ -206,10 +189,30 @@ describe('NotificacionesService', () => {
       const result = await service.procesarIncidenciaCritica(evento);
 
       expect(result.status).toBe('fallida');
+      expect(result.transient).toBe(false);
       expect(result.error).toContain('evitar destinatarios ficticios');
       expect(
         mailServiceMock.enviarNotificacionIncidenciaCritica,
       ).not.toHaveBeenCalled();
+    });
+
+    it('debe marcar transient=true si el error SMTP es ECONNREFUSED', async () => {
+      mailServiceMock.enviarNotificacionIncidenciaCritica.mockResolvedValueOnce({
+        success: false,
+        error: 'connect ECONNREFUSED 127.0.0.1:587',
+        isFallback: false,
+      });
+
+      const evento = {
+        id_incidencia: 'inc-1234-abcd',
+        titulo: 'Fallo general eléctrico',
+        email: 'director@institucion.edu',
+      };
+
+      const result = await service.procesarIncidenciaCritica(evento);
+
+      expect(result.status).toBe('fallida');
+      expect(result.transient).toBe(true);
     });
   });
 
@@ -236,9 +239,10 @@ describe('NotificacionesService', () => {
         }),
       );
       expect(result.status).toBe('enviada');
+      expect(result.transient).toBe(false);
     });
 
-    it('debe rechazar el envío si falta el correo del técnico asignado', async () => {
+    it('debe rechazar el envío como no transitorio si falta el correo del técnico asignado', async () => {
       const evento = {
         id_orden: 'ord-5678',
         id_incidencia: 'inc-1234',
@@ -248,6 +252,7 @@ describe('NotificacionesService', () => {
       const result = await service.procesarOrdenAsignada(evento);
 
       expect(result.status).toBe('fallida');
+      expect(result.transient).toBe(false);
       expect(result.error).toContain('evitar destinatarios ficticios');
       expect(
         mailServiceMock.enviarNotificacionOrdenAsignada,
@@ -277,9 +282,10 @@ describe('NotificacionesService', () => {
         }),
       );
       expect(result.status).toBe('enviada');
+      expect(result.transient).toBe(false);
     });
 
-    it('debe RECHAZAR la notificación de resolución si el estado es EN_PROCESO u otro no resolutivo', async () => {
+    it('debe RECHAZAR la notificación como fallo permanente si el estado es EN_PROCESO u otro no resolutivo', async () => {
       const evento = {
         id_incidencia: 'inc-9999',
         titulo: 'Ticket en proceso',
@@ -290,13 +296,14 @@ describe('NotificacionesService', () => {
       const result = await service.procesarIncidenciaResuelta(evento);
 
       expect(result.status).toBe('fallida');
+      expect(result.transient).toBe(false);
       expect(result.error).toContain('no corresponde a una resolución o cierre');
       expect(
         mailServiceMock.enviarNotificacionIncidenciaResuelta,
       ).not.toHaveBeenCalled();
     });
 
-    it('debe rechazar si falta el correo del reportante', async () => {
+    it('debe rechazar como no transitorio si falta el correo del reportante', async () => {
       const evento = {
         id_incidencia: 'inc-9999',
         nombre_estado: 'CERRADA',
@@ -305,6 +312,7 @@ describe('NotificacionesService', () => {
       const result = await service.procesarIncidenciaResuelta(evento);
 
       expect(result.status).toBe('fallida');
+      expect(result.transient).toBe(false);
       expect(result.error).toContain('evitar destinatarios ficticios');
     });
   });
@@ -329,9 +337,10 @@ describe('NotificacionesService', () => {
         }),
       );
       expect(result.status).toBe('enviada');
+      expect(result.transient).toBe(false);
     });
 
-    it('debe rechazar si no hay email de responsable ni MAIL_ALERTAS_MANTENIMIENTO', async () => {
+    it('debe rechazar como fallo permanente si no hay email de responsable ni MAIL_ALERTAS_MANTENIMIENTO', async () => {
       configServiceMock.get.mockReturnValue(undefined);
       const evento = {
         id_activo: 'act-3333',
@@ -341,6 +350,7 @@ describe('NotificacionesService', () => {
       const result = await service.procesarMantenimientoPreventivo(evento);
 
       expect(result.status).toBe('fallida');
+      expect(result.transient).toBe(false);
       expect(result.error).toContain('evitar destinatarios ficticios');
     });
   });
@@ -374,6 +384,7 @@ describe('NotificacionesService', () => {
       const res = await service.procesarEventoNotificacion(dto);
 
       expect(res.status).toBe('fallida');
+      expect(res.transient).toBe(false);
       expect(res.error).toContain('destinatario de correo válido');
     });
   });
