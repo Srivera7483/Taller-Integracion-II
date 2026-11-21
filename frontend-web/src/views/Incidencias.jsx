@@ -70,6 +70,9 @@ const Incidencias = () => {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(valor);
 
   const obtenerNombreTecnicoReal = (inc) => {
+    if (esIncidenciaAsignadaAMi(inc) && nombreUsuarioActual) {
+      return nombreUsuarioActual;
+    }
     const candidato =
       inc.nombre_tecnico ||
       inc.orden_trabajo?.nombre_tecnico ||
