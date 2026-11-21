@@ -146,7 +146,7 @@ const NotificacionesDropdown = ({
       }
     };
 
-    cargarHistorialServidor();
+    void cargarHistorialServidor();
 
     return () => {
       activo = false;

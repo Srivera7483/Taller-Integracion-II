@@ -90,7 +90,7 @@ export const formatearPrioridadTexto = (prioridad) => {
 export const calcularTiempoRelativo = (timestamp, fallback = 'Ahora mismo') => {
   if (!timestamp) return fallback;
   const fecha = new Date(timestamp);
-  if (isNaN(fecha.getTime())) return fallback;
+  if (Number.isNaN(fecha.getTime())) return fallback;
 
   const ahora = Date.now();
   const diffSegundos = Math.max(0, Math.floor((ahora - fecha.getTime()) / 1000));
@@ -614,7 +614,7 @@ export const agregarNotificacionSinDuplicados = (listaActual = [], nuevaNotif) =
         }
         // Diferencia temporal menor a 2 segundos: descarte de ráfaga duplicada en tránsito
         const diff = Math.abs(new Date(item.timestamp).getTime() - new Date(nuevaNotif.timestamp).getTime());
-        if (!isNaN(diff) && diff < 2000) {
+        if (!Number.isNaN(diff) && diff < 2000) {
           return true;
         }
       } else {
