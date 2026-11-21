@@ -361,7 +361,7 @@ api.interceptors.response.use(
 
     const isAuthEndpoint = AUTH_ENDPOINT_REGEX.test(originalRequest?.url || '');
 
-    // 1. Manejo de expiración de sesión (401 Unauthorized) con Refresh Token
+  // 1. Manejo de expiración de sesión (401 Unauthorized) con Refresh Token
     if (error.response && error.response.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -375,14 +375,37 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const refreshResponse = await axios.post(
-          `${api.defaults.baseURL}/auth/refresh`,
-          {},
-          {
-            withCredentials: true,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        );
+        const storedRefresh =
+          typeof localStorage !== 'undefined'
+            ? localStorage.getItem('refreshToken') || localStorage.getItem('refresh_token')
+            : null;
+        const refreshPayload = storedRefresh ? { refreshToken: storedRefresh } : {};
+
+        let refreshResponse;
+        try {
+          refreshResponse = await axios.post(
+            `${api.defaults.baseURL}/autenticacion/renovar-token`,
+            refreshPayload,
+            {
+              withCredentials: true,
+              headers: { 'Content-Type': 'application/json' },
+            },
+          );
+        } catch (refreshEndpointErr) {
+          if (refreshEndpointErr.response?.status === 404) {
+            refreshResponse = await axios.post(
+              `${api.defaults.baseURL}/auth/refresh`,
+              refreshPayload,
+              {
+                withCredentials: true,
+                headers: { 'Content-Type': 'application/json' },
+              },
+            );
+          } else {
+            throw refreshEndpointErr;
+          }
+        }
+
         const newAccessToken =
           refreshResponse.data?.accessToken ||
           refreshResponse.data?.token ||
@@ -394,16 +417,29 @@ api.interceptors.response.use(
 
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('token', newAccessToken);
+          const nextRefresh =
+            refreshResponse.data?.refreshToken || refreshResponse.data?.refresh_token;
+          if (nextRefresh) {
+            localStorage.setItem('refreshToken', nextRefresh);
+            localStorage.removeItem('refresh_token');
+          }
         }
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('tecnico-cambiado'));
+        }
+
         processQueue(null, newAccessToken);
         return reintentarConToken(originalRequest, newAccessToken);
       } catch (refreshError) {
         processQueue(refreshError, null);
         if (typeof localStorage !== 'undefined') {
           localStorage.removeItem('token');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('refresh_token');
           localStorage.removeItem('usuario');
         }
         if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('tecnico-cambiado'));
           window.dispatchEvent(
             new CustomEvent('sesion-expirada', {
               detail: { motivo: 'refresh_invalido_o_expirado' },
