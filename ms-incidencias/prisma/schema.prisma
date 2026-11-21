@@ -60,6 +60,7 @@ model OrdenTrabajo {
   diagnostico_tecnico String?     @db.Text
   fecha_creacion      DateTime    @default(now()) @db.Timestamp()
   fecha_cierre        DateTime?   @db.Timestamp()
+  version             Int         @default(1)
 
   incidencia          Incidencias @relation(fields: [id_incidencia], references: [id_incidencia], onDelete: Cascade)
 

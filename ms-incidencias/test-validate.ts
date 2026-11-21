@@ -2,10 +2,10 @@
 
 import { validate } from 'class-validator';
 import { plainToClass } from 'class-transformer';
-import { BatchSyncDto } from './ms-incidencias/src/sincronizacion/dto/batch-sync.dto';
-import { SyncActionDto } from './ms-incidencias/src/sincronizacion/dto/sync-action.dto';
-import { SincronizacionService } from './ms-incidencias/src/sincronizacion/sincronizacion.service';
-import { ItemResultadoSincronizacion, PERMISO_POR_TIPO_ACCION, TIPOS_ACCION_VALIDOS } from './ms-incidencias/src/sincronizacion/sincronizacion.types';
+import { BatchSyncDto } from '../../sincronizacion/dto/batch-sync.dto';
+import { SyncActionDto } from '../../sincronizacion/dto/sync-action.dto';
+import { SincronizacionService } from '../../sincronizacion/sincronizacion.service';
+import { ItemResultadoSincronizacion, PERMISO_POR_TIPO_ACCION, TIPOS_ACCION_VALIDOS } from '../../sincronizacion/sincronizacion.types';
 
 // 1. Probar validación de SyncActionDto
 async function testDtoValidation() {
@@ -77,3 +77,4 @@ async function main() {
 }
 
 main();
+

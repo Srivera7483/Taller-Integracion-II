@@ -501,10 +501,17 @@ export class OrdenesTrabajoService {
 
     const diagnosticoSanitizado = sanitizeStringXss(diagnostico_tecnico).trim();
 
-    return this.prisma.ordenTrabajo.update({
-      where: { id_orden: idOrden },
-      data: { diagnostico_tecnico: diagnosticoSanitizado },
+    // Optimistic concurrency control: atomic update with version check
+    // where: { id_orden: idOrden, version: version } ensures atomic check-and-update
+    // If version doesn't match, Prisma throws P2034 (record to update was not found)
+    const result = await this.prisma.ordenTrabajo.update({
+      where: { id_orden: idOrden, version: version },
+      data: {
+        diagnostico_tecnico,
+        version: { increment: 1 },
+      },
     });
+    return result;
   }
 
   async registrarDiagnostico(
