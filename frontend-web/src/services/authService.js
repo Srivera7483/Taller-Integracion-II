@@ -6,6 +6,10 @@ import axios from 'axios';
  * Cumple estrictamente con la especificación OpenAPI v1.2.0 (SCGI API).
  */
 
+const notifySessionChange = () => {
+  window.dispatchEvent(new Event('tecnico-cambiado'));
+};
+
 /**
  * Obtiene el access token actual desde localStorage.
  * @returns {string|null}
@@ -19,7 +23,10 @@ export const getAccessToken = () => {
  * @returns {string|null}
  */
 export const getRefreshToken = () => {
-  return localStorage.getItem('refreshToken');
+  return (
+    localStorage.getItem('refreshToken') ||
+    localStorage.getItem('refresh_token')
+  );
 };
 
 /**
@@ -29,24 +36,56 @@ export const getRefreshToken = () => {
 export const getUsuarioActual = () => {
   try {
     const usuarioRaw = localStorage.getItem('usuario');
-    return usuarioRaw ? JSON.parse(usuarioRaw) : null;
+    if (!usuarioRaw) return null;
+    const parsed = JSON.parse(usuarioRaw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
   } catch {
     return null;
   }
 };
 
 const decodeTokenPayload = (token) => {
+  if (!token || typeof token !== 'string') return null;
   try {
-    const encodedPayload = token.split('.')[1];
-    return JSON.parse(window.atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/')));
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const encodedPayload = parts[1];
+    return JSON.parse(
+      window.atob(encodedPayload.replace(/-/g, '+').replace(/_/g, '/')),
+    );
   } catch {
-    return {};
+    return null;
   }
+};
+
+const isTokenValid = (token) => {
+  const payload = decodeTokenPayload(token);
+  if (!payload || typeof payload !== 'object') return false;
+  if (payload.tokenUse === 'refresh') return false;
+  if (typeof payload.exp === 'number') {
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    if (payload.exp <= nowInSeconds) return false;
+  }
+  return Boolean(payload.sub || payload.userId);
+};
+
+const hasValidUsuarioProfile = (usuario) => {
+  if (!usuario || typeof usuario !== 'object') return false;
+  return Boolean(
+    usuario.id ||
+      usuario.id_usuario ||
+      usuario.sub ||
+      usuario.correo ||
+      usuario.email ||
+      usuario.nombre,
+  );
 };
 
 export const getPermissions = () => {
   const usuario = getUsuarioActual();
-  const responsePermissions = Array.isArray(usuario?.permissions) ? usuario.permissions : [];
+  const responsePermissions = Array.isArray(usuario?.permissions)
+    ? usuario.permissions
+    : [];
   if (responsePermissions.length > 0) return responsePermissions;
 
   const tokenPermissions = decodeTokenPayload(getAccessToken())?.permissions;
@@ -64,53 +103,97 @@ export const hasAllPermissions = (permissions) =>
   permissions.every((permission) => getPermissions().includes(permission));
 
 /**
- * Comprueba si existe una sesión activa válida en el cliente.
- * @returns {boolean}
+ * Limpia el estado de autenticación de forma integral y notifica el cierre de sesión.
  */
-export const isAuthenticated = () => {
-  return Boolean(getAccessToken());
+export const limpiarSesion = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('usuario');
+  notifySessionChange();
 };
 
 /**
- * Almacena o actualiza los datos de sesión en localStorage.
+ * Comprueba si existe una sesión activa válida en el cliente.
+ * Evita sesiones fantasma verificando integridad/expiración del JWT y perfil de usuario.
+ * @returns {boolean}
+ */
+export const isAuthenticated = () => {
+  const token = getAccessToken();
+  const usuario = getUsuarioActual();
+
+  if (!token || !isTokenValid(token) || !hasValidUsuarioProfile(usuario)) {
+    if (token || usuario) {
+      limpiarSesion();
+    }
+    return false;
+  }
+
+  return true;
+};
+
+/**
+ * Almacena o actualiza los datos de sesión en localStorage de forma consistente.
  * @param {Object} params
  * @param {string} params.accessToken
  * @param {string} [params.refreshToken]
  * @param {Object} [params.usuario]
  */
 export const guardarSesion = ({ accessToken, refreshToken, usuario }) => {
-  if (accessToken) {
-    localStorage.setItem('token', accessToken);
+  if (!accessToken || !isTokenValid(accessToken)) {
+    limpiarSesion();
+    return;
   }
+
+  const payload = decodeTokenPayload(accessToken) || {};
+  const existingUsuario = getUsuarioActual();
+  const baseUsuario = hasValidUsuarioProfile(usuario)
+    ? usuario
+    : hasValidUsuarioProfile(existingUsuario)
+      ? existingUsuario
+      : payload.correo || payload.email || payload.nombre
+        ? {
+            id: payload.sub || payload.userId,
+            nombre: payload.nombre || payload.name,
+            correo: payload.correo || payload.email,
+            rol: payload.rol || payload.role,
+          }
+        : null;
+
+  if (!hasValidUsuarioProfile(baseUsuario)) {
+    limpiarSesion();
+    throw new Error(
+      'Respuesta de autenticación incompleta: falta perfil de usuario válido.',
+    );
+  }
+
+  const permissions = Array.isArray(baseUsuario.permissions)
+    ? baseUsuario.permissions
+    : Array.isArray(payload.permissions)
+      ? payload.permissions
+      : [];
+
+  localStorage.setItem('token', accessToken);
   if (refreshToken) {
     localStorage.setItem('refreshToken', refreshToken);
+    localStorage.removeItem('refresh_token');
   }
-  if (usuario) {
-    const permissions = Array.isArray(usuario.permissions)
-      ? usuario.permissions
-      : decodeTokenPayload(accessToken)?.permissions;
-    localStorage.setItem('usuario', JSON.stringify({
-      ...usuario,
-      permissions: Array.isArray(permissions) ? permissions : [],
-    }));
-    window.dispatchEvent(new Event('tecnico-cambiado'));
-  }
-};
 
-/**
- * Limpia el estado de autenticación de forma integral y notifica el cierre de sesión.
- */
-export const limpiarSesion = () => {
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('usuario');
-  window.dispatchEvent(new Event('tecnico-cambiado'));
+  localStorage.setItem(
+    'usuario',
+    JSON.stringify({
+      ...baseUsuario,
+      permissions,
+    }),
+  );
+
+  notifySessionChange();
 };
 
 /**
  * Inicia sesión en la plataforma utilizando las credenciales acordadas en el contrato OpenAPI.
  * Endpoint principal: POST /autenticacion/inicio-sesion (con fallback a /auth/login).
- * 
+ *
  * @param {Object} credenciales
  * @param {string} credenciales.correo Correo electrónico del usuario
  * @param {string} credenciales.contrasena Contraseña del usuario
@@ -119,13 +202,11 @@ export const limpiarSesion = () => {
 export const iniciarSesion = async ({ correo, contrasena }) => {
   let response;
   try {
-    // 1. Petición al endpoint oficial del contrato OpenAPI
     response = await api.post('/autenticacion/inicio-sesion', {
       correo,
       contrasena,
     });
   } catch (err) {
-    // Fallback en caso de que el Gateway esté ruteando la API heredada en inglés
     if (err.response?.status === 404) {
       response = await api.post('/auth/login', {
         email: correo,
@@ -140,14 +221,15 @@ export const iniciarSesion = async ({ correo, contrasena }) => {
   const token = data.token || data.accessToken || data.access_token;
   const usuario = data.usuario || data.user;
 
-  // Guardar la sesión automáticamente en localStorage si se recibe el token
-  if (token) {
-    guardarSesion({
-      accessToken: token,
-      refreshToken: data.refreshToken || data.refresh_token,
-      usuario,
-    });
+  if (!token) {
+    throw new Error('No se recibió un token de acceso válido del servidor');
   }
+
+  guardarSesion({
+    accessToken: token,
+    refreshToken: data.refreshToken || data.refresh_token,
+    usuario,
+  });
 
   return data;
 };
@@ -197,15 +279,19 @@ export const renovarTokenManualmente = async () => {
     throw new Error('No se recibió un nuevo access token del servidor');
   }
 
-  localStorage.setItem('token', newAccessToken);
   const usuario = getUsuarioActual();
-  if (usuario) {
-    const permissions = data.permissions || decodeTokenPayload(newAccessToken)?.permissions || [];
-    localStorage.setItem('usuario', JSON.stringify({ ...usuario, permissions }));
-  }
-  if (data.refreshToken || data.refresh_token) {
-    localStorage.setItem('refreshToken', data.refreshToken || data.refresh_token);
-  }
+  const decoded = decodeTokenPayload(newAccessToken) || {};
+  const permissions = Array.isArray(data.permissions)
+    ? data.permissions
+    : Array.isArray(decoded.permissions)
+      ? decoded.permissions
+      : [];
+
+  guardarSesion({
+    accessToken: newAccessToken,
+    refreshToken: data.refreshToken || data.refresh_token || localRefreshToken,
+    usuario: usuario ? { ...usuario, permissions } : data.usuario || data.user,
+  });
 
   return newAccessToken;
 };
@@ -244,21 +330,21 @@ export const cerrarSesion = async () => {
   }
 };
 
-
 /**
  * Registra un nuevo usuario en el sistema.
- * @param {Object} datosUsuario - Datos del usuario a registrar (ej: correo, contrasena, nombre, rut, etc.)
+ * @param {Object} datosUsuario - Datos del usuario a registrar
  * @returns {Promise<Object>} Respuesta del servidor
  */
 export const registrarUsuario = async (datosUsuario) => {
   try {
-    // Intenta con la ruta en inglés
     const response = await api.post('/auth/register', datosUsuario);
     return response.data;
   } catch (err) {
-    // Fallback a la ruta en español por si el Gateway lo requiere así
     if (err.response?.status === 404) {
-      const responseFallback = await api.post('/autenticacion/registro', datosUsuario);
+      const responseFallback = await api.post(
+        '/autenticacion/registro',
+        datosUsuario,
+      );
       return responseFallback.data;
     }
     throw err;
