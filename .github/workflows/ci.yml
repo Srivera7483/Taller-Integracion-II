@@ -62,7 +62,7 @@ jobs:
   sonar:
     name: SonarQube Quality Gate
     runs-on: ubuntu-latest
-    needs: [tests, docker-compose, frontend-build]
+    needs: [tests, docker-compose]
 
     steps:
       - name: Descargar repositorio
