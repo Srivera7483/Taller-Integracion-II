@@ -201,6 +201,13 @@ const buildGateway = (options = {}) => {
         replyOptions: { onError: handleProxyError }
     });
 
+    fastify.register(proxy, {
+        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
+        prefix: '/api/v1/sincronizacion',
+        rewritePrefix: '/api/v1/sincronizacion',
+        replyOptions: { onError: handleProxyError }
+    });
+
     const authUrl = options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001';
 
     fastify.register(proxy, {
