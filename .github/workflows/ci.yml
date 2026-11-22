@@ -42,7 +42,7 @@ jobs:
           node-version: '24'
 
       - name: Instalar dependencias
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --filter frontend-web... --frozen-lockfile
 
       - name: Ejecutar pruebas
         run: pnpm test
