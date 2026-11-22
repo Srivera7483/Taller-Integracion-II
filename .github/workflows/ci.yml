@@ -58,10 +58,39 @@ jobs:
       - name: Validar configuración Docker Compose
         run: docker compose config --quiet
 
+  frontend-build:
+    name: Compilar Frontend
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend-web
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Instalar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Compilar frontend
+        run: pnpm build
+
+
   sonar:
     name: SonarQube Quality Gate
     runs-on: ubuntu-latest
-    needs: [tests, docker-compose]
+    needs: [tests, docker-compose, frontend-build]
 
     steps:
       - name: Descargar repositorio
@@ -83,3 +112,4 @@ jobs:
             -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts,**/*.spec.tsx,**/*.test.tsx
             -Dsonar.tests=ms-auth/src,ms-activos/src,ms-incidencias/src
             -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts
+

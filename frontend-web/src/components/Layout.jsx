@@ -5,7 +5,7 @@ import NotificacionesDropdown from './NotificacionesDropdown';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import NetworkStatusIndicator from './NetworkStatusIndicator';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
-import { hasPermission, limpiarSesion } from '../services/authService';
+import { cerrarSesion, getUsuarioActual, hasPermission } from '../services/authService';
 
 const Layout = () => {
   const location = useLocation();
@@ -23,7 +23,7 @@ const Layout = () => {
     }
   };
 
-  const usuario = obtenerUsuarioActual();
+  const usuario = getUsuarioActual();
   const rolUsuario = usuario?.rol?.nombre_rol || usuario?.rol || null;
   const nombreUsuario = usuario ? `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || usuario.correo : 'Usuario';
 
@@ -54,9 +54,9 @@ const Layout = () => {
     }
   };
 
-  const handleLogout = () => {
-    void limpiarSesion();
-    navigate('/login');
+  const handleLogout = async () => {
+  await cerrarSesion();
+  navigate('/login', { replace: true });
   };
 
   // Definición completa de las opciones del menú

@@ -51,23 +51,23 @@ function getCookieValue(cookieHeader: string | undefined, name: string) {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Post('login')
+  @Post(['login', 'inicio-sesion'])
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async login(
     @Body() loginDto: LoginDto,
-    @Res({ passthrough: true }) response: CookieResponse,
+    @Res({ passthrough: true }) response: any,
   ): Promise<any> {
     const result = await this.authService.login(loginDto);
     const secureAttribute = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-    
-    // Setea el refresh token en una cookie segura (TAL-125)
-    response.header(
-      'Set-Cookie',
-      `refresh_token=${result.refreshToken}; HttpOnly; SameSite=Strict; Path=/api/v1/auth; Max-Age=604800${secureAttribute}`,
-    );
+    const cookieValue = `refresh_token=${result.refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800${secureAttribute}`;
 
-    // Oculta el refresh token del JSON de respuesta
+    if (response.raw?.setHeader) {
+      response.raw.setHeader('Set-Cookie', cookieValue);
+    } else {
+      response.header('Set-Cookie', cookieValue);
+    }
+
     const { refreshToken: _refreshToken, ...loginResponse } = result;
     return loginResponse;
   }
@@ -76,7 +76,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async refresh(
     @Headers('cookie') cookieHeader?: string,
-    @Body() body?: { refreshToken?: string }
+    @Body() body?: { refreshToken?: string },
   ) {
     // Prioriza la cookie HttpOnly, con fallback al body para retrocompatibilidad
     const refreshToken = getCookieValue(cookieHeader, 'refresh_token') || body?.refreshToken;
@@ -85,13 +85,25 @@ export class AuthController {
       throw new UnauthorizedException('Refresh token requerido');
     }
 
-    // Nota: Asegúrate de que tu authService exponga este método como 'refresh'
     return this.authService.refresh(refreshToken);
   }
 
   @Post(['logout', 'cerrar-sesion'])
   @HttpCode(HttpStatus.OK)
-  async logout(): Promise<any> {
+  async logout(@Res({ passthrough: true }) response: any): Promise<any> {
+    const secureAttribute = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+    const clearCookies = [
+      `refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secureAttribute}`,
+      `refresh_token=; HttpOnly; SameSite=Strict; Path=/api/v1; Max-Age=0${secureAttribute}`,
+      `refresh_token=; HttpOnly; SameSite=Strict; Path=/api/v1/auth; Max-Age=0${secureAttribute}`,
+    ];
+
+    if (response.raw?.setHeader) {
+      response.raw.setHeader('Set-Cookie', clearCookies);
+    } else {
+      response.header('Set-Cookie', clearCookies[0]);
+    }
+
     return { message: 'Sesión cerrada exitosamente' };
   }
 
