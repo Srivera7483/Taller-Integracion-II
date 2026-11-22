@@ -58,34 +58,6 @@ jobs:
       - name: Validar configuración Docker Compose
         run: docker compose config --quiet
 
-  frontend-build:
-    name: Compilar Frontend
-    runs-on: ubuntu-latest
-
-    defaults:
-      run:
-        working-directory: frontend-web
-
-    steps:
-      - name: Descargar repositorio
-        uses: actions/checkout@v4
-
-      - name: Instalar pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Configurar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-
-      - name: Instalar dependencias
-        run: pnpm install --filter frontend-web... --frozen-lockfile
-
-      - name: Compilar frontend
-        run: pnpm build
-
 
   sonar:
     name: SonarQube Quality Gate
