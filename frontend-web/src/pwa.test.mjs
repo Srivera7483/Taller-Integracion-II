@@ -102,9 +102,9 @@ describe('TAL-170: Migración Inicial a PWA (Manifest y Criterios Básicos)', ()
   });
 
   // -------------------------------------------------------------------------
-  // Criterio b: Navegadores móviles sugieren la instalación de la App
+  // Criterio b: Flujos de instalación PWA (Lógica y Banner Interactivo TAL-197)
   // -------------------------------------------------------------------------
-  test('Criterio b: Componente PWAInstallPrompt existe y contempla los flujos móviles de instalación', () => {
+  test('Criterio b: Componente PWAInstallPrompt gestiona eventos de instalación y persistencia de 7 días', () => {
     const componentPath = path.join(rootDir, 'src', 'components', 'PWAInstallPrompt.jsx');
     assert.ok(fs.existsSync(componentPath), 'PWAInstallPrompt.jsx debe existir en src/components/');
 
@@ -114,7 +114,21 @@ describe('TAL-170: Migración Inicial a PWA (Manifest y Criterios Básicos)', ()
     assert.ok(code.includes('appinstalled'), 'Debe escuchar el evento appinstalled');
     assert.ok(code.includes('display-mode: standalone'), 'Debe detectar si ya se encuentra instalada');
     assert.ok(code.includes('iPhone|iPad|iPod'), 'Debe incluir soporte y guía adaptativa para iOS');
-    assert.ok(code.includes('btn-pwa-install'), 'Debe contener el botón interactivo de instalación');
+    assert.ok(code.includes('localStorage'), 'Debe persistir en localStorage');
+    assert.ok(code.includes('PWAInstallBanner'), 'Debe modularizar e integrar PWAInstallBanner');
+  });
+
+  test('TAL-197: Componente PWAInstallBanner renderiza beneficios y botones de instalación y postergación', () => {
+    const bannerPath = path.join(rootDir, 'src', 'components', 'PWAInstallBanner.jsx');
+    assert.ok(fs.existsSync(bannerPath), 'PWAInstallBanner.jsx debe existir en src/components/');
+
+    const bannerCode = fs.readFileSync(bannerPath, 'utf8');
+
+    assert.ok(bannerCode.includes('btn-pwa-install'), 'Debe contener el botón interactivo de instalación');
+    assert.ok(bannerCode.includes('Acceso más rápido') && bannerCode.includes('sin conexión'), 'Debe detallar los beneficios institucionales');
+    assert.ok(bannerCode.includes('Instalar Ahora'), 'Debe contener el botón Instalar Ahora');
+    assert.ok(bannerCode.includes('Más tarde'), 'Debe contener el botón Más tarde');
+    assert.ok(bannerCode.includes('role="banner"'), 'Debe implementar el rol accesible banner');
   });
 
   test('Criterio b: App.jsx integra globalmente el componente PWAInstallPrompt', () => {
@@ -130,7 +144,7 @@ describe('TAL-170: Migración Inicial a PWA (Manifest y Criterios Básicos)', ()
     const layoutCode = fs.readFileSync(layoutPath, 'utf8');
 
     assert.ok(layoutCode.includes('pwa-install-trigger'), 'Layout.jsx debe incluir disparador de instalación');
-    assert.ok(layoutCode.includes('Instalar App PWA'), 'Layout.jsx debe mostrar la acción de instalar app');
+    assert.ok(layoutCode.includes('Instalar App'), 'Layout.jsx debe mostrar la acción de instalar app');
   });
 });
 

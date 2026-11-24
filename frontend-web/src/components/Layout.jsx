@@ -167,7 +167,7 @@ const Layout = () => {
             title="Instalar InfraManager en pantalla de inicio"
           >
             <FiDownload className="w-4 h-4" />
-            <span>Instalar App PWA</span>
+            <span>Instalar App</span>
           </button>
 
           <button
