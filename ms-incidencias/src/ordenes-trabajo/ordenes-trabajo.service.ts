@@ -458,6 +458,9 @@ export class OrdenesTrabajoService {
     diagnostico_tecnico: string,
     idTecnicoPeticion: string,
     rolUsuario?: string,
+}
+  }
+"
   ) {
     const orden = await this.prisma.ordenTrabajo.findUnique({
       where: { id_orden: idOrden },
@@ -514,7 +517,7 @@ export class OrdenesTrabajoService {
       };
       return result;
     } catch (error: any) {
-      if error.code === 'P2034':
+      if (error.code === 'P2034') {
         throw new ConflictException({
           mensaje: 'Conflicto de concurrencia detectado',
           version_enviada: version,
