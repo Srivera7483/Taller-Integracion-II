@@ -8,6 +8,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // TAL-196: Service Worker propio (src/sw.js) para manejar el evento `sync` de Background Sync
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       manifestFilename: 'manifest.json',
       includeAssets: [
         'favicon.svg',
@@ -74,12 +78,12 @@ export default defineConfig({
           },
         ],
       },
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-        globDirectory: 'dist',
       },
       devOptions: {
         enabled: true,
+        type: 'module',
       },
     }),
   ],

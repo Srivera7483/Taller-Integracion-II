@@ -8,7 +8,9 @@ import { limpiarDatosOffline } from './storage/offlineDb.js';
  */
 
 const notifySessionChange = () => {
-  window.dispatchEvent(new Event('tecnico-cambiado'));
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new Event('tecnico-cambiado'));
+  }
 };
 
 /**
