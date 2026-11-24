@@ -89,6 +89,12 @@ const AxiosInterceptor = ({ children }) => {
 
           showToast(errorMessage, 'error');
         } else if (error.request) {
+          // TAL-195: Si el dispositivo está offline, no redirigir a /500 para permitir consulta del catálogo local IndexedDB
+          const isDeviceOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+          if (isDeviceOffline) {
+            return Promise.reject(error);
+          }
+
           // TAL-169: Error de red o servidor completamente apagado (ECONNREFUSED / Bad Gateway)
           let errorMessage = 'Error de red: No se pudo contactar al servidor API Gateway';
 
