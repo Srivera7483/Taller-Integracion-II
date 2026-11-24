@@ -504,14 +504,31 @@ export class OrdenesTrabajoService {
     // Optimistic concurrency control: atomic update with version check
     // where: { id_orden: idOrden, version: version } ensures atomic check-and-update
     // If version doesn't match, Prisma throws P2034 (record to update was not found)
-    const result = await this.prisma.ordenTrabajo.update({
-      where: { id_orden: idOrden, version: version },
-      data: {
-        diagnostico_tecnico,
-        version: { increment: 1 },
-      },
-    });
-    return result;
+    try {
+      const result = await this.prisma.ordenTrabajo.update({
+        where: { id_orden: idOrden, version: version },
+        data: {
+          diagnostico_tecnico,
+          version: { increment: 1 },
+        },
+      };
+      return result;
+    } catch (error: any) {
+      if error.code === 'P2034':
+        throw new ConflictException({
+          mensaje: 'Conflicto de concurrencia detectado',
+          version_enviada: version,
+          version_actual: orden.version,
+          registro_actual: {
+            id_orden: orden.id_orden,
+            version: orden.version,
+            diagnostico_tecnico: orden.diagnostico_tecnico,
+            id_tecnico: orden.id_tecnico,
+            fecha_actualizacion: orden.updatedAt,
+          },
+        })
+      throw error
+    }
   }
 
   async registrarDiagnostico(
@@ -577,4 +594,4 @@ export class OrdenesTrabajoService {
       });
     });
   }
-}
+}\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n    version: number,\n  undefined
