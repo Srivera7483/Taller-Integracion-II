@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
 import StatusBadge from '../components/StatusBadge';
 import BotonExportarExcel from '../components/BotonExportarExcel';
+import PanelEstadisticasAnalitica from '../components/PanelEstadisticasAnalitica';
 import {
   FiAlertTriangle,
   FiCheckCircle,
@@ -39,6 +40,7 @@ const Dashboard = () => {
   const rolUsuario = obtenerRolUsuario();
   const esAdmin = rolUsuario === 'ADMINISTRADOR';
   const [resumenGlobal, setResumenGlobal] = useState(null);
+  const [analiticaRefreshTick, setAnaliticaRefreshTick] = useState(0);
 
   const cargarResumenGlobal = useCallback(async () => {
     try {
@@ -122,6 +124,7 @@ const Dashboard = () => {
           return lista;
         });
         marcarFilaDestacada(idInc);
+        setAnaliticaRefreshTick((prev) => prev + 1);
         void cargarResumenGlobal();
       },
       onNuevaIncidencia: (payload) => {
@@ -140,6 +143,7 @@ const Dashboard = () => {
           return lista;
         });
         marcarFilaDestacada(idInc);
+        setAnaliticaRefreshTick((prev) => prev + 1);
         void cargarResumenGlobal();
       },
     },
@@ -149,6 +153,7 @@ const Dashboard = () => {
   useEffect(() => {
     const handleIncidenciaCreada = () => {
       void cargarResumenGlobal();
+      setAnaliticaRefreshTick((prev) => prev + 1);
       recargarListadoIncidencias();
     };
     window.addEventListener('incidencia-creada', handleIncidenciaCreada);
@@ -266,6 +271,9 @@ const Dashboard = () => {
           color="green"
         />
       </div>
+
+      {/* TAL-207: Estadísticas de Activos (TAL-6) y Métricas MTTR de Resolución (TAL-128) */}
+      <PanelEstadisticasAnalitica refreshTrigger={analiticaRefreshTick} />
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">

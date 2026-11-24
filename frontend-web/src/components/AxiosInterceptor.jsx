@@ -56,6 +56,11 @@ const AxiosInterceptor = ({ children }) => {
           window.dispatchEvent(new CustomEvent('gateway-error', { detail: { status: error.response.status } }));
         }
 
+        // TAL-207: Permitir manejo local controlado en consultas analíticas con fallback sin redirigir a /500
+        if (error.config?.skipGlobalErrorHandler) {
+          return Promise.reject(error);
+        }
+
         // TAL-169: Si el servidor devuelve error 5xx (500, 502, 503, 504)
         if (error.response && error.response.status >= 500 && error.response.status < 600) {
           const errorMessage =
