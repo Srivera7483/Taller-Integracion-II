@@ -9,13 +9,15 @@
  */
 
 export const OFFLINE_DB_NAME = 'inframanager_offline_db';
-export const OFFLINE_DB_VERSION = 1;
+// v2 (TAL-196): agrega la tienda `sync_meta` con las credenciales que usa el Service Worker.
+export const OFFLINE_DB_VERSION = 2;
 
 export const STORE_NAMES = Object.freeze({
   ACTIVOS: 'activos',
   ORDENES: 'ordenes',
   ESTADOS: 'estados',
   COLA_ACCIONES: 'cola_acciones',
+  SYNC_META: 'sync_meta',
 });
 
 export const ESTADOS_CATALOGO_POR_DEFECTO = Object.freeze([
@@ -79,6 +81,10 @@ export const OFFLINE_DB_SCHEMA = Object.freeze({
         { name: 'creado_en', keyPath: 'creado_en', unique: false },
         { name: 'endpoint', keyPath: 'endpoint', unique: false },
       ]),
+    }),
+    [STORE_NAMES.SYNC_META]: Object.freeze({
+      keyPath: 'id',
+      indexes: Object.freeze([]),
     }),
   }),
 });
@@ -334,6 +340,11 @@ export const openOfflineDb = () => {
 
       request.onsuccess = (event) => {
         const db = event?.target?.result || request.result;
+        // Permite que otra pestaña o el Service Worker actualicen el esquema sin quedar bloqueados.
+        db.onversionchange = () => {
+          cachedDbPromise = null;
+          if (typeof db.close === 'function') db.close();
+        };
         resolve(db);
       };
 
@@ -902,6 +913,7 @@ export const encolarAccionOffline = async (accion = {}) => {
     endpoint,
     payload: clonarRegistro(accion.payload !== undefined ? accion.payload : accion.data || {}),
     id_usuario: accion.id_usuario || null,
+    id_registro_local: accion.id_registro_local ? String(accion.id_registro_local) : null,
     estado_sincronizacion: accion.estado_sincronizacion || 'pendiente',
     intentos: typeof accion.intentos === 'number' ? accion.intentos : 0,
     ultimo_error: null,
@@ -958,9 +970,16 @@ export const actualizarEstadoAccionOffline = async (idAccion, nuevoEstado, detal
   const existente = await ejecutarRequest(store.get(String(idAccion)));
   if (!existente) return null;
 
+  const ahora = new Date().toISOString();
   const actualizado = {
     ...existente,
     estado_sincronizacion: nuevoEstado,
+    recurso_id:
+      detalles.recurso_id !== undefined ? detalles.recurso_id : (existente.recurso_id ?? null),
+    sincronizado_en:
+      nuevoEstado === 'sincronizado'
+        ? detalles.sincronizado_en || ahora
+        : (existente.sincronizado_en ?? null),
     intentos:
       typeof detalles.intentos === 'number'
         ? detalles.intentos
@@ -969,7 +988,7 @@ export const actualizarEstadoAccionOffline = async (idAccion, nuevoEstado, detal
           : existente.intentos || 0,
     ultimo_error:
       detalles.ultimo_error !== undefined ? detalles.ultimo_error : existente.ultimo_error,
-    actualizado_en: new Date().toISOString(),
+    actualizado_en: ahora,
   };
 
   await ejecutarRequest(store.put(actualizado));
@@ -1017,6 +1036,7 @@ export const limpiarDatosOffline = async () => {
     STORE_NAMES.ORDENES,
     STORE_NAMES.ESTADOS,
     STORE_NAMES.COLA_ACCIONES,
+    STORE_NAMES.SYNC_META,
   ];
 
   const tx = db.transaction(todasLasTiendas, 'readwrite');
@@ -1029,6 +1049,80 @@ export const limpiarDatosOffline = async () => {
   });
 
   return true;
+};
+
+// ---------------------------------------------------------------------------
+// 6. TAL-196: Soporte de Background Sync (credenciales del Service Worker y reconciliación local)
+// ---------------------------------------------------------------------------
+
+export const SYNC_CONTEXT_ID = 'contexto_sync';
+
+/**
+ * Guarda el token y la URL base del API para que el Service Worker pueda autenticar la sincronización
+ * en segundo plano aunque no haya pestañas abiertas. Se elimina en `limpiarDatosOffline` (cierre de sesión).
+ */
+export const guardarContextoSincronizacion = async ({ token, apiBaseUrl, id_usuario = null } = {}) => {
+  if (!token || !apiBaseUrl) {
+    throw new Error('El contexto de sincronización requiere token y apiBaseUrl');
+  }
+  const db = await openOfflineDb();
+  const tx = db.transaction(STORE_NAMES.SYNC_META, 'readwrite');
+  await ejecutarRequest(
+    tx.objectStore(STORE_NAMES.SYNC_META).put({
+      id: SYNC_CONTEXT_ID,
+      token: String(token),
+      apiBaseUrl: String(apiBaseUrl).replace(/\/+$/, ''),
+      id_usuario,
+      actualizado_en: new Date().toISOString(),
+    }),
+  );
+  return true;
+};
+
+export const obtenerContextoSincronizacion = async () => {
+  const db = await openOfflineDb();
+  const tx = db.transaction(STORE_NAMES.SYNC_META, 'readonly');
+  return (await ejecutarRequest(tx.objectStore(STORE_NAMES.SYNC_META).get(SYNC_CONTEXT_ID))) || null;
+};
+
+export const limpiarContextoSincronizacion = async () => {
+  const db = await openOfflineDb();
+  const tx = db.transaction(STORE_NAMES.SYNC_META, 'readwrite');
+  await ejecutarRequest(tx.objectStore(STORE_NAMES.SYNC_META).delete(SYNC_CONTEXT_ID));
+  return true;
+};
+
+/**
+ * Elimina una orden/incidencia local (por ejemplo, el registro temporal creado offline una vez que el
+ * servidor confirma el identificador real).
+ */
+export const eliminarOrdenOffline = async (idOrden) => {
+  if (!idOrden) return false;
+  const db = await openOfflineDb();
+  const tx = db.transaction(STORE_NAMES.ORDENES, 'readwrite');
+  await ejecutarRequest(tx.objectStore(STORE_NAMES.ORDENES).delete(String(idOrden)));
+  return true;
+};
+
+/**
+ * Reemplaza el payload de una acción encolada (reescritura de referencias a incidencias creadas offline).
+ */
+export const actualizarPayloadAccionOffline = async (idAccion, payload) => {
+  if (!idAccion) return null;
+  const db = await openOfflineDb();
+  const tx = db.transaction(STORE_NAMES.COLA_ACCIONES, 'readwrite');
+  const store = tx.objectStore(STORE_NAMES.COLA_ACCIONES);
+
+  const existente = await ejecutarRequest(store.get(String(idAccion)));
+  if (!existente) return null;
+
+  const actualizado = {
+    ...existente,
+    payload: clonarRegistro(payload),
+    actualizado_en: new Date().toISOString(),
+  };
+  await ejecutarRequest(store.put(actualizado));
+  return actualizado;
 };
 
 // Alias en inglés para interoperabilidad con módulos de Background Sync (TAL-196)
@@ -1066,4 +1160,9 @@ export default {
   actualizarEstadoAccionOffline,
   eliminarAccionOffline,
   limpiarDatosOffline,
+  guardarContextoSincronizacion,
+  obtenerContextoSincronizacion,
+  limpiarContextoSincronizacion,
+  eliminarOrdenOffline,
+  actualizarPayloadAccionOffline,
 };
