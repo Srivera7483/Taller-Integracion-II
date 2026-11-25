@@ -290,7 +290,9 @@ export class OrdenesTrabajoService {
 
     const payloadWs: IncidenciaActualizadaPayload = {
       id_incidencia: dto.id_incidencia,
+      id_orden: (resultadoOrden as any)?.id_orden || null,
       nuevo_estado: 'ASIGNADA',
+      id_tecnico: dto.id_tecnico,
       usuario_responsable: dto.id_tecnico,
       id_edificio: idEdificio,
       timestamp: new Date().toISOString(),
