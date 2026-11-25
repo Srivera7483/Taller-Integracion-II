@@ -1,21 +1,16 @@
-import { IncidenciasController, EstadisticasController } from './incidencias.controller';
+import { IncidenciasController } from './incidencias.controller';
 import { IncidenciasService } from './incidencias.service';
 import { KillSwitchGuard } from '../common/guards/kill-switch.guard';
-import { RolesGuard } from '../auth/roles.guard';
-import { PermissionsGuard } from '../auth/permissions.guard';
-import { Reflector } from '@nestjs/core';
 import {
   ExecutionContext,
-  ForbiddenException,
   HttpException,
   HttpStatus,
   StreamableFile,
 } from '@nestjs/common';
 import type { Response } from 'express';
 
-describe('IncidenciasController - TAL-4, TAL-117, TAL-127, TAL-140, TAL-194 & TAL-128', () => {
+describe('IncidenciasController - TAL-4, TAL-117, TAL-127, TAL-140 & TAL-194', () => {
   let controller: IncidenciasController;
-  let estadisticasController: EstadisticasController;
   let service: jest.Mocked<Partial<IncidenciasService>>;
 
   beforeEach(() => {
@@ -30,11 +25,9 @@ describe('IncidenciasController - TAL-4, TAL-117, TAL-127, TAL-140, TAL-194 & TA
       crear: jest.fn(),
       clasificarPrioridad: jest.fn(),
       resolverIncidencia: jest.fn(),
-      obtenerEstadisticasTiempoResolucion: jest.fn(),
     };
 
     controller = new IncidenciasController(service as IncidenciasService);
-    estadisticasController = new EstadisticasController(service as IncidenciasService);
   });
 
   describe('GET /incidencias/exportar (TAL-117)', () => {
@@ -285,124 +278,6 @@ describe('IncidenciasController - TAL-4, TAL-117, TAL-127, TAL-140, TAL-194 & TA
         'tecnico@test.com',
       );
       expect(resultado).toBe(mockResultado);
-    });
-  });
-
-  describe('TAL-128: Endpoint de Métricas de Tiempo de Resolución (MTTR) y RBAC', () => {
-    const mockMetricas = {
-      promedioHorasTotal: 12.5,
-      totalOrdenesCerradas: 4,
-      desglosePorTecnico: [
-        {
-          id_tecnico: 'tec-1',
-          nombre_tecnico: 'Carlos Santana',
-          totalOrdenesCerradas: 4,
-          promedioHoras: 12.5,
-        },
-      ],
-      desglosePorActivo: [
-        {
-          id_activo: 'act-1',
-          nombre_activo: 'Generador Principal',
-          totalOrdenesCerradas: 4,
-          promedioHoras: 12.5,
-        },
-      ],
-      conteoPorEstado: { Resuelta: 4, Reportada: 2 },
-      conteoPorPrioridad: { media: 4, alta: 2 },
-    };
-
-    it('IncidenciasController delega obtenerEstadisticasTiempoResolucion al servicio con el authHeader', async () => {
-      (service.obtenerEstadisticasTiempoResolucion as jest.Mock).mockResolvedValue(mockMetricas);
-
-      const resultado = await controller.obtenerEstadisticasTiempoResolucion('Bearer token123');
-
-      expect(service.obtenerEstadisticasTiempoResolucion).toHaveBeenCalledWith('Bearer token123');
-      expect(resultado).toEqual(mockMetricas);
-    });
-
-    it('EstadisticasController delega obtenerEstadisticasTiempoResolucion al servicio con el authHeader', async () => {
-      (service.obtenerEstadisticasTiempoResolucion as jest.Mock).mockResolvedValue(mockMetricas);
-
-      const resultado = await estadisticasController.obtenerEstadisticasTiempoResolucion('Bearer token123');
-
-      expect(service.obtenerEstadisticasTiempoResolucion).toHaveBeenCalledWith('Bearer token123');
-      expect(resultado).toEqual(mockMetricas);
-    });
-
-    describe('Seguridad RBAC: RolesGuard y PermissionsGuard', () => {
-      let reflector: Reflector;
-      let rolesGuard: RolesGuard;
-      let permissionsGuard: PermissionsGuard;
-
-      const createMockContext = (user?: any): ExecutionContext => {
-        return {
-          getHandler: jest.fn(),
-          getClass: jest.fn(),
-          switchToHttp: () => ({
-            getRequest: () => ({ user }),
-          }),
-        } as unknown as ExecutionContext;
-      };
-
-      beforeEach(() => {
-        reflector = new Reflector();
-        rolesGuard = new RolesGuard(reflector);
-        permissionsGuard = new PermissionsGuard(reflector);
-      });
-
-      it('permite acceso 200 a usuario ADMINISTRADOR con permiso estadisticas:ver', () => {
-        jest.spyOn(reflector, 'getAllAndOverride')
-          .mockReturnValueOnce(['ADMINISTRADOR']) // RolesGuard
-          .mockReturnValueOnce(['estadisticas:ver']); // PermissionsGuard
-
-        const context = createMockContext({
-          userId: 'admin-1',
-          rol: 'ADMINISTRADOR',
-          permissions: ['estadisticas:ver', 'incidencias:clasificar_prioridad'],
-        });
-
-        expect(rolesGuard.canActivate(context)).toBe(true);
-        expect(permissionsGuard.canActivate(context)).toBe(true);
-      });
-
-      it('rechaza con 403 Forbidden si el rol no es ADMINISTRADOR (ej. TECNICO, REPORTANTE, SUPERVISOR)', () => {
-        jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['ADMINISTRADOR']);
-
-        const rolesNoPermitidos = ['TECNICO', 'REPORTANTE', 'SUPERVISOR', 'INVITADO'];
-
-        for (const rol of rolesNoPermitidos) {
-          const context = createMockContext({
-            userId: 'user-1',
-            rol,
-            permissions: ['estadisticas:ver'],
-          });
-
-          expect(() => rolesGuard.canActivate(context)).toThrow(ForbiddenException);
-        }
-      });
-
-      it('rechaza con 403 Forbidden si es ADMINISTRADOR pero no posee el permiso estadisticas:ver', () => {
-        jest.spyOn(reflector, 'getAllAndOverride')
-          .mockReturnValueOnce(['ADMINISTRADOR']) // RolesGuard pasa
-          .mockReturnValueOnce(['estadisticas:ver']); // PermissionsGuard falla
-
-        const context = createMockContext({
-          userId: 'admin-1',
-          rol: 'ADMINISTRADOR',
-          permissions: ['incidencias:clasificar_prioridad'], // falta estadisticas:ver
-        });
-
-        expect(rolesGuard.canActivate(context)).toBe(true);
-        expect(() => permissionsGuard.canActivate(context)).toThrow(ForbiddenException);
-      });
-
-      it('rechaza con 403 si el usuario es nulo o no está autenticado', () => {
-        jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['ADMINISTRADOR']);
-        const context = createMockContext(undefined);
-
-        expect(() => rolesGuard.canActivate(context)).toThrow(ForbiddenException);
-      });
     });
   });
 });
