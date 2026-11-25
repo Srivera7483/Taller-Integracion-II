@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: SCGI API
-  version: 1.5.0
+  version: 1.4.0
   license:
     name: UNLICENSED
     url: https://github.com/Srivera7483/Taller-Integracion-II
@@ -29,10 +29,6 @@ info:
     - Quitar o renombrar rutas o campos, o cambiar su tipo, sube la version mayor (2.0.0)
       y la ruta base pasa a /api/v2.
     - Todo cambio se acuerda entre TI2 y TI4 antes de implementarlo.
-
-    Cambios de la version 1.5.0:
-    - Se agregan GET /estadisticas/tiempo-resolucion y GET /incidencias/estadisticas/tiempo-resolucion
-      para consulta de MTTR (Tiempo de Resolucion Promedio) e indicadores globales (TAL-128).
 
     Cambios de la version 1.3.0:
     - Se incorporan los endpoints de ordenes de trabajo, diagnostico tecnico,
@@ -881,56 +877,6 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorServidor'
 
-  /estadisticas/tiempo-resolucion:
-    get:
-      tags:
-        - Incidencias
-      summary: Metricas de tiempo de resolucion promedio (MTTR) e indicadores globales
-      description: |
-        Calcula el MTTR a partir de la fecha del paso mas reciente a estado Resuelta en el historial
-        de estados respecto a la orden de trabajo vigente. Requiere rol ADMINISTRADOR y permiso estadisticas:ver.
-      operationId: obtenerEstadisticasTiempoResolucion
-      security:
-        - autenticacionJwt: []
-      responses:
-        '200':
-          description: Metricas e indicadores de incidencias obtenidos exitosamente.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EstadisticasTiempoResolucion'
-        '401':
-          $ref: '#/components/responses/NoAutenticado'
-        '403':
-          $ref: '#/components/responses/SinPermiso'
-        '500':
-          $ref: '#/components/responses/ErrorServidor'
-
-  /incidencias/estadisticas/tiempo-resolucion:
-    get:
-      tags:
-        - Incidencias
-      summary: Metricas de tiempo de resolucion promedio (MTTR) e indicadores (ruta en incidencias)
-      description: |
-        Ruta equivalente bajo /incidencias para consultar el MTTR e indicadores globales.
-        Requiere rol ADMINISTRADOR y permiso estadisticas:ver.
-      operationId: obtenerEstadisticasTiempoResolucionIncidencias
-      security:
-        - autenticacionJwt: []
-      responses:
-        '200':
-          description: Metricas e indicadores de incidencias obtenidos exitosamente.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/EstadisticasTiempoResolucion'
-        '401':
-          $ref: '#/components/responses/NoAutenticado'
-        '403':
-          $ref: '#/components/responses/SinPermiso'
-        '500':
-          $ref: '#/components/responses/ErrorServidor'
-
 components:
 
   securitySchemes:
@@ -1600,88 +1546,3 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ItemResultado'
-
-    EstadisticasTiempoResolucion:
-      type: object
-      required:
-        - promedioHorasTotal
-        - totalOrdenesCerradas
-        - desglosePorTecnico
-        - desglosePorActivo
-        - conteoPorEstado
-        - conteoPorPrioridad
-      properties:
-        promedioHorasTotal:
-          type: number
-          format: float
-          description: Promedio global de resolucion en horas redondeado a 2 decimales (0 si no hay ordenes cerradas).
-          example: 12.5
-        totalOrdenesCerradas:
-          type: integer
-          description: Total de ordenes resueltas consideradas en el calculo de MTTR.
-          example: 8
-        desglosePorTecnico:
-          type: array
-          description: MTTR y total de ordenes agrupado por tecnico.
-          items:
-            type: object
-            required:
-              - id_tecnico
-              - nombre_tecnico
-              - totalOrdenesCerradas
-              - promedioHoras
-            properties:
-              id_tecnico:
-                type: string
-                nullable: true
-                format: uuid
-              nombre_tecnico:
-                type: string
-                nullable: true
-              totalOrdenesCerradas:
-                type: integer
-              promedioHoras:
-                type: number
-                format: float
-        desglosePorActivo:
-          type: array
-          description: MTTR y total de ordenes agrupado por activo.
-          items:
-            type: object
-            required:
-              - id_activo
-              - nombre_activo
-              - totalOrdenesCerradas
-              - promedioHoras
-            properties:
-              id_activo:
-                type: string
-                format: uuid
-              nombre_activo:
-                type: string
-                nullable: true
-              totalOrdenesCerradas:
-                type: integer
-              promedioHoras:
-                type: number
-                format: float
-        conteoPorEstado:
-          type: object
-          description: Conteo global de incidencias agrupadas por su estado actual en HISTORIAL_ESTADOS.
-          additionalProperties:
-            type: integer
-          example:
-            Reportada: 5
-            Asignada: 2
-            Resuelta: 8
-            Cerrada: 3
-        conteoPorPrioridad:
-          type: object
-          description: Conteo global de incidencias agrupadas por prioridad.
-          additionalProperties:
-            type: integer
-          example:
-            baja: 4
-            media: 8
-            alta: 5
-            critica: 1

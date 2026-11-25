@@ -180,14 +180,6 @@ const buildGateway = (options = {}) => {
         replyOptions: { onError: handleProxyError }
     });
 
-    // TAL-128: Proxy transparente para estadísticas de incidencias (MTTR e indicadores)
-    fastify.register(proxy, {
-        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
-        prefix: '/api/v1/estadisticas',
-        rewritePrefix: '/api/v1/estadisticas',
-        replyOptions: { onError: handleProxyError }
-    });
-
     fastify.register(proxy, {
         upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
         prefix: '/api/v1/ordenes-trabajo',

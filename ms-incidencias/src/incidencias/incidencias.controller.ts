@@ -57,15 +57,6 @@ export class IncidenciasController {
     return this.incidenciasService.obtenerResumenMetricas();
   }
 
-  @Get('estadisticas/tiempo-resolucion')
-  @Roles('ADMINISTRADOR')
-  @RequirePermissions('estadisticas:ver')
-  obtenerEstadisticasTiempoResolucion(
-    @Headers('authorization') authHeader?: string,
-  ) {
-    return this.incidenciasService.obtenerEstadisticasTiempoResolucion(authHeader);
-  }
-
   @Get('prioridades-dinamicas')
   obtenerReportePrioridades(@Query() query: PrioridadDinamicaQueryDto) {
     return this.incidenciasService.obtenerReportePrioridades(query);
@@ -214,24 +205,5 @@ export class IncidenciasController {
       Number(id_tipo_evidencia),
       file,
     );
-  }
-}
-
-/**
- * TAL-128: Controlador para la ruta directa /api/v1/estadisticas/tiempo-resolucion.
- * Expone las métricas de MTTR e indicadores globales bajo el prefijo /api/v1/estadisticas.
- */
-@Controller('estadisticas')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
-export class EstadisticasController {
-  constructor(private readonly incidenciasService: IncidenciasService) {}
-
-  @Get('tiempo-resolucion')
-  @Roles('ADMINISTRADOR')
-  @RequirePermissions('estadisticas:ver')
-  obtenerEstadisticasTiempoResolucion(
-    @Headers('authorization') authHeader?: string,
-  ) {
-    return this.incidenciasService.obtenerEstadisticasTiempoResolucion(authHeader);
   }
 }

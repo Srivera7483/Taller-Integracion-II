@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { HttpModule } from '@nestjs/axios';
-import { IncidenciasController, EstadisticasController } from './incidencias.controller';
+import { IncidenciasController } from './incidencias.controller';
 import { IncidenciasService } from './incidencias.service';
 import { CatalogosController } from './catalogos.controller';
 import { PrioridadDinamicaService } from './prioridad-dinamica.service';
@@ -15,11 +15,7 @@ import { WebsocketsModule } from '../websockets/websockets.module';
     RabbitmqModule,
     WebsocketsModule,
   ],
-  controllers: [
-    IncidenciasController,
-    CatalogosController,
-    EstadisticasController,
-  ],
+  controllers: [IncidenciasController, CatalogosController],
   providers: [
     IncidenciasService,
     PrioridadDinamicaService,
