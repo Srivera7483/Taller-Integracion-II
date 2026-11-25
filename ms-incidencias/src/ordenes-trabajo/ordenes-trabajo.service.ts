@@ -1,5 +1,6 @@
 ﻿import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -458,7 +459,7 @@ export class OrdenesTrabajoService {
     diagnostico_tecnico: string,
     idTecnicoPeticion: string,
     rolUsuario?: string,
-    version: number,
+    version?: number,
   ) {
     const orden = await this.prisma.ordenTrabajo.findUnique({
       where: { id_orden: idOrden },
@@ -502,34 +503,36 @@ export class OrdenesTrabajoService {
 
     const diagnosticoSanitizado = sanitizeStringXss(diagnostico_tecnico).trim();
 
-    // Optimistic concurrency control: atomic update with version check
-    // where: { id_orden: idOrden, version: version } ensures atomic check-and-update
-    // If version doesn't match, Prisma throws P2034 (record to update was not found)
-    try {
-      const result = await this.prisma.ordenTrabajo.update({
-        where: { id_orden: idOrden, version: version },
-        data: {
-          diagnostico_tecnico,
-          version: { increment: 1 },
-        },
-      };
-      return result;
-    } catch (error: any) {
-      if error.code === 'P2034':
-        throw new ConflictException({
-          mensaje: 'Conflicto de concurrencia detectado',
-          version_enviada: version,
-          version_actual: orden.version,
-          registro_actual: {
-            id_orden: orden.id_orden,
-            version: orden.version,
-            diagnostico_tecnico: orden.diagnostico_tecnico,
-            id_tecnico: orden.id_tecnico,
-            fecha_actualizacion: orden.updatedAt,
-          },
-        })
-      throw error
+    if (version === undefined) {
+      return this.prisma.ordenTrabajo.update({
+        where: { id_orden: idOrden },
+        data: { diagnostico_tecnico: diagnosticoSanitizado },
+      });
     }
+
+    const actualizacion = await this.prisma.ordenTrabajo.updateMany({
+      where: { id_orden: idOrden, version },
+      data: {
+        diagnostico_tecnico: diagnosticoSanitizado,
+        version: { increment: 1 },
+      },
+    });
+
+    if (actualizacion.count === 0) {
+      const registroActual = await this.prisma.ordenTrabajo.findUnique({
+        where: { id_orden: idOrden },
+      });
+      throw new ConflictException({
+        mensaje: 'Conflicto de concurrencia detectado',
+        version_enviada: version,
+        version_actual: registroActual?.version ?? orden.version,
+        registro_actual: registroActual ?? orden,
+      });
+    }
+
+    return this.prisma.ordenTrabajo.findUnique({
+      where: { id_orden: idOrden },
+    });
   }
 
   async registrarDiagnostico(
@@ -595,4 +598,4 @@ export class OrdenesTrabajoService {
       });
     });
   }
-}\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n    version: number,\n  undefined
+}

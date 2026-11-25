@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 
 describe('OrdenesTrabajoService', () => {
@@ -8,6 +13,7 @@ describe('OrdenesTrabajoService', () => {
   const findManyOrdenes = jest.fn();
   const countOrdenes = jest.fn();
   const updateOrden = jest.fn();
+  const updateManyOrdenes = jest.fn();
   const findManyEstadoIncidencia = jest.fn().mockResolvedValue([
     { id_estado: 2, nombre_estado: 'Asignada' }
   ]);
@@ -31,6 +37,7 @@ describe('OrdenesTrabajoService', () => {
       findMany: findManyOrdenes,
       count: countOrdenes,
       update: updateOrden,
+      updateMany: updateManyOrdenes,
     },
     estadoIncidencia: { findMany: findManyEstadoIncidencia },
   } as never;
@@ -243,6 +250,55 @@ describe('listarPorTecnico', () => {
         data: { diagnostico_tecnico: 'Revision completada' },
       });
       expect(res).toBeDefined();
+    });
+
+    it('actualiza el diagnostico solo si la versión recibida sigue vigente', async () => {
+      const orden = {
+        id_orden: 'orden-1',
+        id_tecnico: 'tecnico-1',
+        version: 3,
+      };
+      findUniqueOrden.mockResolvedValue(orden);
+      updateManyOrdenes.mockResolvedValue({ count: 1 });
+
+      await service.actualizarDiagnostico(
+        'orden-1',
+        'Revision completada',
+        'tecnico-1',
+        undefined,
+        3,
+      );
+
+      expect(updateManyOrdenes).toHaveBeenCalledWith({
+        where: { id_orden: 'orden-1', version: 3 },
+        data: {
+          diagnostico_tecnico: 'Revision completada',
+          version: { increment: 1 },
+        },
+      });
+    });
+
+    it('responde con conflicto si la versión enviada quedó obsoleta', async () => {
+      const orden = {
+        id_orden: 'orden-1',
+        id_tecnico: 'tecnico-1',
+        version: 4,
+      };
+      findUniqueOrden.mockResolvedValue(orden);
+      updateManyOrdenes.mockResolvedValue({ count: 0 });
+
+      await expect(
+        service.actualizarDiagnostico(
+          'orden-1',
+          'Revision desactualizada',
+          'tecnico-1',
+          undefined,
+          3,
+        ),
+      ).rejects.toThrow(ConflictException);
+      expect(updateManyOrdenes).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id_orden: 'orden-1', version: 3 } }),
+      );
     });
   });
 });

@@ -124,9 +124,9 @@ export class OrdenesTrabajoController {
     return this.ordenesService.actualizarDiagnostico(
       id_orden,
       body.diagnostico_tecnico,
-      body.version,  // Versión local del técnico para control de concurrencia optimista
       idUsuario,
       user.rol || user.role,
+      body.version,
     );
   }
 }
