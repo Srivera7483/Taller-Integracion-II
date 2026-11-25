@@ -58,6 +58,7 @@ jobs:
       - name: Validar configuración Docker Compose
         run: docker compose config --quiet
 
+
   sonar:
     name: SonarQube Quality Gate
     runs-on: ubuntu-latest
@@ -83,3 +84,4 @@ jobs:
             -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.spec.ts,**/*.test.ts,**/*.spec.tsx,**/*.test.tsx
             -Dsonar.tests=ms-auth/src,ms-activos/src,ms-incidencias/src
             -Dsonar.test.inclusions=**/*.spec.ts,**/*.test.ts
+
