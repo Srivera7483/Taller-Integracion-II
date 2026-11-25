@@ -13,7 +13,6 @@ import { Logger } from '@nestjs/common';
 
 export interface IncidenciaActualizadaPayload {
   id_incidencia: string;
-  id_orden?: string | null;
   nuevo_estado: string;
   prioridad?: string | null;
   titulo?: string;
