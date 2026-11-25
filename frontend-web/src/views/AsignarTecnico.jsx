@@ -29,8 +29,10 @@ const AsignarTecnico = () => {
   const [tecnicos, setTecnicos] = useState([]);
   const [loadingDatos, setLoadingDatos] = useState(true);
 
+  // Formularios y envíos (TAL-188: borradores locales que sobreviven a la pantalla de mantenimiento)
   const [selectedIncidenciaId, setSelectedIncidenciaId] = useDraftState('asignacion', 'incidenciaId', '');
   const [selectedTecnicoId, setSelectedTecnicoId] = useDraftState('asignacion', 'tecnicoId', '');
+  const [notasInstrucciones, setNotasInstrucciones] = useDraftState('asignacion', 'notas', '');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [ordenEmitida, setOrdenEmitida] = useState(null);
@@ -162,6 +164,7 @@ const AsignarTecnico = () => {
     const payload = {
       id_incidencia: selectedIncidenciaId,
       id_tecnico: selectedTecnicoId,
+      ...(notasInstrucciones.trim() ? { diagnostico_tecnico: notasInstrucciones.trim() } : {}),
     };
 
     try {
@@ -183,6 +186,7 @@ const AsignarTecnico = () => {
 
       setSelectedIncidenciaId('');
       setSelectedTecnicoId('');
+      setNotasInstrucciones('');
       setOrdenEmitida(datosOrdenEmitida);
 
       showToast(
@@ -409,6 +413,21 @@ const AsignarTecnico = () => {
                     Debes elegir un técnico distinto al que ya tiene asignada esta incidencia.
                   </p>
                 )}
+              </div>
+
+              <div>
+                <label htmlFor="notas-asignacion" className="block text-sm font-semibold text-gray-800 mb-1.5">
+                  3. Instrucciones o Motivo de {esReasignacion ? 'Reasignación' : 'Asignación'}{' '}
+                  <span className="text-xs font-normal text-gray-500">(Opcional)</span>
+                </label>
+                <textarea
+                  id="notas-asignacion"
+                  rows={3}
+                  value={notasInstrucciones}
+                  onChange={(e) => setNotasInstrucciones(e.target.value)}
+                  placeholder="Ejemplo: Priorizar revisión en terreno o indicar contexto técnico..."
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+                />
               </div>
 
               <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
