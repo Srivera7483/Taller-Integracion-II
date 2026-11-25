@@ -175,15 +175,6 @@ const DetalleOrden = () => {
             </div>
           </div>
         </div>
-
-        <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-4">
-          <h2 className="text-xs uppercase tracking-wider text-blue-900 font-bold mb-1.5 flex items-center gap-1.5">
-            <FiInfo className="w-4 h-4 text-blue-600" aria-hidden="true" /> Instrucciones del Supervisor
-          </h2>
-          <p className="text-xs sm:text-sm text-blue-950 leading-relaxed">
-            {orden.instrucciones || 'Realizar diagnóstico preventivo y resolver la falla en el menor tiempo posible.'}
-          </p>
-        </div>
       </div>
 
       {/* SECCIÓN FINALIZATIVA: SEGÚN ESTADO Y OWNERSHIP DEL TÉCNICO */}
