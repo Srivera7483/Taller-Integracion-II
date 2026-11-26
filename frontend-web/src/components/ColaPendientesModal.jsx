@@ -110,7 +110,7 @@ const ColaPendientesModal = ({
                   id="titulo-cola-pendientes"
                   className="text-base sm:text-lg font-bold text-gray-900 tracking-tight"
                 >
-                  Cola de Sincronización Offline
+                  Sincronización
                 </h2>
                 <span
                   data-testid="modal-badge-cantidad"
@@ -120,7 +120,7 @@ const ColaPendientesModal = ({
                 </span>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
-                Reportes y modificaciones guardadas localmente a la espera de confirmarse en el servidor.
+                Tus modificaciones en la plataforma se mantendrán guardadas localmente, a la espera de la conexión con el servidor.
               </p>
             </div>
           </div>
@@ -141,7 +141,7 @@ const ColaPendientesModal = ({
             {isOnline ? (
               <span className="inline-flex items-center gap-1.5 text-emerald-700 font-medium">
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Conexión disponible
+                Conectado
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 text-rose-700 font-medium">
@@ -212,8 +212,7 @@ const ColaPendientesModal = ({
               </div>
               <h3 className="text-sm font-bold text-gray-800">Bandeja de sincronización al día</h3>
               <p className="text-xs text-gray-500 max-w-sm mt-1">
-                No tienes reportes ni modificaciones pendientes. Todas tus acciones en terreno han
-                sido confirmadas y almacenadas en el servidor institucional.
+                No tienes modificaciones pendientes locales. Todas tus acciones han sido confirmadas y almacenadas en el servidor institucional.
               </p>
             </div>
           ) : (

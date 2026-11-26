@@ -166,16 +166,22 @@ const Layout = () => {
             aria-label={`Ver cola de sincronización offline. ${cantidadPendientes} pendientes.`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xs flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                <FiRefreshCw className={`w-4 h-4 ${estaSincronizando ? 'animate-spin' : ''}`} />
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 transition-colors ${
+                  estaSincronizando || cantidadPendientes > 0
+                    ? 'bg-amber-50 text-amber-700 group-hover:bg-amber-100'
+                    : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'
+                }`}
+              >
+                <FiRefreshCw
+                  className={`w-4 h-4 ${estaSincronizando ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
               </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-xs font-bold text-gray-900 truncate">
-                  Cola Offline
-                </span>
-                <span className="text-[10px] text-gray-500 truncate">
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-semibold text-gray-800 truncate block">
                   {cantidadPendientes === 0
-                    ? 'Todo sincronizado'
+                    ? 'Todo Sincronizado'
                     : `${cantidadPendientes} pendiente${cantidadPendientes === 1 ? '' : 's'}`}
                 </span>
               </div>
