@@ -1,4 +1,4 @@
-import { IsUUID, IsInt, Min } from 'class-validator';
+import { IsUUID } from 'class-validator';
 
 export class CrearOrdenTrabajoDto {
   @IsUUID()
@@ -6,8 +6,4 @@ export class CrearOrdenTrabajoDto {
 
   @IsUUID()
   id_tecnico!: string;
-
-  @IsInt()
-  @Min(1)
-  version!: number;
 }

@@ -1,13 +1,13 @@
-import { IsNotEmpty, IsString, IsInt, Min } from 'class-validator';
+import { IsISO8601, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { SanitizeXss } from '../../validators/sanitize-xss.pipe';
 
 export class ActualizarDiagnosticoDto {
-  @IsInt()
-  @Min(1)
-  version!: number;
-
   @IsString()
   @IsNotEmpty()
   @SanitizeXss()
   diagnostico_tecnico: string;
+
+  @IsOptional()
+  @IsISO8601()
+  fecha_referencia?: string;
 }

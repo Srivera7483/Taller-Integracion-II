@@ -2,12 +2,10 @@
 
 import { validate } from 'class-validator';
 import { plainToClass } from 'class-transformer';
-import { BatchSyncDto } from './src/sincronizacion/dto/batch-sync.dto';
-import { SyncActionDto } from './src/sincronizacion/dto/sync-action.dto';
-import {
-  PERMISO_POR_TIPO_ACCION,
-  TIPOS_ACCION_VALIDOS,
-} from './src/sincronizacion/sincronizacion.types';
+import { BatchSyncDto } from './ms-incidencias/src/sincronizacion/dto/batch-sync.dto';
+import { SyncActionDto } from './ms-incidencias/src/sincronizacion/dto/sync-action.dto';
+import { SincronizacionService } from './ms-incidencias/src/sincronizacion/sincronizacion.service';
+import { ItemResultadoSincronizacion, PERMISO_POR_TIPO_ACCION, TIPOS_ACCION_VALIDOS } from './ms-incidencias/src/sincronizacion/sincronizacion.types';
 
 // 1. Probar validación de SyncActionDto
 async function testDtoValidation() {
@@ -46,7 +44,7 @@ async function testBatchDtoValidation() {
 function testPermissionMapping() {
   console.log('Permisos por tipo de acción:');
   for (const [tipo, permiso] of Object.entries(PERMISO_POR_TIPO_ACCION)) {
-    console.log(`${tipo} → ${permiso}`);
+    console.log(   → );
   }
 
   const tiposNoMapeados = TIPOS_ACCION_VALIDOS.filter(t => !(t in PERMISO_POR_TIPO_ACCION));
@@ -62,9 +60,9 @@ function testInvalidTypes() {
   const tiposInvalidos = ['tipo_inexistente', 'otro_tipo'];
   for (const tipo of tiposInvalidos) {
     if (TIPOS_ACCION_VALIDOS.includes(tipo)) {
-      console.log(`${tipo} debería ser inválido`);
+      console.log(${tipo} debería ser inválido);
     } else {
-      console.log(`${tipo} correctamente rechazado`);
+      console.log(${tipo} correctamente rechazado);
     }
   }
 }
@@ -79,4 +77,3 @@ async function main() {
 }
 
 main();
-

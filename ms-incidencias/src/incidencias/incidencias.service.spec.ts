@@ -428,6 +428,82 @@ const transaction = {
           nuevo_estado: 'Asignada',
           usuario_responsable: 'supervisor-1',
           tipo_evento: 'CAMBIO_ESTADO',
+          titulo: 'Falla de proyector',
+        }),
+      );
+    });
+
+    it('incluye email en evento crítico y emailReportante al resolver incidencia vía RabbitMQ (TAL-177)', async () => {
+      const mockRabbitmq = {
+        emitirIncidenciaCritica: jest.fn().mockResolvedValue(true),
+        emitirIncidenciaActualizada: jest.fn().mockResolvedValue(true),
+      } as any;
+
+      const customService = new IncidenciasService(
+        prisma,
+        httpService,
+        mockRabbitmq,
+      );
+      jest.spyOn(customService as any, 'resolverUsuarios').mockResolvedValue(
+        new Map([
+          ['reportante-1', { nombre: 'Ana', apellido: 'Gómez', email: 'ana.reportante@uct.cl' }],
+        ]),
+      );
+
+      await customService.crear(
+        {
+          id_activo: 'activo-1',
+          titulo: 'Corte eléctrico',
+          descripcion: 'Tablero principal sin energía',
+          prioridad: 'critica' as any,
+        },
+        'reportante-1',
+        'ana.reportante@uct.cl',
+      );
+
+      expect(mockRabbitmq.emitirIncidenciaCritica).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evento: 'INCIDENCIA_CRITICA_REGISTRADA',
+          email: 'ana.reportante@uct.cl',
+          prioridad: 'critica',
+        }),
+      );
+
+      const incidenciaAsignada = {
+        ...incidenciaCreada,
+        historial_estados: [
+          { estado: { id_estado: 2, nombre_estado: 'Asignada' } },
+        ],
+      };
+      const incidenciaResuelta = {
+        ...incidenciaCreada,
+        historial_estados: [
+          { estado: { id_estado: 3, nombre_estado: 'Resuelta' } },
+        ],
+      };
+      transaction.incidencias.findUnique
+        .mockResolvedValueOnce(incidenciaAsignada)
+        .mockResolvedValueOnce(incidenciaResuelta);
+      transaction.estadoIncidencia.findUnique.mockResolvedValue({
+        id_estado: 3,
+        nombre_estado: 'Resuelta',
+      });
+
+      await customService.actualizarEstado(
+        'incidencia-1',
+        3,
+        'tecnico-1',
+        'TECNICO',
+        'tecnico@uct.cl',
+      );
+
+      expect(mockRabbitmq.emitirIncidenciaActualizada).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evento: 'INCIDENCIA_ACTUALIZADA',
+          nuevo_estado: 'Resuelta',
+          titulo: 'Falla de proyector',
+          emailReportante: 'ana.reportante@uct.cl',
+          email: 'ana.reportante@uct.cl',
         }),
       );
     });

@@ -295,28 +295,56 @@ const buildGateway = (options = {}) => {
             query: { rol: 'COORDINADOR', userId: 'api-gateway-bridge' },
         });
 
-        upstreamSocket.on('incidencia_actualizada', (payload) => {
-            io.to('incidencias').emit('incidencia_actualizada', payload);
-            io.to('coordinadores').emit('incidencia_actualizada', payload);
+        const eventosActualizadasRecientes = new Set();
+        const emitirIncidenciaActualizadaBridge = (payload) => {
+            const id = payload?.id_incidencia || payload?.id;
+            const subTipo =
+                payload?.accion ||
+                payload?.tipo_cambio ||
+                (payload?.cambio_prioridad ? `prio_${payload?.prioridad}` : null) ||
+                payload?.nuevo_estado ||
+                payload?.estado ||
+                payload?.prioridad ||
+                '';
+            const clave = id ? `act:${id}:${subTipo}` : null;
+            if (clave) {
+                if (eventosActualizadasRecientes.has(clave)) {
+                    return;
+                }
+                eventosActualizadasRecientes.add(clave);
+                setTimeout(() => eventosActualizadasRecientes.delete(clave), 3000);
+            }
+
+            let emisores = io.to('incidencias').to('coordinadores');
             if (payload?.id_incidencia) {
-                io.to(`incidencia_${payload.id_incidencia}`).emit('incidencia_actualizada', payload);
+                emisores = emisores.to(`incidencia_${payload.id_incidencia}`);
             }
             if (payload?.id_edificio) {
-                io.to(`edificio_${payload.id_edificio}`).emit('incidencia_actualizada', payload);
+                emisores = emisores.to(`edificio_${payload.id_edificio}`);
             }
-        });
+            emisores.emit('incidencia_actualizada', payload);
+        };
 
-        upstreamSocket.on('nueva-incidencia', (payload) => {
-            io.to('incidencias').emit('nueva_incidencia', payload);
-            io.to('incidencias').emit('nueva-incidencia', payload);
-            io.to('coordinadores').emit('nueva_incidencia', payload);
-        });
+        upstreamSocket.on('incidencia_actualizada', emitirIncidenciaActualizadaBridge);
 
-        upstreamSocket.on('nueva_incidencia', (payload) => {
-            io.to('incidencias').emit('nueva_incidencia', payload);
-            io.to('incidencias').emit('nueva-incidencia', payload);
-            io.to('coordinadores').emit('nueva_incidencia', payload);
-        });
+        const eventosNuevasRecientes = new Set();
+        const emitirNuevaIncidenciaBridge = (payload) => {
+            const id = payload?.id_incidencia || payload?.id;
+            const clave = id ? `nueva:${id}` : null;
+            if (clave) {
+                if (eventosNuevasRecientes.has(clave)) {
+                    return;
+                }
+                eventosNuevasRecientes.add(clave);
+                setTimeout(() => eventosNuevasRecientes.delete(clave), 3000);
+            }
+
+            io.to('incidencias').to('coordinadores').emit('nueva_incidencia', payload);
+            io.to('incidencias').to('coordinadores').emit('nueva-incidencia', payload);
+        };
+
+        upstreamSocket.on('nueva-incidencia', emitirNuevaIncidenciaBridge);
+        upstreamSocket.on('nueva_incidencia', emitirNuevaIncidenciaBridge);
     }
 
     io.on('connection', (socket) => {

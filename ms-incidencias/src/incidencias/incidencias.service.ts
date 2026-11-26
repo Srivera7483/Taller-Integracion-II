@@ -113,7 +113,32 @@ export class IncidenciasService {
   private esIncidenciaCritica(
     prioridad: PrioridadIncidencia,
   ): boolean {
-    return prioridad === PrioridadIncidencia.alta;
+    return (
+      prioridad === PrioridadIncidencia.alta ||
+      prioridad === PrioridadIncidencia.critica
+    );
+  }
+
+  private async obtenerEmailReportante(
+    idReportante?: string | null,
+    emailFallback?: string,
+    authHeader?: string,
+  ): Promise<string | undefined> {
+    if (idReportante) {
+      try {
+        const usuarios = await this.resolverUsuarios(authHeader);
+        const emailResuelto = usuarios.get(idReportante)?.email?.trim();
+        if (emailResuelto && emailResuelto.includes('@')) {
+          return emailResuelto;
+        }
+      } catch {
+        // Usar fallback si ms-auth o BD compartida no están disponibles
+      }
+    }
+    const fallbackLimpio = emailFallback?.trim();
+    return fallbackLimpio && fallbackLimpio.includes('@')
+      ? fallbackLimpio
+      : undefined;
   }
 
   /**
@@ -342,6 +367,7 @@ export class IncidenciasService {
           id_incidencia: creada.id_incidencia,
           id_activo: creada.id_activo,
           id_reportante: usuarioId,
+          ...(emailUsuario ? { email: emailUsuario } : {}),
           titulo: creada.titulo,
           descripcion: creada.descripcion,
           prioridad: prioridadAsignada,
@@ -368,6 +394,10 @@ export class IncidenciasService {
       this.resolverUsuarios(authHeader),
     ]);
 
+    if (!activosPorId.has(incidencia.id_activo)) {
+      await this.resolverActivoPuntual(incidencia.id_activo, activosPorId, authHeader);
+    }
+
     return this.toApiIncidencia(incidencia, { activosPorId, usuariosPorId });
   }
 
@@ -377,6 +407,7 @@ export class IncidenciasService {
     usuarioId: string,
     rolUsuario: string,
     emailUsuario?: string,
+    authHeader?: string,
   ) {
     if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
       throw new BadRequestException('El ID del estado es obligatorio y debe ser numérico');
@@ -462,7 +493,10 @@ export class IncidenciasService {
 
     const payloadWs: IncidenciaActualizadaPayload = {
       id_incidencia: incidenciaId,
+      titulo: resultado.incidencia.titulo,
+      id_activo: resultado.incidencia.id_activo,
       nuevo_estado: nuevoEstado,
+      prioridad: resultado.incidencia.prioridad,
       usuario_responsable: usuarioId,
       id_edificio: idEdificio,
       timestamp: new Date().toISOString(),
@@ -474,10 +508,37 @@ export class IncidenciasService {
     }
 
     if (this.rabbitmqProducer) {
+      const esResolutivo = [
+        'resuelta',
+        'resuelto',
+        'cerrada',
+        'cerrado',
+        'finalizada',
+        'finalizado',
+      ].includes(nuevoEstado.trim().toLowerCase());
+
+      const emailReportante = esResolutivo
+        ? await this.obtenerEmailReportante(
+            resultado.incidencia.id_reportante,
+            emailUsuario,
+            authHeader,
+          )
+        : undefined;
+
       this.rabbitmqProducer
         .emitirIncidenciaActualizada({
           evento: 'INCIDENCIA_ACTUALIZADA',
           ...payloadWs,
+          titulo: resultado.incidencia.titulo,
+          ...(emailReportante
+            ? { emailReportante, email: emailReportante }
+            : {}),
+          ...(resultado.incidencia.diagnostico_tecnico
+            ? {
+                diagnostico_tecnico: resultado.incidencia.diagnostico_tecnico,
+                resolucion: resultado.incidencia.diagnostico_tecnico,
+              }
+            : {}),
         })
         .catch((err) => {
           this.logger.error(
@@ -591,6 +652,7 @@ export class IncidenciasService {
     idTecnico: string,
     rolUsuario: string,
     emailUsuario?: string,
+    authHeader?: string,
   ) {
     const rolNorm = this.normalizarRol(rolUsuario);
     const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm);
@@ -654,7 +716,7 @@ export class IncidenciasService {
 
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: idIncidencia },
-        select: { titulo: true, id_activo: true },
+        select: { titulo: true, id_activo: true, id_reportante: true },
       });
 
       if (!incidencia) {
@@ -681,6 +743,7 @@ export class IncidenciasService {
         historial: nuevoHistorial,
         titulo: incidencia.titulo,
         id_activo: incidencia.id_activo,
+        id_reportante: incidencia.id_reportante,
       };
     });
 
@@ -695,6 +758,8 @@ export class IncidenciasService {
 
     const payloadWs: IncidenciaActualizadaPayload = {
       id_incidencia: idIncidencia,
+      titulo: resultado.titulo,
+      id_activo: resultado.id_activo,
       nuevo_estado: 'RESUELTA',
       usuario_responsable: idTecnico,
       id_edificio: idEdificio,
@@ -707,10 +772,20 @@ export class IncidenciasService {
     }
 
     if (this.rabbitmqProducer) {
+      const emailReportante = await this.obtenerEmailReportante(
+        resultado.id_reportante,
+        emailUsuario,
+        authHeader,
+      );
+
       this.rabbitmqProducer
         .emitirIncidenciaActualizada({
           evento: 'INCIDENCIA_ACTUALIZADA',
           ...payloadWs,
+          titulo: resultado.titulo,
+          ...(emailReportante
+            ? { emailReportante, email: emailReportante }
+            : {}),
         })
         .catch((err) => {
           this.logger.error(
@@ -760,8 +835,13 @@ export class IncidenciasService {
       this.incidenciasGateway.emitirIncidenciaActualizada(
         {
           id_incidencia: idIncidencia,
+          titulo: apiIncidencia.titulo,
+          id_activo: apiIncidencia.id_activo,
           nuevo_estado: apiIncidencia.estado?.nombre_estado || 'Reportada',
           prioridad: apiIncidencia.prioridad,
+          accion: 'CAMBIO_PRIORIDAD',
+          tipo_cambio: 'CAMBIO_PRIORIDAD',
+          cambio_prioridad: true,
           usuario_responsable: null,
           id_edificio: idEdificio,
           timestamp: new Date().toISOString(),
@@ -769,6 +849,31 @@ export class IncidenciasService {
         },
         idEdificio,
       );
+    }
+
+    if (this.rabbitmqProducer) {
+      const idEdificio = await this.obtenerEdificioDeActivo(apiIncidencia.id_activo);
+      this.rabbitmqProducer
+        .emitirIncidenciaActualizada({
+          evento: 'INCIDENCIA_ACTUALIZADA',
+          id_incidencia: idIncidencia,
+          titulo: apiIncidencia.titulo,
+          id_activo: apiIncidencia.id_activo,
+          nuevo_estado: apiIncidencia.estado?.nombre_estado || 'Reportada',
+          prioridad: apiIncidencia.prioridad,
+          accion: 'CAMBIO_PRIORIDAD',
+          tipo_cambio: 'CAMBIO_PRIORIDAD',
+          cambio_prioridad: true,
+          usuario_responsable: null,
+          id_edificio: idEdificio,
+          timestamp: new Date().toISOString(),
+          tipo_evento: 'CAMBIO_ESTADO',
+        })
+        .catch((err) => {
+          this.logger.error(
+            `[RABBITMQ] Error no controlado al emitir cambio de prioridad: ${err}`,
+          );
+        });
     }
 
     return apiIncidencia;
@@ -1211,6 +1316,44 @@ export class IncidenciasService {
     }
 
     return mapa;
+  }
+
+  private async resolverActivoPuntual(
+    idActivo: string,
+    mapa: Map<string, { nombre: string; codigoQr?: string }>,
+    authHeader?: string,
+  ): Promise<void> {
+    if (!idActivo) return;
+    try {
+      if (typeof this.httpService?.get === 'function') {
+        const resp = await firstValueFrom(
+          this.httpService.get(
+            `${this.activosUrl}/activos/validar-qr?codigoQr=${encodeURIComponent(idActivo)}`,
+            {
+              timeout: 1500,
+              ...(authHeader ? { headers: { Authorization: authHeader } } : {}),
+            },
+          ),
+        );
+        const activo = resp?.data?.activo;
+        if (activo) {
+          mapa.set(idActivo, {
+            nombre: activo.nombre || 'Activo sin nombre',
+            codigoQr: activo.codigoQr || activo.codigo_qr,
+          });
+          const ed =
+            activo.id_edificio ||
+            activo.idEdificio ||
+            activo.edificio ||
+            (activo.ubicacion ? this.extraerEdificio(activo.ubicacion) : null);
+          if (ed) {
+            this.edificioPorActivoCache.set(idActivo, String(ed));
+          }
+        }
+      }
+    } catch {
+      // Ignorar fallback silencioso
+    }
   }
 
   private async resolverUsuarios(

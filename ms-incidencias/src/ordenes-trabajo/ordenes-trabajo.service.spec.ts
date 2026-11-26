@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 
 describe('OrdenesTrabajoService', () => {
@@ -13,7 +8,6 @@ describe('OrdenesTrabajoService', () => {
   const findManyOrdenes = jest.fn();
   const countOrdenes = jest.fn();
   const updateOrden = jest.fn();
-  const updateManyOrdenes = jest.fn();
   const findManyEstadoIncidencia = jest.fn().mockResolvedValue([
     { id_estado: 2, nombre_estado: 'Asignada' }
   ]);
@@ -37,7 +31,6 @@ describe('OrdenesTrabajoService', () => {
       findMany: findManyOrdenes,
       count: countOrdenes,
       update: updateOrden,
-      updateMany: updateManyOrdenes,
     },
     estadoIncidencia: { findMany: findManyEstadoIncidencia },
   } as never;
@@ -161,8 +154,25 @@ describe('listarPorTecnico', () => {
     });
 
     it('TAL-185: emite evento de incidencia_actualizada por WebSocket y RabbitMQ al asignar orden', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          datos: [
+            {
+              id_usuario: 'tecnico-1',
+              nombre: 'Carlos',
+              apellido: 'Ruiz',
+              email: 'carlos.ruiz@uct.cl',
+              activo: true,
+              rol: { nombre_rol: 'TECNICO' },
+            },
+          ],
+        }),
+      } as Response);
+
       findUniqueIncidencia.mockResolvedValue({
         id_incidencia: 'inc-1',
+        titulo: 'Falla en tablero eléctrico',
         id_activo: 'activo-edificio-1',
       });
       createOrden.mockResolvedValue({
@@ -204,6 +214,11 @@ describe('listarPorTecnico', () => {
         expect.objectContaining({
           evento: 'ORDEN_TRABAJO_ASIGNADA',
           id_incidencia: 'inc-1',
+          id_orden: 'orden-1',
+          id_tecnico: 'tecnico-1',
+          titulo: 'Falla en tablero eléctrico',
+          emailTecnico: 'carlos.ruiz@uct.cl',
+          tecnico: 'Carlos Ruiz',
           nuevo_estado: 'ASIGNADA',
           usuario_responsable: 'tecnico-1',
           tipo_evento: 'ASIGNACION_ORDEN',
@@ -252,53 +267,66 @@ describe('listarPorTecnico', () => {
       expect(res).toBeDefined();
     });
 
-    it('actualiza el diagnostico solo si la versión recibida sigue vigente', async () => {
-      const orden = {
+    it('TAL-193: lanza 409 Conflict con estado_servidor si la orden ya fue cerrada', async () => {
+      findUniqueOrden.mockResolvedValue({
         id_orden: 'orden-1',
+        id_incidencia: 'inc-1',
         id_tecnico: 'tecnico-1',
-        version: 3,
-      };
-      findUniqueOrden.mockResolvedValue(orden);
-      updateManyOrdenes.mockResolvedValue({ count: 1 });
-
-      await service.actualizarDiagnostico(
-        'orden-1',
-        'Revision completada',
-        'tecnico-1',
-        undefined,
-        3,
-      );
-
-      expect(updateManyOrdenes).toHaveBeenCalledWith({
-        where: { id_orden: 'orden-1', version: 3 },
-        data: {
-          diagnostico_tecnico: 'Revision completada',
-          version: { increment: 1 },
-        },
+        diagnostico_tecnico: 'Cierre previo en linea',
+        fecha_cierre: new Date('2026-11-25T12:00:00Z'),
       });
-    });
-
-    it('responde con conflicto si la versión enviada quedó obsoleta', async () => {
-      const orden = {
-        id_orden: 'orden-1',
-        id_tecnico: 'tecnico-1',
-        version: 4,
-      };
-      findUniqueOrden.mockResolvedValue(orden);
-      updateManyOrdenes.mockResolvedValue({ count: 0 });
 
       await expect(
         service.actualizarDiagnostico(
           'orden-1',
-          'Revision desactualizada',
+          'Diagnostico offline tardio',
           'tecnico-1',
-          undefined,
-          3,
+          'TECNICO',
         ),
       ).rejects.toThrow(ConflictException);
-      expect(updateManyOrdenes).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id_orden: 'orden-1', version: 3 } }),
-      );
+      expect(updateOrden).not.toHaveBeenCalled();
+    });
+
+    it('TAL-193: lanza 409 Conflict si fecha_referencia del cliente es anterior al ultimo historial en servidor', async () => {
+      findUniqueOrden.mockResolvedValue({
+        id_orden: 'orden-1',
+        id_incidencia: 'inc-1',
+        id_tecnico: 'tecnico-1',
+        diagnostico_tecnico: 'Avance online',
+        fecha_cierre: null,
+        incidencia: {
+          historial_estados: [
+            {
+              fecha_creacion: new Date('2026-11-25T15:00:00Z'),
+              estado: { id_estado: 2, nombre_estado: 'Asignada' },
+            },
+          ],
+          ordenes_trabajo: [{ id_orden: 'orden-1', id_tecnico: 'tecnico-1' }],
+        },
+      });
+
+      try {
+        await service.actualizarDiagnostico(
+          'orden-1',
+          'Edicion offline obsoleta',
+          'tecnico-1',
+          'TECNICO',
+          '2026-11-25T14:00:00Z',
+        );
+        fail('Debio lanzar ConflictException');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(ConflictException);
+        expect(err.getResponse()).toEqual(
+          expect.objectContaining({
+            codigo: 'CONFLICTO_CONCURRENCIA',
+            estado_servidor: expect.objectContaining({
+              id_orden: 'orden-1',
+              estado_actual: 'Asignada',
+            }),
+          }),
+        );
+      }
+      expect(updateOrden).not.toHaveBeenCalled();
     });
   });
 });
