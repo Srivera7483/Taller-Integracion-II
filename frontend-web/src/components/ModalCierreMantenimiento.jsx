@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   FiX,
   FiCheckCircle,
@@ -16,6 +16,8 @@ import {
 } from 'react-icons/fi';
 import { LuTriangleAlert, LuCircleAlert, LuInfo } from 'react-icons/lu';
 import { useToast } from '../context/ToastContext';
+import NetworkStatusContext from '../context/NetworkStatusContext';
+import OfflineActionModal, { ACTION_TYPES } from './OfflineActionModal';
 import api from '../services/api';
 
 // Lista de materiales e insumos comunes para selección rápida táctil en tablets
@@ -39,6 +41,30 @@ const MOTIVOS_RECHAZO_FRECUENTES = [
   'Configuración incorrecta u error operacional del usuario.',
   'Equipo o software no corporativo fuera del alcance de soporte.',
   'Incidencia duplicada o resuelta previamente por otro ticket.'
+];
+
+const BOTON_STEPPER_HORAS_CLASE =
+  'w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors disabled:opacity-40 cursor-pointer';
+
+const OPCIONES_MODO_ACCION = [
+  {
+    id: 'tab-completar-mantenimiento',
+    modo: 'COMPLETAR',
+    label: 'Completar Mantenimiento',
+    Icono: FiCheckCircle,
+    claseActiva: 'bg-white text-emerald-800 shadow-xs border border-gray-200',
+    claseInactiva: 'text-gray-600 hover:text-gray-900',
+    claseIconoActivo: 'text-emerald-600',
+  },
+  {
+    id: 'tab-rechazar-incidencia',
+    modo: 'RECHAZAR',
+    label: 'Rechazar Incidencia',
+    Icono: LuTriangleAlert,
+    claseActiva: 'bg-red-50 text-red-800 shadow-xs border border-red-200',
+    claseInactiva: 'text-gray-600 hover:text-red-700',
+    claseIconoActivo: 'text-red-600',
+  },
 ];
 
 /**
@@ -74,6 +100,13 @@ const ModalCierreMantenimiento = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorValidacion, setErrorValidacion] = useState(null);
 
+  // TAL-183: Estados de alerta y conectividad offline
+  const [isOfflineModalOpen, setIsOfflineModalOpen] = useState(false);
+  const [pendingActionType, setPendingActionType] = useState(null);
+  const networkContext = useContext(NetworkStatusContext);
+  const isOnline = networkContext?.isOnline ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const isServerReachable = networkContext?.isServerReachable ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
+
   // Reiniciar estado cuando se abre para una nueva orden
   useEffect(() => {
     if (isOpen && orden) {
@@ -92,25 +125,25 @@ const ModalCierreMantenimiento = ({
 
   if (!isOpen || !orden) return null;
 
-// Validación estricta de Ownership / Asignación por UUID:
+  // Validación estricta de Ownership / Asignación por UUID:
   // Solo el técnico titular vigente de la orden puede operar el formulario.
   const idTecnicoOrden = String(
     orden.id_tecnico_asignado ||
-      orden.id_tecnico ||
-      orden.tecnico_id ||
-      orden.orden_trabajo?.id_tecnico ||
-      orden.ordenes_trabajo?.[0]?.id_tecnico ||
-      orden.incidencia?.id_tecnico_asignado ||
-      orden.incidencia?.ordenes_trabajo?.[0]?.id_tecnico ||
-      ''
+    orden.id_tecnico ||
+    orden.tecnico_id ||
+    orden.orden_trabajo?.id_tecnico ||
+    orden.ordenes_trabajo?.[0]?.id_tecnico ||
+    orden.incidencia?.id_tecnico_asignado ||
+    orden.incidencia?.ordenes_trabajo?.[0]?.id_tecnico ||
+    ''
   ).trim().toLowerCase();
 
   const idUsuarioActual = String(
     tecnicoActual?.id_usuario ||
-      tecnicoActual?.id ||
-      tecnicoActual?.userId ||
-      tecnicoActual?.sub ||
-      ''
+    tecnicoActual?.id ||
+    tecnicoActual?.userId ||
+    tecnicoActual?.sub ||
+    ''
   ).trim().toLowerCase();
 
   const rolActual = (
@@ -135,12 +168,20 @@ const ModalCierreMantenimiento = ({
     idTecnicoOrden ||
     'Otro técnico';
 
+  const idIncidenciaBackend = orden.id_incidencia || orden.incidencia_id || orden.id;
+  const idOrdenBackend = orden.id_orden || orden.orden_trabajo?.id_orden || null;
+  const esOrdenUuid = Boolean(idOrdenBackend && !String(idOrdenBackend).startsWith('ORD-'));
+
   // Validaciones según el modo
   const resolucionValida = resolucion.trim().length >= 10;
   const horasValidas = Number(horasInvertidas) > 0;
   const isFormCompletarValido = resolucionValida && horasValidas;
 
   const motivoRechazoValido = motivoRechazo.trim().length >= 5;
+
+  const esModoRechazar = modoAccion === 'RECHAZAR';
+  const esAccionValida = esModoRechazar ? motivoRechazoValido : isFormCompletarValido;
+  const isSubmitDisabled = isSubmitting || !esAccionValida;
 
   // Manejadores para Horas (Touch Stepper)
   const incrementarHoras = (cantidad = 0.5) => {
@@ -200,66 +241,68 @@ const ModalCierreMantenimiento = ({
     return Array.isArray(raw) ? raw.join(', ') : String(raw);
   };
 
-  // Envío final para COMPLETAR MANTENIMIENTO
-  const handleGuardarCierre = async () => {
+  // Helper para registrar diagnóstico en orden de trabajo
+  const registrarDiagnosticoOrden = async (textoDiagnostico) => {
+    if (esOrdenUuid) {
+      await api.patch(`/ordenes-trabajo/${idOrdenBackend}/diagnostico`, {
+        diagnostico_tecnico: textoDiagnostico,
+      });
+    } else {
+      await api.post('/ordenes-trabajo/diagnostico', {
+        id_incidencia: idIncidenciaBackend,
+        id_tecnico: idTecnicoOrden || idUsuarioActual,
+        diagnostico_tecnico: textoDiagnostico,
+      });
+    }
+  };
+
+  const ejecutarOperacionEnvio = async ({
+    tipoAccion,
+    esValido,
+    mensajeValidacion,
+    fallbackErrorMensaje,
+    operacion,
+  }) => {
     if (!esTecnicoAsignado) {
       setErrorValidacion('Operación denegada: No eres el técnico asignado a esta tarea.');
       return;
     }
 
-    if (!isFormCompletarValido || isSubmitting) {
-      if (!resolucionValida) {
-        setErrorValidacion('La resolución debe contener al menos 10 caracteres detallando el trabajo.');
-      } else if (!horasValidas) {
-        setErrorValidacion('Debes indicar una cantidad válida de horas invertidas.');
-      }
+    if (isSubmitting) return;
+
+    if (!esValido) {
+      if (mensajeValidacion) setErrorValidacion(mensajeValidacion);
       return;
     }
 
     setErrorValidacion(null);
+
+    // TAL-183: Advertir si el técnico está fuera de línea antes de encolar
+    const estaDesconectado = !isOnline || !isServerReachable || (typeof navigator !== 'undefined' && !navigator.onLine);
+    if (estaDesconectado) {
+      setPendingActionType(tipoAccion);
+      setIsOfflineModalOpen(true);
+      return;
+    }
+
     setIsSubmitting(true);
 
-    const idIncidenciaBackend = orden.id_incidencia || orden.incidencia_id || orden.id;
-    const idOrdenBackend = orden.id_orden || orden.orden_trabajo?.id_orden || null;
-    const esOrdenUuid = Boolean(idOrdenBackend && !String(idOrdenBackend).startsWith('ORD-'));
-
     try {
-      // 1. Registrar diagnóstico técnico en la orden vigente en PostgreSQL
-      if (esOrdenUuid) {
-        await api.patch(`/ordenes-trabajo/${idOrdenBackend}/diagnostico`, {
-          diagnostico_tecnico: resolucion.trim(),
-        });
-      } else {
-        await api.post('/ordenes-trabajo/diagnostico', {
-          id_incidencia: idIncidenciaBackend,
-          id_tecnico: idTecnicoOrden || idUsuarioActual,
-          diagnostico_tecnico: resolucion.trim(),
-        });
-      }
-
-      // 2. Marcar la incidencia como resuelta en PostgreSQL (registra fecha_cierre e historial)
-      await api.patch(`/incidencias/${idIncidenciaBackend}/resolver`);
-
-      showToast(
-        '¡Mantenimiento técnico confirmado! El diagnóstico fue registrado y la incidencia fue resuelta.',
-        'success'
-      );
-
-      if (onCierreExitoso) {
-        onCierreExitoso({
-          resolucion: resolucion.trim(),
-          horasInvertidas: Number(horasInvertidas),
-          materialesUsados: sinMateriales ? [] : materialesUsados,
-          fechaCierre: new Date().toISOString(),
-        });
-      }
-
+      await operacion();
       onClose();
     } catch (error) {
-      const mensajeError = extraerMensajeError(
-        error,
-        'Error al registrar la confirmación del mantenimiento en el servidor.'
-      );
+      const esFalloServidor =
+        !error.response ||
+        [502, 503, 504].includes(error.response?.status) ||
+        error.code === 'ERR_NETWORK';
+
+      if (esFalloServidor) {
+        setPendingActionType(tipoAccion);
+        setIsOfflineModalOpen(true);
+        return;
+      }
+
+      const mensajeError = extraerMensajeError(error, fallbackErrorMensaje);
       setErrorValidacion(mensajeError);
       showToast(mensajeError, 'error');
     } finally {
@@ -267,63 +310,119 @@ const ModalCierreMantenimiento = ({
     }
   };
 
+  // Envío final para COMPLETAR MANTENIMIENTO
+  const handleGuardarCierre = async () => {
+    let mensajeValidacion = null;
+    if (!resolucionValida) {
+      mensajeValidacion = 'La resolución debe contener al menos 10 caracteres detallando el trabajo.';
+    } else if (!horasValidas) {
+      mensajeValidacion = 'Debes indicar una cantidad válida de horas invertidas.';
+    }
+
+    await ejecutarOperacionEnvio({
+      tipoAccion: 'COMPLETAR',
+      esValido: isFormCompletarValido,
+      mensajeValidacion,
+      fallbackErrorMensaje: 'Error al registrar la confirmación del mantenimiento en el servidor.',
+      operacion: async () => {
+        // 1. Registrar diagnóstico técnico en la orden vigente en PostgreSQL
+        await registrarDiagnosticoOrden(resolucion.trim());
+
+        // 2. Marcar la incidencia como resuelta en PostgreSQL (registra fecha_cierre e historial)
+        await api.patch(`/incidencias/${idIncidenciaBackend}/resolver`);
+
+        showToast(
+          '¡Mantenimiento técnico confirmado! El diagnóstico fue registrado y la incidencia fue resuelta.',
+          'success'
+        );
+
+        if (onCierreExitoso) {
+          onCierreExitoso({
+            resolucion: resolucion.trim(),
+            horasInvertidas: Number(horasInvertidas),
+            materialesUsados: sinMateriales ? [] : materialesUsados,
+            fechaCierre: new Date().toISOString(),
+          });
+        }
+      },
+    });
+  };
+
   // Envío final para RECHAZAR INCIDENCIA
   const handleGuardarRechazo = async () => {
-    if (!esTecnicoAsignado) {
-      setErrorValidacion('Operación denegada: No eres el técnico asignado a esta tarea.');
-      return;
-    }
+    await ejecutarOperacionEnvio({
+      tipoAccion: 'RECHAZAR',
+      esValido: motivoRechazoValido,
+      mensajeValidacion: 'Debes indicar el motivo del rechazo (mínimo 5 caracteres).',
+      fallbackErrorMensaje: 'Error al registrar el rechazo de la incidencia en el servidor.',
+      operacion: async () => {
+        // 1. Registrar el motivo de rechazo en el diagnóstico de la orden vigente
+        if (esOrdenUuid) {
+          await api.patch(`/ordenes-trabajo/${idOrdenBackend}/diagnostico`, {
+            diagnostico_tecnico: `[RECHAZADO]: ${motivoRechazo.trim()}`,
+          });
+        }
 
-    if (!motivoRechazoValido || isSubmitting) {
-      setErrorValidacion('Debes indicar el motivo del rechazo (mínimo 5 caracteres).');
-      return;
-    }
+        // 2. Actualizar el estado de la incidencia en PostgreSQL (id_estado: 5 = Rechazada)
+        const { data: incidenciaActualizada } = await api.patch(
+          `/incidencias/${idIncidenciaBackend}/estado`,
+          {
+            id_estado: 5,
+            motivo_rechazo: motivoRechazo.trim(),
+          }
+        );
 
-    setErrorValidacion(null);
-    setIsSubmitting(true);
+        showToast('Incidencia rechazada en PostgreSQL. El motivo ha sido registrado.', 'info');
 
-    const idIncidenciaBackend = orden.id_incidencia || orden.incidencia_id || orden.id;
-    const idOrdenBackend = orden.id_orden || orden.orden_trabajo?.id_orden || null;
-    const esOrdenUuid = Boolean(idOrdenBackend && !String(idOrdenBackend).startsWith('ORD-'));
+        if (onCierreExitoso) {
+          onCierreExitoso({
+            resolucion: `[RECHAZADO]: ${motivoRechazo.trim()}`,
+            estado: 'Rechazada',
+            ...(incidenciaActualizada || {}),
+          });
+        }
+      },
+    });
+  };
+
+  const handleConfirmarOffline = () => {
+    setIsOfflineModalOpen(false);
 
     try {
-      // 1. Registrar el motivo de rechazo en el diagnóstico de la orden vigente
-      if (esOrdenUuid) {
-        await api.patch(`/ordenes-trabajo/${idOrdenBackend}/diagnostico`, {
-          diagnostico_tecnico: `[RECHAZADO]: ${motivoRechazo.trim()}`,
-        });
-      }
-
-      // 2. Actualizar el estado de la incidencia en PostgreSQL (id_estado: 5 = Rechazada)
-      const { data: incidenciaActualizada } = await api.patch(
-        `/incidencias/${idIncidenciaBackend}/estado`,
-        {
-          id_estado: 5,
-          motivo_rechazo: motivoRechazo.trim(),
-        }
-      );
-
-      showToast('Incidencia rechazada en PostgreSQL. El motivo ha sido registrado.', 'info');
-
-      if (onCierreExitoso) {
-        onCierreExitoso({
-          resolucion: `[RECHAZADO]: ${motivoRechazo.trim()}`,
-          estado: 'Rechazada',
-          ...(incidenciaActualizada || {}),
-        });
-      }
-
-      onClose();
-    } catch (error) {
-      const mensajeError = extraerMensajeError(
-        error,
-        'Error al registrar el rechazo de la incidencia en el servidor.'
-      );
-      setErrorValidacion(mensajeError);
-      showToast(mensajeError, 'error');
-    } finally {
-      setIsSubmitting(false);
+      const colaLocal = JSON.parse(localStorage.getItem('cola_ordenes_offline') || '[]');
+      colaLocal.push({
+        id_orden: idOrdenBackend || orden.id,
+        accion: pendingActionType,
+        resolucion: resolucion.trim(),
+        horas: horasInvertidas,
+        materiales: materialesUsados,
+        motivoRechazo: motivoRechazo.trim(),
+        timestamp: new Date().toISOString(),
+      });
+      localStorage.setItem('cola_ordenes_offline', JSON.stringify(colaLocal));
+    } catch {
+      // Manejo seguro si localStorage no está disponible
     }
+
+    showToast(
+      'Estás trabajando sin conexión. Tu orden se guardará localmente y se enviará de forma automática al recuperar la señal.',
+      'info'
+    );
+
+    if (onCierreExitoso) {
+      onCierreExitoso({
+        resolucion: resolucion.trim() || `[RECHAZADO]: ${motivoRechazo.trim()}`,
+        estado: pendingActionType === 'RECHAZAR' ? 'Rechazada' : 'Completada',
+        esOffline: true,
+      });
+    }
+
+    onClose();
+  };
+
+  const handleCancelarOffline = () => {
+    setIsOfflineModalOpen(false);
+    setIsSubmitting(false);
   };
 
   return (
@@ -342,14 +441,13 @@ const ModalCierreMantenimiento = ({
         aria-labelledby="modal-cierre-titulo"
       >
         {/* Cabecera del Modal */}
-        <div className={`px-5 sm:px-6 py-4 flex items-center justify-between flex-shrink-0 text-white transition-colors duration-300 ${
-          modoAccion === 'RECHAZAR'
+        <div className={`px-5 sm:px-6 py-4 flex items-center justify-between flex-shrink-0 text-white transition-colors duration-300 ${esModoRechazar
             ? 'bg-gradient-to-r from-red-700 via-rose-700 to-red-800'
             : 'bg-primary'
-        }`}>
+          }`}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white flex-shrink-0 border border-white/20">
-              {modoAccion === 'RECHAZAR' ? (
+              {esModoRechazar ? (
                 <LuTriangleAlert className="w-5 h-5 text-white" />
               ) : (
                 <FiTool className="w-5 h-5 text-white" />
@@ -357,7 +455,7 @@ const ModalCierreMantenimiento = ({
             </div>
             <div>
               <h3 id="modal-cierre-titulo" className="text-lg sm:text-xl font-bold tracking-tight">
-                {modoAccion === 'RECHAZAR' ? 'Rechazar Incidencia' : 'Confirmación de Mantenimiento Técnico'}
+                {esModoRechazar ? 'Rechazar Incidencia' : 'Confirmación de Mantenimiento Técnico'}
               </h3>
               <p className="text-xs text-white/80 mt-0.5 flex items-center gap-2">
                 <span>Orden: <strong>{orden.id_orden || orden.orden_trabajo?.id_orden || orden.id}</strong></span>
@@ -438,14 +536,14 @@ const ModalCierreMantenimiento = ({
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  {modoAccion === 'RECHAZAR' ? (
+                  {esModoRechazar ? (
                     <LuTriangleAlert className="w-4 h-4 text-red-600 flex-shrink-0" />
                   ) : (
                     <FiCheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                   )}
                   <div>
                     <span className="text-gray-600 block text-[10px] uppercase font-semibold">Nuevo Estado</span>
-                    {modoAccion === 'RECHAZAR' ? (
+                    {esModoRechazar ? (
                       <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-red-100 text-red-800 border border-red-300">
                         RECHAZADO
                       </span>
@@ -460,41 +558,27 @@ const ModalCierreMantenimiento = ({
 
               {/* SELECTOR ERGONÓMICO DE ACCIÓN: COMPLETAR VS RECHAZAR */}
               <div className="flex items-center p-1 bg-gray-100 rounded-xl border border-gray-200">
-                <button
-                  type="button"
-                  id="tab-completar-mantenimiento"
-                  onClick={() => {
-                    setModoAccion('COMPLETAR');
-                    setErrorValidacion(null);
-                  }}
-                  disabled={isSubmitting}
-                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    modoAccion === 'COMPLETAR'
-                      ? 'bg-white text-emerald-800 shadow-xs border border-gray-200'
-                      : 'text-gray-600 hover:text-gray-900'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
-                >
-                  <FiCheckCircle className={`w-4 h-4 ${modoAccion === 'COMPLETAR' ? 'text-emerald-600' : 'text-gray-400'}`} />
-                  <span>Completar Mantenimiento</span>
-                </button>
-
-                <button
-                  type="button"
-                  id="tab-rechazar-incidencia"
-                  onClick={() => {
-                    setModoAccion('RECHAZAR');
-                    setErrorValidacion(null);
-                  }}
-                  disabled={isSubmitting}
-                  className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                    modoAccion === 'RECHAZAR'
-                      ? 'bg-red-50 text-red-800 shadow-xs border border-red-200'
-                      : 'text-gray-600 hover:text-red-700'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
-                >
-                  <LuTriangleAlert className={`w-4 h-4 ${modoAccion === 'RECHAZAR' ? 'text-red-600' : 'text-gray-400'}`} />
-                  <span>Rechazar Incidencia</span>
-                </button>
+                {OPCIONES_MODO_ACCION.map(({ id, modo, label, Icono, claseActiva, claseInactiva, claseIconoActivo }) => {
+                  const esActivo = modoAccion === modo;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      id={id}
+                      onClick={() => {
+                        setModoAccion(modo);
+                        setErrorValidacion(null);
+                      }}
+                      disabled={isSubmitting}
+                      className={`flex-1 py-2.5 px-3 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                        esActivo ? claseActiva : claseInactiva
+                      } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                    >
+                      <Icono className={`w-4 h-4 ${esActivo ? claseIconoActivo : 'text-gray-400'}`} />
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Banner de error de validación o error HTTP del backend */}
@@ -508,7 +592,7 @@ const ModalCierreMantenimiento = ({
               {/* ============================================================ */}
               {/* VISTA 1: FORMULARIO DE RECHAZO DE INCIDENCIA */}
               {/* ============================================================ */}
-              {modoAccion === 'RECHAZAR' ? (
+              {esModoRechazar ? (
                 <div className="space-y-4 animate-fadeIn">
                   {/* Banner Explicativo de Rechazo */}
                   <div className="bg-red-50/80 border border-red-200 rounded-xl p-3.5 text-xs text-red-800 flex items-start gap-2.5">
@@ -627,7 +711,7 @@ const ModalCierreMantenimiento = ({
                           onClick={() => decrementarHoras(0.5)}
                           disabled={isSubmitting || horasInvertidas <= 0.5}
                           aria-label="Restar 0.5 horas"
-                          className="w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors disabled:opacity-40 cursor-pointer"
+                          className={BOTON_STEPPER_HORAS_CLASE}
                           title="Restar 0.5 horas"
                         >
                           -
@@ -653,7 +737,7 @@ const ModalCierreMantenimiento = ({
                           onClick={() => incrementarHoras(0.5)}
                           disabled={isSubmitting || horasInvertidas >= 24}
                           aria-label="Sumar 0.5 horas"
-                          className="w-12 h-12 bg-white hover:bg-gray-100 active:bg-gray-200 text-gray-800 rounded-lg flex items-center justify-center font-bold text-lg border border-gray-200 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition-colors disabled:opacity-40 cursor-pointer"
+                          className={BOTON_STEPPER_HORAS_CLASE}
                           title="Sumar 0.5 horas"
                         >
                           +
@@ -668,11 +752,10 @@ const ModalCierreMantenimiento = ({
                             type="button"
                             onClick={() => setHorasPreset(h)}
                             disabled={isSubmitting}
-                            className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                              Number(horasInvertidas) === h
+                            className={`px-3 py-2 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${Number(horasInvertidas) === h
                                 ? 'bg-primary text-white border-primary shadow-xs'
                                 : 'bg-white hover:bg-primary-50 text-gray-700 border-gray-300'
-                            } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
                           >
                             {h}h
                           </button>
@@ -804,7 +887,7 @@ const ModalCierreMantenimiento = ({
         {esTecnicoAsignado && (
           <div className="bg-gray-50 border-t border-gray-200 px-5 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
             <div className="text-xs text-gray-500 flex items-center gap-1.5 order-2 sm:order-1">
-              {modoAccion === 'RECHAZAR' ? (
+              {esModoRechazar ? (
                 <>
                   <LuTriangleAlert className="w-4 h-4 text-red-600" />
                   <span>Al confirmar, la tarea pasará a <strong>RECHAZADO</strong></span>
@@ -829,67 +912,52 @@ const ModalCierreMantenimiento = ({
               </button>
 
               {/* BOTÓN PRINCIPAL SEGÚN EL MODO */}
-              {modoAccion === 'RECHAZAR' ? (
-                <button
-                  type="button"
-                  id="btn-confirmar-rechazo-incidencia"
-                  aria-label="Confirmar rechazo de incidencia"
-                  onClick={handleGuardarRechazo}
-                  disabled={isSubmitting || !motivoRechazoValido}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
-                    isSubmitting || !motivoRechazoValido
-                      ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                      : 'bg-red-700 hover:bg-red-800 active:scale-98 shadow-red-700/20'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                      </svg>
-                      <span>Rechazando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <LuTriangleAlert className="w-4 h-4" />
-                      <span>Confirmar Rechazo</span>
-                    </>
-                  )}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  id="btn-confirmar-cierre-mantenimiento"
-                  aria-label="Confirmar cierre de mantenimiento"
-                  onClick={handleGuardarCierre}
-                  disabled={isSubmitting || !isFormCompletarValido}
-                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
-                    isSubmitting || !isFormCompletarValido
-                      ? 'bg-gray-400 cursor-not-allowed opacity-60'
+              <button
+                type="button"
+                id={esModoRechazar ? 'btn-confirmar-rechazo-incidencia' : 'btn-confirmar-cierre-mantenimiento'}
+                aria-label={esModoRechazar ? 'Confirmar rechazo de incidencia' : 'Confirmar cierre de mantenimiento'}
+                onClick={esModoRechazar ? handleGuardarRechazo : handleGuardarCierre}
+                disabled={isSubmitDisabled}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all min-h-[48px] cursor-pointer ${
+                  isSubmitDisabled
+                    ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                    : esModoRechazar
+                      ? 'bg-red-700 hover:bg-red-800 active:scale-98 shadow-red-700/20'
                       : 'bg-primary hover:bg-primary-hover active:scale-98 shadow-primary/20'
-                  } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                      </svg>
-                      <span>Guardando Cierre...</span>
-                    </>
-                  ) : (
-                    <>
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    <span>{esModoRechazar ? 'Rechazando...' : 'Guardando Cierre...'}</span>
+                  </>
+                ) : (
+                  <>
+                    {esModoRechazar ? (
+                      <LuTriangleAlert className="w-4 h-4" />
+                    ) : (
                       <FiCheckCircle className="w-4 h-4" />
-                      <span>Guardar y Finalizar</span>
-                    </>
-                  )}
-                </button>
-              )}
+                    )}
+                    <span>{esModoRechazar ? 'Confirmar Rechazo' : 'Guardar y Finalizar'}</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         )}
       </div>
+
+      {/* TAL-183: Modal Informativo y Alerta de Sincronización Diferida para Técnicos */}
+      <OfflineActionModal
+        isOpen={isOfflineModalOpen}
+        actionType={ACTION_TYPES.ORDEN}
+        onConfirm={handleConfirmarOffline}
+        onCancel={handleCancelarOffline}
+        isSubmitting={isSubmitting}
+      />
     </div>
   );
 };

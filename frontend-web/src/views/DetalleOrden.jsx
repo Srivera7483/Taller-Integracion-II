@@ -18,6 +18,10 @@ import { useWebSocket } from '../hooks/useWebSocket';
 import { formatearNombreEstadoCanonico } from '../utils/realtimeIncidencias';
 import api from '../services/api';
 
+const esUuid = (valor) =>
+  typeof valor === 'string' &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(valor);
+
 const DetalleOrden = () => {
   const { idOrden } = useParams();
   const [orden, setOrden] = useState(null);
@@ -32,14 +36,59 @@ const DetalleOrden = () => {
       const response = await api.get(`/ordenes-trabajo/${idOrden}`);
       if (response.data) {
         const apiOrden = response.data;
+        const idTecnico = apiOrden.id_tecnico;
+        const idUsuarioSesion =
+          tecnicoActual?.id_usuario || tecnicoActual?.id || tecnicoActual?.userId || null;
+        const esMiOrden = Boolean(
+          idUsuarioSesion &&
+          idTecnico &&
+          String(idTecnico).toLowerCase() === String(idUsuarioSesion).toLowerCase()
+        );
+        const nombreSesionCompleto =
+          `${tecnicoActual?.nombre || ''} ${tecnicoActual?.apellido || ''}`.trim() ||
+          tecnicoActual?.nombre ||
+          null;
+
+        let tecnicoNombre = apiOrden.tecnico_nombre || null;
+        if ((!tecnicoNombre || esUuid(tecnicoNombre) || tecnicoNombre === 'Técnico Asignado') && esMiOrden && nombreSesionCompleto) {
+          tecnicoNombre = nombreSesionCompleto;
+        } else if (esUuid(tecnicoNombre)) {
+          tecnicoNombre = `ID ${tecnicoNombre.substring(0, 8)}`;
+        } else if (!tecnicoNombre) {
+          tecnicoNombre = 'Técnico Asignado';
+        }
+
+        const idActivo = apiOrden.incidencia?.id_activo || apiOrden.id_activo || null;
+        let nombreActivo = apiOrden.incidencia?.nombre_activo || apiOrden.nombre_activo || null;
+        let codigoQrActivo = apiOrden.incidencia?.codigo_qr_activo || apiOrden.codigo_qr_activo || null;
+
+        if ((!nombreActivo || esUuid(nombreActivo)) && idActivo) {
+          try {
+            const activoResp = await api.get(
+              `/activos/validar-qr?codigoQr=${encodeURIComponent(idActivo)}`
+            );
+            if (activoResp.data?.valido && activoResp.data?.activo) {
+              nombreActivo = activoResp.data.activo.nombre || nombreActivo;
+              codigoQrActivo =
+                activoResp.data.activo.codigoQr ||
+                activoResp.data.activo.codigo_qr ||
+                codigoQrActivo;
+            }
+          } catch {
+            // Silencioso
+          }
+        }
+
         setOrden({
           ...apiOrden,
           id_orden: apiOrden.id_orden || idOrden,
           incidencia_id: apiOrden.id_incidencia || apiOrden.incidencia_id,
           incidencia_titulo: apiOrden.incidencia?.titulo || 'Orden de Trabajo',
-          id_activo: apiOrden.incidencia?.id_activo || 'N/A',
+          id_activo: idActivo || 'N/A',
+          nombre_activo: nombreActivo,
+          codigo_qr_activo: codigoQrActivo,
           estado: apiOrden.estado || (apiOrden.fecha_cierre ? 'Completada' : 'Asignada'),
-          tecnico_nombre: apiOrden.tecnico_nombre || 'Técnico Asignado',
+          tecnico_nombre: tecnicoNombre,
           tecnico_id: apiOrden.id_tecnico,
           fecha_emision: apiOrden.fecha_creacion || new Date().toISOString(),
           resolucion: apiOrden.diagnostico_tecnico || null,
@@ -158,7 +207,13 @@ const DetalleOrden = () => {
               <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">
                 <FiUser className="w-4 h-4" aria-hidden="true" />
               </div>
-              <span>{orden.tecnico_nombre}</span>
+              <span>
+                {esTecnicoAsignado && tecnicoActual?.nombre
+                  ? `${tecnicoActual.nombre} ${tecnicoActual.apellido || ''}`.trim()
+                  : (esUuid(orden.tecnico_nombre)
+                      ? `ID ${orden.tecnico_nombre.substring(0, 8)}`
+                      : orden.tecnico_nombre)}
+              </span>
             </div>
           </div>
           <div className="space-y-1">
@@ -170,19 +225,12 @@ const DetalleOrden = () => {
               <span>{orden.incidencia_id}</span>
               <span className="text-gray-600">•</span>
               <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded text-gray-700">
-                {orden.id_activo || 'SRV-MAIL-01'}
+                {orden.nombre_activo
+                  ? `${orden.nombre_activo}${orden.codigo_qr_activo ? ` (${orden.codigo_qr_activo})` : ''}`
+                  : (orden.id_activo ? (esUuid(orden.id_activo) ? `ID ${orden.id_activo.substring(0, 8)}` : orden.id_activo) : 'SRV-MAIL-01')}
               </span>
             </div>
           </div>
-        </div>
-
-        <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-4">
-          <h2 className="text-xs uppercase tracking-wider text-blue-900 font-bold mb-1.5 flex items-center gap-1.5">
-            <FiInfo className="w-4 h-4 text-blue-600" aria-hidden="true" /> Instrucciones del Supervisor
-          </h2>
-          <p className="text-xs sm:text-sm text-blue-950 leading-relaxed">
-            {orden.instrucciones || 'Realizar diagnóstico preventivo y resolver la falla en el menor tiempo posible.'}
-          </p>
         </div>
       </div>
 

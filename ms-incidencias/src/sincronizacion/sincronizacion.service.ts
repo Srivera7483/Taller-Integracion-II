@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   Logger,
   NotFoundException,
@@ -272,6 +273,25 @@ export class SincronizacionService {
         throw new NotFoundException(
           'El estado de incidencia indicado no existe',
         );
+      }
+
+      // TAL-193: Validar concurrencia optimista comparando timestamp_local contra HISTORIAL_ESTADOS
+      if (typeof tx.historialEstados?.findFirst === 'function') {
+        const ultimoHistorial = await tx.historialEstados.findFirst({
+          where: { id_incidencia: idIncidencia },
+          orderBy: [{ fecha_creacion: 'desc' }, { id_historial: 'desc' }],
+          include: { estado: { select: { nombre_estado: true } } },
+        });
+
+        if (ultimoHistorial?.fecha_creacion) {
+          const serverMs = new Date(ultimoHistorial.fecha_creacion).getTime();
+          const localMs = Date.parse(accion.timestamp_local);
+          if (!Number.isNaN(serverMs) && !Number.isNaN(localMs) && serverMs > localMs) {
+            throw new ConflictException(
+              `Conflicto de concurrencia (409): la incidencia ya fue actualizada en el servidor a '${ultimoHistorial.estado?.nombre_estado ?? ultimoHistorial.id_estado}' el ${new Date(ultimoHistorial.fecha_creacion).toISOString()}, posteriormente a la acción offline (${accion.timestamp_local}).`,
+            );
+          }
+        }
       }
 
       await tx.historialEstados.create({

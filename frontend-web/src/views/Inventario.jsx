@@ -126,7 +126,6 @@ const Inventario = () => {
         setEsDinamico(false);
       } else {
         setEquipos(EQUIPOS_BASE);
-        setEsDinamico(false);
       }
     } finally {
       setCargando(false);

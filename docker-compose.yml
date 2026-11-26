@@ -80,6 +80,7 @@ services:
     container_name: ms-notificaciones
     restart: unless-stopped
     environment:
+      NODE_ENV: ${NODE_ENV:-development}
       PORT: 3004
       RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-inframanager}:${RABBITMQ_DEFAULT_PASS:-inframanager-local}@rabbitmq:5672
       RABBITMQ_QUEUE_CRITICAS: incidencias_criticas
@@ -93,6 +94,15 @@ services:
       RABBITMQ_DLQ: dead-letter.queue
       RABBITMQ_MESSAGE_TTL: "300000"
       RABBITMQ_MAX_RETRIES: "3"
+      ALLOW_SMTP_FALLBACK: ${ALLOW_SMTP_FALLBACK:-true}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-InfraManager <notificaciones@uct.cl>}
+      MAIL_ALERTAS_CRITICAS: ${MAIL_ALERTAS_CRITICAS:-alertas.criticas@uct.cl}
+      MAIL_ALERTAS_MANTENIMIENTO: ${MAIL_ALERTAS_MANTENIMIENTO:-mantenimiento.infra@uct.cl}
     depends_on:
       rabbitmq-setup:
         condition: service_completed_successfully
