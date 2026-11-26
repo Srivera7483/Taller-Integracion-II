@@ -4,6 +4,7 @@ import { IncidenciasController, EstadisticasController } from './incidencias.con
 import { IncidenciasService } from './incidencias.service';
 import { CatalogosController } from './catalogos.controller';
 import { PrioridadDinamicaService } from './prioridad-dinamica.service';
+import { PrioridadDinamicaMonitorService } from './prioridad-dinamica-monitor.service';
 import { ExportarIncidenciasService } from './exportar-incidencias.service';
 import { CloudinaryService } from './cloudinary.service';
 import { RabbitmqModule } from '../rabbitmq/rabbitmq.module';
@@ -23,12 +24,14 @@ import { WebsocketsModule } from '../websockets/websockets.module';
   providers: [
     IncidenciasService,
     PrioridadDinamicaService,
+    PrioridadDinamicaMonitorService,
     ExportarIncidenciasService,
     CloudinaryService,
   ],
   exports: [
     IncidenciasService,
     PrioridadDinamicaService,
+    PrioridadDinamicaMonitorService,
     ExportarIncidenciasService,
     CloudinaryService,
   ],

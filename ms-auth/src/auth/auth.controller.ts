@@ -21,8 +21,6 @@ import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { UpdateRoleDto } from './dto/update-role.dto.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
-import { RolesGuard } from './roles.guard.js';
-import { Roles } from './roles.decorator.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { PermissionsGuard } from './permissions.guard.js';
 import { RequirePermissions } from './permissions.decorator.js';
@@ -116,9 +114,7 @@ export class AuthController {
 
   @Patch('usuarios/:id/rol')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMINISTRADOR')
-  @UseGuards(PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions('usuarios:gestionar')
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async updateUserRole(
@@ -129,8 +125,8 @@ export class AuthController {
   }
 
   @Get('usuarios')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMINISTRADOR', 'SUPERVISOR')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('usuarios:ver')
   async listUsers(
     @Query('page') page?: string,
     @Query('limit') limit?: string,

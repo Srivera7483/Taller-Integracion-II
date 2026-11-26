@@ -52,19 +52,15 @@ const Incidencias = () => {
   };
 
   const usuarioAutenticado = obtenerUsuarioActual();
-  const rolUsuario = usuarioAutenticado?.rol?.nombre_rol || usuarioAutenticado?.rol || null;
-  const rolNormalizado = (typeof rolUsuario === 'string' ? rolUsuario : '')
-    .toUpperCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
   const idUsuarioActual =
     usuarioAutenticado?.id_usuario ||
     usuarioAutenticado?.id ||
     usuarioAutenticado?.userId ||
     null;
   const nombreUsuarioActual = `${usuarioAutenticado?.nombre || ''} ${usuarioAutenticado?.apellido || ''}`.trim();
-  const esAdmin = rolNormalizado === 'ADMINISTRADOR';
-  const esSupervisor = rolNormalizado === 'SUPERVISOR' || esAdmin;
+  const puedeAsignar = hasPermission('ordenes:asignar');
+  const puedeExportar = hasPermission('reportes:exportar');
+  const puedeResolver = hasPermission('incidencias:resolver');
 
   const esUuid = (valor) =>
     typeof valor === 'string' &&
@@ -301,7 +297,7 @@ const Incidencias = () => {
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          {esSupervisor && (
+          {puedeAsignar && (
             <Link
               to="/incidencias/asignar"
               className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-50 text-primary border border-primary-200 rounded-lg hover:bg-primary-100 transition-all font-semibold text-sm shadow-2xs min-h-[44px]"
@@ -319,7 +315,7 @@ const Incidencias = () => {
             </Link>
           )}
 
-          {esAdmin && <BotonExportarExcel variant="button" />}
+          {puedeExportar && <BotonExportarExcel variant="button" />}
         </div>
       </div>
 
@@ -396,13 +392,13 @@ const Incidencias = () => {
                         <Link to={`/incidencias/${idTexto}`} className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 rounded-lg font-semibold text-xs shadow-2xs flex items-center gap-1">
                           <FiAlertTriangle className="w-3.5 h-3.5" /> Rechazo
                         </Link>
-                      ) : esMio && !estaCompletada ? (
+                      ) : esMio && puedeResolver && !estaCompletada ? (
                         <button onClick={() => abrirModalParaIncidencia(inc)} className="px-3 py-1.5 bg-emerald-700 text-white rounded-lg font-bold text-xs flex items-center gap-1">
                           <FiCheckCircle className="w-3.5 h-3.5" /> Tarea
                         </button>
                       ) : null}
 
-                      {esSupervisor && !nombreTecnicoReal && !estaCompletada && (
+                      {puedeAsignar && !nombreTecnicoReal && !estaCompletada && (
                         <Link to={`/incidencias/asignar?incidenciaId=${idTexto}`} className="text-primary hover:text-primary-hover font-semibold">
                           Asignar
                         </Link>
@@ -499,7 +495,7 @@ const Incidencias = () => {
                           <span className="flex items-center gap-1.5 text-gray-800 font-medium">
                             <FiUser className="w-3 h-3 text-gray-400" />
                             <span>{nombreTecnicoReal ? `Técnico: ${nombreTecnicoReal}` : 'Sin asignar'}</span>
-                            {esSupervisor && !nombreTecnicoReal && !estaCompletada && (
+                            {puedeAsignar && !nombreTecnicoReal && !estaCompletada && (
                               <Link to={`/incidencias/asignar?incidenciaId=${idTexto}`} className="ml-1 text-[11px] text-primary hover:underline">Asignar</Link>
                             )}
                           </span>
@@ -518,7 +514,7 @@ const Incidencias = () => {
                           <Link to={`/incidencias/${idTexto}`} className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold">
                             <FiCheckCircle className="w-3.5 h-3.5" /> Ver Cierre
                           </Link>
-                        ) : esMio ? (
+                        ) : esMio && puedeResolver ? (
                           <button onClick={() => abrirModalParaIncidencia(inc)} className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs">
                             <FiCheckCircle className="w-3.5 h-3.5" /> Finalizar Tarea
                           </button>
@@ -556,7 +552,7 @@ const Incidencias = () => {
         />
       )}
 
-      {esAdmin && <BotonExportarExcel variant="floating" className="hidden lg:flex" />}
+      {puedeExportar && <BotonExportarExcel variant="floating" className="hidden lg:flex" />}
     </div>
   );
 };

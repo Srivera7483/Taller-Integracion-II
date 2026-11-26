@@ -3,6 +3,8 @@ import { UnauthorizedException } from '@nestjs/common';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { RoleEnum } from './dto/update-role.dto.js';
+import { PERMISSIONS_KEY } from './permissions.decorator.js';
+import { ROLES_KEY } from './roles.decorator.js';
 
 describe('AuthController', () => {
   let authController: AuthController;
@@ -152,6 +154,24 @@ describe('AuthController', () => {
 
       expect(authServiceMock.updateUserRole).toHaveBeenCalledWith('uuid-123', dto);
       expect(result).toEqual(expectedResult);
+    });
+  });
+
+  describe('Seguridad PBAC (TAL-222)', () => {
+    it('protege endpoints administrativos únicamente con @RequirePermissions y sin @Roles', () => {
+      expect(
+        Reflect.getMetadata(PERMISSIONS_KEY, AuthController.prototype.updateUserRole),
+      ).toEqual(['usuarios:gestionar']);
+      expect(
+        Reflect.getMetadata(ROLES_KEY, AuthController.prototype.updateUserRole),
+      ).toBeUndefined();
+
+      expect(
+        Reflect.getMetadata(PERMISSIONS_KEY, AuthController.prototype.listUsers),
+      ).toEqual(['usuarios:ver']);
+      expect(
+        Reflect.getMetadata(ROLES_KEY, AuthController.prototype.listUsers),
+      ).toBeUndefined();
     });
   });
 });

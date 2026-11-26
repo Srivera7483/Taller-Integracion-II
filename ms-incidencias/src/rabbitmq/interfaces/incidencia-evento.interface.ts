@@ -37,3 +37,20 @@ export interface IncidenciaActualizadaEvento {
   tipo_evento: 'CAMBIO_ESTADO' | 'ASIGNACION_ORDEN';
 }
 
+export interface PrioridadDinamicaEscaladaEvento {
+  evento: 'PRIORIDAD_DINAMICA_ESCALADA';
+  id_incidencia: string;
+  id_activo: string;
+  titulo: string;
+  estado_actual: string;
+  prioridad_anterior: string;
+  prioridad_nueva: string;
+  tiempo_inactividad_horas: number;
+  antiguedad_dias: number;
+  motivo_escalamiento: string;
+  id_tecnico?: string | null;
+  emailDestinatario?: string;
+  timestamp: string;
+}
+
+

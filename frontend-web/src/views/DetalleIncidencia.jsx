@@ -18,7 +18,6 @@ import {
 } from 'react-icons/fi';
 import StatusBadge from '../components/StatusBadge';
 import api from '../services/api';
-import AprobacionReportante from '../components/AprobacionReportante';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
 import ModalPrevisualizadorImagen from '../components/ModalPrevisualizadorImagen';
 import EvidenciaUploader from '../components/EvidenciaUploader';
@@ -404,13 +403,6 @@ const DetalleIncidencia = () => {
     }
   };
 
-  const handleAprobacionCompletada = (nuevoEstado) => {
-    setIncidencia((prev) => ({
-      ...prev,
-      estado: nuevoEstado === 'Aprobada' ? 'Cerrada' : 'En Progreso',
-    }));
-  };
-
   const handleCierreExitoso = (datosActualizados) => {
     setIncidencia((prev) => ({
       ...prev,
@@ -490,13 +482,6 @@ const DetalleIncidencia = () => {
   const estaRechazada = estadoLower === 'rechazada' || estadoLower === 'rechazado';
   const estaCerrada = estaCompletada || estaResuelta || estaRechazada || estadoLower === 'cerrada';
 
-  const rolSesion = usuarioSesion?.rol?.nombre_rol || usuarioSesion?.rol || '';
-  const rolNormalizado = (typeof rolSesion === 'string' ? rolSesion : '')
-    .toUpperCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
-  const esSupervisor = rolNormalizado === 'SUPERVISOR' || rolNormalizado === 'ADMINISTRADOR';
-
   const idUsuarioSesion =
     usuarioSesion?.id_usuario || usuarioSesion?.id || usuarioSesion?.userId || null;
   const nombreUsuarioSesion = `${usuarioSesion?.nombre || ''} ${usuarioSesion?.apellido || ''}`
@@ -524,7 +509,7 @@ const DetalleIncidencia = () => {
       nombreUsuarioSesion.includes(nombreAsignado));
 
   const esTecnicoAsignado = coincidePorIdTecnico || coincidePorNombreSesion;
-  const puedeOperarResolucion = puedeResolver && (esTecnicoAsignado || esSupervisor);
+  const puedeOperarResolucion = puedeResolver && esTecnicoAsignado;
 
   const evidencias = Array.isArray(incidencia.evidencias) ? incidencia.evidencias : [];
   const historialAsignaciones = Array.isArray(incidencia.historial_asignaciones)
@@ -822,8 +807,8 @@ const DetalleIncidencia = () => {
         </div>
       )}
 
-      {/* Acciones de mantenimiento si aún no está completada ni resuelta */}
-      {!estaCompletada && !estaResuelta && !estaRechazada && (
+      {/* Acciones de mantenimiento si aún no está completada ni resuelta (PBAC: incidencias:resolver) */}
+      {puedeResolver && !estaCompletada && !estaResuelta && !estaRechazada && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-3">
           <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
             <FiCheckCircle className="w-5 h-5 text-blue-600" aria-hidden="true" />
@@ -866,20 +851,12 @@ const DetalleIncidencia = () => {
               <div className="text-xs space-y-1">
                 <p className="font-bold text-amber-950">Acceso restringido a la resolución</p>
                 <p>
-                  Esta incidencia está asignada a <strong>{esTecnicoAsignado && nombreSesionCompleto ? nombreSesionCompleto : (incidencia.asignado || 'otro técnico')}</strong>. Solo el técnico asignado o usuarios con rol SUPERVISOR / ADMINISTRADOR pueden resolverla.
+                  Esta incidencia está asignada a <strong>{esTecnicoAsignado && nombreSesionCompleto ? nombreSesionCompleto : (incidencia.asignado || 'otro técnico')}</strong>. Solo el técnico asignado con permiso de resolución puede resolverla.
                 </p>
               </div>
             </div>
           )}
         </div>
-      )}
-
-      {/* Renderizado condicional si ya está marcada como resuelta para aprobación del reportante */}
-      {estaResuelta && (
-        <AprobacionReportante
-          incidenciaId={incidencia.id}
-          onAprobacionCompletada={handleAprobacionCompletada}
-        />
       )}
 
       {/* Modal de Cierre */}

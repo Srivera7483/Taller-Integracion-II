@@ -16,8 +16,6 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RequirePermissions } from '../auth/permissions.decorator';
 import type { JwtUser } from '../auth/auth.types';
@@ -28,13 +26,12 @@ import { ActualizarDiagnosticoDto } from '../incidencias/dto/actualizar-diagnost
 import { OrdenesTrabajoService } from './ordenes-trabajo.service';
 
 @Controller('ordenes-trabajo')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class OrdenesTrabajoController {
   constructor(private readonly ordenesService: OrdenesTrabajoService) {}
 
   @Post('asignar')
   @HttpCode(HttpStatus.CREATED)
-  @Roles('SUPERVISOR', 'ADMINISTRADOR')
   @RequirePermissions('ordenes:asignar')
   async asignarOrden(
     @Body() body: AsignarOrdenDto,
@@ -48,7 +45,6 @@ export class OrdenesTrabajoController {
 
   @Post('diagnostico')
   @HttpCode(HttpStatus.CREATED)
-  @Roles('TECNICO', 'SUPERVISOR', 'ADMINISTRADOR')
   @RequirePermissions('ordenes:diagnosticar')
   async registrarDiagnostico(
     @Body() body: AsignarOrdenDto,
@@ -67,7 +63,6 @@ export class OrdenesTrabajoController {
   }
 
   @Get('mis-ordenes')
-  @Roles('TECNICO', 'SUPERVISOR', 'ADMINISTRADOR')
   @RequirePermissions('ordenes:diagnosticar')
   async listarMisOrdenes(
     @CurrentUser() user: JwtUser,
@@ -79,7 +74,6 @@ export class OrdenesTrabajoController {
   }
 
   @Get('tecnico/:idTecnico')
-  @Roles('TECNICO', 'SUPERVISOR', 'ADMINISTRADOR')
   @RequirePermissions('ordenes:diagnosticar')
   async listarPorTecnico(
     @Param('idTecnico', ParseUUIDPipe) idTecnico: string,
@@ -100,7 +94,6 @@ export class OrdenesTrabajoController {
   }
 
   @Get()
-  @Roles('SUPERVISOR', 'ADMINISTRADOR')
   @RequirePermissions('ordenes:asignar')
   async listarTodas(@Query() filtros: FiltrarOrdenesDto) {
     return this.ordenesService.listarTodas(filtros);
@@ -112,7 +105,6 @@ export class OrdenesTrabajoController {
   }
 
   @Patch(':id_orden/diagnostico')
-  @Roles('TECNICO', 'SUPERVISOR', 'ADMINISTRADOR')
   @RequirePermissions('ordenes:diagnosticar')
   async actualizarDiagnostico(
     @Param('id_orden', ParseUUIDPipe) id_orden: string,
