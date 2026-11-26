@@ -768,4 +768,34 @@ const transaction = {
       expect(resultado.conteoPorPrioridad).toEqual({ critica: 1 });
     });
   });
+
+  describe('TAL-222: Eliminación de aprobación/rechazo de resolución por reportante', () => {
+    it('rechaza con BadRequestException transiciones 3 -> 4 (Cerrada) y 3 -> 5 (Rechazada) desde Resuelta', async () => {
+      const incidenciaResuelta = {
+        ...incidenciaCreada,
+        historial_estados: [
+          { estado: { id_estado: 3, nombre_estado: 'Resuelta' } },
+        ],
+      };
+
+      transaction.incidencias.findUnique.mockResolvedValue(incidenciaResuelta);
+      transaction.estadoIncidencia.findUnique.mockResolvedValue({
+        id_estado: 4,
+        nombre_estado: 'Cerrada',
+      });
+
+      await expect(
+        service.actualizarEstado('incidencia-1', 4, 'reportante-1', 'REPORTANTE'),
+      ).rejects.toThrow('retirada');
+
+      transaction.estadoIncidencia.findUnique.mockResolvedValue({
+        id_estado: 5,
+        nombre_estado: 'Rechazada',
+      });
+
+      await expect(
+        service.actualizarEstado('incidencia-1', 5, 'reportante-1', 'REPORTANTE'),
+      ).rejects.toThrow('retirada');
+    });
+  });
 });

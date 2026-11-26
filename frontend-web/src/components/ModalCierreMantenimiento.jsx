@@ -19,6 +19,7 @@ import { useToast } from '../context/ToastContext';
 import NetworkStatusContext from '../context/NetworkStatusContext';
 import OfflineActionModal, { ACTION_TYPES } from './OfflineActionModal';
 import api from '../services/api';
+import { hasPermission } from '../services/authService';
 
 // Lista de materiales e insumos comunes para selección rápida táctil en tablets
 const MATERIALES_FRECUENTES = [
@@ -146,18 +147,12 @@ const ModalCierreMantenimiento = ({
     ''
   ).trim().toLowerCase();
 
-  const rolActual = (
-    typeof tecnicoActual?.rol === 'string'
-      ? tecnicoActual.rol
-      : tecnicoActual?.rol?.nombre_rol || ''
-  ).toUpperCase();
-  const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolActual);
-
+  const puedeResolverIncidencia = hasPermission('incidencias:resolver');
   const esTecnicoAsignado =
-    esSupervisorOAdmin ||
-    (Boolean(idTecnicoOrden) &&
-      Boolean(idUsuarioActual) &&
-      idTecnicoOrden === idUsuarioActual);
+    puedeResolverIncidencia &&
+    Boolean(idTecnicoOrden) &&
+    Boolean(idUsuarioActual) &&
+    idTecnicoOrden === idUsuarioActual;
 
   const nombreTecnicoAsignado =
     orden.nombre_tecnico ||

@@ -448,8 +448,10 @@ export class IncidenciasService {
       if (idEstadoActual === 2 && (idEstadoNuevo === 3 || idEstadoNuevo === 6) && (rolUpper !== 'TECNICO' && rolUpper !== 'ADMINISTRADOR')) {
         throw new ForbiddenException('Solo un TECNICO puede pasar de Asignada a Resuelta o Completada');
       }
-      if (idEstadoActual === 3 && (idEstadoNuevo === 4 || idEstadoNuevo === 5) && rolUpper !== 'REPORTANTE' && rolUpper !== 'ADMINISTRADOR') {
-        throw new ForbiddenException('Solo el REPORTANTE o ADMINISTRADOR puede Cerrar o Rechazar una incidencia');
+      if (idEstadoActual === 3 && (idEstadoNuevo === 4 || idEstadoNuevo === 5)) {
+        throw new BadRequestException(
+          'La funcionalidad de aprobación o rechazo de resolución fue retirada. La incidencia ya se encuentra resuelta.',
+        );
       }
 
       await transaction.historialEstados.create({

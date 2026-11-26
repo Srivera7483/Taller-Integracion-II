@@ -1,8 +1,10 @@
 import { IncidenciasController, EstadisticasController } from './incidencias.controller';
+import { OrdenesTrabajoController } from '../ordenes-trabajo/ordenes-trabajo.controller';
 import { IncidenciasService } from './incidencias.service';
 import { KillSwitchGuard } from '../common/guards/kill-switch.guard';
-import { RolesGuard } from '../auth/roles.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
+import { PERMISSIONS_KEY } from '../auth/permissions.decorator';
+import { ROLES_KEY } from '../auth/roles.decorator';
 import { Reflector } from '@nestjs/core';
 import {
   ExecutionContext,
@@ -330,9 +332,8 @@ describe('IncidenciasController - TAL-4, TAL-117, TAL-127, TAL-140, TAL-194 & TA
       expect(resultado).toEqual(mockMetricas);
     });
 
-    describe('Seguridad RBAC: RolesGuard y PermissionsGuard', () => {
+    describe('Seguridad PBAC (TAL-222): PermissionsGuard sin decoradores @Roles', () => {
       let reflector: Reflector;
-      let rolesGuard: RolesGuard;
       let permissionsGuard: PermissionsGuard;
 
       const createMockContext = (user?: any): ExecutionContext => {
@@ -347,61 +348,77 @@ describe('IncidenciasController - TAL-4, TAL-117, TAL-127, TAL-140, TAL-194 & TA
 
       beforeEach(() => {
         reflector = new Reflector();
-        rolesGuard = new RolesGuard(reflector);
         permissionsGuard = new PermissionsGuard(reflector);
       });
 
-      it('permite acceso 200 a usuario ADMINISTRADOR con permiso estadisticas:ver', () => {
-        jest.spyOn(reflector, 'getAllAndOverride')
-          .mockReturnValueOnce(['ADMINISTRADOR']) // RolesGuard
-          .mockReturnValueOnce(['estadisticas:ver']); // PermissionsGuard
+      it('permite acceso 200 a usuario con permiso estadisticas:ver', () => {
+        jest.spyOn(reflector, 'getAllAndOverride').mockReturnValueOnce(['estadisticas:ver']);
 
         const context = createMockContext({
           userId: 'admin-1',
           rol: 'ADMINISTRADOR',
-          permissions: ['estadisticas:ver', 'incidencias:clasificar_prioridad'],
+          permissions: ['estadisticas:ver', 'reportes:exportar'],
         });
 
-        expect(rolesGuard.canActivate(context)).toBe(true);
         expect(permissionsGuard.canActivate(context)).toBe(true);
       });
 
-      it('rechaza con 403 Forbidden si el rol no es ADMINISTRADOR (ej. TECNICO, REPORTANTE, SUPERVISOR)', () => {
-        jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['ADMINISTRADOR']);
-
-        const rolesNoPermitidos = ['TECNICO', 'REPORTANTE', 'SUPERVISOR', 'INVITADO'];
-
-        for (const rol of rolesNoPermitidos) {
-          const context = createMockContext({
-            userId: 'user-1',
-            rol,
-            permissions: ['estadisticas:ver'],
-          });
-
-          expect(() => rolesGuard.canActivate(context)).toThrow(ForbiddenException);
-        }
-      });
-
-      it('rechaza con 403 Forbidden si es ADMINISTRADOR pero no posee el permiso estadisticas:ver', () => {
-        jest.spyOn(reflector, 'getAllAndOverride')
-          .mockReturnValueOnce(['ADMINISTRADOR']) // RolesGuard pasa
-          .mockReturnValueOnce(['estadisticas:ver']); // PermissionsGuard falla
+      it('rechaza con 403 Forbidden si el usuario no posee el permiso requerido', () => {
+        jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['estadisticas:ver']);
 
         const context = createMockContext({
-          userId: 'admin-1',
-          rol: 'ADMINISTRADOR',
-          permissions: ['incidencias:clasificar_prioridad'], // falta estadisticas:ver
+          userId: 'user-1',
+          rol: 'SUPERVISOR',
+          permissions: ['ordenes:asignar', 'incidencias:clasificar_prioridad'],
         });
 
-        expect(rolesGuard.canActivate(context)).toBe(true);
         expect(() => permissionsGuard.canActivate(context)).toThrow(ForbiddenException);
       });
 
       it('rechaza con 403 si el usuario es nulo o no está autenticado', () => {
-        jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['ADMINISTRADOR']);
+        jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue(['estadisticas:ver']);
         const context = createMockContext(undefined);
 
-        expect(() => rolesGuard.canActivate(context)).toThrow(ForbiddenException);
+        expect(() => permissionsGuard.canActivate(context)).toThrow(ForbiddenException);
+      });
+
+      it('los controladores de incidencias, estadísticas y órdenes operan con @RequirePermissions y sin @Roles', () => {
+        const expectedIncidencias: Record<string, string[]> = {
+          listar: ['incidencias:ver'],
+          obtenerEstadisticasTiempoResolucion: ['estadisticas:ver'],
+          exportar: ['reportes:exportar'],
+          crear: ['incidencias:crear'],
+          actualizarEstado: ['incidencias:resolver'],
+          clasificarPrioridad: ['incidencias:clasificar_prioridad'],
+          resolverIncidencia: ['incidencias:resolver'],
+          crearEvidencia: ['evidencias:subir'],
+          uploadEvidencia: ['evidencias:subir'],
+        };
+
+        for (const [method, expectedPerms] of Object.entries(expectedIncidencias)) {
+          const handler = (IncidenciasController.prototype as any)[method];
+          expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual(expectedPerms);
+          expect(Reflect.getMetadata(ROLES_KEY, handler)).toBeUndefined();
+        }
+
+        const statsHandler = EstadisticasController.prototype.obtenerEstadisticasTiempoResolucion;
+        expect(Reflect.getMetadata(PERMISSIONS_KEY, statsHandler)).toEqual(['estadisticas:ver']);
+        expect(Reflect.getMetadata(ROLES_KEY, statsHandler)).toBeUndefined();
+
+        const expectedOrdenes: Record<string, string[]> = {
+          asignarOrden: ['ordenes:asignar'],
+          registrarDiagnostico: ['ordenes:diagnosticar'],
+          listarMisOrdenes: ['ordenes:diagnosticar'],
+          listarPorTecnico: ['ordenes:diagnosticar'],
+          listarTodas: ['ordenes:asignar'],
+          actualizarDiagnostico: ['ordenes:diagnosticar'],
+        };
+
+        for (const [method, expectedPerms] of Object.entries(expectedOrdenes)) {
+          const handler = (OrdenesTrabajoController.prototype as any)[method];
+          expect(Reflect.getMetadata(PERMISSIONS_KEY, handler)).toEqual(expectedPerms);
+          expect(Reflect.getMetadata(ROLES_KEY, handler)).toBeUndefined();
+        }
       });
     });
   });

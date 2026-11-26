@@ -20,6 +20,39 @@ const Layout = () => {
   const rolUsuario = usuario?.rol?.nombre_rol || usuario?.rol || null;
   const nombreUsuario = usuario ? `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || usuario.correo : 'Usuario';
 
+
+  // Identificación visual del rol del usuario autenticado
+  const coloresPorRol = {
+    ADMINISTRADOR: {
+      avatar: 'bg-red-100 text-red-700',
+      etiqueta: 'bg-red-50 text-red-700 border-red-200',
+    },
+    SUPERVISOR: {
+      avatar: 'bg-blue-100 text-blue-700',
+      etiqueta: 'bg-blue-50 text-blue-700 border-blue-200',
+    },
+    TECNICO: {
+      avatar: 'bg-emerald-100 text-emerald-700',
+      etiqueta: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    },
+    REPORTANTE: {
+      avatar: 'bg-purple-100 text-purple-700',
+      etiqueta: 'bg-purple-50 text-purple-700 border-purple-200',
+    },
+  };
+
+  const rolNormalizado = String(rolUsuario || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+
+  const coloresRol = coloresPorRol[rolNormalizado] || {
+    avatar: 'bg-gray-100 text-gray-600',
+    etiqueta: 'bg-gray-50 text-gray-600 border-gray-200',
+  };
+
+
   const getPageTitle = () => {
     if (location.pathname.startsWith('/incidencias/nueva') || location.pathname.startsWith('/incidencias/reportar')) {
       return 'Reportar Incidencia';
@@ -52,23 +85,20 @@ const Layout = () => {
   navigate('/login', { replace: true });
   };
 
-  // Definición completa de las opciones del menú
+  // Definición completa de las opciones del menú (autorización basada en permisos PBAC)
   const allNavItems = [
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
-    { path: '/inventario', label: 'Inventario', icon: FiBox, allowedRoles: ['ADMINISTRADOR']},
+    { path: '/inventario', label: 'Inventario', icon: FiBox, requiredPermission: 'activos:gestionar' },
     { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar, requiredPermission: 'mantenimientos:crear' },
     { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
-    { path: '/usuarios', label: 'Usuarios', icon: FiUsers, allowedRoles: ['ADMINISTRADOR'] },
+    { path: '/usuarios', label: 'Usuarios', icon: FiUsers, requiredPermission: 'usuarios:gestionar' },
   ];
 
-  // Filtrar los elementos según el rol actual del usuario
+  // Filtrar los elementos según los permisos del usuario autenticado
   const navItems = allNavItems.filter((item) => {
     if (item.requiredPermission) {
       return hasPermission(item.requiredPermission);
-    }
-    if (item.allowedRoles) {
-      return item.allowedRoles.includes(rolUsuario);
     }
     return true;
   });
@@ -139,20 +169,29 @@ const Layout = () => {
 
         {/* User Session Footer / Datos de usuario real */}
         <div className="p-4 border-t border-gray-200 bg-gray-50/50 space-y-3">
+
+          {/* Tarjeta del usuario */}
           <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-gray-200 shadow-2xs">
-            <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm">
-              <FiUser className="w-5 h-5 text-primary" />
+            <div
+              className={`w-9 h-9 rounded-lg flex items-center justify-center ${coloresRol.avatar}`}
+            >
+              <FiUser className="w-5 h-5" />
             </div>
-            <div className="flex flex-col min-w-0 flex-1">
+
+            <div className="flex flex-col min-w-0 flex-1 gap-1">
               <span className="text-xs font-bold text-gray-900 truncate">
                 {nombreUsuario}
               </span>
-              <span className="text-[10px] font-semibold text-primary uppercase tracking-wider truncate">
+
+              <span
+                className={`inline-flex self-start max-w-full px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider truncate ${coloresRol.etiqueta}`}
+              >
                 {rolUsuario || 'USUARIO'}
               </span>
             </div>
           </div>
 
+          {/* Cola de sincronización offline (TAL-198) */}
           <button
             type="button"
             onClick={() => {
@@ -198,6 +237,7 @@ const Layout = () => {
             )}
           </button>
 
+          {/* Instalar PWA */}
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent('pwa-install-trigger'))}
@@ -208,6 +248,7 @@ const Layout = () => {
             <span>Instalar App</span>
           </button>
 
+          {/* Cerrar sesión */}
           <button
             type="button"
             onClick={handleLogout}
@@ -216,6 +257,7 @@ const Layout = () => {
             <FiLogOut className="w-4 h-4" />
             <span>Cerrar Sesión</span>
           </button>
+
         </div>
       </aside>
 

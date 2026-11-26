@@ -21,24 +21,12 @@ import {
   sincronizarResumenMetricasEnVivo,
 } from '../utils/realtimeIncidencias';
 import api from '../services/api';
+import { hasPermission } from '../services/authService';
 
 const Dashboard = () => {
   const { showToast } = useToast();
 
-  // Obtener el rol del usuario actual desde localStorage
-  const obtenerRolUsuario = () => {
-    try {
-      const usuarioStr = localStorage.getItem('usuario');
-      if (!usuarioStr) return null;
-      const usuario = JSON.parse(usuarioStr);
-      return usuario.rol?.nombre_rol || usuario.rol || null;
-    } catch {
-      return null;
-    }
-  };
-
-  const rolUsuario = obtenerRolUsuario();
-  const esAdmin = rolUsuario === 'ADMINISTRADOR';
+  const puedeExportar = hasPermission('reportes:exportar');
   const [resumenGlobal, setResumenGlobal] = useState(null);
   const [analiticaRefreshTick, setAnaliticaRefreshTick] = useState(0);
 
@@ -104,7 +92,7 @@ const Dashboard = () => {
   }, []);
 
   // TAL-187: Sincronización reactiva en vivo vía WebSocket (< 500ms, sin perder scroll ni foco)
-  const { isConnected: wsConectado } = useWebSocket(
+  useWebSocket(
     {
       onIncidenciaActualizada: (payload) => {
         const idInc = payload?.id_incidencia || payload?.id;
@@ -285,22 +273,13 @@ const Dashboard = () => {
                   ? `${incidencias.length} de ${resumenMetricas.total} registros cargados`
                   : `${incidencias.length} registros cargados`}
               </span>
-              {wsConectado && (
-                <span
-                  id="indicador-tiempo-real-dashboard"
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-                  <span>En vivo</span>
-                </span>
-              )}
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
               Listado con desplazamiento infinito de reportes activos en la plataforma
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {esAdmin && <BotonExportarExcel variant="compact" />}
+            {puedeExportar && <BotonExportarExcel variant="compact" />}
             <Link
               to="/incidencias"
               className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
