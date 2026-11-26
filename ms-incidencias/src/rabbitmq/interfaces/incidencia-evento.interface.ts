@@ -20,6 +20,11 @@ export interface IncidenciaActualizadaEvento {
   id_tecnico?: string | null;
   titulo?: string;
   nuevo_estado: string;
+  prioridad?: PrioridadIncidencia | string | null;
+  id_activo?: string;
+  accion?: string;
+  tipo_cambio?: string;
+  cambio_prioridad?: boolean;
   usuario_responsable: string | null;
   id_edificio?: string | null;
   emailTecnico?: string;

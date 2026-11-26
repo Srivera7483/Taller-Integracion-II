@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiMenu, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload } from 'react-icons/fi';
-import NotificacionesDropdown from './NotificacionesDropdown';
+import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload } from 'react-icons/fi';
+import Header from './Header';
 import CriticalAlertBanner from './CriticalAlertBanner';
-import NetworkStatusIndicator from './NetworkStatusIndicator';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
 import { cerrarSesion, getUsuarioActual, hasPermission } from '../services/authService';
 
@@ -183,27 +182,11 @@ const Layout = () => {
 
       {/* Main Content Wrapper */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top bar */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-6 z-30">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="lg:hidden text-gray-600 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg p-1"
-              onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Abrir menú de navegación"
-            >
-              <FiMenu className="w-6 h-6" />
-            </button>
-            <h1 className="text-lg font-bold text-gray-900 tracking-tight truncate">
-              {getPageTitle()}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <NetworkStatusIndicator />
-            <NotificacionesDropdown />
-          </div>
-        </header>
+        {/* Top bar (TAL-190) */}
+        <Header
+          title={getPageTitle()}
+          onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+        />
 
         {/* Critical Alert Banner if needed */}
         <CriticalAlertBanner />

@@ -37,7 +37,7 @@ export class OrdenesTrabajoService {
     private readonly incidenciasGateway?: IncidenciasGateway,
     private readonly rabbitmqProducer?: RabbitmqProducerService,
     private readonly httpService?: HttpService,
-  ) {}
+  ) { }
 
   async obtenerEdificioDeActivo(
     idActivo?: string | null,
@@ -101,83 +101,83 @@ export class OrdenesTrabajoService {
         ),
       );
 
-      let usuarios: any[] | null = null;
+    let usuarios: any[] | null = null;
 
-      for (const baseUrl of baseUrls) {
-        const endpoints = [
-          `${baseUrl}/auth/usuarios?limit=50`,
-          `${baseUrl}/auth/usuarios`,
-          `${baseUrl}/usuarios?limit=50`,
-          `${baseUrl}/usuarios`,
-        ];
+    for (const baseUrl of baseUrls) {
+      const endpoints = [
+        `${baseUrl}/auth/usuarios?limit=50`,
+        `${baseUrl}/auth/usuarios`,
+        `${baseUrl}/usuarios?limit=50`,
+        `${baseUrl}/usuarios`,
+      ];
 
-        for (const url of endpoints) {
-          try {
-            const res = await fetch(url, {
-              signal: AbortSignal.timeout(2000),
-              headers: {
-                Accept: 'application/json',
-                ...(authHeader ? { Authorization: authHeader } : {}),
-              },
-            });
-            if (!res.ok) continue;
-            const json = await res.json();
-            const lista = json?.datos || json?.data || json?.usuarios || json;
-            if (Array.isArray(lista)) {
-              usuarios = lista;
-              break;
-            }
-          } catch {
-            // Intentar siguiente endpoint o host
+      for (const url of endpoints) {
+        try {
+          const res = await fetch(url, {
+            signal: AbortSignal.timeout(2000),
+            headers: {
+              Accept: 'application/json',
+              ...(authHeader ? { Authorization: authHeader } : {}),
+            },
+          });
+          if (!res.ok) continue;
+          const json = await res.json();
+          const lista = json?.datos || json?.data || json?.usuarios || json;
+          if (Array.isArray(lista)) {
+            usuarios = lista;
+            break;
           }
+        } catch {
+          // Intentar siguiente endpoint o host
         }
-
-        if (usuarios) break;
       }
 
-      if (!usuarios) {
-        throw new BadRequestException(
-          'No fue posible verificar la validez del técnico con el servicio de autenticación.',
-        );
-      }
-
-      const tecnico = usuarios.find((u) => (u.id_usuario || u.id) === idTecnico);
-      if (!tecnico) {
-        throw new NotFoundException(
-          'El técnico seleccionado no existe en la base de datos.',
-        );
-      }
-
-      if (tecnico.activo === false) {
-        throw new BadRequestException(
-          'No se puede asignar una orden a un técnico inactivo.',
-        );
-      }
-
-      const rolNormalizado = JSON.stringify(
-        tecnico.rol || tecnico.roles || tecnico.nombre_rol || '',
-      )
-        .toUpperCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '');
-
-      if (!rolNormalizado.includes('TECNICO')) {
-        throw new BadRequestException(
-          'El usuario seleccionado no posee el rol de Técnico habilitado para órdenes de trabajo.',
-        );
-      }
-
-      const emailRaw = tecnico.email || tecnico.correo;
-      const email =
-        typeof emailRaw === 'string' && emailRaw.trim()
-          ? emailRaw.trim()
-          : undefined;
-      const nombre =
-        [tecnico.nombre, tecnico.apellido].filter(Boolean).join(' ').trim() ||
-        undefined;
-
-      return { email, nombre };
+      if (usuarios) break;
     }
+
+    if (!usuarios) {
+      throw new BadRequestException(
+        'No fue posible verificar la validez del técnico con el servicio de autenticación.',
+      );
+    }
+
+    const tecnico = usuarios.find((u) => (u.id_usuario || u.id) === idTecnico);
+    if (!tecnico) {
+      throw new NotFoundException(
+        'El técnico seleccionado no existe en la base de datos.',
+      );
+    }
+
+    if (tecnico.activo === false) {
+      throw new BadRequestException(
+        'No se puede asignar una orden a un técnico inactivo.',
+      );
+    }
+
+    const rolNormalizado = JSON.stringify(
+      tecnico.rol || tecnico.roles || tecnico.nombre_rol || '',
+    )
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    if (!rolNormalizado.includes('TECNICO')) {
+      throw new BadRequestException(
+        'El usuario seleccionado no posee el rol de Técnico habilitado para órdenes de trabajo.',
+      );
+    }
+
+    const emailRaw = tecnico.email || tecnico.correo;
+    const email =
+      typeof emailRaw === 'string' && emailRaw.trim()
+        ? emailRaw.trim()
+        : undefined;
+    const nombre =
+      [tecnico.nombre, tecnico.apellido].filter(Boolean).join(' ').trim() ||
+      undefined;
+
+    return { email, nombre };
+  }
 
   async asignarOrden(
     dto: AsignarOrdenDto,
@@ -222,6 +222,7 @@ export class OrdenesTrabajoService {
         throw new NotFoundException('Incidencia no encontrada');
       }
 
+      tituloIncidencia = incidencia.titulo;
       idActivoIncidencia = incidencia.id_activo ?? null;
       tituloIncidencia = incidencia.titulo || undefined;
 
@@ -307,9 +308,14 @@ export class OrdenesTrabajoService {
     const payloadWs: IncidenciaActualizadaPayload = {
       id_incidencia: dto.id_incidencia,
       id_orden: (resultadoOrden as any)?.id_orden || null,
+      titulo: tituloIncidencia,
       nuevo_estado: 'ASIGNADA',
       id_tecnico: dto.id_tecnico,
       usuario_responsable: dto.id_tecnico,
+      nombre_tecnico: infoTecnico.nombre,
+      es_reasignacion: Boolean(resultadoOrden.es_reasignacion),
+      tecnico_anterior_id: resultadoOrden.tecnico_anterior_id ?? undefined,
+      accion: resultadoOrden.es_reasignacion ? 'REASIGNACION' : 'ASIGNACION',
       id_edificio: idEdificio,
       timestamp: new Date().toISOString(),
       tipo_evento: 'ASIGNACION_ORDEN',

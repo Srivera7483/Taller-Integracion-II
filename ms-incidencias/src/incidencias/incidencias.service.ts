@@ -394,6 +394,10 @@ export class IncidenciasService {
       this.resolverUsuarios(authHeader),
     ]);
 
+    if (!activosPorId.has(incidencia.id_activo)) {
+      await this.resolverActivoPuntual(incidencia.id_activo, activosPorId, authHeader);
+    }
+
     return this.toApiIncidencia(incidencia, { activosPorId, usuariosPorId });
   }
 
@@ -489,7 +493,10 @@ export class IncidenciasService {
 
     const payloadWs: IncidenciaActualizadaPayload = {
       id_incidencia: incidenciaId,
+      titulo: resultado.incidencia.titulo,
+      id_activo: resultado.incidencia.id_activo,
       nuevo_estado: nuevoEstado,
+      prioridad: resultado.incidencia.prioridad,
       usuario_responsable: usuarioId,
       id_edificio: idEdificio,
       timestamp: new Date().toISOString(),
@@ -751,6 +758,8 @@ export class IncidenciasService {
 
     const payloadWs: IncidenciaActualizadaPayload = {
       id_incidencia: idIncidencia,
+      titulo: resultado.titulo,
+      id_activo: resultado.id_activo,
       nuevo_estado: 'RESUELTA',
       usuario_responsable: idTecnico,
       id_edificio: idEdificio,
@@ -826,8 +835,13 @@ export class IncidenciasService {
       this.incidenciasGateway.emitirIncidenciaActualizada(
         {
           id_incidencia: idIncidencia,
+          titulo: apiIncidencia.titulo,
+          id_activo: apiIncidencia.id_activo,
           nuevo_estado: apiIncidencia.estado?.nombre_estado || 'Reportada',
           prioridad: apiIncidencia.prioridad,
+          accion: 'CAMBIO_PRIORIDAD',
+          tipo_cambio: 'CAMBIO_PRIORIDAD',
+          cambio_prioridad: true,
           usuario_responsable: null,
           id_edificio: idEdificio,
           timestamp: new Date().toISOString(),
@@ -835,6 +849,31 @@ export class IncidenciasService {
         },
         idEdificio,
       );
+    }
+
+    if (this.rabbitmqProducer) {
+      const idEdificio = await this.obtenerEdificioDeActivo(apiIncidencia.id_activo);
+      this.rabbitmqProducer
+        .emitirIncidenciaActualizada({
+          evento: 'INCIDENCIA_ACTUALIZADA',
+          id_incidencia: idIncidencia,
+          titulo: apiIncidencia.titulo,
+          id_activo: apiIncidencia.id_activo,
+          nuevo_estado: apiIncidencia.estado?.nombre_estado || 'Reportada',
+          prioridad: apiIncidencia.prioridad,
+          accion: 'CAMBIO_PRIORIDAD',
+          tipo_cambio: 'CAMBIO_PRIORIDAD',
+          cambio_prioridad: true,
+          usuario_responsable: null,
+          id_edificio: idEdificio,
+          timestamp: new Date().toISOString(),
+          tipo_evento: 'CAMBIO_ESTADO',
+        })
+        .catch((err) => {
+          this.logger.error(
+            `[RABBITMQ] Error no controlado al emitir cambio de prioridad: ${err}`,
+          );
+        });
     }
 
     return apiIncidencia;
@@ -1277,6 +1316,44 @@ export class IncidenciasService {
     }
 
     return mapa;
+  }
+
+  private async resolverActivoPuntual(
+    idActivo: string,
+    mapa: Map<string, { nombre: string; codigoQr?: string }>,
+    authHeader?: string,
+  ): Promise<void> {
+    if (!idActivo) return;
+    try {
+      if (typeof this.httpService?.get === 'function') {
+        const resp = await firstValueFrom(
+          this.httpService.get(
+            `${this.activosUrl}/activos/validar-qr?codigoQr=${encodeURIComponent(idActivo)}`,
+            {
+              timeout: 1500,
+              ...(authHeader ? { headers: { Authorization: authHeader } } : {}),
+            },
+          ),
+        );
+        const activo = resp?.data?.activo;
+        if (activo) {
+          mapa.set(idActivo, {
+            nombre: activo.nombre || 'Activo sin nombre',
+            codigoQr: activo.codigoQr || activo.codigo_qr,
+          });
+          const ed =
+            activo.id_edificio ||
+            activo.idEdificio ||
+            activo.edificio ||
+            (activo.ubicacion ? this.extraerEdificio(activo.ubicacion) : null);
+          if (ed) {
+            this.edificioPorActivoCache.set(idActivo, String(ed));
+          }
+        }
+      }
+    } catch {
+      // Ignorar fallback silencioso
+    }
   }
 
   private async resolverUsuarios(
