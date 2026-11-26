@@ -1,5 +1,6 @@
-import api from './api';
+import api from './api.js';
 import axios from 'axios';
+import { limpiarDatosOffline } from './storage/offlineDb.js';
 
 /**
  * Servicio de gestión de autenticación, almacenamiento de tokens y control de sesión.
@@ -7,7 +8,9 @@ import axios from 'axios';
  */
 
 const notifySessionChange = () => {
-  window.dispatchEvent(new Event('tecnico-cambiado'));
+  if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+    window.dispatchEvent(new Event('tecnico-cambiado'));
+  }
 };
 
 /**
@@ -110,7 +113,12 @@ export const limpiarSesion = () => {
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('usuario');
+
+  const limpiezaPromise = limpiarDatosOffline().catch(() => false);
+
   notifySessionChange();
+
+  return limpiezaPromise;
 };
 
 /**
@@ -179,6 +187,7 @@ export const guardarSesion = ({ accessToken, refreshToken, usuario }) => {
     localStorage.removeItem('refresh_token');
   }
 
+
   localStorage.setItem(
     'usuario',
     JSON.stringify({
@@ -188,7 +197,7 @@ export const guardarSesion = ({ accessToken, refreshToken, usuario }) => {
   );
 
   notifySessionChange();
-};
+  };
 
 /**
  * Inicia sesión en la plataforma utilizando las credenciales acordadas en el contrato OpenAPI.
@@ -326,7 +335,7 @@ export const cerrarSesion = async () => {
       }
     });
   } finally {
-    limpiarSesion();
+    await limpiarSesion();
   }
 };
 

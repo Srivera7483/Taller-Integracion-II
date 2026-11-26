@@ -1,4 +1,17 @@
 import axios from 'axios';
+import {
+  guardarActivosOffline,
+  obtenerActivosOffline,
+  obtenerActivoPorIdOffline,
+  guardarOrdenesOffline,
+  obtenerOrdenesOffline,
+  obtenerOrdenPorIdOffline,
+  guardarEstadosOffline,
+  obtenerEstadosOffline,
+  encolarAccionOffline,
+  eliminarAccionOffline,
+  limpiarDatosOffline,
+} from './storage/offlineDb.js';
 
 export const MAX_RETRIES = 3;
 export const RETRY_DELAYS = [1000, 2000, 4000]; // 1s, 2s, 4s de backoff exponencial
@@ -239,21 +252,276 @@ export const clearAllRetriesAndMutations = () => {
   pendingRetries.clear();
   pausedMutations.length = 0;
   inFlightMutations.clear();
+  void limpiarDatosOffline().catch(() => {});
+};
+
+// ---------------------------------------------------------------------------
+// TAL-195: Sincronización en Segundo Plano y Lectura Offline con IndexedDB
+// ---------------------------------------------------------------------------
+
+/**
+ * Normaliza la ruta relativa de un endpoint eliminando prefijos de baseURL y query strings.
+ */
+const extraerRutaRelativaApi = (rawUrl = '') => {
+  const sinBase = String(rawUrl || '')
+    .replace(/^https?:\/\/[^/]+/i, '')
+    .replace(/^\/api\/v1/i, '')
+    .replace(/^\/api/i, '');
+  const [pathname = '', queryString = ''] = sinBase.split('?');
+  const rutaLimpia = `/${pathname.replace(/^\/+/, '').replace(/\/+$/, '')}`;
+  const queryParams = {};
+  if (queryString) {
+    queryString.split('&').forEach((pair) => {
+      const [k, v] = pair.split('=');
+      if (k) {
+        queryParams[decodeURIComponent(k)] = v !== undefined ? decodeURIComponent(v) : '';
+      }
+    });
+  }
+  return { pathname: rutaLimpia, queryString, queryParams };
 };
 
 /**
- * Pausa solicitudes mutantes si el dispositivo se encuentra offline hasta confirmar conectividad.
+ * Extrae una lista de registros desde distintas convenciones de respuesta del API Gateway.
+ */
+const extraerColeccionRespuesta = (payload) => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.datos)) return payload.datos;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.items)) return payload.items;
+  return null;
+};
+
+/**
+ * Construye una colección de respuesta offline compatible tanto con `Array.isArray(res.data)`
+ * como con `res.data.datos` y `res.data.data`.
+ */
+const construirPayloadColeccionOffline = (datos = []) => {
+  const coleccion = [...datos];
+  Object.defineProperties(coleccion, {
+    datos: { value: datos, enumerable: false, configurable: true },
+    data: { value: datos, enumerable: false, configurable: true },
+    total: { value: datos.length, enumerable: false, configurable: true },
+    offline: { value: true, enumerable: false, configurable: true },
+  });
+  return coleccion;
+};
+
+/**
+ * Criterio 1 (TAL-195): Al navegar con internet, guarda en segundo plano el catálogo
+ * de activos, órdenes/incidencias y estados en IndexedDB (alineado con OpenAPI v1.3.0 y MER).
+ */
+export const sincronizarRespuestaGetEnIndexedDB = async (response) => {
+  if (!response || !response.config || response.fromOfflineCache) return;
+  const method = String(response.config.method || 'get').toUpperCase();
+  if (method !== 'GET') return;
+
+  const { pathname } = extraerRutaRelativaApi(response.config.url || '');
+  const data = response.data;
+  if (!data) return;
+
+  // 1. Catálogo de Activos (/activos, /activos/{id_activo}, /activos/codigo-qr/{codigo_qr})
+  if (pathname === '/activos') {
+    const lista = extraerColeccionRespuesta(data);
+    if (Array.isArray(lista) && lista.length > 0) {
+      await guardarActivosOffline(lista);
+    }
+    return;
+  }
+  const matchActivoQr = pathname.match(/^\/activos\/(?:codigo-qr|qr)\/([^/]+)$/i);
+  if (matchActivoQr) {
+    const item = data?.datos || data?.data || data;
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      await guardarActivosOffline([item]);
+    }
+    return;
+  }
+  const matchActivoDetalle = pathname.match(/^\/activos\/([^/]+)$/i);
+  if (matchActivoDetalle && matchActivoDetalle[1] !== 'estados') {
+    const item = data?.datos || data?.data || data;
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      await guardarActivosOffline([item]);
+    }
+    return;
+  }
+
+  // 2. Órdenes e Incidencias del Técnico (/incidencias, /ordenes-trabajo, /ordenes)
+  if (
+    pathname === '/incidencias' ||
+    pathname === '/ordenes-trabajo' ||
+    pathname === '/ordenes'
+  ) {
+    const lista = extraerColeccionRespuesta(data);
+    if (Array.isArray(lista) && lista.length > 0) {
+      await guardarOrdenesOffline(lista);
+    }
+    return;
+  }
+
+  const matchOrdenDetalle = pathname.match(
+    /^\/(?:incidencias|ordenes-trabajo|ordenes)\/([^/]+)$/i,
+  );
+  if (
+    matchOrdenDetalle &&
+    !['resumen', 'exportar', 'estados', 'asignar'].includes(
+      matchOrdenDetalle[1].toLowerCase(),
+    )
+  ) {
+    const item = data?.datos || data?.data || data;
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      await guardarOrdenesOffline([item]);
+    }
+    return;
+  }
+
+  // 3. Catálogo de Estados (/estados-incidencia, /estados-activo, /estados, /incidencias/estados, /activos/estados)
+  if (
+    pathname === '/estados-incidencia' ||
+    pathname === '/estados-activo' ||
+    pathname === '/estados' ||
+    pathname === '/incidencias/estados' ||
+    pathname === '/activos/estados'
+  ) {
+    const lista = extraerColeccionRespuesta(data);
+    if (Array.isArray(lista) && lista.length > 0) {
+      const tipo =
+        pathname === '/estados-activo' || pathname.startsWith('/activos')
+          ? 'activo'
+          : 'incidencia';
+      await guardarEstadosOffline(lista, tipo);
+    }
+  }
+};
+
+/**
+ * Criterio 2 (TAL-195): Si se pierde la conexión, lee los datos desde IndexedDB
+ * en lugar de arrojar error de red (alineado con OpenAPI v1.3.0 y MER).
+ */
+export const intentarLecturaOfflineDesdeIndexedDB = async (config) => {
+  if (!config || config.useOfflineCache === false) return null;
+  const method = String(config.method || 'get').toUpperCase();
+  if (method !== 'GET') return null;
+
+  const { pathname, queryParams } = extraerRutaRelativaApi(config.url || '');
+  const params = { ...queryParams, ...(config.params || {}) };
+
+  const crearRespuestaOffline = (payload) => ({
+    data: payload,
+    status: 200,
+    statusText: 'OK (IndexedDB Offline)',
+    headers: { 'x-offline-source': 'indexeddb' },
+    config,
+    fromOfflineCache: true,
+  });
+
+  if (pathname === '/activos') {
+    const activos = await obtenerActivosOffline(params);
+    if (activos.length > 0) {
+      return crearRespuestaOffline(construirPayloadColeccionOffline(activos));
+    }
+    return null;
+  }
+
+  const matchActivoQr = pathname.match(/^\/activos\/(?:codigo-qr|qr)\/([^/]+)$/i);
+  if (matchActivoQr) {
+    const activo = await obtenerActivoPorIdOffline(decodeURIComponent(matchActivoQr[1]));
+    if (activo) {
+      return crearRespuestaOffline(activo);
+    }
+    return null;
+  }
+
+  const matchActivoDetalle = pathname.match(/^\/activos\/([^/]+)$/i);
+  if (matchActivoDetalle && matchActivoDetalle[1] !== 'estados') {
+    const activo = await obtenerActivoPorIdOffline(decodeURIComponent(matchActivoDetalle[1]));
+    if (activo) {
+      return crearRespuestaOffline(activo);
+    }
+    return null;
+  }
+
+  if (pathname === '/incidencias/resumen') {
+    const ordenes = await obtenerOrdenesOffline();
+    if (ordenes.length > 0) {
+      return crearRespuestaOffline({ total: ordenes.length, offline: true });
+    }
+    return null;
+  }
+
+  if (
+    pathname === '/incidencias' ||
+    pathname === '/ordenes-trabajo' ||
+    pathname === '/ordenes'
+  ) {
+    const ordenes = await obtenerOrdenesOffline(params);
+    if (ordenes.length > 0) {
+      return crearRespuestaOffline(construirPayloadColeccionOffline(ordenes));
+    }
+    return null;
+  }
+
+  const matchOrdenDetalle = pathname.match(
+    /^\/(?:incidencias|ordenes-trabajo|ordenes)\/([^/]+)$/i,
+  );
+  if (
+    matchOrdenDetalle &&
+    !['resumen', 'exportar', 'estados', 'asignar'].includes(
+      matchOrdenDetalle[1].toLowerCase(),
+    )
+  ) {
+    const orden = await obtenerOrdenPorIdOffline(decodeURIComponent(matchOrdenDetalle[1]));
+    if (orden) {
+      return crearRespuestaOffline(orden);
+    }
+    return null;
+  }
+
+  if (
+    pathname === '/estados-incidencia' ||
+    pathname === '/estados-activo' ||
+    pathname === '/estados' ||
+    pathname === '/incidencias/estados' ||
+    pathname === '/activos/estados'
+  ) {
+    const tipo =
+      pathname === '/estados-activo' || pathname.startsWith('/activos')
+        ? 'activo'
+        : pathname === '/estados-incidencia' || pathname.startsWith('/incidencias')
+          ? 'incidencia'
+          : null;
+    const estados = await obtenerEstadosOffline(tipo);
+    if (estados.length > 0) {
+      return crearRespuestaOffline(construirPayloadColeccionOffline(estados));
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Pausa solicitudes mutantes si el dispositivo se encuentra offline hasta confirmar conectividad,
+ * registrándolas además en la tienda `cola_acciones` de IndexedDB (TAL-195).
  */
 export const pauseMutatingRequestUntilOnline = (config) => {
   return new Promise((resolve, reject) => {
     const originScreen = config._originScreen || getCurrentScreen();
     let timeoutId = null;
+    const offlineActionId = `paused-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+    void encolarAccionOffline({
+      id: offlineActionId,
+      tipo: 'MUTACION_PAUSADA_OFFLINE',
+      metodo: String(config.method || 'POST').toUpperCase(),
+      endpoint: config.url || '/',
+      payload: config.data || {},
+    }).catch(() => {});
 
     const cleanup = () => {
       if (timeoutId) clearTimeout(timeoutId);
       gestionarEventosRed(handleOnline, false);
       const idx = pausedMutations.indexOf(entry);
       if (idx !== -1) pausedMutations.splice(idx, 1);
+      void eliminarAccionOffline(offlineActionId).catch(() => {});
     };
 
     const handleOnline = () => {
@@ -273,6 +541,7 @@ export const pauseMutatingRequestUntilOnline = (config) => {
     const entry = {
       config,
       screen: originScreen,
+      offlineActionId,
       resolve: handleOnline,
       reject: (err) => {
         cleanup();
@@ -350,9 +619,12 @@ api.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// Interceptor de respuestas (Refresh token 401 y Política de Reintento TAL-181)
+// Interceptor de respuestas (Refresh token 401, Política de Reintento TAL-181 y Catálogo Offline TAL-195)
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    void sincronizarRespuestaGetEnIndexedDB(response).catch(() => {});
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
     if (!originalRequest) {
@@ -438,6 +710,7 @@ api.interceptors.response.use(
           localStorage.removeItem('refresh_token');
           localStorage.removeItem('usuario');
         }
+        void limpiarDatosOffline().catch(() => {});
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('tecnico-cambiado'));
           window.dispatchEvent(
@@ -524,6 +797,18 @@ api.interceptors.response.use(
             reject,
           });
         });
+      }
+    }
+
+    // 3. TAL-195 (Criterio 2): Si falló por pérdida de conexión, leer desde IndexedDB en lugar de arrojar error
+    if (isRetryableError) {
+      try {
+        const offlineResponse = await intentarLecturaOfflineDesdeIndexedDB(originalRequest);
+        if (offlineResponse) {
+          return offlineResponse;
+        }
+      } catch {
+        // Si IndexedDB no está disponible o no tiene datos, continuar con el rechazo estándar
       }
     }
 
