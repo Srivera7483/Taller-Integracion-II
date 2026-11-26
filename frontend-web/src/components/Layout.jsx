@@ -1,26 +1,20 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload } from 'react-icons/fi';
+import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload, FiRefreshCw } from 'react-icons/fi';
 import Header from './Header';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
+import ColaPendientesModal from './ColaPendientesModal';
+import { useColaSincronizacion } from '../hooks/useColaSincronizacion';
 import { cerrarSesion, getUsuarioActual, hasPermission } from '../services/authService';
 
 const Layout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Obtener la información del usuario autenticado desde localStorage
-  const obtenerUsuarioActual = () => {
-    try {
-      const usuarioStr = localStorage.getItem('usuario');
-      if (!usuarioStr) return null;
-      return JSON.parse(usuarioStr);
-    } catch {
-      return null;
-    }
-  };
+  const [estaAbiertoModalCola, setEstaAbiertoModalCola] = useState(false);
+  const controladorCola = useColaSincronizacion();
+  const { cantidadPendientes, estaSincronizando } = controladorCola;
 
   const usuario = getUsuarioActual();
   const rolUsuario = usuario?.rol?.nombre_rol || usuario?.rol || null;
@@ -161,6 +155,51 @@ const Layout = () => {
 
           <button
             type="button"
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              setEstaAbiertoModalCola(true);
+            }}
+            data-testid="boton-cola-sincronizacion-sidebar"
+            className="w-full flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-left cursor-pointer group shadow-2xs"
+            title="Ver cola de sincronización offline"
+            aria-label={`Ver cola de sincronización offline. ${cantidadPendientes} pendientes.`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 transition-colors ${
+                  estaSincronizando || cantidadPendientes > 0
+                    ? 'bg-amber-50 text-amber-700 group-hover:bg-amber-100'
+                    : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'
+                }`}
+              >
+                <FiRefreshCw
+                  className={`w-4 h-4 ${estaSincronizando ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-semibold text-gray-800 truncate block">
+                  {cantidadPendientes === 0
+                    ? 'Todo Sincronizado'
+                    : `${cantidadPendientes} pendiente${cantidadPendientes === 1 ? '' : 's'}`}
+                </span>
+              </div>
+            </div>
+
+            {cantidadPendientes > 0 ? (
+              <span
+                data-testid="badge-cola-sidebar"
+                className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-black rounded-full bg-amber-500 text-white shadow-2xs"
+              >
+                {cantidadPendientes > 99 ? '99+' : cantidadPendientes}
+              </span>
+            ) : (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1" title="Sincronizado" />
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={() => window.dispatchEvent(new CustomEvent('pwa-install-trigger'))}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 rounded-xl transition-colors cursor-pointer border border-primary-200"
             title="Instalar InfraManager en pantalla de inicio"
@@ -182,11 +221,34 @@ const Layout = () => {
 
       {/* Main Content Wrapper */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top bar (TAL-190) */}
+        {/* Top bar (TAL-190 + TAL-198) */}
         <Header
           title={getPageTitle()}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
-        />
+        >
+          {/* Acceso a la Cola de Sincronización con Badge Numérico en Header (TAL-198 Criterio 1) */}
+          <button
+            type="button"
+            onClick={() => setEstaAbiertoModalCola(true)}
+            data-testid="boton-cola-sincronizacion-header"
+            className="relative p-2 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            title={`Cola de sincronización: ${cantidadPendientes} ${cantidadPendientes === 1 ? 'pendiente' : 'pendientes'}`}
+            aria-label={`Abrir cola de sincronización offline. ${cantidadPendientes} ítems pendientes.`}
+          >
+            <FiRefreshCw
+              className={`w-5 h-5 ${estaSincronizando ? 'animate-spin text-primary' : ''}`}
+              aria-hidden="true"
+            />
+            {cantidadPendientes > 0 && (
+              <span
+                data-testid="badge-cola-header"
+                className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black text-white bg-amber-500 rounded-full ring-2 ring-white shadow-xs"
+              >
+                {cantidadPendientes > 99 ? '99+' : cantidadPendientes}
+              </span>
+            )}
+          </button>
+        </Header>
 
         {/* Critical Alert Banner if needed */}
         <CriticalAlertBanner />
@@ -199,6 +261,13 @@ const Layout = () => {
 
       {/* Floating Action Button for New Incidents */}
       <FabNuevaIncidencia />
+
+      {/* Modal de Cola de Cambios Pendientes (TAL-198) */}
+      <ColaPendientesModal
+        estaAbierto={estaAbiertoModalCola}
+        alCerrar={() => setEstaAbiertoModalCola(false)}
+        controladorColaExterno={controladorCola}
+      />
     </div>
   );
 };
