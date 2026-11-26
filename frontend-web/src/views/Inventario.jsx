@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
 import { FiSearch, FiPlus, FiAlertCircle, FiActivity, FiRefreshCw, FiCalendar } from 'react-icons/fi';
 import api from '../services/api';
+import { guardarActivosOffline, obtenerActivosOffline } from '../services/storage/offlineDb';
 
 const EQUIPOS_BASE = [
   {
@@ -95,12 +96,29 @@ const Inventario = () => {
       const data = resp.data?.datos || (Array.isArray(resp.data) ? resp.data : []);
       if (Array.isArray(data) && data.length > 0) {
         setEquipos(data);
+        setEsDinamico(!resp.fromOfflineCache);
+        if (!resp.fromOfflineCache) {
+          void guardarActivosOffline(data).catch(() => {});
+        }
+      } else {
+        const offlineActivos = await obtenerActivosOffline().catch(() => []);
+        if (offlineActivos.length > 0) {
+          setEquipos(offlineActivos);
+          setEsDinamico(false);
+        } else {
+          setEquipos(EQUIPOS_BASE);
+          setEsDinamico(false);
+        }
+      }
+    } catch {
+      // TAL-195 Criterio 2: Leer catálogo desde IndexedDB si se pierde la conexión
+      const offlineActivos = await obtenerActivosOffline().catch(() => []);
+      if (offlineActivos.length > 0) {
+        setEquipos(offlineActivos);
+        setEsDinamico(false);
       } else {
         setEquipos(EQUIPOS_BASE);
       }
-    } catch {
-      // Fallback resiliente a los datos locales
-      setEquipos(EQUIPOS_BASE);
     } finally {
       setCargando(false);
     }

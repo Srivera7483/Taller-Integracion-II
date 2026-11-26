@@ -2,6 +2,8 @@
 **/node_modules/
 **/dist/
 dist-ssr/
+**/dev-dist/
+dev-dist/
 **/build/
 out/
 
@@ -28,3 +30,6 @@ artifacts/
 .cache/
 .temp/
 .tmp/
+
+# Local database backups
+backups/

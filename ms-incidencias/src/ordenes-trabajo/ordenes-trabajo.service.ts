@@ -85,21 +85,21 @@ export class OrdenesTrabajoService {
    * Valida contra ms-auth que el técnico exista en BD, esté activo y posea rol TECNICO.
    */
   private async validarTecnicoEnAuth(
-    idTecnico: string,
-    authHeader?: string,
-  ): Promise<any> {
-    const baseUrls = Array.from(
-      new Set(
-        [
-          process.env.MS_AUTH_URL,
-          process.env.AUTH_SERVICE_URL,
-          'http://localhost:3001',
-          'http://ms-auth:3001',
-        ]
-          .filter((u): u is string => Boolean(u))
-          .map((u) => u.replace(/\/$/, '')),
-      ),
-    );
+      idTecnico: string,
+      authHeader?: string,
+    ): Promise<{ email?: string; nombre?: string }> {
+      const baseUrls = Array.from(
+        new Set(
+          [
+            process.env.MS_AUTH_URL,
+            process.env.AUTH_SERVICE_URL,
+            'http://localhost:3001',
+            'http://ms-auth:3001',
+          ]
+            .filter((u): u is string => Boolean(u))
+            .map((u) => u.replace(/\/$/, '')),
+        ),
+      );
 
     let usuarios: any[] | null = null;
 
@@ -167,7 +167,16 @@ export class OrdenesTrabajoService {
       );
     }
 
-    return tecnico;
+    const emailRaw = tecnico.email || tecnico.correo;
+    const email =
+      typeof emailRaw === 'string' && emailRaw.trim()
+        ? emailRaw.trim()
+        : undefined;
+    const nombre =
+      [tecnico.nombre, tecnico.apellido].filter(Boolean).join(' ').trim() ||
+      undefined;
+
+    return { email, nombre };
   }
 
   async asignarOrden(
@@ -183,13 +192,13 @@ export class OrdenesTrabajoService {
       throw new BadRequestException('El ID del técnico es obligatorio');
     }
 
-    const tecnico = await this.validarTecnicoEnAuth(dto.id_tecnico, authHeader);
-    const nombreTecnico = tecnico
-      ? `${tecnico.nombre || ''} ${tecnico.apellido || ''}`.trim() || tecnico.nombre
-      : null;
+    const infoTecnico = await this.validarTecnicoEnAuth(
+      dto.id_tecnico,
+      authHeader,
+    );
 
     let idActivoIncidencia: string | null = null;
-    let tituloIncidencia: string | null = null;
+    let tituloIncidencia: string | undefined;
 
     const resultadoOrden = await this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
@@ -215,6 +224,7 @@ export class OrdenesTrabajoService {
 
       tituloIncidencia = incidencia.titulo;
       idActivoIncidencia = incidencia.id_activo ?? null;
+      tituloIncidencia = incidencia.titulo || undefined;
 
       const historialActual = incidencia.historial_estados?.[0] || null;
       const estadoActualObj = historialActual?.estado || null;
@@ -297,12 +307,12 @@ export class OrdenesTrabajoService {
 
     const payloadWs: IncidenciaActualizadaPayload = {
       id_incidencia: dto.id_incidencia,
-      id_orden: resultadoOrden.id_orden,
-      titulo: tituloIncidencia ?? undefined,
+      id_orden: (resultadoOrden as any)?.id_orden || null,
+      titulo: tituloIncidencia,
       nuevo_estado: 'ASIGNADA',
-      usuario_responsable: dto.id_tecnico,
       id_tecnico: dto.id_tecnico,
-      nombre_tecnico: nombreTecnico ?? undefined,
+      usuario_responsable: dto.id_tecnico,
+      nombre_tecnico: infoTecnico.nombre,
       es_reasignacion: Boolean(resultadoOrden.es_reasignacion),
       tecnico_anterior_id: resultadoOrden.tecnico_anterior_id ?? undefined,
       accion: resultadoOrden.es_reasignacion ? 'REASIGNACION' : 'ASIGNACION',
@@ -320,6 +330,14 @@ export class OrdenesTrabajoService {
         .emitirIncidenciaActualizada({
           evento: 'ORDEN_TRABAJO_ASIGNADA',
           ...payloadWs,
+          ...(tituloIncidencia ? { titulo: tituloIncidencia } : {}),
+          ...(infoTecnico.email
+            ? { emailTecnico: infoTecnico.email, email: infoTecnico.email }
+            : {}),
+          ...(infoTecnico.nombre ? { tecnico: infoTecnico.nombre } : {}),
+          ...((resultadoOrden as any)?.diagnostico_tecnico
+            ? { diagnostico_tecnico: (resultadoOrden as any).diagnostico_tecnico }
+            : {}),
         })
         .catch((err) => {
           this.logger.error(

@@ -7,7 +7,7 @@ Write-Host "---------------------------------------------------------" -Foregrou
 
 
 Write-Host "`n[1/2] Deteniendo contenedores Docker..." -ForegroundColor Yellow
-docker compose down -v
+docker compose down
 
 
 Write-Host "`n[2/2] Liberando puertos de desarrollo (3000, 3001, 3002, 3003, 5173)..." -ForegroundColor Yellow

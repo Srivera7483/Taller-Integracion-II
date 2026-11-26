@@ -4,7 +4,7 @@ import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCal
 import Header from './Header';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
-import { hasPermission } from '../services/authService';
+import { cerrarSesion, getUsuarioActual, hasPermission } from '../services/authService';
 
 const Layout = () => {
   const location = useLocation();
@@ -22,7 +22,7 @@ const Layout = () => {
     }
   };
 
-  const usuario = obtenerUsuarioActual();
+  const usuario = getUsuarioActual();
   const rolUsuario = usuario?.rol?.nombre_rol || usuario?.rol || null;
   const nombreUsuario = usuario ? `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || usuario.correo : 'Usuario';
 
@@ -53,11 +53,9 @@ const Layout = () => {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('usuario');
-    navigate('/login');
+  const handleLogout = async () => {
+  await cerrarSesion();
+  navigate('/login', { replace: true });
   };
 
   // Definición completa de las opciones del menú

@@ -1,11 +1,12 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { RabbitmqTopologyService } from './rabbitmq-topology.service';
 import { RabbitmqConsumerService } from './rabbitmq-consumer.service';
 import { RabbitmqPublisherService } from './rabbitmq-publisher.service';
+import { NotificacionesModule } from '../notificaciones/notificaciones.module';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, forwardRef(() => NotificacionesModule)],
   providers: [
     RabbitmqTopologyService,
     RabbitmqConsumerService,

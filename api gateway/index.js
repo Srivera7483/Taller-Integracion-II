@@ -8,6 +8,7 @@ const RateLimitStore = require('./rate-limit-store');
 const KillSwitchManager = require('./kill-switch');
 const { Server: IoServer } = require('socket.io');
 const { io: createIoClient } = require('socket.io-client');
+const { attachRedisAdapter } = require('./redis-adapter');
 
 const DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:5173',
@@ -179,6 +180,14 @@ const buildGateway = (options = {}) => {
         replyOptions: { onError: handleProxyError }
     });
 
+    // TAL-128: Proxy transparente para estadísticas de incidencias (MTTR e indicadores)
+    fastify.register(proxy, {
+        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
+        prefix: '/api/v1/estadisticas',
+        rewritePrefix: '/api/v1/estadisticas',
+        replyOptions: { onError: handleProxyError }
+    });
+
     fastify.register(proxy, {
         upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
         prefix: '/api/v1/ordenes-trabajo',
@@ -197,6 +206,13 @@ const buildGateway = (options = {}) => {
         upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
         prefix: '/api/v1/tipos-evidencia',
         rewritePrefix: '/api/v1/tipos-evidencia',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002',
+        prefix: '/api/v1/sincronizacion',
+        rewritePrefix: '/api/v1/sincronizacion',
         replyOptions: { onError: handleProxyError }
     });
 
@@ -447,16 +463,32 @@ const buildGateway = (options = {}) => {
     };
 
     io.emitToClient = (socketId, event, data) => {
-        const clientSocket = io.sockets.sockets.get(socketId);
-        if (clientSocket) {
-            clientSocket.emit(event, data);
+        io.to(socketId).emit(event, data);
+    };
+
+    // TAL-209: Inicialización del adaptador de Redis con fallback local
+    let redisAdapterState = null;
+    fastify.initRedisAdapter = async (redisOptions = {}) => {
+        if (redisAdapterState) {
+            return redisAdapterState;
         }
+        redisAdapterState = await attachRedisAdapter(io, {
+            logger: fastify.log,
+            ...(options.redis || {}),
+            ...redisOptions,
+        });
+        fastify.redisAdapter = redisAdapterState;
+        return redisAdapterState;
     };
 
     fastify.addHook('onClose', async () => {
         if (upstreamSocket) {
             upstreamSocket.removeAllListeners();
             upstreamSocket.disconnect();
+        }
+        if (redisAdapterState) {
+            await redisAdapterState.close();
+            redisAdapterState = null;
         }
         await new Promise((resolve) => {
             io.close(() => resolve());
@@ -477,6 +509,7 @@ const start = async () => {
     const port = Number(process.env.GATEWAY_PORT ?? process.env.PORT ?? 3000);
 
     try {
+        await fastify.initRedisAdapter();
         await fastify.listen({ port, host: '0.0.0.0' });
         fastify.log.info(`API Gateway y Socket.io ejecutándose en http://localhost:${port}`);
     } catch (error) {

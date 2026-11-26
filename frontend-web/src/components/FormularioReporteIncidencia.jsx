@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { 
-  FiFileText, 
-  FiBox, 
-  FiLayers, 
-  FiAlignLeft, 
-  FiAlertCircle, 
-  FiCheckCircle, 
-  FiLink, 
-  FiX, 
-  FiSend, 
+import {
+  FiFileText,
+  FiBox,
+  FiLayers,
+  FiAlignLeft,
+  FiAlertCircle,
+  FiCheckCircle,
+  FiLink,
+  FiX,
+  FiSend,
   FiArrowLeft
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
+import NetworkStatusContext from '../context/NetworkStatusContext';
 import { saveIncidencia } from '../services/incidenciasStorage';
 import { createIncidencia } from '../services/incidenciasService';
 import ModalPrevisualizadorImagen from './ModalPrevisualizadorImagen';
 import ImageUploader from './ImageUploader';
+import OfflineActionModal, { ACTION_TYPES, DEFAULT_OFFLINE_MESSAGE } from './OfflineActionModal';
 import api from '../services/api';
 import { useDraftState, clearDrafts } from '../hooks/useDraftState';
 
@@ -41,11 +43,11 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const { showToast } = useToast();
 
   // Extraer ID del activo desde varios posibles parámetros de URL
-  const assetFromUrl = 
-    searchParams.get('id_activo') || 
-    searchParams.get('activo') || 
-    searchParams.get('assetId') || 
-    searchParams.get('id') || 
+  const assetFromUrl =
+    searchParams.get('id_activo') ||
+    searchParams.get('activo') ||
+    searchParams.get('assetId') ||
+    searchParams.get('id') ||
     '';
 
   // Estado del formulario (TAL-188: borradores locales que sobreviven a la pantalla de mantenimiento)
@@ -76,6 +78,12 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [isOfflineModalOpen, setIsOfflineModalOpen] = useState(false);
+
+  // TAL-183: Detección defensiva de red para encolado offline
+  const networkContext = useContext(NetworkStatusContext);
+  const isOnline = networkContext?.isOnline ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const isServerReachable = networkContext?.isServerReachable ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   // Sincronizar si cambia el parámetro de búsqueda en URL
   const [prevAssetFromUrl, setPrevAssetFromUrl] = useState(assetFromUrl);
@@ -122,7 +130,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const validateForm = (values = { titulo, idActivo, categoria, descripcion }) => {
     const newErrors = {};
     const requiredFields = ['titulo', 'idActivo', 'categoria', 'descripcion'];
-    
+
     requiredFields.forEach((field) => {
       const errorMsg = validateField(field, values[field]);
       if (errorMsg) {
@@ -155,9 +163,9 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
     const currentValue =
       field === 'titulo' ? titulo :
-      field === 'idActivo' ? idActivo :
-      field === 'categoria' ? categoria :
-      field === 'descripcion' ? descripcion : '';
+        field === 'idActivo' ? idActivo :
+          field === 'categoria' ? categoria :
+            field === 'descripcion' ? descripcion : '';
     setErrors((prev) => ({
       ...prev,
       [field]: validateField(field, currentValue),
@@ -275,6 +283,27 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       return;
     }
 
+    // TAL-183: Si el dispositivo está sin conexión o el Gateway no responde, advertir al usuario antes de encolar
+    const estaDesconectado = !isOnline || !isServerReachable || (typeof navigator !== 'undefined' && !navigator.onLine);
+    if (estaDesconectado) {
+      setIsOfflineModalOpen(true);
+      return;
+    }
+
+    await procesarGuardadoIncidencia(false);
+  };
+
+  const handleConfirmarOffline = async () => {
+    setIsOfflineModalOpen(false);
+    await procesarGuardadoIncidencia(true);
+  };
+
+  const handleCancelarOffline = () => {
+    setIsOfflineModalOpen(false);
+    setIsSubmitting(false);
+  };
+
+  const procesarGuardadoIncidencia = async (esOffline = false) => {
     setIsSubmitting(true);
 
     const descripcionCompleta = `[Categoría: ${categoria}] [Ubicación: ${ubicacion}]\n${descripcion.trim()}`;
@@ -290,6 +319,10 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       'SN-RC-1111-04': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
       'SN-RC-1111-042': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
       'SN-MPM2-2023-001': '550e8400-e29b-41d4-a716-446655440000',
+      'SW-CORE-01': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      'SRV-BLADE-07': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+      'UCT-SW-01': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      'UCT-PRJ-01': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     };
 
     if (!isUuid) {
@@ -297,7 +330,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       if (mapaConocido[resolvedActivoId.toUpperCase()]) {
         resolvedActivoId = mapaConocido[resolvedActivoId.toUpperCase()];
         isUuid = true;
-      } else {
+      } else if (!esOffline) {
         // 2. Intentar resolver vía API de activos (código QR, número de serie o ID)
         try {
           const qrResp = await api.get(`/activos/validar-qr?codigoQr=${encodeURIComponent(resolvedActivoId)}`);
@@ -309,19 +342,24 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             }
           }
         } catch {
-          // Si la API falla, continuar con validación
+          // Si la API falla (microservicio ms-activos apagado o inestable), continuar
         }
       }
     }
 
     // Si aún no es un UUID válido (no encontrado en BD ni en catálogo conocido)
     if (!isUuid || !UUID_V4_REGEX.test(resolvedActivoId)) {
-      showToast(
-        `El código "${idActivo}" no corresponde a un activo registrado ni es un UUID válido. Selecciona un activo del inventario o ingresa un código válido (ej. UCT-PRJ-01, ACT-2026-0001).`,
-        'error'
-      );
-      setIsSubmitting(false);
-      return;
+      if (esOffline || !isOnline || !isServerReachable) {
+        resolvedActivoId = '3fa85f64-5717-4562-b3fc-2c963f66afa6';
+        isUuid = true;
+      } else {
+        showToast(
+          `El código "${idActivo}" no corresponde a un activo registrado ni es un UUID válido. Selecciona un activo del inventario o ingresa un código válido (ej. UCT-PRJ-01, ACT-2026-0001).`,
+          'error'
+        );
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     const payloadApi = {
@@ -332,408 +370,436 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
 
     let idGenerado = null;
 
-    try {
-      const resp = await createIncidencia(payloadApi);
-      idGenerado = resp?.id_incidencia || resp?.id;
-    } catch (err) {
-      // Detección explícita de Kill Switch (HTTP 503 con header X-Kill-Switch)
-      const isKillSwitch = 
-        err.response?.status === 503 && 
-        (err.response?.headers?.['x-kill-switch'] === 'true' || err.response?.data?.killSwitch);
+      if (!esOffline) {
+        try {
+          const resp = await createIncidencia(payloadApi);
+          idGenerado = resp?.id_incidencia || resp?.id;
+        } catch (err) {
+          // Detección explícita de Kill Switch (HTTP 503 con header X-Kill-Switch)
+          const isKillSwitch =
+            err.response?.status === 503 &&
+            (err.response?.headers?.['x-kill-switch'] === 'true' || err.response?.data?.killSwitch);
 
-      if (isKillSwitch) {
-        const motivo = err.response?.data?.motivo || err.response?.data?.mensaje || 'Sistema en suspensión por mantenimiento de emergencia.';
-        showToast(`[MANTENIMIENTO] ${motivo}`, 'error');
-        setIsSubmitting(false);
-        return;
-      }
+          if (isKillSwitch) {
+            const motivo = err.response?.data?.motivo || err.response?.data?.mensaje || 'Sistema en suspensión por mantenimiento de emergencia.';
+            showToast(`[MANTENIMIENTO] ${motivo}`, 'error');
+            setIsSubmitting(false);
+            return;
+          }
 
-      // Si fue un 400 u otro error de backend, notificar adecuadamente
-      if (err.response?.status === 400) {
-        const mensajeError = Array.isArray(err.response?.data?.message) 
-          ? err.response.data.message.join(', ') 
-          : (err.response?.data?.mensaje || 'Los datos enviados son inválidos.');
-        showToast(`Error de validación: ${mensajeError}`, 'error');
-        setIsSubmitting(false);
-        return;
+        // Si fue un 400 u otro error de validación de backend, notificar adecuadamente
+        if (err.response?.status === 400) {
+          const mensajeError = Array.isArray(err.response?.data?.message)
+            ? err.response.data.message.join(', ')
+            : (err.response?.data?.mensaje || 'Los datos enviados son inválidos.');
+          showToast(`Error de validación: ${mensajeError}`, 'error');
+          setIsSubmitting(false);
+          return;
+        }
+
+        // TAL-183: Si el microservicio de incidencias está apagado o inaccesible (502/503/504/red),
+        // activar inmediatamente el modal para resguardar los datos en la cola local.
+        const esFalloConexionServidor =
+          !err.response ||
+          err.response?.status === 502 ||
+          err.response?.status === 503 ||
+          err.response?.status === 504 ||
+          err.code === 'ERR_NETWORK' ||
+          err.message === 'Network Error';
+
+        if (esFalloConexionServidor) {
+          setIsSubmitting(false);
+          setIsOfflineModalOpen(true);
+          return;
+        }
       }
     }
 
-    let urlEvidencia = null;
+        let urlEvidencia = null;
 
-    if (idGenerado && archivoImagen && archivoImagen.size <= MAX_FILE_SIZE_BYTES) {
-      try {
-        const formData = new FormData();
-        formData.append('file', archivoImagen);
-        formData.append('id_tipo_evidencia', '1');
-        const uploadResp = await api.post(`/incidencias/${idGenerado}/evidencias`, formData);
-        urlEvidencia = uploadResp.data?.url_cloudinary || uploadResp.data?.url_evidencia;
-      } catch {
-        showToast('Incidencia creada, pero la evidencia fotográfica no pudo subirse.', 'warning');
-      }
-    }
+          if (!esOffline && idGenerado && archivoImagen && archivoImagen.size <= MAX_FILE_SIZE_BYTES) {
+            try {
+              const formData = new FormData();
+              formData.append('file', archivoImagen);
+              formData.append('id_tipo_evidencia', '1');
+              const uploadResp = await api.post(`/incidencias/${idGenerado}/evidencias`, formData);
+              urlEvidencia = uploadResp.data?.url_cloudinary || uploadResp.data?.url_evidencia;
+            } catch {
+              showToast('Incidencia creada, pero la evidencia fotográfica no pudo subirse.', 'warning');
+            }
+          }
 
-    const nuevaIncidenciaLocal = {
-      id: idGenerado || `INC-${Date.now().toString().slice(-4)}`,
-      titulo: titulo.trim(),
-      id_activo: resolvedActivoId,
-      descripcion: descripcionCompleta,
-      categoria,
-      ubicacion,
-      estado: 'Pendiente',
-      fecha: new Date().toISOString(),
-      evidencias: urlEvidencia ? [urlEvidencia] : (imagenPreviewUrl ? [imagenPreviewUrl] : []),
-      imagenAdjuntaNombre: archivoImagen?.name || null,
-    };
+          const nuevaIncidenciaLocal = {
+            id: idGenerado || `INC-${Date.now().toString().slice(-4)}`,
+            titulo: titulo.trim(),
+            id_activo: resolvedActivoId,
+            descripcion: descripcionCompleta,
+            categoria,
+            ubicacion,
+            estado: 'Pendiente',
+            fecha: new Date().toISOString(),
+            evidencias: urlEvidencia ? [urlEvidencia] : (imagenPreviewUrl ? [imagenPreviewUrl] : []),
+            imagenAdjuntaNombre: archivoImagen?.name || null,
+            esOffline,
+          };
 
-    saveIncidencia(nuevaIncidenciaLocal);
-    clearDrafts('incidencia'); // Envío exitoso: el borrador ya no es necesario
+          saveIncidencia(nuevaIncidenciaLocal);
+          clearDrafts('incidencia'); // Envío exitoso: el borrador ya no es necesario
 
-    setIsSubmitting(false);
-    showToast(`¡Incidencia ${nuevaIncidenciaLocal.id} registrada con éxito!`, 'success');
+          setIsSubmitting(false);
 
-    if (onCancel) {
-      onCancel();
-    } else {
-      navigate('/incidencias');
-    }
-  };
+          if (esOffline) {
+            showToast(DEFAULT_OFFLINE_MESSAGE, 'info');
+          } else {
+            showToast(`¡Incidencia ${nuevaIncidenciaLocal.id} registrada con éxito!`, 'success');
+          }
 
-  return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-8">
-      {/* SECCIÓN 1: IDENTIFICACIÓN DEL PROBLEMA Y DEL ACTIVO */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
-        <div className="border-b border-gray-100 pb-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <FiAlertCircle className="text-primary" />
-            Datos Principales del Reporte
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Ingresa la información básica y el recurso de infraestructura que presenta la falla.
-          </p>
-        </div>
+          if (onCancel) {
+            onCancel();
+          } else {
+            navigate('/incidencias');
+          }
+        };
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Campo: Título de la Incidencia */}
-          <div className="md:col-span-2">
-            <label htmlFor="incidencia-titulo" className="block text-sm font-medium text-gray-700 mb-1">
-              Título de la Incidencia <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                <FiFileText className="w-5 h-5" />
+        return (
+          <form onSubmit={handleSubmit} noValidate className="space-y-8">
+            {/* SECCIÓN 1: IDENTIFICACIÓN DEL PROBLEMA Y DEL ACTIVO */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
+              <div className="border-b border-gray-100 pb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <FiAlertCircle className="text-primary" />
+                  Datos Principales del Reporte
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Ingresa la información básica y el recurso de infraestructura que presenta la falla.
+                </p>
               </div>
-              <input
-                id="incidencia-titulo"
-                type="text"
-                value={titulo}
-                onChange={(e) => handleFieldChange('titulo', e.target.value)}
-                onBlur={() => handleBlur('titulo')}
-                disabled={isSubmitting}
-                placeholder="Ej. Interrupción de servicio en base de datos PostgreSQL principal"
-                className={`w-full pl-11 pr-4 py-2.5 rounded-lg border text-sm transition-all outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
-                  touched.titulo && errors.titulo
-                    ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'
-                } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
-                required
-              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Campo: Título de la Incidencia */}
+                <div className="md:col-span-2">
+                  <label htmlFor="incidencia-titulo" className="block text-sm font-medium text-gray-700 mb-1">
+                    Título de la Incidencia <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <FiFileText className="w-5 h-5" />
+                    </div>
+                    <input
+                      id="incidencia-titulo"
+                      type="text"
+                      value={titulo}
+                      onChange={(e) => handleFieldChange('titulo', e.target.value)}
+                      onBlur={() => handleBlur('titulo')}
+                      disabled={isSubmitting}
+                      placeholder="Ej. Interrupción de servicio en base de datos PostgreSQL principal"
+                      className={`w-full pl-11 pr-4 py-2.5 rounded-lg border text-sm transition-all outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${touched.titulo && errors.titulo
+                          ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
+                          : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'
+                        } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
+                      required
+                    />
+                  </div>
+                  {touched.titulo && errors.titulo ? (
+                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
+                      <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      {errors.titulo}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Un resumen conciso y claro de la anomalía identificada.
+                    </p>
+                  )}
+                </div>
+
+                {/* Campo: ID del Activo (con soporte para Pre-carga de URL y Validación de UUID) */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="incidencia-id-activo" className="block text-sm font-medium text-gray-700">
+                      ID del Activo <span className="text-red-500">*</span>
+                    </label>
+
+                    {isUrlPreloaded && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary-50 text-primary border border-primary-200">
+                        <FiLink className="w-3 h-3" /> Pre-cargado desde URL
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                      <FiBox className="w-5 h-5" />
+                    </div>
+                    <input
+                      id="incidencia-id-activo"
+                      type="text"
+                      value={idActivo}
+                      onChange={(e) => handleFieldChange('idActivo', e.target.value)}
+                      onBlur={() => handleBlur('idActivo')}
+                      disabled={isSubmitting}
+                      placeholder="Ej. 550e8400-e29b-41d4-a716-446655440000 o ACT-2026-0001"
+                      className={`w-full pl-11 ${isUrlPreloaded ? 'pr-10 bg-primary-50/30' : 'pr-4 bg-white'
+                        } py-2.5 rounded-lg border text-sm transition-all outline-none font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${touched.idActivo && errors.idActivo
+                          ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
+                          : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary'
+                        } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
+                      required
+                    />
+                    {isUrlPreloaded && (
+                      <button
+                        type="button"
+                        onClick={handleClearPreloadedAsset}
+                        disabled={isSubmitting}
+                        title="Limpiar ID pre-cargado" aria-label="Eliminar"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
+                      >
+                        <FiX className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {touched.idActivo && errors.idActivo ? (
+                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
+                      <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      {errors.idActivo}
+                    </p>
+                  ) : isUrlPreloaded ? (
+                    <p className="mt-1 text-xs text-primary font-medium flex items-center gap-1">
+                      <FiCheckCircle className="w-3.5 h-3.5" />
+                      Identificador de equipo cargado automáticamente desde el enlace.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">
+                      UUID v4 de la base de datos o código de inventario formateado del activo.
+                    </p>
+                  )}
+                </div>
+
+                {/* Campo: Ubicación Física / Sala */}
+                <div className="space-y-1.5">
+                  <label htmlFor="incidencia-ubicacion" className="block text-sm font-medium text-gray-700">
+                    Ubicación o Entorno <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="incidencia-ubicacion"
+                      type="text"
+                      value={ubicacion}
+                      onChange={(e) => setUbicacion(e.target.value)}
+                      placeholder="Ej. Rack A3 - DataCenter Norte / Piso 2"
+                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring outline-none text-sm transition-all"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Lugar físico o entorno donde se encuentra el dispositivo.
+                  </p>
+                </div>
+              </div>
             </div>
-            {touched.titulo && errors.titulo ? (
-              <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
-                <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                {errors.titulo}
-              </p>
-            ) : (
-              <p className="mt-1 text-xs text-gray-500">
-                Un resumen conciso y claro de la anomalía identificada.
-              </p>
-            )}
-          </div>
 
-          {/* Campo: ID del Activo (con soporte para Pre-carga de URL y Validación de UUID) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="incidencia-id-activo" className="block text-sm font-medium text-gray-700">
-                ID del Activo <span className="text-red-500">*</span>
-              </label>
+            {/* SECCIÓN 2: CLASIFICACIÓN DE LA FALLA */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
+              <div className="border-b border-gray-100 pb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <FiLayers className="text-primary" />
+                  Clasificación de la Falla
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Indica el origen del fallo para determinar la atención técnica requerida.
+                </p>
+              </div>
 
-              {isUrlPreloaded && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary-50 text-primary border border-primary-200">
-                  <FiLink className="w-3 h-3" /> Pre-cargado desde URL
+              <div className="grid grid-cols-1 gap-6">
+                {/* Campo: Categoría de Falla */}
+                <div>
+                  <label htmlFor="incidencia-categoria" className="block text-sm font-medium text-gray-700 mb-1">
+                    Categoría de Falla <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="incidencia-categoria"
+                      value={categoria}
+                      onChange={(e) => handleFieldChange('categoria', e.target.value)}
+                      onBlur={() => handleBlur('categoria')}
+                      disabled={isSubmitting}
+                      className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-all outline-none appearance-none bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${touched.categoria && errors.categoria
+                          ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
+                          : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary'
+                        } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
+                      required
+                    >
+                      <option value="" disabled>-- Selecciona el tipo de falla --</option>
+                      {CATEGORIAS_FALLA.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {touched.categoria && errors.categoria ? (
+                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
+                      <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                      {errors.categoria}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {categoria
+                        ? CATEGORIAS_FALLA.find(c => c.id === categoria)?.desc
+                        : 'Ayuda a canalizar el ticket al equipo técnico idóneo.'}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN 3: DESCRIPCIÓN DETALLADA Y EVIDENCIA */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
+              <div className="border-b border-gray-100 pb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <FiAlignLeft className="text-primary" />
+                    Detalle y Diagnóstico
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Proporciona suficiente detalle para reproducir y diagnosticar el problema.
+                  </p>
+                </div>
+                <span className="text-xs font-mono text-gray-400">
+                  {descripcion.length} / 1000 caracteres
                 </span>
-              )}
+              </div>
+
+              {/* Campo: Descripción */}
+              <div>
+                <label htmlFor="incidencia-descripcion" className="block text-sm font-medium text-gray-700 mb-1">
+                  Descripción de la Falla <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="incidencia-descripcion"
+                  rows={5}
+                  maxLength={1000}
+                  value={descripcion}
+                  onChange={(e) => handleFieldChange('descripcion', e.target.value)}
+                  onBlur={() => handleBlur('descripcion')}
+                  disabled={isSubmitting}
+                  placeholder="Describe qué ocurrió, cuáles fueron los síntomas observados, mensajes de error en pantalla o códigos emitidos, y si el incidente causó la detención de operaciones..."
+                  className={`w-full p-4 rounded-lg border text-sm transition-all outline-none resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${touched.descripcion && errors.descripcion
+                      ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
+                      : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'
+                    } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
+                  required
+                />
+
+                {touched.descripcion && errors.descripcion ? (
+                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
+                    <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    {errors.descripcion}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Sé lo más específico posible para agilizar el diagnóstico del equipo de soporte.
+                  </p>
+                )}
+              </div>
+
+              {/* Campo: Adjuntar Evidencias Fotográficas */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Evidencia Fotográfica o Archivo de Registro <span className="text-xs text-gray-400 font-normal">(Opcional — Máx. 5MB)</span>
+                </label>
+
+                <ImageUploader
+                  archivoImagen={archivoImagen}
+                  imagenPreviewUrl={imagenPreviewUrl}
+                  adjuntoNombre={adjuntoNombre}
+                  onFileAccepted={handleFileAccepted}
+                  onClearFile={handleLimpiarImagen}
+                  onOpenModal={() => setIsImageModalOpen(true)}
+                  disabled={isSubmitting}
+                  fileInputRef={fileInputRef}
+                />
+              </div>
             </div>
 
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                <FiBox className="w-5 h-5" />
-              </div>
-              <input
-                id="incidencia-id-activo"
-                type="text"
-                value={idActivo}
-                onChange={(e) => handleFieldChange('idActivo', e.target.value)}
-                onBlur={() => handleBlur('idActivo')}
+            {/* BOTONES DE ACCIÓN */}
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 pt-2">
+              <button
+                type="button"
                 disabled={isSubmitting}
-                placeholder="Ej. 550e8400-e29b-41d4-a716-446655440000 o ACT-2026-0001"
-                className={`w-full pl-11 ${
-                  isUrlPreloaded ? 'pr-10 bg-primary-50/30' : 'pr-4 bg-white'
-                } py-2.5 rounded-lg border text-sm transition-all outline-none font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
-                  touched.idActivo && errors.idActivo
-                    ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary'
-                } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
-                required
-              />
-              {isUrlPreloaded && (
+                onClick={() => {
+                  if (onCancel) {
+                    onCancel();
+                  } else {
+                    navigate('/incidencias');
+                  }
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <FiArrowLeft className="w-4 h-4" />
+                Volver a Incidencias
+              </button>
+
+              <div className="flex w-full sm:w-auto items-center gap-3">
                 <button
                   type="button"
-                  onClick={handleClearPreloadedAsset}
                   disabled={isSubmitting}
-                  title="Limpiar ID pre-cargado" aria-label="Eliminar"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
+                  onClick={handleResetForm}
+                  className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  <FiX className="w-4 h-4" />
+                  Limpiar Campos
                 </button>
-              )}
-            </div>
 
-            {touched.idActivo && errors.idActivo ? (
-              <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
-                <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                {errors.idActivo}
-              </p>
-            ) : isUrlPreloaded ? (
-              <p className="mt-1 text-xs text-primary font-medium flex items-center gap-1">
-                <FiCheckCircle className="w-3.5 h-3.5" />
-                Identificador de equipo cargado automáticamente desde el enlace.
-              </p>
-            ) : (
-              <p className="mt-1 text-xs text-gray-500">
-                UUID v4 de la base de datos o código de inventario formateado del activo.
-              </p>
-            )}
-          </div>
-
-          {/* Campo: Ubicación Física / Sala */}
-          <div className="space-y-1.5">
-            <label htmlFor="incidencia-ubicacion" className="block text-sm font-medium text-gray-700">
-              Ubicación o Entorno <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
-            </label>
-            <div className="relative">
-              <input
-                id="incidencia-ubicacion"
-                type="text"
-                value={ubicacion}
-                onChange={(e) => setUbicacion(e.target.value)}
-                placeholder="Ej. Rack A3 - DataCenter Norte / Piso 2"
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring outline-none text-sm transition-all"
-              />
-            </div>
-            <p className="mt-1 text-xs text-gray-500">
-              Lugar físico o entorno donde se encuentra el dispositivo.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* SECCIÓN 2: CLASIFICACIÓN DE LA FALLA */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
-        <div className="border-b border-gray-100 pb-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <FiLayers className="text-primary" />
-            Clasificación de la Falla
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">
-            Indica el origen del fallo para determinar la atención técnica requerida.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-6">
-          {/* Campo: Categoría de Falla */}
-          <div>
-            <label htmlFor="incidencia-categoria" className="block text-sm font-medium text-gray-700 mb-1">
-              Categoría de Falla <span className="text-red-500">*</span>
-            </label>
-            <div className="relative">
-              <select
-                id="incidencia-categoria"
-                value={categoria}
-                onChange={(e) => handleFieldChange('categoria', e.target.value)}
-                onBlur={() => handleBlur('categoria')}
-                disabled={isSubmitting}
-                className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-all outline-none appearance-none bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
-                  touched.categoria && errors.categoria
-                    ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                    : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary'
-                } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
-                required
-              >
-                <option value="" disabled>-- Selecciona el tipo de falla --</option>
-                {CATEGORIAS_FALLA.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.nombre}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
+                <button
+                  type="submit"
+                  id="btn-enviar-incidencia"
+                  disabled={isSubmitting}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover focus:ring-4 focus:ring-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                      </svg>
+                      <span>Enviando incidencia...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FiSend className="w-4 h-4" />
+                      <span>Enviar Incidencia</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
-            {touched.categoria && errors.categoria ? (
-              <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
-                <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                {errors.categoria}
-              </p>
-            ) : (
-              <p className="mt-1 text-xs text-gray-500">
-                {categoria 
-                  ? CATEGORIAS_FALLA.find(c => c.id === categoria)?.desc 
-                  : 'Ayuda a canalizar el ticket al equipo técnico idóneo.'}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
+            {/* Modal Previsualizador de Imágenes Subidas */}
+            <ModalPrevisualizadorImagen
+              isOpen={isImageModalOpen}
+              onClose={() => setIsImageModalOpen(false)}
+              imageUrl={imagenPreviewUrl}
+              imageName={adjuntoNombre}
+              imageSize={archivoImagen?.size}
+              onLimpiarImagen={handleLimpiarImagen}
+              onCambiarImagen={handleCambiarImagen}
+            />
 
-      {/* SECCIÓN 3: DESCRIPCIÓN DETALLADA Y EVIDENCIA */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
-        <div className="border-b border-gray-100 pb-4 flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <FiAlignLeft className="text-primary" />
-              Detalle y Diagnóstico
-            </h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Proporciona suficiente detalle para reproducir y diagnosticar el problema.
-            </p>
-          </div>
-          <span className="text-xs font-mono text-gray-400">
-            {descripcion.length} / 1000 caracteres
-          </span>
-        </div>
+            {/* TAL-183: Modal Informativo y Alerta de Sincronización Diferida */}
+            <OfflineActionModal
+              isOpen={isOfflineModalOpen}
+              actionType={ACTION_TYPES.REPORTE}
+              onConfirm={handleConfirmarOffline}
+              onCancel={handleCancelarOffline}
+              isSubmitting={isSubmitting}
+            />
+          </form>
+        );
+      };
 
-        {/* Campo: Descripción */}
-        <div>
-          <label htmlFor="incidencia-descripcion" className="block text-sm font-medium text-gray-700 mb-1">
-            Descripción de la Falla <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            id="incidencia-descripcion"
-            rows={5}
-            maxLength={1000}
-            value={descripcion}
-            onChange={(e) => handleFieldChange('descripcion', e.target.value)}
-            onBlur={() => handleBlur('descripcion')}
-            disabled={isSubmitting}
-            placeholder="Describe qué ocurrió, cuáles fueron los síntomas observados, mensajes de error en pantalla o códigos emitidos, y si el incidente causó la detención de operaciones..."
-            className={`w-full p-4 rounded-lg border text-sm transition-all outline-none resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${
-              touched.descripcion && errors.descripcion
-                ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
-                : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'
-            } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
-            required
-          />
-
-          {touched.descripcion && errors.descripcion ? (
-            <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
-              <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-              {errors.descripcion}
-            </p>
-          ) : (
-            <p className="mt-1 text-xs text-gray-500">
-              Sé lo más específico posible para agilizar el diagnóstico del equipo de soporte.
-            </p>
-          )}
-        </div>
-
-        {/* Campo: Adjuntar Evidencias Fotográficas */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Evidencia Fotográfica o Archivo de Registro <span className="text-xs text-gray-400 font-normal">(Opcional — Máx. 5MB)</span>
-          </label>
-
-          <ImageUploader
-            archivoImagen={archivoImagen}
-            imagenPreviewUrl={imagenPreviewUrl}
-            adjuntoNombre={adjuntoNombre}
-            onFileAccepted={handleFileAccepted}
-            onClearFile={handleLimpiarImagen}
-            onOpenModal={() => setIsImageModalOpen(true)}
-            disabled={isSubmitting}
-            fileInputRef={fileInputRef}
-          />
-        </div>
-      </div>
-
-      {/* BOTONES DE ACCIÓN */}
-      <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 pt-2">
-        <button
-          type="button"
-          disabled={isSubmitting}
-          onClick={() => {
-            if (onCancel) {
-              onCancel();
-            } else {
-              navigate('/incidencias');
-            }
-          }}
-          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 font-medium bg-white hover:bg-gray-50 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-        >
-          <FiArrowLeft className="w-4 h-4" />
-          Volver a Incidencias
-        </button>
-
-        <div className="flex w-full sm:w-auto items-center gap-3">
-          <button
-            type="button"
-            disabled={isSubmitting}
-            onClick={handleResetForm}
-            className="w-full sm:w-auto px-4 py-2.5 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded-lg disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            Limpiar Campos
-          </button>
-
-          <button
-            type="submit"
-            id="btn-enviar-incidencia"
-            disabled={isSubmitting}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-primary text-white font-semibold rounded-lg hover:bg-primary-hover focus:ring-4 focus:ring-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {isSubmitting ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                </svg>
-                <span>Enviando incidencia...</span>
-              </>
-            ) : (
-              <>
-                <FiSend className="w-4 h-4" />
-                <span>Enviar Incidencia</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Modal Previsualizador de Imágenes Subidas */}
-      <ModalPrevisualizadorImagen
-        isOpen={isImageModalOpen}
-        onClose={() => setIsImageModalOpen(false)}
-        imageUrl={imagenPreviewUrl}
-        imageName={adjuntoNombre}
-        imageSize={archivoImagen?.size}
-        onLimpiarImagen={handleLimpiarImagen}
-        onCambiarImagen={handleCambiarImagen}
-      />
-    </form>
-  );
-};
-
-export default FormularioReporteIncidencia;
+      export default FormularioReporteIncidencia;

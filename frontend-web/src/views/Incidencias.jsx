@@ -24,6 +24,7 @@ import {
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
 import api from '../services/api';
+import { guardarOrdenesOffline, obtenerOrdenesOffline } from '../services/storage/offlineDb';
 
 const Incidencias = () => {
   const { showToast } = useToast();
@@ -120,15 +121,25 @@ const Incidencias = () => {
         api.get('/incidencias?limite=50'),
         api.get('/incidencias/resumen').catch(() => null),
       ]);
-      const datos = response.data.datos || response.data.data || response.data || [];
+      const datos = response.data?.datos || response.data?.data || response.data || [];
       const lista = Array.isArray(datos) ? datos : [];
       setIncidencias(lista);
+      if (!response.fromOfflineCache && lista.length > 0) {
+        void guardarOrdenesOffline(lista).catch(() => {});
+      }
       if (resumenResp?.data && typeof resumenResp.data.total === 'number') {
         setTotalGlobal(Math.max(resumenResp.data.total, lista.length));
       } else {
         setTotalGlobal(lista.length);
       }
     } catch (error) {
+      // TAL-195 Criterio 2: Si se pierde la conexión, lee las órdenes desde IndexedDB sin arrojar error
+      const ordenesOffline = await obtenerOrdenesOffline().catch(() => []);
+      if (ordenesOffline.length > 0) {
+        setIncidencias(ordenesOffline);
+        setTotalGlobal(ordenesOffline.length);
+        return;
+      }
       if (!silent) {
         console.error('Error obteniendo incidencias:', error);
         showToast('Error al conectar con la base de datos de incidencias', 'error');
