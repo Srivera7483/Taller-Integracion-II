@@ -69,5 +69,5 @@ La ejecución diaria a las **02:00** y el almacenamiento persistente aislado se 
 
 ---
 - **scripts/backup-db.sh:** incorpora validación de errores, archivos temporales, logs y retención automática de 30 días.
-- **scripts/test-restore-db.sh:** nuevo script para probar la restauración de las tres ba
+- **scripts/test-restore-db.sh:** nuevo script para probar la restauración de las tres bases de datos en bases temporales.
 - **.env:** configura localmente `ENCRYPT_PASS` para cifrar y descifrar respaldos, sin exponer la contraseña en GitHub.
