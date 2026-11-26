@@ -66,6 +66,11 @@ const AxiosInterceptor = ({ children }) => {
           return Promise.reject(error);
         }
 
+        // TAL-207: Permitir manejo local controlado en consultas analíticas con fallback sin redirigir a /500
+        if (error.config?.skipGlobalErrorHandler) {
+          return Promise.reject(error);
+        }
+
         // TAL-169: Si el servidor devuelve error HTTP 500 no controlado
         if (error.response && error.response.status === 500) {
           const errorMessage =

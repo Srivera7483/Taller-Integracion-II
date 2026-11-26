@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
+import PanelEstadisticasAnalitica from '../components/PanelEstadisticasAnalitica';
 import { FiSearch, FiPlus, FiAlertCircle, FiActivity, FiRefreshCw, FiCalendar } from 'react-icons/fi';
 import api from '../services/api';
 import { guardarActivosOffline, obtenerActivosOffline } from '../services/storage/offlineDb';
@@ -88,6 +89,13 @@ const Inventario = () => {
   const [equipos, setEquipos] = useState(EQUIPOS_BASE);
   const [terminoBusqueda, setTerminoBusqueda] = useState('');
   const [cargando, setCargando] = useState(true);
+  const [esDinamico, setEsDinamico] = useState(false);
+  const [estadisticasRefreshTick, setEstadisticasRefreshTick] = useState(0);
+
+  const handleActualizarInventario = () => {
+    setEstadisticasRefreshTick((prev) => prev + 1);
+    void cargarEquipos();
+  };
 
   const cargarEquipos = async () => {
     setCargando(true);
@@ -164,7 +172,7 @@ const Inventario = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={cargarEquipos}
+            onClick={handleActualizarInventario}
             disabled={cargando}
             aria-label="Actualizar inventario"
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium text-xs shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring disabled:opacity-50 cursor-pointer"
@@ -193,6 +201,17 @@ const Inventario = () => {
           </button>
         </div>
       </div>
+
+      {/* Indicador de origen de datos */}
+      {esDinamico && (
+        <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg inline-flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Inventario conectado en tiempo real al microservicio de activos (Prisma DB).</span>
+        </div>
+      )}
+
+      {/* TAL-207: Resumen analítico de activos por estado, categoría y ubicación/edificio */}
+      <PanelEstadisticasAnalitica soloActivos refreshTrigger={estadisticasRefreshTick} />
 
       {/* Tabla de Equipos e Inventario */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
