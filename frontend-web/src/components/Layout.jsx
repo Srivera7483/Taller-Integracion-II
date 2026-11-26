@@ -11,17 +11,6 @@ const Layout = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Obtener la información del usuario autenticado desde localStorage
-  const obtenerUsuarioActual = () => {
-    try {
-      const usuarioStr = localStorage.getItem('usuario');
-      if (!usuarioStr) return null;
-      return JSON.parse(usuarioStr);
-    } catch {
-      return null;
-    }
-  };
-
   const usuario = getUsuarioActual();
   const rolUsuario = usuario?.rol?.nombre_rol || usuario?.rol || null;
   const nombreUsuario = usuario ? `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || usuario.correo : 'Usuario';
@@ -91,23 +80,20 @@ const Layout = () => {
   navigate('/login', { replace: true });
   };
 
-  // Definición completa de las opciones del menú
+  // Definición completa de las opciones del menú (autorización basada en permisos PBAC)
   const allNavItems = [
     { path: '/dashboard', label: 'Dashboard', icon: FiHome },
     { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
-    { path: '/inventario', label: 'Inventario', icon: FiBox, allowedRoles: ['ADMINISTRADOR']},
+    { path: '/inventario', label: 'Inventario', icon: FiBox, requiredPermission: 'activos:gestionar' },
     { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar, requiredPermission: 'mantenimientos:crear' },
     { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
-    { path: '/usuarios', label: 'Usuarios', icon: FiUsers, allowedRoles: ['ADMINISTRADOR'] },
+    { path: '/usuarios', label: 'Usuarios', icon: FiUsers, requiredPermission: 'usuarios:gestionar' },
   ];
 
-  // Filtrar los elementos según el rol actual del usuario
+  // Filtrar los elementos según los permisos del usuario autenticado
   const navItems = allNavItems.filter((item) => {
     if (item.requiredPermission) {
       return hasPermission(item.requiredPermission);
-    }
-    if (item.allowedRoles) {
-      return item.allowedRoles.includes(rolUsuario);
     }
     return true;
   });

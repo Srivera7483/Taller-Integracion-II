@@ -22,8 +22,6 @@ import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { Roles } from '../auth/roles.decorator';
-import { RolesGuard } from '../auth/roles.guard';
 import { PermissionsGuard } from '../auth/permissions.guard';
 import { RequirePermissions } from '../auth/permissions.decorator';
 import type { JwtUser } from '../auth/auth.types';
@@ -38,11 +36,12 @@ import { IncidenciasService } from './incidencias.service';
 import { FileMimeValidationPipe } from '../validators/file-mime.pipe';
 
 @Controller('incidencias')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class IncidenciasController {
   constructor(private readonly incidenciasService: IncidenciasService) { }
 
   @Get()
+  @RequirePermissions('incidencias:ver')
   listar(
     @Query() query: ListarIncidenciasQueryDto,
     @Headers('authorization') authHeader?: string,
@@ -58,7 +57,6 @@ export class IncidenciasController {
   }
 
   @Get('estadisticas/tiempo-resolucion')
-  @Roles('ADMINISTRADOR')
   @RequirePermissions('estadisticas:ver')
   obtenerEstadisticasTiempoResolucion(
     @Headers('authorization') authHeader?: string,
@@ -72,7 +70,7 @@ export class IncidenciasController {
   }
 
   @Get('exportar')
-  @Roles('ADMINISTRADOR')
+  @RequirePermissions('reportes:exportar')
   async exportar(
     @Query() query: ExportarIncidenciasQueryDto,
     @Res({ passthrough: true }) res: Response,
@@ -92,6 +90,7 @@ export class IncidenciasController {
   }
 
   @Post()
+  @RequirePermissions('incidencias:crear')
   crear(
     @Body() body: CrearIncidenciaDto,
     @CurrentUser() usuario: JwtUser,
@@ -120,7 +119,7 @@ export class IncidenciasController {
   }
 
   @Patch(':id_incidencia/estado')
-  @Roles('SUPERVISOR', 'TECNICO', 'TÉCNICO', 'REPORTANTE', 'ADMINISTRADOR')
+  @RequirePermissions('incidencias:resolver')
   async actualizarEstado(
     @Param('id_incidencia', ParseUUIDPipe) incidenciaId: string,
     @Body() body: ActualizarEstadoDto,
@@ -152,7 +151,6 @@ export class IncidenciasController {
   }
 
   @Patch(':id_incidencia/prioridad')
-  @Roles('SUPERVISOR', 'ADMINISTRADOR')
   @RequirePermissions('incidencias:clasificar_prioridad')
   async clasificarPrioridad(
     @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
@@ -165,7 +163,6 @@ export class IncidenciasController {
   }
 
   @Patch(':id_incidencia/resolver')
-  @Roles('TECNICO', 'TÉCNICO', 'SUPERVISOR', 'ADMINISTRADOR')
   @RequirePermissions('incidencias:resolver')
   async resolverIncidencia(
     @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
@@ -205,7 +202,6 @@ export class IncidenciasController {
   }
 
   @Post(':id_incidencia/evidencias')
-  @Roles('REPORTANTE', 'TECNICO', 'TÉCNICO', 'SUPERVISOR', 'ADMINISTRADOR', 'ADMIN')
   @RequirePermissions('evidencias:subir')
   @UseInterceptors(FileInterceptor('file'))
   crearEvidencia(
@@ -220,7 +216,6 @@ export class IncidenciasController {
   }
 
   @Post(':id_incidencia/evidencias/upload')
-  @Roles('REPORTANTE', 'TECNICO', 'TÉCNICO', 'SUPERVISOR', 'ADMINISTRADOR', 'ADMIN')
   @RequirePermissions('evidencias:subir')
   @UseInterceptors(FileInterceptor('file'))
   async uploadEvidencia(
@@ -241,12 +236,11 @@ export class IncidenciasController {
  * Expone las métricas de MTTR e indicadores globales bajo el prefijo /api/v1/estadisticas.
  */
 @Controller('estadisticas')
-@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class EstadisticasController {
   constructor(private readonly incidenciasService: IncidenciasService) {}
 
   @Get('tiempo-resolucion')
-  @Roles('ADMINISTRADOR')
   @RequirePermissions('estadisticas:ver')
   obtenerEstadisticasTiempoResolucion(
     @Headers('authorization') authHeader?: string,

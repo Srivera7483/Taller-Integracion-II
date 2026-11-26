@@ -15,30 +15,42 @@ const permissions = [
   ['activos:gestionar', 'Gestionar activos'],
   ['mantenimientos:crear', 'Crear mantenimientos'],
   ['estadisticas:ver', 'Ver estadisticas'],
+  ['reportes:exportar', 'Exportar reportes de incidencias'],
+  ['usuarios:ver', 'Consultar usuarios y disponibilidad de tecnicos'],
   ['usuarios:gestionar', 'Gestionar usuarios'],
 ];
 
+// Matriz PBAC alineada 1:1 al Diagrama de Casos de Uso aprobado (TAL-222)
 const rolePermissions = {
-  REPORTANTE: ['incidencias:crear', 'incidencias:ver', 'evidencias:subir'],
+  REPORTANTE: [
+    'incidencias:crear',
+    'incidencias:ver',
+    'evidencias:subir',
+  ],
   TECNICO: [
+    'incidencias:crear',
     'incidencias:ver',
     'incidencias:resolver',
     'evidencias:subir',
     'ordenes:diagnosticar',
-    'mantenimientos:crear',
   ],
   SUPERVISOR: [
+    'incidencias:crear',
     'incidencias:ver',
-    'incidencias:resolver',
     'incidencias:clasificar_prioridad',
     'evidencias:subir',
     'ordenes:asignar',
-    'ordenes:diagnosticar',
-    'activos:gestionar',
     'mantenimientos:crear',
-    'estadisticas:ver',
+    'usuarios:ver',
   ],
-  ADMINISTRADOR: permissions.map(([name]) => name),
+  ADMINISTRADOR: [
+    'incidencias:ver',
+    'activos:gestionar',
+    'estadisticas:ver',
+    'reportes:exportar',
+    'usuarios:ver',
+    'usuarios:gestionar',
+  ],
 };
 
 async function asegurarIndicePermisos() {

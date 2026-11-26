@@ -21,24 +21,12 @@ import {
   sincronizarResumenMetricasEnVivo,
 } from '../utils/realtimeIncidencias';
 import api from '../services/api';
+import { hasPermission } from '../services/authService';
 
 const Dashboard = () => {
   const { showToast } = useToast();
 
-  // Obtener el rol del usuario actual desde localStorage
-  const obtenerRolUsuario = () => {
-    try {
-      const usuarioStr = localStorage.getItem('usuario');
-      if (!usuarioStr) return null;
-      const usuario = JSON.parse(usuarioStr);
-      return usuario.rol?.nombre_rol || usuario.rol || null;
-    } catch {
-      return null;
-    }
-  };
-
-  const rolUsuario = obtenerRolUsuario();
-  const esAdmin = rolUsuario === 'ADMINISTRADOR';
+  const puedeExportar = hasPermission('reportes:exportar');
   const [resumenGlobal, setResumenGlobal] = useState(null);
   const [analiticaRefreshTick, setAnaliticaRefreshTick] = useState(0);
 
@@ -291,7 +279,7 @@ const Dashboard = () => {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {esAdmin && <BotonExportarExcel variant="compact" />}
+            {puedeExportar && <BotonExportarExcel variant="compact" />}
             <Link
               to="/incidencias"
               className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
