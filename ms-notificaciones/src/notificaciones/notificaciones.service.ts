@@ -87,8 +87,8 @@ export class NotificacionesService {
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
-        <h2 style="color: #1e3a8a;">${payload.asunto}</h2>
-        <p style="font-size: 15px; line-height: 1.6;">${payload.cuerpoMensaje}</p>
+        <h2 style="color: #1e3a8a;">${this.escapeHtml(payload.asunto)}</h2>
+        <p style="font-size: 15px; line-height: 1.6;">${this.escapeHtml(payload.cuerpoMensaje)}</p>
         <hr style="border: 0; border-top: 1px solid #e2e8f0; margin-top: 24px;" />
         <small style="color: #64748b;">InfraManager - Plataforma Institucional</small>
       </div>
@@ -561,7 +561,7 @@ export class NotificacionesService {
         const sendResult = await this.mailService.enviarCorreo({
           to: destinatario,
           subject: dto.asunto,
-          html: `<div style="font-family: Arial, sans-serif;"><h2>${dto.asunto}</h2><p>${dto.cuerpo}</p></div>`,
+          html: `<div style="font-family: Arial, sans-serif;"><h2>${this.escapeHtml(dto.asunto)}</h2><p>${this.escapeHtml(dto.cuerpo)}</p></div>`,
           text: dto.cuerpo,
         });
 
@@ -596,6 +596,16 @@ export class NotificacionesService {
   // =========================================================================
   // Métodos Auxiliares de Validación y Trazabilidad Estructurada
   // =========================================================================
+
+  private escapeHtml(value?: string | null): string {
+    if (!value) return '';
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
 
   private esEstadoResolutivo(estado: string): boolean {
     const normalizado = estado.trim().toUpperCase();

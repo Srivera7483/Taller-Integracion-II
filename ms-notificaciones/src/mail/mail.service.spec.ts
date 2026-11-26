@@ -210,5 +210,22 @@ describe('MailService', () => {
         }),
       );
     });
+
+    it('debe escapar caracteres HTML peligrosos en plantillas para prevenir inyección HTML', async () => {
+      const result = await service.enviarNotificacionIncidenciaCritica(
+        'guardia@institucion.edu',
+        {
+          idIncidencia: 'inc-xss-1',
+          titulo: 'Alerta <script>alert("xss")</script>',
+          descripcion: 'Detalle con <b>HTML</b> & "comillas"',
+        },
+      );
+
+      expect(result.success).toBe(true);
+      const sentArgs = mockTransporter.sendMail.mock.calls[0][0];
+      expect(sentArgs.html).not.toContain('<script>');
+      expect(sentArgs.html).toContain('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+      expect(sentArgs.html).toContain('&lt;b&gt;HTML&lt;/b&gt; &amp; &quot;comillas&quot;');
+    });
   });
 });

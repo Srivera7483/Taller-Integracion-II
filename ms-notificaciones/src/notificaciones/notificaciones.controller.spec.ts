@@ -414,5 +414,43 @@ describe('NotificacionesController', () => {
       expect(ackMock).not.toHaveBeenCalled();
       expect(nackMock).toHaveBeenCalledWith(mockMsg, false, false);
     });
+
+    it('recibirIncidenciaActualizada debe republicar en la cola incidencias_criticas por defecto si falta routingKey en fields ante error transitorio', async () => {
+      serviceMock.procesarOrdenAsignada.mockResolvedValueOnce({
+        status: 'fallida',
+        error: 'ETIMEDOUT connecting to SMTP server',
+        fallback: false,
+        transient: true,
+      });
+
+      const payload = {
+        id_incidencia: 'inc-10',
+        id_orden: 'ord-10',
+        id_tecnico: 'tec-10',
+      };
+      const ackMock = jest.fn();
+      const nackMock = jest.fn();
+      const mockMsg = {
+        content: Buffer.from(JSON.stringify(payload)),
+        properties: { headers: { 'x-retry-count': 0 } },
+        fields: {},
+      };
+      const mockContext = {
+        getChannelRef: () => ({ ack: ackMock, nack: nackMock }),
+        getMessage: () => mockMsg,
+      };
+
+      await controller.recibirIncidenciaActualizada(payload, mockContext);
+
+      expect(consumerServiceMock.republicarConConfirmacion).toHaveBeenCalledWith(
+        '',
+        'incidencias_criticas',
+        mockMsg.content,
+        mockMsg.properties,
+        1,
+      );
+      expect(ackMock).toHaveBeenCalledWith(mockMsg);
+      expect(nackMock).not.toHaveBeenCalled();
+    });
   });
 });

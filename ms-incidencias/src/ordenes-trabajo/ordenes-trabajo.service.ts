@@ -87,7 +87,7 @@ export class OrdenesTrabajoService {
   private async validarTecnicoEnAuth(
       idTecnico: string,
       authHeader?: string,
-    ): Promise<void> {
+    ): Promise<{ email?: string; nombre?: string }> {
       const baseUrls = Array.from(
         new Set(
           [
@@ -166,6 +166,17 @@ export class OrdenesTrabajoService {
           'El usuario seleccionado no posee el rol de Técnico habilitado para órdenes de trabajo.',
         );
       }
+
+      const emailRaw = tecnico.email || tecnico.correo;
+      const email =
+        typeof emailRaw === 'string' && emailRaw.trim()
+          ? emailRaw.trim()
+          : undefined;
+      const nombre =
+        [tecnico.nombre, tecnico.apellido].filter(Boolean).join(' ').trim() ||
+        undefined;
+
+      return { email, nombre };
     }
 
   async asignarOrden(
@@ -181,9 +192,13 @@ export class OrdenesTrabajoService {
       throw new BadRequestException('El ID del técnico es obligatorio');
     }
 
-    await this.validarTecnicoEnAuth(dto.id_tecnico, authHeader);
+    const infoTecnico = await this.validarTecnicoEnAuth(
+      dto.id_tecnico,
+      authHeader,
+    );
 
     let idActivoIncidencia: string | null = null;
+    let tituloIncidencia: string | undefined;
 
     const resultadoOrden = await this.prisma.$transaction(async (transaction) => {
       const incidencia = await transaction.incidencias.findUnique({
@@ -208,6 +223,7 @@ export class OrdenesTrabajoService {
       }
 
       idActivoIncidencia = incidencia.id_activo ?? null;
+      tituloIncidencia = incidencia.titulo || undefined;
 
       const historialActual = incidencia.historial_estados?.[0] || null;
       const estadoActualObj = historialActual?.estado || null;
@@ -308,6 +324,14 @@ export class OrdenesTrabajoService {
         .emitirIncidenciaActualizada({
           evento: 'ORDEN_TRABAJO_ASIGNADA',
           ...payloadWs,
+          ...(tituloIncidencia ? { titulo: tituloIncidencia } : {}),
+          ...(infoTecnico.email
+            ? { emailTecnico: infoTecnico.email, email: infoTecnico.email }
+            : {}),
+          ...(infoTecnico.nombre ? { tecnico: infoTecnico.nombre } : {}),
+          ...((resultadoOrden as any)?.diagnostico_tecnico
+            ? { diagnostico_tecnico: (resultadoOrden as any).diagnostico_tecnico }
+            : {}),
         })
         .catch((err) => {
           this.logger.error(

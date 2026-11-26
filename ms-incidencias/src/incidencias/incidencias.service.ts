@@ -113,7 +113,32 @@ export class IncidenciasService {
   private esIncidenciaCritica(
     prioridad: PrioridadIncidencia,
   ): boolean {
-    return prioridad === PrioridadIncidencia.alta;
+    return (
+      prioridad === PrioridadIncidencia.alta ||
+      prioridad === PrioridadIncidencia.critica
+    );
+  }
+
+  private async obtenerEmailReportante(
+    idReportante?: string | null,
+    emailFallback?: string,
+    authHeader?: string,
+  ): Promise<string | undefined> {
+    if (idReportante) {
+      try {
+        const usuarios = await this.resolverUsuarios(authHeader);
+        const emailResuelto = usuarios.get(idReportante)?.email?.trim();
+        if (emailResuelto && emailResuelto.includes('@')) {
+          return emailResuelto;
+        }
+      } catch {
+        // Usar fallback si ms-auth o BD compartida no están disponibles
+      }
+    }
+    const fallbackLimpio = emailFallback?.trim();
+    return fallbackLimpio && fallbackLimpio.includes('@')
+      ? fallbackLimpio
+      : undefined;
   }
 
   /**
@@ -342,6 +367,7 @@ export class IncidenciasService {
           id_incidencia: creada.id_incidencia,
           id_activo: creada.id_activo,
           id_reportante: usuarioId,
+          ...(emailUsuario ? { email: emailUsuario } : {}),
           titulo: creada.titulo,
           descripcion: creada.descripcion,
           prioridad: prioridadAsignada,
@@ -377,6 +403,7 @@ export class IncidenciasService {
     usuarioId: string,
     rolUsuario: string,
     emailUsuario?: string,
+    authHeader?: string,
   ) {
     if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
       throw new BadRequestException('El ID del estado es obligatorio y debe ser numérico');
@@ -474,10 +501,37 @@ export class IncidenciasService {
     }
 
     if (this.rabbitmqProducer) {
+      const esResolutivo = [
+        'resuelta',
+        'resuelto',
+        'cerrada',
+        'cerrado',
+        'finalizada',
+        'finalizado',
+      ].includes(nuevoEstado.trim().toLowerCase());
+
+      const emailReportante = esResolutivo
+        ? await this.obtenerEmailReportante(
+            resultado.incidencia.id_reportante,
+            emailUsuario,
+            authHeader,
+          )
+        : undefined;
+
       this.rabbitmqProducer
         .emitirIncidenciaActualizada({
           evento: 'INCIDENCIA_ACTUALIZADA',
           ...payloadWs,
+          titulo: resultado.incidencia.titulo,
+          ...(emailReportante
+            ? { emailReportante, email: emailReportante }
+            : {}),
+          ...(resultado.incidencia.diagnostico_tecnico
+            ? {
+                diagnostico_tecnico: resultado.incidencia.diagnostico_tecnico,
+                resolucion: resultado.incidencia.diagnostico_tecnico,
+              }
+            : {}),
         })
         .catch((err) => {
           this.logger.error(
@@ -591,6 +645,7 @@ export class IncidenciasService {
     idTecnico: string,
     rolUsuario: string,
     emailUsuario?: string,
+    authHeader?: string,
   ) {
     const rolNorm = this.normalizarRol(rolUsuario);
     const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm);
@@ -654,7 +709,7 @@ export class IncidenciasService {
 
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: idIncidencia },
-        select: { titulo: true, id_activo: true },
+        select: { titulo: true, id_activo: true, id_reportante: true },
       });
 
       if (!incidencia) {
@@ -681,6 +736,7 @@ export class IncidenciasService {
         historial: nuevoHistorial,
         titulo: incidencia.titulo,
         id_activo: incidencia.id_activo,
+        id_reportante: incidencia.id_reportante,
       };
     });
 
@@ -707,10 +763,20 @@ export class IncidenciasService {
     }
 
     if (this.rabbitmqProducer) {
+      const emailReportante = await this.obtenerEmailReportante(
+        resultado.id_reportante,
+        emailUsuario,
+        authHeader,
+      );
+
       this.rabbitmqProducer
         .emitirIncidenciaActualizada({
           evento: 'INCIDENCIA_ACTUALIZADA',
           ...payloadWs,
+          titulo: resultado.titulo,
+          ...(emailReportante
+            ? { emailReportante, email: emailReportante }
+            : {}),
         })
         .catch((err) => {
           this.logger.error(

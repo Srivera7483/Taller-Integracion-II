@@ -6,7 +6,7 @@ En la arquitectura orientada a microservicios de la plataforma **InfraManager**,
 
 El microservicio `ms-notificaciones` (puerto 3004) requería estandarizar su compilación TypeScript, integrar el transporte de correo electrónico con Nodemailer con fallback seguro para desarrollo local y conectar el consumo de eventos asíncronos desde `ms-incidencias` y `ms-activos` a través de RabbitMQ (`notificaciones.queue` e `incidencias_criticas`).
 
-Siguiendo las restricciones de integración arquitectónica, el **Modelo Entidad-Relación (MER) oficial** y las especificaciones de **OpenAPI 1.2.0**:
+Siguiendo las restricciones de integración arquitectónica, el **Modelo Entidad-Relación (MER) oficial** y las especificaciones de **OpenAPI v1.5.0**:
 1. **Alineación Estricta al MER Oficial**: Se eliminaron completamente las dependencias de Prisma ORM, el cliente PostgreSQL y cualquier intento de persistencia en una tabla no contemplada en el modelo relacional institucional (como la tabla `NOTIFICACIONES`).
 2. **Trazabilidad Operativa Mediante Logs Estructurados**: La persistencia de base de datos fue sustituida por auditoría estructurada en formato JSON (`this.logger.log` / `this.logger.error`), capturando `correlationId`, `evento`, `destinatario`, `asunto`, `estado` (`ENVIADO` | `SIMULADO` | `FALLIDO`), `messageId`, `error` y `timestamp`, garantizando trazabilidad sin incorporar tablas espurias y sin exponer credenciales ni datos sensibles.
 3. **Republicación Segura con ConfirmChannel**: En `RabbitmqConsumerService` se migró el canal a `ConfirmChannel` (`connection.createConfirmChannel()`), exponiendo `republicarConConfirmacion(...)`. El consumidor espera la confirmación explícita del broker (basic.ack) antes de confirmar (`ack()`) el mensaje original, garantizando la semántica at-least-once delivery.
@@ -47,8 +47,8 @@ El siguiente diagrama detalla la arquitectura desacoplada, el consumo mediante `
 ```mermaid
 flowchart TD
     subgraph Emisores["Productores de Eventos"]
-        MSI["ms-incidencias (:3003)<br/>Incidencias Críticas / Órdenes"]
-        MSA["ms-activos (:3002)<br/>Mantenimiento Preventivo"]
+        MSI["ms-incidencias (:3002)<br/>Incidencias Críticas / Órdenes"]
+        MSA["ms-activos (:3003)<br/>Mantenimiento Preventivo"]
         REST_CLI["Cliente REST / Gateway (:3000)<br/>POST /notificar"]
     end
 
@@ -261,7 +261,7 @@ flowchart TD
 La suite de pruebas fue ejecutada con Jest (`pnpm --dir ms-notificaciones test`):
 
 - **Suites de Pruebas**: **9 pasadas de 9 totales (100%)**.
-- **Pruebas Automatizadas Totales**: **104 pasadas de 104 totales (100%)**.
+- **Pruebas Automatizadas Totales**: **106 pasadas de 106 totales (100%)**.
 - **Compilación TypeScript**: `pnpm --dir ms-notificaciones run build` -> **0 errores** (código de salida 0).
 - **Validación de Lockfile**: `pnpm --dir ms-notificaciones install --frozen-lockfile` -> **100% verificado y sin advertencias**.
 - **Rastreo de Prisma**: **0 menciones de Prisma / PostgreSQL** en el código fuente de `ms-notificaciones`.

@@ -185,17 +185,32 @@ export class MailService implements OnModuleInit {
   // Plantillas HTML Estructuradas para Eventos de Negocio
   // =========================================================================
 
+  escapeHtml(value?: string | null): string {
+    if (!value) return '';
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   async enviarNotificacionIncidenciaCritica(
     destinatario: string,
     data: IncidenciaCriticaMailData,
   ): Promise<MailSendResult> {
     const asunto = `[ALERTA CRÍTICA] Incidencia reportada #${data.idIncidencia.slice(0, 8)}: ${data.titulo}`;
+    const idIncSafe = this.escapeHtml(data.idIncidencia);
+    const tituloSafe = this.escapeHtml(data.titulo);
+    const ubicacionSafe = this.escapeHtml(data.ubicacion);
+    const reportanteSafe = this.escapeHtml(data.reportante);
+    const descripcionSafe = this.escapeHtml(data.descripcion);
     const html = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>${asunto}</title>
+  <title>${this.escapeHtml(asunto)}</title>
 </head>
 <body style="font-family: Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 20px;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
@@ -209,11 +224,11 @@ export class MailService implements OnModuleInit {
       <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b; width: 35%;">ID Incidencia:</td>
-          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${data.idIncidencia}</td>
+          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${idIncSafe}</td>
         </tr>
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Título:</td>
-          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${data.titulo}</td>
+          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${tituloSafe}</td>
         </tr>
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Prioridad:</td>
@@ -222,16 +237,16 @@ export class MailService implements OnModuleInit {
         ${data.ubicacion ? `
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Ubicación:</td>
-          <td style="padding: 10px; color: #0f172a;">${data.ubicacion}</td>
+          <td style="padding: 10px; color: #0f172a;">${ubicacionSafe}</td>
         </tr>` : ''}
         ${data.reportante ? `
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Reportado por:</td>
-          <td style="padding: 10px; color: #0f172a;">${data.reportante}</td>
+          <td style="padding: 10px; color: #0f172a;">${reportanteSafe}</td>
         </tr>` : ''}
         <tr>
           <td style="padding: 10px; color: #64748b; vertical-align: top;">Descripción:</td>
-          <td style="padding: 10px; color: #334155; line-height: 1.5;">${data.descripcion}</td>
+          <td style="padding: 10px; color: #334155; line-height: 1.5;">${descripcionSafe}</td>
         </tr>
       </table>
 
@@ -254,12 +269,18 @@ export class MailService implements OnModuleInit {
     data: OrdenAsignadaMailData,
   ): Promise<MailSendResult> {
     const asunto = `[ORDEN ASIGNADA] Orden de Trabajo #${data.idOrden.slice(0, 8)} asignada`;
+    const tecnicoSafe = this.escapeHtml(data.tecnico);
+    const idOrdenSafe = this.escapeHtml(data.idOrden);
+    const idIncidenciaSafe = this.escapeHtml(data.idIncidencia);
+    const tituloSafe = this.escapeHtml(data.titulo);
+    const ubicacionSafe = this.escapeHtml(data.ubicacion);
+    const diagnosticoSafe = this.escapeHtml(data.diagnostico);
     const html = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>${asunto}</title>
+  <title>${this.escapeHtml(asunto)}</title>
 </head>
 <body style="font-family: Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 20px;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
@@ -268,31 +289,31 @@ export class MailService implements OnModuleInit {
       <p style="margin: 5px 0 0; font-size: 14px; opacity: 0.9;">InfraManager - Soporte Técnico</p>
     </div>
     <div style="padding: 24px;">
-      <p style="font-size: 15px; color: #334155;">Estimado(a) ${data.tecnico ? `<strong>${data.tecnico}</strong>` : 'técnico(a)'}:</p>
+      <p style="font-size: 15px; color: #334155;">Estimado(a) ${data.tecnico ? `<strong>${tecnicoSafe}</strong>` : 'técnico(a)'}:</p>
       <p style="font-size: 14px; color: #334155;">Se le ha asignado una nueva orden de trabajo para dar resolución a la siguiente incidencia:</p>
       
       <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b; width: 35%;">ID Orden:</td>
-          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${data.idOrden}</td>
+          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${idOrdenSafe}</td>
         </tr>
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">ID Incidencia:</td>
-          <td style="padding: 10px; color: #0f172a;">${data.idIncidencia}</td>
+          <td style="padding: 10px; color: #0f172a;">${idIncidenciaSafe}</td>
         </tr>
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Título Incidencia:</td>
-          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${data.titulo}</td>
+          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${tituloSafe}</td>
         </tr>
         ${data.ubicacion ? `
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Ubicación:</td>
-          <td style="padding: 10px; color: #0f172a;">${data.ubicacion}</td>
+          <td style="padding: 10px; color: #0f172a;">${ubicacionSafe}</td>
         </tr>` : ''}
         ${data.diagnostico ? `
         <tr>
           <td style="padding: 10px; color: #64748b; vertical-align: top;">Diagnóstico Preliminar:</td>
-          <td style="padding: 10px; color: #334155;">${data.diagnostico}</td>
+          <td style="padding: 10px; color: #334155;">${diagnosticoSafe}</td>
         </tr>` : ''}
       </table>
 
@@ -313,12 +334,17 @@ export class MailService implements OnModuleInit {
     data: IncidenciaResueltaMailData,
   ): Promise<MailSendResult> {
     const asunto = `[ACTUALIZACIÓN] Incidencia #${data.idIncidencia.slice(0, 8)}: Estado cambiado a ${data.nuevoEstado}`;
+    const idIncidenciaSafe = this.escapeHtml(data.idIncidencia);
+    const tituloSafe = this.escapeHtml(data.titulo);
+    const nuevoEstadoSafe = this.escapeHtml(data.nuevoEstado);
+    const tecnicoSafe = this.escapeHtml(data.tecnico);
+    const resolucionSafe = this.escapeHtml(data.resolucion);
     const html = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>${asunto}</title>
+  <title>${this.escapeHtml(asunto)}</title>
 </head>
 <body style="font-family: Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 20px;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
@@ -332,25 +358,25 @@ export class MailService implements OnModuleInit {
       <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b; width: 35%;">ID Incidencia:</td>
-          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${data.idIncidencia}</td>
+          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${idIncidenciaSafe}</td>
         </tr>
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Título:</td>
-          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${data.titulo}</td>
+          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${tituloSafe}</td>
         </tr>
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Nuevo Estado:</td>
-          <td style="padding: 10px;"><span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold;">${data.nuevoEstado}</span></td>
+          <td style="padding: 10px;"><span style="background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-weight: bold;">${nuevoEstadoSafe}</span></td>
         </tr>
         ${data.tecnico ? `
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Atendido por:</td>
-          <td style="padding: 10px; color: #0f172a;">${data.tecnico}</td>
+          <td style="padding: 10px; color: #0f172a;">${tecnicoSafe}</td>
         </tr>` : ''}
         ${data.resolucion ? `
         <tr>
           <td style="padding: 10px; color: #64748b; vertical-align: top;">Resolución / Cierre:</td>
-          <td style="padding: 10px; color: #334155; line-height: 1.5;">${data.resolucion}</td>
+          <td style="padding: 10px; color: #334155; line-height: 1.5;">${resolucionSafe}</td>
         </tr>` : ''}
       </table>
 
@@ -371,12 +397,17 @@ export class MailService implements OnModuleInit {
     data: MantenimientoPreventivoMailData,
   ): Promise<MailSendResult> {
     const asunto = `[MANTENIMIENTO PREVENTIVO] Programación de activo: ${data.nombreActivo}`;
+    const nombreActivoSafe = this.escapeHtml(data.nombreActivo);
+    const idActivoSafe = this.escapeHtml(data.idActivo);
+    const fechaProgramadaSafe = this.escapeHtml(data.fechaProgramada);
+    const ubicacionSafe = this.escapeHtml(data.ubicacion);
+    const observacionesSafe = this.escapeHtml(data.observaciones);
     const html = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>${asunto}</title>
+  <title>${this.escapeHtml(asunto)}</title>
 </head>
 <body style="font-family: Arial, sans-serif; background-color: #f4f5f7; margin: 0; padding: 20px;">
   <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
@@ -390,25 +421,25 @@ export class MailService implements OnModuleInit {
       <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 14px;">
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b; width: 35%;">Activo:</td>
-          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${data.nombreActivo}</td>
+          <td style="padding: 10px; font-weight: bold; color: #0f172a;">${nombreActivoSafe}</td>
         </tr>
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">ID Activo:</td>
-          <td style="padding: 10px; color: #0f172a;">${data.idActivo}</td>
+          <td style="padding: 10px; color: #0f172a;">${idActivoSafe}</td>
         </tr>
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Fecha Programada:</td>
-          <td style="padding: 10px; font-weight: bold; color: #b45309;">${data.fechaProgramada}</td>
+          <td style="padding: 10px; font-weight: bold; color: #b45309;">${fechaProgramadaSafe}</td>
         </tr>
         ${data.ubicacion ? `
         <tr style="border-bottom: 1px solid #f1f5f9;">
           <td style="padding: 10px; color: #64748b;">Ubicación:</td>
-          <td style="padding: 10px; color: #0f172a;">${data.ubicacion}</td>
+          <td style="padding: 10px; color: #0f172a;">${ubicacionSafe}</td>
         </tr>` : ''}
         ${data.observaciones ? `
         <tr>
           <td style="padding: 10px; color: #64748b; vertical-align: top;">Observaciones:</td>
-          <td style="padding: 10px; color: #334155;">${data.observaciones}</td>
+          <td style="padding: 10px; color: #334155;">${observacionesSafe}</td>
         </tr>` : ''}
       </table>
 

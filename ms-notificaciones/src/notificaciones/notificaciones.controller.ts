@@ -27,6 +27,7 @@ import { RabbitmqConsumerService } from '../rabbitmq/rabbitmq-consumer.service';
 export class NotificacionesController {
   private readonly logger = new Logger(NotificacionesController.name);
   private readonly maxRetries: number;
+  private readonly queueCriticas: string;
 
   constructor(
     private readonly notificacionesService: NotificacionesService,
@@ -39,6 +40,9 @@ export class NotificacionesController {
     this.maxRetries = Number(
       this.configService?.get<string>('RABBITMQ_MAX_RETRIES') ?? '3',
     );
+    this.queueCriticas =
+      this.configService?.get<string>('RABBITMQ_QUEUE_CRITICAS') ??
+      'incidencias_criticas';
   }
 
   @Post('notificar')
@@ -143,7 +147,7 @@ export class NotificacionesController {
         message,
         retryCount,
         isTransient,
-        'incidencias_criticas',
+        this.queueCriticas,
       );
     }
   }
@@ -216,7 +220,7 @@ export class NotificacionesController {
         message,
         retryCount,
         isTransient,
-        'incidencia_actualizada',
+        this.queueCriticas,
       );
     }
   }
