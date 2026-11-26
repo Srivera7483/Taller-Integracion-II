@@ -154,8 +154,25 @@ describe('listarPorTecnico', () => {
     });
 
     it('TAL-185: emite evento de incidencia_actualizada por WebSocket y RabbitMQ al asignar orden', async () => {
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          datos: [
+            {
+              id_usuario: 'tecnico-1',
+              nombre: 'Carlos',
+              apellido: 'Ruiz',
+              email: 'carlos.ruiz@uct.cl',
+              activo: true,
+              rol: { nombre_rol: 'TECNICO' },
+            },
+          ],
+        }),
+      } as Response);
+
       findUniqueIncidencia.mockResolvedValue({
         id_incidencia: 'inc-1',
+        titulo: 'Falla en tablero eléctrico',
         id_activo: 'activo-edificio-1',
       });
       createOrden.mockResolvedValue({
@@ -197,6 +214,11 @@ describe('listarPorTecnico', () => {
         expect.objectContaining({
           evento: 'ORDEN_TRABAJO_ASIGNADA',
           id_incidencia: 'inc-1',
+          id_orden: 'orden-1',
+          id_tecnico: 'tecnico-1',
+          titulo: 'Falla en tablero eléctrico',
+          emailTecnico: 'carlos.ruiz@uct.cl',
+          tecnico: 'Carlos Ruiz',
           nuevo_estado: 'ASIGNADA',
           usuario_responsable: 'tecnico-1',
           tipo_evento: 'ASIGNACION_ORDEN',

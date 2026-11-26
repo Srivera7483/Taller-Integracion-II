@@ -125,6 +125,7 @@ export class IncidenciasController {
     @Param('id_incidencia', ParseUUIDPipe) incidenciaId: string,
     @Body() body: ActualizarEstadoDto,
     @CurrentUser() usuario: JwtUser,
+    @Headers('authorization') authHeader?: string,
   ) {
     const idUsuario = usuario.sub || usuario.userId;
     const rolUsuario = usuario.rol || usuario.role;
@@ -132,13 +133,22 @@ export class IncidenciasController {
       throw new UnauthorizedException('Usuario autenticado inválido');
     }
 
-    return this.incidenciasService.actualizarEstado(
-      incidenciaId,
-      body.id_estado,
-      idUsuario,
-      rolUsuario,
-      usuario.email,
-    );
+    return authHeader
+      ? this.incidenciasService.actualizarEstado(
+          incidenciaId,
+          body.id_estado,
+          idUsuario,
+          rolUsuario,
+          usuario.email,
+          authHeader,
+        )
+      : this.incidenciasService.actualizarEstado(
+          incidenciaId,
+          body.id_estado,
+          idUsuario,
+          rolUsuario,
+          usuario.email,
+        );
   }
 
   @Patch(':id_incidencia/prioridad')
@@ -160,6 +170,7 @@ export class IncidenciasController {
   async resolverIncidencia(
     @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
     @CurrentUser() usuario: JwtUser,
+    @Headers('authorization') authHeader?: string,
   ) {
     const idUsuario = usuario.sub || usuario.userId;
     const rolUsuario = usuario.rol || usuario.role;
@@ -167,12 +178,20 @@ export class IncidenciasController {
       throw new UnauthorizedException('Usuario autenticado inválido');
     }
 
-    return this.incidenciasService.resolverIncidencia(
-      idIncidencia,
-      idUsuario,
-      rolUsuario,
-      usuario.email,
-    );
+    return authHeader
+      ? this.incidenciasService.resolverIncidencia(
+          idIncidencia,
+          idUsuario,
+          rolUsuario,
+          usuario.email,
+          authHeader,
+        )
+      : this.incidenciasService.resolverIncidencia(
+          idIncidencia,
+          idUsuario,
+          rolUsuario,
+          usuario.email,
+        );
   }
 
   @Get(':id_incidencia/historial')
