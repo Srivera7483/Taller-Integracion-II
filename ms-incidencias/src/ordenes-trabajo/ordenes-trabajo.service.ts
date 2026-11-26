@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -490,6 +491,7 @@ export class OrdenesTrabajoService {
     diagnostico_tecnico: string,
     idTecnicoPeticion: string,
     rolUsuario?: string,
+    fechaReferencia?: string,
   ) {
     const orden = await this.prisma.ordenTrabajo.findUnique({
       where: { id_orden: idOrden },
@@ -529,6 +531,55 @@ export class OrdenesTrabajoService {
       throw new ForbiddenException(
         'Acceso denegado: Solo el técnico actualmente asignado puede registrar el diagnóstico o resolución.',
       );
+    }
+
+    // TAL-193: Control de concurrencia optimista sin alterar el MER oficial
+    const ultimoHistorial = orden.incidencia?.historial_estados?.[0];
+    const estadoActual = ultimoHistorial?.estado?.nombre_estado ?? null;
+    const ultimaActualizacion =
+      orden.fecha_cierre ??
+      ultimoHistorial?.fecha_creacion ??
+      orden.fecha_creacion ??
+      null;
+
+    const estadoServidor = {
+      id_orden: orden.id_orden,
+      id_incidencia: orden.id_incidencia,
+      estado_actual: estadoActual,
+      diagnostico_tecnico: orden.diagnostico_tecnico ?? null,
+      fecha_cierre: orden.fecha_cierre ?? null,
+      ultima_actualizacion: ultimaActualizacion,
+    };
+
+    const estaEnEstadoTerminal = Boolean(
+      estadoActual &&
+        ESTADOS_CERRADOS.includes(estadoActual.trim().toLowerCase()),
+    );
+
+    if (orden.fecha_cierre || estaEnEstadoTerminal) {
+      throw new ConflictException({
+        statusCode: 409,
+        error: 'Conflict',
+        codigo: 'CONFLICTO_CONCURRENCIA',
+        message:
+          'Conflicto de concurrencia: la orden de trabajo o su incidencia ya fue cerrada en el servidor.',
+        estado_servidor: estadoServidor,
+      });
+    }
+
+    if (fechaReferencia && ultimaActualizacion) {
+      const refMs = Date.parse(fechaReferencia);
+      const serverMs = new Date(ultimaActualizacion).getTime();
+      if (!Number.isNaN(refMs) && !Number.isNaN(serverMs) && serverMs > refMs) {
+        throw new ConflictException({
+          statusCode: 409,
+          error: 'Conflict',
+          codigo: 'CONFLICTO_CONCURRENCIA',
+          message:
+            'Conflicto de concurrencia: la orden fue modificada en el servidor con posterioridad a la copia local del cliente.',
+          estado_servidor: estadoServidor,
+        });
+      }
     }
 
     const diagnosticoSanitizado = sanitizeStringXss(diagnostico_tecnico).trim();

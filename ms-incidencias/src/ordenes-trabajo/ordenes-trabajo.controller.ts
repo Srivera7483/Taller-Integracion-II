@@ -126,6 +126,7 @@ export class OrdenesTrabajoController {
       body.diagnostico_tecnico,
       idUsuario,
       user.rol || user.role,
+      body.fecha_referencia,
     );
   }
 }
