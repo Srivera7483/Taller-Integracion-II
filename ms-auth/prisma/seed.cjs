@@ -2,6 +2,8 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
+const roles = ['REPORTANTE', 'TECNICO', 'SUPERVISOR', 'ADMINISTRADOR'];
+
 const permissions = [
   ['incidencias:crear', 'Crear incidencias'],
   ['incidencias:ver', 'Ver incidencias'],
@@ -39,7 +41,6 @@ const rolePermissions = {
   ADMINISTRADOR: permissions.map(([name]) => name),
 };
 
-
 async function asegurarIndicePermisos() {
   console.log('Verificando índice único de permisos...');
 
@@ -64,9 +65,16 @@ async function asegurarIndicePermisos() {
   console.log('Índice único de permisos verificado.');
 }
 
-
 async function main() {
   await asegurarIndicePermisos();
+
+  for (const nombreRol of roles) {
+    await prisma.role.upsert({
+      where: { nombreRol },
+      update: {},
+      create: { nombreRol },
+    });
+  }
 
   for (const [nombrePermiso, descripcion] of permissions) {
     await prisma.permiso.upsert({
@@ -91,7 +99,7 @@ async function main() {
     }
   }
 
-  console.log('Catalogo de permisos y ROLES_PERMISOS creado correctamente.');
+  console.log('Catalogo de roles, permisos y ROLES_PERMISOS creado correctamente.');
 }
 
 main()
