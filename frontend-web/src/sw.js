@@ -12,11 +12,15 @@ import {
 } from './services/sync/backgroundSync.js';
 
 const PREFIJO_PRECACHE = 'inframanager-precache-';
+const PREFIJO_RUNTIME = 'inframanager-assets-';
 const PREFIJO_PRECACHE_ANTERIOR = 'workbox-precache';
 
 // vite-plugin-pwa reemplaza esta expresión por la lista de archivos generados en el build.
+// TAL-203: Deduplicar URLs para evitar que Cache.addAll() rechace por solicitudes duplicadas.
 const manifiesto = self.__WB_MANIFEST || [];
-const urlsPrecache = manifiesto.map((entrada) => (typeof entrada === 'string' ? entrada : entrada.url));
+const urlsPrecache = Array.from(
+  new Set(manifiesto.map((entrada) => (typeof entrada === 'string' ? entrada : entrada.url))),
+);
 
 const calcularHash = (texto) => {
   let hash = 0;
@@ -26,10 +30,19 @@ const calcularHash = (texto) => {
   return (hash >>> 0).toString(16);
 };
 
-const NOMBRE_CACHE = `${PREFIJO_PRECACHE}${calcularHash(JSON.stringify(manifiesto))}`;
+const HASH_BUILD = calcularHash(JSON.stringify(manifiesto));
+const NOMBRE_CACHE = `${PREFIJO_PRECACHE}${HASH_BUILD}`;
+const NOMBRE_CACHE_RUNTIME = `${PREFIJO_RUNTIME}${HASH_BUILD}`;
 
-const obtenerRutasPrecache = () =>
-  new Set(urlsPrecache.map((url) => new URL(url, self.registration.scope).pathname));
+let rutasPrecacheCache = null;
+const obtenerRutasPrecache = () => {
+  if (!rutasPrecacheCache) {
+    rutasPrecacheCache = new Set(
+      urlsPrecache.map((url) => new URL(url, self.registration.scope).pathname),
+    );
+  }
+  return rutasPrecacheCache;
+};
 
 const obtenerUrlIndex = () => new URL('index.html', self.registration.scope).href;
 
@@ -45,7 +58,9 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(NOMBRE_CACHE);
-      await cache.addAll(urlsPrecache.map((url) => new Request(url, { cache: 'reload' })));
+      if (urlsPrecache.length > 0) {
+        await cache.addAll(urlsPrecache.map((url) => new Request(url, { cache: 'reload' })));
+      }
       await self.skipWaiting();
     })(),
   );
@@ -60,7 +75,10 @@ self.addEventListener('activate', (event) => {
           .filter(
             (nombre) =>
               nombre !== NOMBRE_CACHE &&
-              (nombre.startsWith(PREFIJO_PRECACHE) || nombre.startsWith(PREFIJO_PRECACHE_ANTERIOR)),
+              nombre !== NOMBRE_CACHE_RUNTIME &&
+              (nombre.startsWith(PREFIJO_PRECACHE) ||
+                nombre.startsWith(PREFIJO_RUNTIME) ||
+                nombre.startsWith(PREFIJO_PRECACHE_ANTERIOR)),
           )
           .map((nombre) => caches.delete(nombre)),
       );
@@ -84,6 +102,22 @@ self.addEventListener('fetch', (event) => {
 
   if (obtenerRutasPrecache().has(url.pathname)) {
     event.respondWith(caches.match(request).then((cacheada) => cacheada || fetch(request)));
+    return;
+  }
+
+  // TAL-203: Estrategia Cache-First bajo demanda para chunks con hash generados por Vite (/assets/*)
+  if (url.pathname.startsWith('/assets/') && !url.pathname.endsWith('.map')) {
+    event.respondWith(
+      caches.open(NOMBRE_CACHE_RUNTIME).then(async (cache) => {
+        const cacheada = await cache.match(request);
+        if (cacheada) return cacheada;
+        const respuesta = await fetch(request);
+        if (respuesta && respuesta.ok) {
+          void cache.put(request, respuesta.clone());
+        }
+        return respuesta;
+      }),
+    );
   }
 });
 

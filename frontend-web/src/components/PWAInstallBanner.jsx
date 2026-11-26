@@ -19,6 +19,9 @@ const PWAInstallBanner = ({ onInstall, onDismiss, isIOS }) => {
           <img
             src="/pwa-192x192.png"
             alt="InfraManager"
+            width={48}
+            height={48}
+            decoding="async"
             className="w-full h-full object-cover"
             onError={(errorEvent) => {
               errorEvent.currentTarget.style.display = 'none';

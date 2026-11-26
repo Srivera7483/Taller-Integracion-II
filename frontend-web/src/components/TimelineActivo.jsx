@@ -194,9 +194,9 @@ const HitoTimelineCard = ({ evento, _index, isLast }) => {
         </div>
 
         {/* Título Principal */}
-        <h4 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight mb-2 break-words">
+        <h3 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight mb-2 break-words">
           {evento.titulo}
-        </h4>
+        </h3>
 
         {/* Descripción del Hito */}
         <p className="text-sm text-gray-700 leading-relaxed break-words mb-4">
@@ -343,8 +343,8 @@ const TimelineActivo = ({
   if (!eventos || eventos.length === 0) {
     return (
       <div className="w-full py-16 text-center bg-white rounded-xl border border-gray-200 shadow-xs p-6">
-        <FiPackage className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <h4 className="text-base font-bold text-gray-800">Sin eventos en este criterio</h4>
+        <FiPackage className="w-12 h-12 text-gray-300 mx-auto mb-3" aria-hidden="true" />
+        <h3 className="text-base font-bold text-gray-800">Sin eventos en este criterio</h3>
         <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
           No se encontraron hitos históricos asociados al filtro seleccionado. Prueba seleccionando otra categoría o limpiando los filtros.
         </p>

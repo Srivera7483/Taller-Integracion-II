@@ -292,6 +292,7 @@ const Incidencias = () => {
             value={terminoBusqueda}
             onChange={(e) => setTerminoBusqueda(e.target.value)}
             placeholder="Buscar por título, ID o activo..."
+            aria-label="Buscar incidencias por título, ID o activo"
             className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary outline-none transition-all text-sm bg-white shadow-2xs"
           />
         </div>
@@ -359,7 +360,7 @@ const Incidencias = () => {
                       <span>{idTexto.substring(0, 13)}...</span>
                       <FiExternalLink className="w-3 h-3" />
                     </Link>
-                    <h3 className="font-semibold text-gray-900 mt-1">{inc.titulo}</h3>
+                    <h2 className="font-semibold text-gray-900 mt-1 text-base">{inc.titulo}</h2>
                   </div>
                   <StatusBadge status={estadoTexto} />
                 </div>
@@ -479,7 +480,7 @@ const Incidencias = () => {
                               <span className="text-[10px] text-gray-500">{inc.codigo_qr_activo}</span>
                             )}
                           </div>
-                        ) : <span className="text-xs text-gray-400">N/A</span>}
+                        ) : <span className="text-xs text-gray-600">N/A</span>}
                       </td>
 
                       <td className="px-6 py-4">
@@ -519,10 +520,10 @@ const Incidencias = () => {
                             <FiCheckCircle className="w-3.5 h-3.5" /> Finalizar Tarea
                           </button>
                         ) : nombreTecnicoReal ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-gray-400 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-200">
-                            <FiLock className="w-3 h-3" /> De otro técnico
+                          <span className="inline-flex items-center gap-1 text-[11px] text-gray-600 bg-gray-50 px-2.5 py-1.5 rounded-lg border border-gray-200">
+                            <FiLock className="w-3 h-3" aria-hidden="true" /> De otro técnico
                           </span>
-                        ) : <span className="text-xs text-gray-400 italic">Por asignar</span>}
+                        ) : <span className="text-xs text-gray-600 italic">Por asignar</span>}
                       </td>
                     </tr>
                   );

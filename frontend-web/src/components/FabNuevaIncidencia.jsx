@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { FiPlus } from 'react-icons/fi';
-import ModalNuevaIncidenciaMobile from './ModalNuevaIncidenciaMobile';
 import { hasPermission } from '../services/authService';
+
+const ModalNuevaIncidenciaMobile = lazy(() => import('./ModalNuevaIncidenciaMobile'));
 
 /**
  * Floating Action Button (FAB) estilo Material Design para dispositivos móviles.
@@ -53,11 +54,15 @@ const FabNuevaIncidencia = () => {
         </button>
       </div>
 
-      {/* Modal con formulario simplificado adaptado a celulares */}
-      <ModalNuevaIncidenciaMobile
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
+      {/* Modal con formulario simplificado adaptado a celulares (carga diferida TAL-203) */}
+      {isModalOpen && (
+        <Suspense fallback={null}>
+          <ModalNuevaIncidenciaMobile
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+          />
+        </Suspense>
+      )}
     </>
   );
 };

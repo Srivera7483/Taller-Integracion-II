@@ -13,14 +13,6 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.js',
       manifestFilename: 'manifest.json',
-      includeAssets: [
-        'favicon.svg',
-        'apple-touch-icon.png',
-        'pwa-192x192.png',
-        'pwa-512x512.png',
-        'pwa-maskable-192x192.png',
-        'pwa-maskable-512x512.png',
-      ],
       manifest: {
         id: '/',
         name: 'InfraManager - Gestión de Infraestructura TI',
@@ -79,7 +71,16 @@ export default defineConfig({
         ],
       },
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // TAL-203: Precaché enfocado en App Shell e íconos PWA; los chunks lazy se cachean bajo demanda en sw.js
+        globPatterns: [
+          'index.html',
+          'manifest.json',
+          'favicon.svg',
+          'apple-touch-icon.png',
+          'pwa-*.png',
+          'assets/index-*.{js,css}',
+          'assets/vendor-*.js',
+        ],
       },
       devOptions: {
         enabled: true,
@@ -87,6 +88,33 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    // TAL-203: Source maps para auditoría valid-source-maps y división modular de vendors
+    sourcemap: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor-react',
+              test: /[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/,
+              priority: 20,
+            },
+            {
+              name: 'vendor-socket',
+              test: /[\\/]node_modules[\\/](socket\.io-client|engine\.io-client|@socket\.io)[\\/]/,
+              priority: 15,
+            },
+            {
+              name: 'vendor-http',
+              test: /[\\/]node_modules[\\/](axios|workbox-window)[\\/]/,
+              priority: 10,
+            },
+          ],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': {

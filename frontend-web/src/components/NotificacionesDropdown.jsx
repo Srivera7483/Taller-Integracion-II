@@ -8,7 +8,6 @@ import {
   FiTool,
   FiArrowRight,
 } from 'react-icons/fi';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { getUsuarioActual } from '../services/authService';
 import api from '../services/api';
@@ -395,49 +394,26 @@ const NotificacionesDropdown = ({
       >
         <FiBell className="w-5 h-5 transition-transform duration-200 hover:rotate-6" />
 
-        {/* Badge numérico en tiempo real con animación de rebote y desaparición fluida (Criterios 1 y 3) */}
-        <AnimatePresence>
-          {noLeidas > 0 && (
-            <motion.span
-              key="notification-badge"
-              data-testid="notification-badge"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={
-                animarRebote
-                  ? {
-                      scale: [1, 1.45, 0.9, 1.2, 1],
-                      y: [0, -6, 2, -2, 0],
-                      opacity: 1,
-                    }
-                  : { scale: 1, y: 0, opacity: 1 }
-              }
-              exit={{
-                scale: 0,
-                opacity: 0,
-                transition: { duration: 0.35, ease: 'easeInOut' },
-              }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
-              className={`absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[1.35rem] h-5 px-1.5 bg-red-600 text-white text-[11px] font-black rounded-full ring-2 ring-white shadow-md transition-all duration-300 ease-in-out pointer-events-none select-none ${
-                animarRebote ? 'animate-bounce ring-red-300' : ''
-              }`}
-            >
-              {formatBadgeCount(noLeidas)}
-            </motion.span>
-          )}
-        </AnimatePresence>
+        {/* Badge numérico en tiempo real con animación CSS ligera de rebote (Criterios 1 y 3 — TAL-203) */}
+        {noLeidas > 0 && (
+          <span
+            key="notification-badge"
+            data-testid="notification-badge"
+            className={`absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[1.35rem] h-5 px-1.5 bg-red-600 text-white text-[11px] font-black rounded-full ring-2 ring-white shadow-md transition-all duration-300 ease-in-out pointer-events-none select-none animate-notif-badge ${
+              animarRebote ? 'animate-bounce ring-red-300' : ''
+            }`}
+          >
+            {formatBadgeCount(noLeidas)}
+          </span>
+        )}
       </button>
 
       {/* Popover con efecto Glassmorphism y lista de últimas 5 notificaciones */}
-      <AnimatePresence>
-        {abierto && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -6, scale: 0.96, transition: { duration: 0.2 } }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white/95 backdrop-blur-md border border-white/60 shadow-2xl ring-1 ring-black/5 z-50 overflow-hidden"
-            data-testid="notification-dropdown-menu"
-          >
+      {abierto && (
+        <div
+          className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white/95 backdrop-blur-md border border-white/60 shadow-2xl ring-1 ring-black/5 z-50 overflow-hidden animate-notif-dropdown"
+          data-testid="notification-dropdown-menu"
+        >
             {/* Cabecera del popover con contador y botón 'Marcar todo como leído' (Criterio 2) */}
             <div className="flex items-center justify-between px-4 py-3 bg-white/80 border-b border-gray-100 backdrop-blur-sm">
               <div className="flex items-center gap-2">
@@ -571,9 +547,8 @@ const NotificacionesDropdown = ({
                 <FiArrowRight className="w-3 h-3" />
               </Link>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 };

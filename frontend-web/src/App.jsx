@@ -9,13 +9,14 @@ import PublicRoute from './components/PublicRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import AxiosInterceptor from './components/AxiosInterceptor';
 
-// Componentes Estructurales y Vistas (Code Splitting con React.lazy)
-import Layout from './components/Layout';
+// Componentes Estructurales y Vistas (Code Splitting con React.lazy — TAL-203)
+// Login se carga en el bundle inicial para evitar waterfalls de red en el LCP de entrada
+import Login from './views/Login';
+const Layout = lazy(() => import('./components/Layout'));
 const Dashboard = lazy(() => import('./views/Dashboard'));
 const Incidencias = lazy(() => import('./views/Incidencias'));
 const ReporteIncidencia = lazy(() => import('./views/ReporteIncidencia'));
 const Inventario = lazy(() => import('./views/Inventario'));
-const Login = lazy(() => import('./views/Login'));
 const AsignarTecnico = lazy(() => import('./views/AsignarTecnico'));
 const DetalleOrden = lazy(() => import('./views/DetalleOrden'));
 const DetalleIncidencia = lazy(() => import('./views/DetalleIncidencia'));
@@ -28,7 +29,11 @@ const ServerError = lazy(() => import('./views/ServerError'));
 const ModoMantenimiento = lazy(() => import('./views/ModoMantenimiento'));
 
 const RouteFallback = () => (
-  <div className="flex items-center justify-center min-h-[40vh] text-sm text-gray-500">
+  <div
+    role="status"
+    aria-live="polite"
+    className="flex items-center justify-center min-h-[60vh] text-sm text-gray-600"
+  >
     Cargando vista...
   </div>
 );
