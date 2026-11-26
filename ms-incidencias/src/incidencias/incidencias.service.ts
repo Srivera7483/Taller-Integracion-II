@@ -113,7 +113,32 @@ export class IncidenciasService {
   private esIncidenciaCritica(
     prioridad: PrioridadIncidencia,
   ): boolean {
-    return prioridad === PrioridadIncidencia.alta;
+    return (
+      prioridad === PrioridadIncidencia.alta ||
+      prioridad === PrioridadIncidencia.critica
+    );
+  }
+
+  private async obtenerEmailReportante(
+    idReportante?: string | null,
+    emailFallback?: string,
+    authHeader?: string,
+  ): Promise<string | undefined> {
+    if (idReportante) {
+      try {
+        const usuarios = await this.resolverUsuarios(authHeader);
+        const emailResuelto = usuarios.get(idReportante)?.email?.trim();
+        if (emailResuelto && emailResuelto.includes('@')) {
+          return emailResuelto;
+        }
+      } catch {
+        // Usar fallback si ms-auth o BD compartida no están disponibles
+      }
+    }
+    const fallbackLimpio = emailFallback?.trim();
+    return fallbackLimpio && fallbackLimpio.includes('@')
+      ? fallbackLimpio
+      : undefined;
   }
 
   /**
@@ -342,6 +367,7 @@ export class IncidenciasService {
           id_incidencia: creada.id_incidencia,
           id_activo: creada.id_activo,
           id_reportante: usuarioId,
+          ...(emailUsuario ? { email: emailUsuario } : {}),
           titulo: creada.titulo,
           descripcion: creada.descripcion,
           prioridad: prioridadAsignada,
@@ -377,6 +403,7 @@ export class IncidenciasService {
     usuarioId: string,
     rolUsuario: string,
     emailUsuario?: string,
+    authHeader?: string,
   ) {
     if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
       throw new BadRequestException('El ID del estado es obligatorio y debe ser numérico');
@@ -474,10 +501,37 @@ export class IncidenciasService {
     }
 
     if (this.rabbitmqProducer) {
+      const esResolutivo = [
+        'resuelta',
+        'resuelto',
+        'cerrada',
+        'cerrado',
+        'finalizada',
+        'finalizado',
+      ].includes(nuevoEstado.trim().toLowerCase());
+
+      const emailReportante = esResolutivo
+        ? await this.obtenerEmailReportante(
+            resultado.incidencia.id_reportante,
+            emailUsuario,
+            authHeader,
+          )
+        : undefined;
+
       this.rabbitmqProducer
         .emitirIncidenciaActualizada({
           evento: 'INCIDENCIA_ACTUALIZADA',
           ...payloadWs,
+          titulo: resultado.incidencia.titulo,
+          ...(emailReportante
+            ? { emailReportante, email: emailReportante }
+            : {}),
+          ...(resultado.incidencia.diagnostico_tecnico
+            ? {
+                diagnostico_tecnico: resultado.incidencia.diagnostico_tecnico,
+                resolucion: resultado.incidencia.diagnostico_tecnico,
+              }
+            : {}),
         })
         .catch((err) => {
           this.logger.error(
@@ -591,6 +645,7 @@ export class IncidenciasService {
     idTecnico: string,
     rolUsuario: string,
     emailUsuario?: string,
+    authHeader?: string,
   ) {
     const rolNorm = this.normalizarRol(rolUsuario);
     const esSupervisorOAdmin = ['SUPERVISOR', 'ADMINISTRADOR'].includes(rolNorm);
@@ -654,7 +709,7 @@ export class IncidenciasService {
 
       const incidencia = await transaction.incidencias.findUnique({
         where: { id_incidencia: idIncidencia },
-        select: { titulo: true, id_activo: true },
+        select: { titulo: true, id_activo: true, id_reportante: true },
       });
 
       if (!incidencia) {
@@ -681,6 +736,7 @@ export class IncidenciasService {
         historial: nuevoHistorial,
         titulo: incidencia.titulo,
         id_activo: incidencia.id_activo,
+        id_reportante: incidencia.id_reportante,
       };
     });
 
@@ -707,10 +763,20 @@ export class IncidenciasService {
     }
 
     if (this.rabbitmqProducer) {
+      const emailReportante = await this.obtenerEmailReportante(
+        resultado.id_reportante,
+        emailUsuario,
+        authHeader,
+      );
+
       this.rabbitmqProducer
         .emitirIncidenciaActualizada({
           evento: 'INCIDENCIA_ACTUALIZADA',
           ...payloadWs,
+          titulo: resultado.titulo,
+          ...(emailReportante
+            ? { emailReportante, email: emailReportante }
+            : {}),
         })
         .catch((err) => {
           this.logger.error(
@@ -772,6 +838,197 @@ export class IncidenciasService {
     }
 
     return apiIncidencia;
+  }
+
+  /**
+   * TAL-128: Endpoint de Métricas: Tiempo de Resolución Promedio (MTTR) e Indicadores de Incidencias.
+   *
+   * Regla de negocio acordada con el Scrum Master:
+   * Tomar la fecha_creacion del registro más reciente en HISTORIAL_ESTADOS donde la incidencia
+   * pasa a estado "Resuelta" (case-insensitive) como fecha de cierre para calcular el MTTR respecto
+   * a la fecha_creacion de la orden de trabajo vigente (la más reciente) de esa incidencia.
+   */
+  async obtenerEstadisticasTiempoResolucion(authHeader?: string) {
+    const incidencias = await this.prisma.incidencias.findMany({
+      include: {
+        historial_estados: {
+          include: {
+            estado: {
+              select: { id_estado: true, nombre_estado: true },
+            },
+          },
+          orderBy: [{ fecha_creacion: 'desc' }, { id_historial: 'desc' }],
+        },
+        ordenes_trabajo: {
+          orderBy: [{ fecha_creacion: 'desc' }, { id_orden: 'desc' }],
+        },
+      },
+      orderBy: { fecha_creacion: 'desc' },
+    });
+
+    const [activosPorId, usuariosPorId] = await Promise.all([
+      this.resolverActivos(authHeader),
+      this.resolverUsuarios(authHeader),
+    ]);
+
+    const conteoPorEstado: Record<string, number> = {};
+    const conteoPorPrioridad: Record<string, number> = {};
+
+    interface OrdenResueltaItem {
+      id_incidencia: string;
+      id_activo: string;
+      id_tecnico: string | null;
+      horas: number;
+    }
+
+    const ordenesResueltas: OrdenResueltaItem[] = [];
+
+    for (const inc of incidencias) {
+      // 1. Conteo por estado actual
+      const estadosOrdenados = [...(inc.historial_estados ?? [])].sort(
+        (a, b) =>
+          new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime() ||
+          String(b.id_historial ?? '').localeCompare(String(a.id_historial ?? '')),
+      );
+      const estadoActual =
+        estadosOrdenados[0]?.estado?.nombre_estado?.trim() || 'Reportada';
+      conteoPorEstado[estadoActual] = (conteoPorEstado[estadoActual] || 0) + 1;
+
+      // 2. Conteo por prioridad
+      const prioridad = inc.prioridad || 'media';
+      conteoPorPrioridad[prioridad] = (conteoPorPrioridad[prioridad] || 0) + 1;
+
+      // 3. Regla de negocio (Scrum Master TAL-128):
+      // Requiere al menos una orden de trabajo y paso al estado "Resuelta" (case-insensitive)
+      if (!inc.ordenes_trabajo?.length || !inc.historial_estados?.length) {
+        continue;
+      }
+
+      const historialResueltas = (inc.historial_estados ?? []).filter(
+        (h) => h.estado?.nombre_estado?.trim().toLowerCase() === 'resuelta',
+      );
+
+      if (historialResueltas.length === 0) {
+        continue;
+      }
+
+      historialResueltas.sort(
+        (a, b) =>
+          new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime() ||
+          String(b.id_historial ?? '').localeCompare(String(a.id_historial ?? '')),
+      );
+      const ultimoPasoResuelta = historialResueltas[0];
+
+      const ordenesOrdenadas = [...(inc.ordenes_trabajo ?? [])].sort(
+        (a, b) =>
+          new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime() ||
+          String(b.id_orden ?? '').localeCompare(String(a.id_orden ?? '')),
+      );
+      const ordenVigente = ordenesOrdenadas[0];
+
+      const fechaResueltaMs = new Date(ultimoPasoResuelta.fecha_creacion).getTime();
+      const fechaOrdenMs = new Date(ordenVigente.fecha_creacion).getTime();
+
+      const diffMs = fechaResueltaMs - fechaOrdenMs;
+      const horasRaw = Math.max(0, diffMs / 3600000);
+      const horas = Math.round(horasRaw * 100) / 100;
+
+      ordenesResueltas.push({
+        id_incidencia: inc.id_incidencia,
+        id_activo: inc.id_activo,
+        id_tecnico: ordenVigente.id_tecnico ?? null,
+        horas,
+      });
+    }
+
+    const totalOrdenesCerradas = ordenesResueltas.length;
+    let sumaHorasTotal = 0;
+    for (const item of ordenesResueltas) {
+      sumaHorasTotal += item.horas;
+    }
+
+    const promedioHorasTotal =
+      totalOrdenesCerradas > 0
+        ? Math.round((sumaHorasTotal / totalOrdenesCerradas) * 100) / 100
+        : 0;
+
+    // Desglose por Técnico
+    const grupoTecnico = new Map<
+      string | null,
+      { total: number; sumaHoras: number }
+    >();
+    for (const item of ordenesResueltas) {
+      const actual = grupoTecnico.get(item.id_tecnico) || {
+        total: 0,
+        sumaHoras: 0,
+      };
+      actual.total += 1;
+      actual.sumaHoras += item.horas;
+      grupoTecnico.set(item.id_tecnico, actual);
+    }
+
+    const desglosePorTecnico = Array.from(grupoTecnico.entries()).map(
+      ([idTecnico, data]) => {
+        let nombreTecnico: string | null = null;
+        if (idTecnico && usuariosPorId) {
+          const u = usuariosPorId.get(idTecnico);
+          if (u) {
+            nombreTecnico =
+              [u.nombre, u.apellido].filter(Boolean).join(' ').trim() ||
+              u.email ||
+              null;
+          }
+        }
+        return {
+          id_tecnico: idTecnico,
+          nombre_tecnico: nombreTecnico,
+          totalOrdenesCerradas: data.total,
+          promedioHoras:
+            data.total > 0
+              ? Math.round((data.sumaHoras / data.total) * 100) / 100
+              : 0,
+        };
+      },
+    );
+
+    // Desglose por Activo
+    const grupoActivo = new Map<
+      string,
+      { total: number; sumaHoras: number }
+    >();
+    for (const item of ordenesResueltas) {
+      const actual = grupoActivo.get(item.id_activo) || {
+        total: 0,
+        sumaHoras: 0,
+      };
+      actual.total += 1;
+      actual.sumaHoras += item.horas;
+      grupoActivo.set(item.id_activo, actual);
+    }
+
+    const desglosePorActivo = Array.from(grupoActivo.entries()).map(
+      ([idActivo, data]) => {
+        const nombreActivo = activosPorId?.get(idActivo)?.nombre ?? null;
+        return {
+          id_activo: idActivo,
+          nombre_activo: nombreActivo,
+          totalOrdenesCerradas: data.total,
+          promedioHoras:
+            data.total > 0
+              ? Math.round((data.sumaHoras / data.total) * 100) / 100
+              : 0,
+        };
+      },
+    );
+
+    return {
+      promedioHorasTotal,
+      totalOrdenesCerradas,
+      desglosePorTecnico,
+      desglosePorActivo,
+      conteoPorEstado,
+      conteoPorPrioridad,
+    };
   }
 
   private async notificarIncidencia(

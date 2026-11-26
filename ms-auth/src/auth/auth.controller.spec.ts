@@ -67,7 +67,7 @@ describe('AuthController', () => {
 
       const result = await authController.refresh(
         'other=value; refresh_token=valid-refresh-token',
-        {}
+        {},
       );
 
       expect(authServiceMock.refresh).toHaveBeenCalledWith('valid-refresh-token');
@@ -81,7 +81,7 @@ describe('AuthController', () => {
 
       const result = await authController.refresh(
         undefined,
-        { refreshToken: 'valid-body-refresh' }
+        { refreshToken: 'valid-body-refresh' },
       );
 
       expect(authServiceMock.refresh).toHaveBeenCalledWith('valid-body-refresh');
@@ -97,8 +97,32 @@ describe('AuthController', () => {
   });
 
   describe('logout', () => {
-    it('debe retornar confirmación de sesión cerrada', async () => {
-      const result = await authController.logout();
+    it('debe expirar la cookie refresh_token y retornar confirmación de sesión cerrada', async () => {
+      const response = {
+        raw: { setHeader: vi.fn() },
+        header: vi.fn(),
+      };
+
+      const result = await authController.logout(response);
+
+      expect(response.raw.setHeader).toHaveBeenCalledWith(
+        'Set-Cookie',
+        expect.arrayContaining([
+          expect.stringContaining('refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'),
+        ]),
+      );
+      expect(result).toEqual({ message: 'Sesión cerrada exitosamente' });
+    });
+
+    it('debe limpiar la cookie mediante response.header cuando no existe response.raw', async () => {
+      const response = { header: vi.fn() };
+
+      const result = await authController.logout(response);
+
+      expect(response.header).toHaveBeenCalledWith(
+        'Set-Cookie',
+        expect.stringContaining('refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'),
+      );
       expect(result).toEqual({ message: 'Sesión cerrada exitosamente' });
     });
   });
@@ -106,7 +130,10 @@ describe('AuthController', () => {
   describe('getAuthenticatedUser', () => {
     it('debe retornar los datos del usuario adjuntos en la request', async () => {
       const mockReq = { user: { userId: '123', role: 'ADMINISTRADOR' } } as any;
-      vi.spyOn(authServiceMock, 'getAuthenticatedUser').mockResolvedValue({ userId: '123', role: 'ADMINISTRADOR' } as any);
+      vi.spyOn(authServiceMock, 'getAuthenticatedUser').mockResolvedValue({
+        userId: '123',
+        role: 'ADMINISTRADOR',
+      } as any);
 
       const result = await authController.getAuthenticatedUser(mockReq);
 

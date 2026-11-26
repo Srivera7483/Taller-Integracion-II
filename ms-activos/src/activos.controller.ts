@@ -67,6 +67,24 @@ export class ActivosController {
     return this.activosService.obtenerTrazabilidad(id, query);
   }
 
+  @Get(':id_activo')
+  async obtenerActivoPorId(@Param('id_activo') idActivo: string) {
+    const activo = await this.activosService.obtenerPorId(idActivo);
+    if (!activo) {
+      throw new NotFoundException(
+        `No se encontró ningún activo registrado con el identificador '${idActivo}'.`,
+      );
+    }
+
+    return {
+      ...activo,
+      id_activo: activo.id,
+      codigo_qr: activo.codigoQr,
+      numero_serie: activo.numeroSerie ?? null,
+      fecha_creacion: activo.fechaRegistro,
+    };
+  }
+
   @Get()
   @RequirePermissions('activos:gestionar')
   async listarActivos(
