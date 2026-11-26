@@ -1,10 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { FiDownload, FiX, FiShare } from 'react-icons/fi';
+import PWAInstallBanner from './PWAInstallBanner';
 
 /**
- * TAL-170: Componente para sugerir y gestionar la instalación de la PWA
- * en navegadores móviles (Android Chrome, iOS Safari) y de escritorio.
+ * TAL-197: Componente contenedor que orquesta la lógica y el ciclo de vida de instalación PWA.
+ * Gestiona la captura del evento beforeinstallprompt, la persistencia de descarte de 7 días
+ * en localStorage y delega la presentación visual a PWAInstallBanner.
  */
+const CLAVE_EXPIRACION_BANNER = 'pwa_banner_dismissed_until';
+const DURACION_DESCARTE_MILISEGUNDOS = 7 * 24 * 60 * 60 * 1000;
+
+const verificarDescarteVigente = () => {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return false;
+  }
+  const timestampGuardado = window.localStorage.getItem(CLAVE_EXPIRACION_BANNER);
+  if (!timestampGuardado) {
+    return false;
+  }
+  const tiempoExpiracion = parseInt(timestampGuardado, 10);
+  if (Number.isNaN(tiempoExpiracion)) {
+    return false;
+  }
+  // Si la fecha actual aún no alcanza la expiración, el descarte continúa vigente
+  if (Date.now() < tiempoExpiracion) {
+    return true;
+  }
+  // Si expiraron los 7 días, se remueve la clave para permitir nueva sugerencia
+  window.localStorage.removeItem(CLAVE_EXPIRACION_BANNER);
+  return false;
+};
+
 const PWAInstallPrompt = () => {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showPrompt, setShowPrompt] = useState(false);
@@ -27,37 +52,35 @@ const PWAInstallPrompt = () => {
       return;
     }
 
-    // Comprobar si el usuario ya descartó el banner en esta sesión
-    const wasDismissed = sessionStorage.getItem('pwa_prompt_dismissed') === 'true';
+    const descarteVigente = verificarDescarteVigente();
 
-    // Si es iOS y no ha sido descartado en la sesión, sugerir tras 3 segundos
-    if (isIOS && !wasDismissed) {
-      const timer = setTimeout(() => {
+    // En iOS Safari la sugerencia se muestra tras breve espera si no está pospuesta
+    if (isIOS && !descarteVigente) {
+      const temporizadorIOS = setTimeout(() => {
         setShowPrompt(true);
       }, 3000);
-      return () => clearTimeout(timer);
+      return () => clearTimeout(temporizadorIOS);
     }
 
-    // 4. Capturar evento nativo `beforeinstallprompt` (Android Chrome, Edge, Chromium)
-    const handleBeforeInstallPrompt = (event) => {
-      // Prevenir el infobar automático por defecto para controlar la presentación
-      event.preventDefault();
-      setDeferredPrompt(event);
+    // Capturar el evento nativo del navegador antes de que muestre el mini-infobar automático
+    const handleBeforeInstallPrompt = (evento) => {
+      evento.preventDefault();
+      setDeferredPrompt(evento);
 
-      if (!wasDismissed) {
+      if (!verificarDescarteVigente()) {
         setShowPrompt(true);
       }
     };
 
-    // 5. Escuchar evento de instalación completada
+    // Actualizar estado cuando el usuario culmina exitosamente la instalación
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setShowPrompt(false);
       setDeferredPrompt(null);
-      sessionStorage.setItem('pwa_prompt_dismissed', 'true');
+      window.localStorage.removeItem(CLAVE_EXPIRACION_BANNER);
     };
 
-    // Escuchar trigger manual desde otras partes de la UI
+    // Permitir apertura bajo demanda desde la barra de navegación lateral
     const handleManualTrigger = () => {
       setShowPrompt(true);
     };
@@ -76,15 +99,14 @@ const PWAInstallPrompt = () => {
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
 
-    // Mostrar el prompt nativo del navegador
     deferredPrompt.prompt();
 
-    // Esperar la respuesta del usuario (aceptada o cancelada)
-    const choiceResult = await deferredPrompt.userChoice;
+    const resultadoEleccion = await deferredPrompt.userChoice;
 
-    if (choiceResult.outcome === 'accepted') {
+    if (resultadoEleccion.outcome === 'accepted') {
       setIsInstalled(true);
       setShowPrompt(false);
+      window.localStorage.removeItem(CLAVE_EXPIRACION_BANNER);
     }
 
     setDeferredPrompt(null);
@@ -92,7 +114,8 @@ const PWAInstallPrompt = () => {
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    sessionStorage.setItem('pwa_prompt_dismissed', 'true');
+    const tiempoExpiracion = Date.now() + DURACION_DESCARTE_MILISEGUNDOS;
+    window.localStorage.setItem(CLAVE_EXPIRACION_BANNER, tiempoExpiracion.toString());
   };
 
   if (!showPrompt || isInstalled) {
@@ -100,76 +123,11 @@ const PWAInstallPrompt = () => {
   }
 
   return (
-    <aside
-      role="banner"
-      aria-label="Sugerencia de instalación de la aplicación móvil"
-      className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:w-96 z-50 bg-white border border-primary/20 rounded-2xl shadow-xl p-4 transition-all duration-300 ease-in-out animate-in fade-in slide-in-from-bottom-5"
-    >
-      <div className="flex items-start gap-3">
-        {/* Ícono de la App */}
-        <div className="w-12 h-12 rounded-xl bg-primary text-white flex-shrink-0 flex items-center justify-center font-bold text-sm shadow-md ring-2 ring-primary/20 overflow-hidden">
-          <img
-            src="/pwa-192x192.png"
-            alt="InfraManager"
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-        </div>
-
-        {/* Textos informativos */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-gray-900 leading-tight">
-              Instalar InfraManager
-            </h2>
-            <button
-              type="button"
-              onClick={handleDismiss}
-              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-              aria-label="Cerrar sugerencia de instalación"
-            >
-              <FiX className="w-4 h-4" />
-            </button>
-          </div>
-          <p className="text-xs text-gray-600 mt-0.5">
-            Agrega la app a tu pantalla de inicio para una experiencia nativa sin barra de navegación.
-          </p>
-
-          {/* Guía para iOS Safari */}
-          {isIOS ? (
-            <div className="mt-3 bg-primary-50 text-primary-900 rounded-xl p-2.5 text-xs flex items-center gap-2 border border-primary-100">
-              <FiShare className="w-4 h-4 flex-shrink-0 text-primary" />
-              <span>
-                Pulsa <strong className="font-semibold">Compartir</strong> y luego{' '}
-                <strong className="font-semibold">"Agregar a la pantalla de inicio"</strong>.
-              </span>
-            </div>
-          ) : (
-            /* Botones de acción para Android/Chromium */
-            <div className="mt-3 flex items-center gap-2">
-              <button
-                type="button"
-                id="btn-pwa-install"
-                onClick={handleInstallClick}
-                className="flex-1 bg-primary hover:bg-primary-hover active:bg-primary-active text-white text-xs font-semibold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-sm transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:outline-none"
-              >
-                <FiDownload className="w-3.5 h-3.5" />
-                Instalar App
-              </button>
-              <button
-                type="button"
-                onClick={handleDismiss}
-                className="text-xs text-gray-500 hover:text-gray-700 py-2 px-2.5 rounded-xl hover:bg-gray-100 transition-colors"
-              >
-                Ahora no
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </aside>
+    <PWAInstallBanner
+      onInstall={handleInstallClick}
+      onDismiss={handleDismiss}
+      isIOS={isIOS}
+    />
   );
 };
 
