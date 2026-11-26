@@ -181,6 +181,55 @@ const DetalleIncidencia = () => {
       const response = await api.get(`/incidencias/${idIncidencia}`);
       if (response.data) {
         const apiData = response.data;
+        const activoEmbebido = apiData.activo || null;
+
+        let nombreActivo =
+          apiData.nombre_activo ||
+          activoEmbebido?.nombre_activo ||
+          activoEmbebido?.nombre ||
+          null;
+        let codigoQrActivo =
+          apiData.codigo_qr_activo ||
+          activoEmbebido?.codigo_qr ||
+          activoEmbebido?.codigoQr ||
+          null;
+        let numeroSerieActivo =
+          apiData.numero_serie ||
+          apiData.numero_serie_activo ||
+          apiData.sn ||
+          activoEmbebido?.numero_serie ||
+          activoEmbebido?.numeroSerie ||
+          activoEmbebido?.sn ||
+          null;
+
+        // Resolver datos completos del activo antes de renderizar para evitar parpadeo y asegurar S/N
+        if (apiData.id_activo && (!nombreActivo || !numeroSerieActivo)) {
+          try {
+            const activoResp = await api.get(`/activos/${apiData.id_activo}`);
+            const activoData = activoResp.data?.datos || activoResp.data;
+            if (activoData) {
+              nombreActivo =
+                nombreActivo ||
+                activoData.nombre_activo ||
+                activoData.nombre ||
+                null;
+              codigoQrActivo =
+                codigoQrActivo ||
+                activoData.codigo_qr ||
+                activoData.codigoQr ||
+                null;
+              numeroSerieActivo =
+                numeroSerieActivo ||
+                activoData.numero_serie ||
+                activoData.numeroSerie ||
+                activoData.sn ||
+                null;
+            }
+          } catch {
+            // Si el activo no existe o no responde, se mantienen los campos recibidos desde la incidencia
+          }
+        }
+
         const ordenAsociada = apiData.orden_trabajo || apiData.ordenes_trabajo?.[0] || null;
         const idTecnicoApi =
           apiData.id_tecnico_asignado ||
@@ -213,8 +262,9 @@ const DetalleIncidencia = () => {
           titulo: apiData.titulo,
           descripcion: apiData.descripcion,
           id_activo: apiData.id_activo,
-          nombre_activo: apiData.nombre_activo || null,
-          codigo_qr_activo: apiData.codigo_qr_activo || null,
+          nombre_activo: nombreActivo,
+          codigo_qr_activo: codigoQrActivo,
+          numero_serie_activo: numeroSerieActivo,
           nombre_reportante: apiData.nombre_reportante || null,
           prioridad: apiData.prioridad || apiData.prioridad_relativa || 'Media',
           prioridad_relativa: apiData.prioridad_relativa,
@@ -229,8 +279,8 @@ const DetalleIncidencia = () => {
             null,
           asignado: nombreTecnicoApi,
           resolucion: diagnosticoApi || apiData.resolucion || null,
-          horasInvertidas: null,
-          materialesUsados: [],
+          horasInvertidas: apiData.horas_invertidas ?? ordenAsociada?.horas_invertidas ?? null,
+          materialesUsados: Array.isArray(apiData.materiales_usados) ? apiData.materiales_usados : [],
           fechaCierre: ordenAsociada?.fecha_cierre || null,
           evidencias: Array.isArray(apiData.evidencias) ? apiData.evidencias : [],
         });
@@ -444,13 +494,20 @@ const DetalleIncidencia = () => {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
             <h4 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Activo Afectado</h4>
-            <div className="flex items-center gap-2 text-gray-800 font-medium">
-              <FiBox className="w-4 h-4 text-orange-600" aria-hidden="true" />
-              <span>
-                {incidencia.nombre_activo
-                  ? `${incidencia.nombre_activo}${incidencia.codigo_qr_activo ? ` (${incidencia.codigo_qr_activo})` : ''}`
-                  : incidencia.codigo_qr_activo || incidencia.id_activo || 'N/A'}
-              </span>
+            <div className="flex items-start gap-2 text-gray-800 font-medium">
+              <FiBox className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="space-y-0.5 min-w-0">
+                <span className="block">
+                  {incidencia.nombre_activo
+                    ? `${incidencia.nombre_activo}${incidencia.codigo_qr_activo ? ` (${incidencia.codigo_qr_activo})` : ''}`
+                    : incidencia.codigo_qr_activo || incidencia.id_activo || 'Sin activo asociado'}
+                </span>
+                {incidencia.numero_serie_activo && (
+                  <span className="inline-block text-xs font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                    S/N: {incidencia.numero_serie_activo}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div>
@@ -655,8 +712,14 @@ const DetalleIncidencia = () => {
               <span className="text-[11px] uppercase font-bold text-emerald-800 block mb-1">
                 Horas Invertidas
               </span>
-              <span className="text-2xl font-black text-gray-900">{incidencia.horasInvertidas || 1.5}</span>
-              <span className="text-xs text-gray-600 ml-1">horas</span>
+              {incidencia.horasInvertidas != null ? (
+                <>
+                  <span className="text-2xl font-black text-gray-900">{incidencia.horasInvertidas}</span>
+                  <span className="text-xs text-gray-600 ml-1">horas</span>
+                </>
+              ) : (
+                <span className="text-xs text-gray-600 italic">No registradas</span>
+              )}
             </div>
             <div className="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-100">
               <span className="text-[11px] uppercase font-bold text-emerald-800 block mb-1">
@@ -681,7 +744,7 @@ const DetalleIncidencia = () => {
               <FiFileText className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" /> Resolución Técnica
             </span>
             <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-sm text-gray-800 whitespace-pre-wrap">
-              {incidencia.resolucion || 'Intervención técnica completada satisfactoriamente.'}
+              {incidencia.resolucion || 'Sin diagnóstico registrado.'}
             </div>
           </div>
         </div>
