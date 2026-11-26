@@ -51,13 +51,23 @@ const AxiosInterceptor = ({ children }) => {
           return Promise.reject(error);
         }
 
-        // TAL-180: Notificar al contexto de red ante 502/503 del Gateway
-        if (error.response?.status === 502 || error.response?.status === 503) {
-          window.dispatchEvent(new CustomEvent('gateway-error', { detail: { status: error.response.status } }));
+        // TAL-180 / TAL-183: Notificar al contexto de red ante 502/503/504 o corte de red (error.request)
+        const esFalloConectividad =
+          error.response?.status === 502 ||
+          error.response?.status === 503 ||
+          error.response?.status === 504 ||
+          (!error.response && Boolean(error.request));
+
+        if (esFalloConectividad) {
+          const status = error.response?.status || 502;
+          window.dispatchEvent(new CustomEvent('gateway-error', { detail: { status } }));
+          // No redirigir forzosamente a /500 para preservar los datos en pantalla y permitir
+          // que OfflineActionModal o el modo offline capturen la acción (TAL-183).
+          return Promise.reject(error);
         }
 
-        // TAL-169: Si el servidor devuelve error 5xx (500, 502, 503, 504)
-        if (error.response && error.response.status >= 500 && error.response.status < 600) {
+        // TAL-169: Si el servidor devuelve error HTTP 500 no controlado
+        if (error.response && error.response.status === 500) {
           const errorMessage =
             error.response.data?.message ||
             error.response.data?.error ||
@@ -69,12 +79,13 @@ const AxiosInterceptor = ({ children }) => {
           if (location.pathname !== '/500') {
             navigate('/500', {
               state: {
-                status: error.response.status,
+                status: 500,
                 message: errorMessage,
                 from: location.pathname,
               },
             });
           }
+          return Promise.reject(error);
         } else if (error.response && error.response.status >= 400 && error.response.status < 500) {
           // Errores de cliente (400, 403, 404, etc.)
           let errorMessage =
@@ -88,31 +99,6 @@ const AxiosInterceptor = ({ children }) => {
           }
 
           showToast(errorMessage, 'error');
-        } else if (error.request) {
-          // TAL-195: Si el dispositivo está offline, no redirigir a /500 para permitir consulta del catálogo local IndexedDB
-          const isDeviceOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
-          if (isDeviceOffline) {
-            return Promise.reject(error);
-          }
-
-          // TAL-169: Error de red o servidor completamente apagado (ECONNREFUSED / Bad Gateway)
-          let errorMessage = 'Error de red: No se pudo contactar al servidor API Gateway';
-
-          if (error.config?.url?.includes('cloudinary') || error.config?.url?.includes('/evidencias/upload')) {
-            errorMessage = 'Error al subir imagen';
-          }
-
-          showToast(errorMessage, 'error');
-
-          if (location.pathname !== '/500' && location.pathname !== '/login') {
-            navigate('/500', {
-              state: {
-                status: 503,
-                message: 'No se pudo establecer conexión con el API Gateway o los microservicios. Verifica que los servicios estén activos.',
-                from: location.pathname,
-              },
-            });
-          }
         } else {
           showToast('Ocurrió un error inesperado', 'error');
         }
