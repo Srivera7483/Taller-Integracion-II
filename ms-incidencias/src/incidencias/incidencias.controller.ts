@@ -132,6 +132,8 @@ export class IncidenciasController {
       throw new UnauthorizedException('Usuario autenticado inválido');
     }
 
+    const comentarioHistorial = body.comentario ?? body.motivo_rechazo;
+
     return authHeader
       ? this.incidenciasService.actualizarEstado(
           incidenciaId,
@@ -140,6 +142,7 @@ export class IncidenciasController {
           rolUsuario,
           usuario.email,
           authHeader,
+          comentarioHistorial,
         )
       : this.incidenciasService.actualizarEstado(
           incidenciaId,
@@ -147,10 +150,12 @@ export class IncidenciasController {
           idUsuario,
           rolUsuario,
           usuario.email,
+          undefined,
+          comentarioHistorial,
         );
   }
 
-  @Patch(':id_incidencia/prioridad')
+  @Patch([':id_incidencia/prioridad', ':id_incidencia/clasificacion'])
   @RequirePermissions('incidencias:clasificar_prioridad')
   async clasificarPrioridad(
     @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,

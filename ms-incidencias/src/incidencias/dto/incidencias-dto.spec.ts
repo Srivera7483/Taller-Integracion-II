@@ -51,7 +51,14 @@ describe('TAL-165: Validación de DTOs en MS-Incidencias (Incidencias)', () => {
       expect(errors.some((e) => e.property === 'descripcion')).toBe(true);
     });
 
-    it('falla si titulo excede 255 caracteres', async () => {
+    it('acepta titulo de hasta 255 caracteres y falla si excede 255 caracteres', async () => {
+      const dtoValido = plainToInstance(CrearIncidenciaDto, {
+        id_activo: 'c2834b9d-472e-4e44-8d99-52e85e282570',
+        titulo: 'A'.repeat(255),
+        descripcion: 'Descripción válida',
+      });
+      expect(await validate(dtoValido)).toHaveLength(0);
+
       const payload = {
         id_activo: 'c2834b9d-472e-4e44-8d99-52e85e282570',
         titulo: 'A'.repeat(256),
@@ -123,6 +130,26 @@ describe('TAL-165: Validación de DTOs en MS-Incidencias (Incidencias)', () => {
       });
       const errorsLargo = await validate(dtoLargo);
       expect(errorsLargo.some((e) => e.property === 'motivo_rechazo')).toBe(true);
+    });
+
+    it('valida comentario opcional de historial (RF6 / TAL-199) y rechaza vacíos o >500 caracteres', async () => {
+      const dtoOk = plainToInstance(ActualizarEstadoDto, {
+        id_estado: 3,
+        comentario: 'Se reemplazó el cable HDMI y se verificó proyección estable.',
+      });
+      expect(await validate(dtoOk)).toHaveLength(0);
+
+      const dtoEspacios = plainToInstance(ActualizarEstadoDto, {
+        id_estado: 3,
+        comentario: '   ',
+      });
+      expect((await validate(dtoEspacios)).some((e) => e.property === 'comentario')).toBe(true);
+
+      const dtoLargo = plainToInstance(ActualizarEstadoDto, {
+        id_estado: 3,
+        comentario: 'c'.repeat(501),
+      });
+      expect((await validate(dtoLargo)).some((e) => e.property === 'comentario')).toBe(true);
     });
   });
 

@@ -55,6 +55,7 @@ export class AuthController {
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) response: any,
+    @Headers('x-client-type') clientType?: string,
   ): Promise<any> {
     const result = await this.authService.login(loginDto);
     const secureAttribute = process.env.NODE_ENV === 'production' ? '; Secure' : '';
@@ -64,6 +65,13 @@ export class AuthController {
       response.raw.setHeader('Set-Cookie', cookieValue);
     } else {
       response.header('Set-Cookie', cookieValue);
+    }
+
+    const isMobileClient =
+      typeof clientType === 'string' && clientType.trim().toLowerCase() === 'mobile';
+
+    if (isMobileClient) {
+      return result;
     }
 
     const { refreshToken: _refreshToken, ...loginResponse } = result;

@@ -408,6 +408,7 @@ export class IncidenciasService {
     rolUsuario: string,
     emailUsuario?: string,
     authHeader?: string,
+    comentario?: string,
   ) {
     if (!idEstadoNuevo || typeof idEstadoNuevo !== 'number') {
       throw new BadRequestException('El ID del estado es obligatorio y debe ser numérico');
@@ -454,11 +455,17 @@ export class IncidenciasService {
         );
       }
 
+      const comentarioLimpio =
+        typeof comentario === 'string' && comentario.trim().length > 0
+          ? comentario.trim().slice(0, 500)
+          : undefined;
+
       await transaction.historialEstados.create({
         data: {
           id_incidencia: incidencia.id_incidencia,
           id_estado: idEstadoNuevo,
           id_usuario_cambio: usuarioId,
+          ...(comentarioLimpio ? { comentario: comentarioLimpio } : {}),
         },
       });
 
@@ -564,6 +571,7 @@ export class IncidenciasService {
       id_incidencia: evento.id_incidencia,
       estado: evento.estado,
       id_usuario_cambio: evento.id_usuario_cambio,
+      comentario: evento.comentario ?? null,
       fecha_creacion: evento.fecha_creacion,
     }));
   }

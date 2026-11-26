@@ -26,7 +26,7 @@ model Incidencias {
   id_incidencia  String             @id @default(uuid()) @db.Uuid
   id_activo      String             @db.Uuid
   id_reportante  String             @db.Uuid
-  titulo         String             @db.VarChar(100)
+  titulo         String             @db.VarChar(255)
   descripcion    String             @db.Text
   prioridad      PrioridadIncidencia @default(media)
   fecha_creacion DateTime           @default(now()) @db.Timestamp()
@@ -43,6 +43,7 @@ model HistorialEstados {
   id_incidencia     String           @db.Uuid
   id_estado         Int
   id_usuario_cambio String           @db.Uuid
+  comentario        String?          @db.VarChar(500)
   fecha_creacion    DateTime         @default(now()) @db.Timestamp()
 
   incidencia        Incidencias      @relation(fields: [id_incidencia], references: [id_incidencia], onDelete: Cascade)

@@ -420,6 +420,17 @@ describe('IncidenciasController - TAL-4, TAL-117, TAL-127, TAL-140, TAL-194 & TA
           expect(Reflect.getMetadata(ROLES_KEY, handler)).toBeUndefined();
         }
       });
+
+      it('expone el alias PATCH :id_incidencia/clasificacion junto a :id_incidencia/prioridad (TAL-199)', () => {
+        const pathMetadata = Reflect.getMetadata(
+          'path',
+          IncidenciasController.prototype.clasificarPrioridad,
+        );
+        expect(pathMetadata).toEqual([
+          ':id_incidencia/prioridad',
+          ':id_incidencia/clasificacion',
+        ]);
+      });
     });
   });
 });

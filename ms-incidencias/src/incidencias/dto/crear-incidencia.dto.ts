@@ -19,7 +19,7 @@ export class CrearIncidenciaDto {
   @IsString({ message: 'titulo debe ser una cadena de texto' })
   @IsNotEmpty({ message: 'titulo no puede estar vacío' })
   @Matches(/\S/, { message: 'titulo no puede contener únicamente espacios en blanco' })
-  @MaxLength(100, { message: 'titulo no puede exceder 100 caracteres' })
+  @MaxLength(255, { message: 'titulo no puede exceder 255 caracteres' })
   @SanitizeXss()
   titulo!: string;
 

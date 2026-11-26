@@ -798,4 +798,74 @@ const transaction = {
       ).rejects.toThrow('retirada');
     });
   });
+
+  describe('TAL-199: Comentario de trazabilidad en HISTORIAL_ESTADOS (RF6)', () => {
+    it('persiste el comentario en historialEstados al cambiar estado y lo devuelve en listarHistorial', async () => {
+      const incidenciaAsignada = {
+        ...incidenciaCreada,
+        historial_estados: [
+          { estado: { id_estado: 2, nombre_estado: 'Asignada' } },
+        ],
+      };
+      const incidenciaResuelta = {
+        ...incidenciaCreada,
+        historial_estados: [
+          { estado: { id_estado: 3, nombre_estado: 'Resuelta' } },
+        ],
+      };
+
+      transaction.incidencias.findUnique
+        .mockResolvedValueOnce(incidenciaAsignada)
+        .mockResolvedValueOnce(incidenciaResuelta);
+      transaction.estadoIncidencia.findUnique.mockResolvedValue({
+        id_estado: 3,
+        nombre_estado: 'Resuelta',
+      });
+
+      await service.actualizarEstado(
+        'incidencia-1',
+        3,
+        'tecnico-1',
+        'TECNICO',
+        'tecnico@uct.cl',
+        undefined,
+        'Se cambió la lámpara y se probó el equipo.',
+      );
+
+      expect(transaction.historialEstados.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          id_incidencia: 'incidencia-1',
+          id_estado: 3,
+          id_usuario_cambio: 'tecnico-1',
+          comentario: 'Se cambió la lámpara y se probó el equipo.',
+        }),
+      });
+
+      prisma.incidencias = {
+        ...(prisma.incidencias || {}),
+        findUnique: jest.fn().mockResolvedValueOnce({ id_incidencia: 'incidencia-1' }),
+      };
+      prisma.historialEstados = {
+        ...(prisma.historialEstados || {}),
+        findMany: jest.fn().mockResolvedValueOnce([
+          {
+            id_historial: 'hist-1',
+            id_incidencia: 'incidencia-1',
+            estado: { id_estado: 3, nombre_estado: 'Resuelta' },
+            id_usuario_cambio: 'tecnico-1',
+            comentario: 'Se cambió la lámpara y se probó el equipo.',
+            fecha_creacion: new Date('2026-11-26T15:00:00Z'),
+          },
+        ]),
+      };
+
+      const historial = await service.listarHistorial('incidencia-1');
+      expect(historial[0]).toEqual(
+        expect.objectContaining({
+          id_historial: 'hist-1',
+          comentario: 'Se cambió la lámpara y se probó el equipo.',
+        }),
+      );
+    });
+  });
 });

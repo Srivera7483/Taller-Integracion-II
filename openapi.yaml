@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: SCGI API
-  version: 1.5.0
+  version: 1.6.0
   license:
     name: UNLICENSED
     url: https://github.com/Srivera7483/Taller-Integracion-II
@@ -29,6 +29,19 @@ info:
     - Quitar o renombrar rutas o campos, o cambiar su tipo, sube la version mayor (2.0.0)
       y la ruta base pasa a /api/v2.
     - Todo cambio se acuerda entre TI2 y TI4 antes de implementarlo.
+
+    Cambios de la version 1.6.0:
+    - Homologacion de contrato TI-II / TI-IV (TAL-199):
+      - POST /auth/login acepta header opcional `X-Client-Type: mobile` para incluir `refreshToken`
+        en el cuerpo JSON (manteniendo la cookie HttpOnly para clientes web).
+      - POST /auth/refresh documenta recepcion por cookie HttpOnly `refresh_token` o por cuerpo JSON
+        `{ "refreshToken": "..." }` para app movil sin cookies (accessToken 15m, refreshToken 7d).
+      - Se documentan PATCH /incidencias/{id_incidencia}/prioridad y su alias
+        PATCH /incidencias/{id_incidencia}/clasificacion (prioridades baja, media, alta, critica)
+        sin bloqueo 409 al asignar tecnico sin clasificacion previa.
+      - Se agrega campo opcional `comentario` (max 500 caracteres) en CambioEstado e HistorialEstado
+        para trazabilidad RF6.
+      - Se documenta GET /usuarios con respuesta paginada.
 
     Cambios de la version 1.5.0:
     - Se agregan GET /estadisticas/tiempo-resolucion y GET /incidencias/estadisticas/tiempo-resolucion
@@ -81,8 +94,23 @@ paths:
       tags:
         - Autenticacion
       summary: Iniciar sesion con correo y contrasena
+      description: |
+        Emite un access token JWT con vigencia de 15 minutos (`JWT_EXPIRATION`) y un refresh token
+        con vigencia de 7 dias en cookie `HttpOnly; SameSite=Strict`.
+        Si el cliente envia el header `X-Client-Type: mobile`, la respuesta JSON incluye tambien
+        el campo `refreshToken` para su almacenamiento seguro en la app movil sin cookies.
       operationId: iniciarSesion
       security: []
+      parameters:
+        - name: X-Client-Type
+          in: header
+          required: false
+          description: Enviar `mobile` desde la app movil para recibir `refreshToken` en el cuerpo JSON.
+          schema:
+            type: string
+            enum:
+              - mobile
+              - web
       requestBody:
         required: true
         content:
@@ -127,13 +155,24 @@ paths:
         - Autenticacion
       summary: Renovar el token de acceso
       description: |
-        El refresh token se recibe exclusivamente mediante la cookie HttpOnly
-        `refresh_token`, establecida por el endpoint de inicio de sesion.
+        Renueva el access token (vigencia 15 minutos) validando un refresh token vigente (7 dias).
+        Acepta el refresh token mediante la cookie HttpOnly `refresh_token` (clientes web) o
+        en el cuerpo JSON `{ "refreshToken": "..." }` (app movil sin cookies).
       operationId: renovarSesion
       security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: "Refresh token entregado por /auth/login cuando se envio el header X-Client-Type: mobile."
       responses:
         '200':
-          description: Nuevo token de acceso emitido.
+          description: Nuevo token de acceso emitido junto con los permisos vigentes del usuario.
           content:
             application/json:
               schema:
@@ -143,8 +182,18 @@ paths:
                   accessToken:
                     type: string
                     example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.example
+                  permissions:
+                    type: array
+                    items:
+                      type: string
+                    example:
+                      - incidencias:ver
+                      - incidencias:resolver
               example:
                 accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.example
+                permissions:
+                  - incidencias:ver
+                  - incidencias:resolver
         '401':
           $ref: '#/components/responses/NoAutenticado'
         '500':
@@ -166,6 +215,67 @@ paths:
                 $ref: '#/components/schemas/Usuario'
         '401':
           $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /usuarios:
+    get:
+      tags:
+        - Autenticacion
+      summary: Listar usuarios paginados
+      description: Requiere permiso `usuarios:ver` (SUPERVISOR y ADMINISTRADOR).
+      operationId: listarUsuarios
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 15
+      responses:
+        '200':
+          description: Listado paginado de usuarios.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [datos, total, pagina, limite, totalPaginas]
+                properties:
+                  datos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Usuario'
+                  total:
+                    type: integer
+                  totalItems:
+                    type: integer
+                  pagina:
+                    type: integer
+                  currentPage:
+                    type: integer
+                  page:
+                    type: integer
+                  limite:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPaginas:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
         '500':
           $ref: '#/components/responses/ErrorServidor'
 
@@ -542,6 +652,77 @@ paths:
           $ref: '#/components/responses/DatosInvalidos'
         '401':
           $ref: '#/components/responses/NoAutenticado'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /incidencias/{id_incidencia}/prioridad:
+    patch:
+      tags:
+        - Incidencias
+      summary: Clasificar o actualizar la prioridad de una incidencia
+      description: |
+        Permite clasificar la prioridad de una incidencia (`baja`, `media`, `alta`, `critica`).
+        Requiere permiso `incidencias:clasificar_prioridad`.
+        No es prerrequisito bloqueante (no retorna 409) para asignar un tecnico.
+      operationId: clasificarPrioridadIncidencia
+      parameters:
+        - $ref: '#/components/parameters/IdIncidencia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClasificarPrioridad'
+      responses:
+        '200':
+          description: Prioridad actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incidencia'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /incidencias/{id_incidencia}/clasificacion:
+    patch:
+      tags:
+        - Incidencias
+      summary: Clasificar la prioridad de una incidencia (alias de /prioridad)
+      description: |
+        Alias equivalente a `PATCH /incidencias/{id_incidencia}/prioridad`, acordado con TI-IV
+        (sin bloqueo 409 al asignar tecnico sin clasificacion previa).
+      operationId: clasificarIncidenciaAlias
+      parameters:
+        - $ref: '#/components/parameters/IdIncidencia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClasificarPrioridad'
+      responses:
+        '200':
+          description: Prioridad actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incidencia'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
         '404':
           $ref: '#/components/responses/NoEncontrado'
         '500':
@@ -1097,8 +1278,16 @@ components:
       properties:
         token:
           type: string
-          description: JWT firmado. Su contenido se describe en autenticacionJwt.
+          description: JWT firmado (access token, vigencia 15m). Su contenido se describe en autenticacionJwt.
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example.signature
+        accessToken:
+          type: string
+          description: Alias del access token JWT.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example.signature
+        refreshToken:
+          type: string
+          description: "Refresh token JWT (vigencia 7d). Incluido en el cuerpo JSON solo cuando se envia el header X-Client-Type: mobile."
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.signature
         usuario:
           $ref: '#/components/schemas/Usuario'
 
@@ -1370,6 +1559,25 @@ components:
         descripcion:
           type: string
           minLength: 1
+        prioridad:
+          $ref: '#/components/schemas/PrioridadIncidencia'
+
+    PrioridadIncidencia:
+      type: string
+      enum:
+        - baja
+        - media
+        - alta
+        - critica
+      default: media
+
+    ClasificarPrioridad:
+      type: object
+      required:
+        - prioridad
+      properties:
+        prioridad:
+          $ref: '#/components/schemas/PrioridadIncidencia'
 
     CambioEstado:
       type: object
@@ -1379,6 +1587,10 @@ components:
         id_estado:
           type: integer
           description: Estado al que pasa la incidencia.
+        comentario:
+          type: string
+          maxLength: 500
+          description: Comentario opcional de trazabilidad registrado en el historial de estados (RF6).
 
     HistorialEstado:
       type: object
@@ -1401,6 +1613,11 @@ components:
         id_usuario_cambio:
           type: string
           format: uuid
+        comentario:
+          type: string
+          nullable: true
+          maxLength: 500
+          description: Comentario opcional asociado al cambio de estado (RF6).
         fecha_creacion:
           type: string
           format: date-time

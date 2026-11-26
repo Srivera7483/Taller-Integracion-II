@@ -10,6 +10,13 @@ export class ActualizarEstadoDto {
   id_estado!: number;
 
   @IsOptional()
+  @IsString({ message: 'El comentario debe ser una cadena de texto' })
+  @Matches(/\S/, { message: 'El comentario no puede contener únicamente espacios en blanco' })
+  @MaxLength(500, { message: 'El comentario no puede exceder 500 caracteres' })
+  @SanitizeXss()
+  comentario?: string;
+
+  @IsOptional()
   @IsString({ message: 'El motivo de rechazo debe ser una cadena de texto' })
   @Matches(/\S/, { message: 'El motivo de rechazo no puede contener únicamente espacios en blanco' })
   @MaxLength(500, { message: 'El motivo de rechazo no puede exceder 500 caracteres' })
