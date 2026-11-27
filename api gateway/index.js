@@ -6,6 +6,7 @@ const fastifyCors = require('@fastify/cors');
 const rateLimit = require('@fastify/rate-limit');
 const RateLimitStore = require('./rate-limit-store');
 const KillSwitchManager = require('./kill-switch');
+const { AuditLogger } = require('./audit-logger');
 const { Server: IoServer } = require('socket.io');
 const { io: createIoClient } = require('socket.io-client');
 const { attachRedisAdapter } = require('./redis-adapter');
@@ -207,8 +208,33 @@ const buildGateway = (options = {}) => {
     const killSwitch = options.killSwitchManager || new KillSwitchManager(options);
     fastify.killSwitch = killSwitch;
 
-    // TAL-4: Middleware / Hook de Kill Switch para interceptar operaciones mutantes
+    const activosTargetUrl = options.activosUrl || process.env.MS_ACTIVOS_URL || 'http://localhost:3003';
+    const incidenciasTargetUrl = options.incidenciasUrl || process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002';
+    const authTargetUrl = options.authUrl || process.env.MS_AUTH_URL || 'http://localhost:3001';
+    const notificacionesTargetUrl =
+        options.notificacionesUrl || process.env.MS_NOTIFICACIONES_URL || 'http://127.0.0.1:3004';
+
+    const auditLogger =
+        options.auditLogger ||
+        new AuditLogger({
+            ...options,
+            authUrl: authTargetUrl,
+            incidenciasUrl: incidenciasTargetUrl,
+            activosUrl: activosTargetUrl,
+            notificacionesUrl: notificacionesTargetUrl,
+            adminApiKey: killSwitch.adminApiKey,
+            fastifyLogger: fastify.log,
+        });
+    fastify.auditLogger = auditLogger;
+
+    const AUDIT_START_NS = Symbol('auditStartNs');
+
+    // TAL-4 & TAL-178: Hook de inicio de petición (marca temporal de alta resolución + Kill Switch)
     fastify.addHook('onRequest', async (request, reply) => {
+        if (auditLogger.isMutatingMethod(request.method)) {
+            request[AUDIT_START_NS] = process.hrtime.bigint();
+        }
+
         // Compatibilidad: Redirige internamente rutas /api/* a /api/v1/*
         if (request.raw.url && /^\/api\/(?!v1(\/|$))/.test(request.raw.url)) {
             request.raw.url = request.raw.url.replace(/^\/api\//, '/api/v1/');
@@ -229,6 +255,13 @@ const buildGateway = (options = {}) => {
                     fecha_activacion: status.fecha_activacion,
                 });
             return reply;
+        }
+    });
+
+    // TAL-178: Registro estructurado no bloqueante (< 2 ms) de transacciones mutantes (POST, PUT, PATCH, DELETE)
+    fastify.addHook('onResponse', async (request, reply) => {
+        if (auditLogger.isMutatingMethod(request.method)) {
+            auditLogger.recordTransaction(request, reply, request[AUDIT_START_NS]);
         }
     });
 
@@ -311,6 +344,33 @@ const buildGateway = (options = {}) => {
     fastify.post('/api/v1/kill-switch', updateKillSwitchStatus);
     fastify.post('/api/v1/admin/kill-switch', updateKillSwitchStatus);
     fastify.put('/api/v1/kill-switch', updateKillSwitchStatus);
+
+    // TAL-178: Consulta administrativa paginada de auditoría y salud de microservicios (PBAC)
+    fastify.get('/api/v1/auditoria', async (request, reply) => {
+        const authResult = auditLogger.authorizeAuditAccess(request);
+        if (!authResult.authorized) {
+            const nowIso = new Date().toISOString();
+            return reply.code(authResult.statusCode).send({
+                statusCode: authResult.statusCode,
+                error: authResult.error,
+                codigo: authResult.codigo,
+                mensaje: authResult.mensaje,
+                message: authResult.mensaje,
+                timestamp: nowIso,
+                path: '/api/v1/auditoria',
+            });
+        }
+
+        const query = request.query || {};
+        const resultadoLogs = auditLogger.queryLogs(query);
+        const includeHealth = String(query.includeHealth ?? 'true').toLowerCase() !== 'false';
+        const servicios = includeHealth ? await auditLogger.checkMicroservicesHealth() : null;
+
+        return reply.code(200).send({
+            ...resultadoLogs,
+            ...(servicios ? { servicios } : {}),
+        });
+    });
 
     const handleProxyError = (reply, error) => {
         fastify.log.error(error, 'Fallo al conectar con el microservicio de destino');

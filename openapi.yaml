@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: SCGI API
-  version: 1.5.0
+  version: 1.6.0
   license:
     name: UNLICENSED
     url: https://github.com/Srivera7483/Taller-Integracion-II
@@ -29,6 +29,10 @@ info:
     - Quitar o renombrar rutas o campos, o cambiar su tipo, sube la version mayor (2.0.0)
       y la ruta base pasa a /api/v2.
     - Todo cambio se acuerda entre TI2 y TI4 antes de implementarlo.
+
+    Cambios de la version 1.6.0:
+    - Se agrega GET /auditoria para consulta administrativa paginada y filtrable de transacciones
+      mutantes registradas en el API Gateway y estado de salud de los microservicios (TAL-178).
 
     Cambios de la version 1.5.0:
     - Se agregan GET /estadisticas/tiempo-resolucion y GET /incidencias/estadisticas/tiempo-resolucion
@@ -69,6 +73,8 @@ tags:
     description: Activos, sus catalogos y mantenimientos preventivos (RF2, RF9).
   - name: Incidencias
     description: Incidencias, ciclo de vida, ordenes de trabajo y evidencias (RF3 a RF7).
+  - name: Auditoria
+    description: Bitacora estructurada de transacciones mutantes y salud operativa de microservicios (TAL-178).
 
 paths:
 
@@ -931,6 +937,99 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorServidor'
 
+  # ----------------------------------------------------------------
+  # Auditoria y monitoreo administrativo en API Gateway (TAL-178)
+  # ----------------------------------------------------------------
+
+  /auditoria:
+    get:
+      tags:
+        - Auditoria
+      summary: Consultar bitacora paginada de auditoria y salud de microservicios
+      description: |
+        Entrega los registros estructurados de operaciones mutantes (POST, PUT, PATCH, DELETE)
+        capturados en el API Gateway dentro de un buffer circular acotado en memoria (sin alterar
+        el MER ni depender del sistema de archivos del contenedor) junto con el estado de salud
+        en vivo de los cuatro microservicios. Exige JWT valido con permisos administrativos PBAC
+        (usuarios:gestionar, estadisticas:ver o auditoria:ver).
+      operationId: listarRegistrosAuditoria
+      security:
+        - autenticacionJwt: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Numero de pagina a consultar.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Cantidad maxima de registros por pagina (maximo 100).
+        - name: metodo
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filtro por metodo HTTP (ej. POST, PUT, PATCH, DELETE o lista separada por comas).
+        - name: servicio
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - ms-auth
+              - ms-incidencias
+              - ms-activos
+              - ms-notificaciones
+              - api-gateway
+          description: Filtro por microservicio destino.
+        - name: usuario
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filtro parcial por ID, correo o rol del usuario responsable.
+        - name: statusCode
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filtro por codigo HTTP exacto (ej. 201, 403, 503) o familia (2xx, 4xx, 5xx, error, exito).
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Busqueda libre sobre ruta, entidad, usuario, accion o servicio.
+        - name: includeHealth
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: Si es true, incluye la verificacion en vivo de los 4 microservicios.
+      responses:
+        '200':
+          description: Bitacora de auditoria y salud de microservicios obtenidas exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BitacoraAuditoriaResponse'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
 components:
 
   securitySchemes:
@@ -1685,3 +1784,183 @@ components:
             media: 8
             alta: 5
             critica: 1
+
+    RegistroAuditoria:
+      type: object
+      required:
+        - id_auditoria
+        - timestamp
+        - metodo
+        - ruta
+        - servicio_destino
+        - accion
+        - entidad
+        - id_entidad
+        - status_code
+        - latencia_ms
+        - ip_origen
+        - usuario
+      properties:
+        id_auditoria:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        metodo:
+          type: string
+          enum:
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+        ruta:
+          type: string
+          description: Ruta normalizada bajo /api/v1/* con parametros sensibles redactados.
+        servicio_destino:
+          type: string
+          enum:
+            - ms-auth
+            - ms-incidencias
+            - ms-activos
+            - ms-notificaciones
+            - api-gateway
+        accion:
+          type: string
+          enum:
+            - CREACION
+            - ACTUALIZACION
+            - ELIMINACION
+            - CAMBIO_ESTADO
+            - LOGIN
+            - LOGOUT
+            - EVENTO_SISTEMA
+        entidad:
+          type: string
+        id_entidad:
+          type: string
+        status_code:
+          type: integer
+        latencia_ms:
+          type: number
+          format: float
+        ip_origen:
+          type: string
+        usuario:
+          type: object
+          required:
+            - id
+            - rol
+            - autenticado
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+              nullable: true
+            rol:
+              type: string
+            autenticado:
+              type: boolean
+
+    SaludMicroservicio:
+      type: object
+      required:
+        - nombre
+        - estado
+        - operativo
+      properties:
+        nombre:
+          type: string
+        estado:
+          type: string
+          enum:
+            - UP
+            - DEGRADED
+            - DOWN
+        operativo:
+          type: boolean
+        codigo_http:
+          type: integer
+          nullable: true
+        latencia_ms:
+          type: number
+          format: float
+          nullable: true
+        detalle:
+          type: string
+          nullable: true
+
+    BitacoraAuditoriaResponse:
+      type: object
+      required:
+        - data
+        - paginacion
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegistroAuditoria'
+        paginacion:
+          type: object
+          required:
+            - total
+            - page
+            - limit
+            - total_paginas
+            - capacidad_buffer
+            - registros_en_buffer
+            - almacenamiento_efimero
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+            total_paginas:
+              type: integer
+            capacidad_buffer:
+              type: integer
+            registros_en_buffer:
+              type: integer
+            almacenamiento_efimero:
+              type: boolean
+        servicios:
+          type: object
+          nullable: true
+          required:
+            - estado_general
+            - timestamp
+            - gateway
+            - microservicios
+          properties:
+            estado_general:
+              type: string
+              enum:
+                - UP
+                - DEGRADED
+                - DOWN
+            timestamp:
+              type: string
+              format: date-time
+            gateway:
+              type: object
+              required:
+                - nombre
+                - estado
+                - operativo
+                - uptime_segundos
+              properties:
+                nombre:
+                  type: string
+                estado:
+                  type: string
+                operativo:
+                  type: boolean
+                uptime_segundos:
+                  type: integer
+            microservicios:
+              type: array
+              items:
+                $ref: '#/components/schemas/SaludMicroservicio'
