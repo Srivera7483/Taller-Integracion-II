@@ -49,24 +49,44 @@ async function main() {
   const reportantesCreados = []; // <-- Arreglo para guardar los IDs de los reportantes reales
 
   for (const u of usuariosData) {
-    const user = await authPrisma.user.upsert({
-      where: { rut_o_id: u.rut },
-      update: {
-        nombre: u.nombre,
-        apellido: u.apellido,
-        email: u.email,
-        passwordHash: hash,
-        roleId: u.role,
-      },
-      create: {
-        rut_o_id: u.rut,
-        nombre: u.nombre,
-        apellido: u.apellido,
-        email: u.email,
-        passwordHash: hash,
-        roleId: u.role,
+    const existentes = await authPrisma.user.findMany({
+      where: {
+        OR: [{ rut_o_id: u.rut }, { email: u.email }],
       },
     });
+
+    let user;
+    if (existentes.length > 0) {
+      const [principal, ...duplicados] = existentes;
+      if (duplicados.length > 0) {
+        await authPrisma.user.deleteMany({
+          where: { id: { in: duplicados.map((d) => d.id) } },
+        });
+      }
+      user = await authPrisma.user.update({
+        where: { id: principal.id },
+        data: {
+          rut_o_id: u.rut,
+          nombre: u.nombre,
+          apellido: u.apellido,
+          email: u.email,
+          passwordHash: hash,
+          roleId: u.role,
+          fechaEliminacion: null,
+        },
+      });
+    } else {
+      user = await authPrisma.user.create({
+        data: {
+          rut_o_id: u.rut,
+          nombre: u.nombre,
+          apellido: u.apellido,
+          email: u.email,
+          passwordHash: hash,
+          roleId: u.role,
+        },
+      });
+    }
 
     if (u.role === rolTecnico.id) tecnicosCreados.push(user.id || user.userId);
     if (u.role === rolReportante.id) reportantesCreados.push(user.id || user.userId);
