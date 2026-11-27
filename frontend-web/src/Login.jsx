@@ -139,20 +139,20 @@ const Login = () => {
         {/* Fondo decorativo inclinado */}
         <div className="absolute top-0 left-0 w-full h-64 bg-primary/5 -skew-y-3 transform origin-top-left -z-10" />
 
-        {/* Tarjeta de autenticación */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200/90 p-8 w-full max-w-sm fade-in-up transition-all relative z-10">
+        {/* Tarjeta de autenticación (sin opacidad 0 inicial para LCP inmediato — TAL-203) */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200/90 p-8 w-full max-w-sm transition-shadow relative z-10">
 
           {/* Encabezado con ícono y marca institucional */}
           <div className="flex flex-col items-center justify-center gap-1.5 mb-6 text-center">
             <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center text-2xl mb-1 shadow-md shadow-primary/20">
-              <IoServer />
+              <IoServer aria-hidden="true" />
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xl font-extrabold text-gray-900 tracking-tight">Infra<span className="text-primary font-black">Manager</span></span>
+              <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">Infra<span className="text-primary font-black">Manager</span></h1>
               <span className="text-[10px] font-bold uppercase tracking-wider bg-primary-50 text-primary px-1.5 py-0.5 rounded-lg border border-primary-200">UCT</span>
             </div>
-            <p className="text-xs text-gray-500 font-medium">Universidad Católica de Temuco</p>
-            <p id="view-title" className="text-sm font-semibold text-gray-700 mt-2">
+            <p className="text-xs text-gray-600 font-medium">Universidad Católica de Temuco — Gestión de Infraestructura TI e Incidencias</p>
+            <p id="view-title" className="text-sm font-semibold text-gray-700 mt-1.5">
               {mode === 'login' ? 'Iniciar sesión en tu cuenta' : 'Crear una cuenta nueva'}
             </p>
           </div>

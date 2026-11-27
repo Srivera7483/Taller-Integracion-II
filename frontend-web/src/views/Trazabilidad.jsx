@@ -91,8 +91,12 @@ const Trazabilidad = () => {
         {/* Selector de Activo y Botón Refrescar */}
         <div className="flex items-center flex-wrap gap-2.5">
           <div className="relative">
+            <label htmlFor="selector-activo-trazabilidad" className="sr-only">
+              Seleccionar activo para consultar trazabilidad
+            </label>
             <select
               id="selector-activo-trazabilidad"
+              aria-label="Seleccionar activo para consultar trazabilidad"
               value={activoSeleccionado}
               onChange={(e) => handleCambiarActivo(e.target.value)}
               className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-primary/20 focus:border-primary focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring transition shadow-2xs pr-8"

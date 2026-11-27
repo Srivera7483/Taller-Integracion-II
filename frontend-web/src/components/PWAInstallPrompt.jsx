@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import PWAInstallBanner from './PWAInstallBanner';
+import React, { Suspense, lazy, useState, useEffect } from 'react';
+
+const PWAInstallBanner = lazy(() => import('./PWAInstallBanner'));
 
 /**
  * TAL-197: Componente contenedor que orquesta la lógica y el ciclo de vida de instalación PWA.
@@ -123,11 +124,13 @@ const PWAInstallPrompt = () => {
   }
 
   return (
-    <PWAInstallBanner
-      onInstall={handleInstallClick}
-      onDismiss={handleDismiss}
-      isIOS={isIOS}
-    />
+    <Suspense fallback={null}>
+      <PWAInstallBanner
+        onInstall={handleInstallClick}
+        onDismiss={handleDismiss}
+        isIOS={isIOS}
+      />
+    </Suspense>
   );
 };
 

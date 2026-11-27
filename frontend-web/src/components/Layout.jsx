@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload, FiRefreshCw } from 'react-icons/fi';
 import Header from './Header';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
-import ColaPendientesModal from './ColaPendientesModal';
 import { useColaSincronizacion } from '../hooks/useColaSincronizacion';
 import { cerrarSesion, getUsuarioActual, hasPermission } from '../services/authService';
+
+const ColaPendientesModal = lazy(() => import('./ColaPendientesModal'));
 
 const Layout = () => {
   const location = useLocation();
@@ -201,7 +202,11 @@ const Layout = () => {
             data-testid="boton-cola-sincronizacion-sidebar"
             className="w-full flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-left cursor-pointer group shadow-2xs"
             title="Ver cola de sincronización offline"
-            aria-label={`Ver cola de sincronización offline. ${cantidadPendientes} pendientes.`}
+            aria-label={
+              cantidadPendientes === 0
+                ? 'Todo Sincronizado — Ver cola de sincronización offline'
+                : `${cantidadPendientes} pendiente${cantidadPendientes === 1 ? '' : 's'} — Ver cola de sincronización offline`
+            }
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div
@@ -252,7 +257,7 @@ const Layout = () => {
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors cursor-pointer border border-red-200"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-xl transition-colors cursor-pointer border border-red-200"
           >
             <FiLogOut className="w-4 h-4" />
             <span>Cerrar Sesión</span>
@@ -304,12 +309,16 @@ const Layout = () => {
       {/* Floating Action Button for New Incidents */}
       <FabNuevaIncidencia />
 
-      {/* Modal de Cola de Cambios Pendientes (TAL-198) */}
-      <ColaPendientesModal
-        estaAbierto={estaAbiertoModalCola}
-        alCerrar={() => setEstaAbiertoModalCola(false)}
-        controladorColaExterno={controladorCola}
-      />
+      {/* Modal de Cola de Cambios Pendientes (TAL-198 — carga diferida TAL-203) */}
+      {estaAbiertoModalCola && (
+        <Suspense fallback={null}>
+          <ColaPendientesModal
+            estaAbierto={estaAbiertoModalCola}
+            alCerrar={() => setEstaAbiertoModalCola(false)}
+            controladorColaExterno={controladorCola}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

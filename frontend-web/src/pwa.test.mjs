@@ -146,5 +146,16 @@ describe('TAL-170: Migración Inicial a PWA (Manifest y Criterios Básicos)', ()
     assert.ok(layoutCode.includes('pwa-install-trigger'), 'Layout.jsx debe incluir disparador de instalación');
     assert.ok(layoutCode.includes('Instalar App'), 'Layout.jsx debe mostrar la acción de instalar app');
   });
+
+  test('TAL-203: robots.txt existe en public/ y sw.js deduplica el manifiesto de precaché', () => {
+    const robotsPath = path.join(rootDir, 'public', 'robots.txt');
+    assert.ok(fs.existsSync(robotsPath), 'public/robots.txt debe existir para cumplir SEO en Lighthouse');
+    const robots = fs.readFileSync(robotsPath, 'utf8');
+    assert.match(robots, /User-agent:/i);
+    assert.match(robots, /Allow:\s*\//i);
+
+    const swCode = fs.readFileSync(path.join(rootDir, 'src', 'sw.js'), 'utf8');
+    assert.ok(swCode.includes('new Set('), 'sw.js debe deduplicar urlsPrecache para evitar errores en Cache.addAll()');
+  });
 });
 
