@@ -1,0 +1,28 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 5
+      arrivalRate: 4
+      name: "Rafaga anti-fuerza bruta (>5 intentos / 15 min por IP)"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Brute force POST /api/v1/auth/login"
+    weight: 50
+    flow:
+      - post:
+          url: "/api/v1/auth/login"
+          json:
+            correo: "reportante@uct.cl"
+            password: "password_incorrecto_tal10"
+
+  - name: "Brute force POST /api/v1/autenticacion/inicio-sesion"
+    weight: 50
+    flow:
+      - post:
+          url: "/api/v1/autenticacion/inicio-sesion"
+          json:
+            correo: "reportante@uct.cl"
+            password: "password_incorrecto_tal10"

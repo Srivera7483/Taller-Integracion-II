@@ -1,0 +1,47 @@
+config:
+  target: "http://localhost:3000"
+  processor: "./processor.js"
+  phases:
+    - duration: 5
+      arrivalRate: 10
+      rampTo: 50
+      name: "Warmup 10 a 50 req/s"
+    - duration: 20
+      arrivalRate: 50
+      name: "Concurrencia sostenida 50 req/s"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "POST /api/v1/incidencias (Escritura + RabbitMQ)"
+    weight: 30
+    flow:
+      - post:
+          url: "/api/v1/incidencias"
+          beforeRequest: "prepararContextoConcurrencia"
+          headers:
+            Authorization: "Bearer {{ jwt_token }}"
+          json:
+            id_activo: "{{ id_activo }}"
+            titulo: "{{ titulo }}"
+            descripcion: "{{ descripcion }}"
+            prioridad: "{{ prioridad }}"
+
+  - name: "GET /api/v1/incidencias?page=1&limit=10 (Lectura paginada)"
+    weight: 40
+    flow:
+      - get:
+          url: "/api/v1/incidencias?page=1&limit=10"
+          beforeRequest: "prepararContextoConcurrencia"
+          headers:
+            Authorization: "Bearer {{ jwt_token }}"
+
+  - name: "GET /api/v1/activos/validar-qr (Validacion QR)"
+    weight: 30
+    flow:
+      - get:
+          url: "/api/v1/activos/validar-qr?codigoQr={{ codigo_qr }}"
+          beforeRequest: "prepararContextoConcurrencia"
+          headers:
+            Authorization: "Bearer {{ jwt_token }}"
