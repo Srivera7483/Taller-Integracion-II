@@ -15,7 +15,17 @@ import {
 import { ValidarQrDto } from './dto/validar-qr.dto';
 import { ValidarFiltroEstadisticasDto } from './dto/filtrar-estadisticas.dto';
 import { TrazabilidadQueryDto } from './dto/trazabilidad-query.dto';
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+  Optional,
+} from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { JwtService } from '@nestjs/jwt';
+import { firstValueFrom } from 'rxjs';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from './prisma.service';
 import { CrearMantenimientoDto } from './dto/crear-mantenimiento.dto';
 
@@ -458,7 +468,57 @@ export class ActivosService {
     this.crearSemillaMantenimiento('mant-005', 'SW-CORE-01', '2026-11-12T16:00:00.000Z', 'Switch de Distribución Cisco Catalyst 9300', 'SW-CORE-01', 'Edificio Central - Sala de Comunicaciones 1', 'REDES'),
   ];
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly httpService?: HttpService,
+    @Optional() private readonly jwtService?: JwtService,
+  ) {}
+
+  private obtenerEndpointIncidencias(): string {
+    const rawBase = (process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002')
+      .trim()
+      .replace(/\/+$/, '');
+    if (rawBase.endsWith('/incidencias')) {
+      return rawBase;
+    }
+    if (rawBase.endsWith('/api/v1')) {
+      return `${rawBase}/incidencias`;
+    }
+    return `${rawBase}/api/v1/incidencias`;
+  }
+
+  private async obtenerIncidenciasRealesDeActivo(idActivo: string): Promise<any[]> {
+    if (
+      !this.httpService ||
+      !this.jwtService ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idActivo)
+    ) {
+      return [];
+    }
+
+    try {
+      const token = this.jwtService.sign(
+        {
+          sub: '00000000-0000-4000-8000-000000000001',
+          email: 'trazabilidad-activos@uct.cl',
+          rol: 'SUPERVISOR',
+          permissions: ['incidencias:ver'],
+        },
+        { expiresIn: '2m' },
+      );
+      const url = `${this.obtenerEndpointIncidencias()}?id_activo=${encodeURIComponent(idActivo)}&limite=50`;
+      const response = await firstValueFrom(
+        this.httpService.get(url, {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 3500,
+        }),
+      );
+      const data = response?.data?.datos || response?.data?.data || response?.data;
+      return Array.isArray(data) ? data : [];
+    } catch {
+      return [];
+    }
+  }
 
   async listarMantenimientos(filtros?: { startDate?: string; endDate?: string; id_activo?: string }) {
     let fechaInicio: Date | undefined;
@@ -763,37 +823,245 @@ export class ActivosService {
     return this.activosEnMemoria.find((item) => item.id === id) || null;
   }
 
-  async listarTodos(query?: { page?: number; limit?: number }): Promise<Activo[]> {
+  async listarTodos(query?: { page?: number; limit?: number; busqueda?: string }): Promise<Activo[]> {
     const page = Math.max(1, Number(query?.page) || 1);
     const limit = Math.max(1, Math.min(50, Number(query?.limit) || 50));
     const skip = (page - 1) * limit;
+    const termino = query?.busqueda?.trim();
 
     try {
       if (this.prisma?.activo) {
+        const where = termino
+          ? {
+              OR: [
+                { nombre: { contains: termino, mode: 'insensitive' as const } },
+                { codigoQr: { contains: termino, mode: 'insensitive' as const } },
+                { numeroSerie: { contains: termino, mode: 'insensitive' as const } },
+                { ubicacion: { contains: termino, mode: 'insensitive' as const } },
+                { modelo: { contains: termino, mode: 'insensitive' as const } },
+              ],
+            }
+          : undefined;
         const activosDb = await this.prisma.activo.findMany({
+          where,
           orderBy: { fechaRegistro: 'desc' },
           skip,
           take: limit,
         });
-        if (activosDb.length > 0) {
+        if (activosDb.length > 0 || termino) {
           return activosDb as unknown as Activo[];
         }
       }
     } catch {
       // Fallback a memoria
     }
-    return this.activosEnMemoria.slice(skip, skip + limit);
+
+    let lista = this.activosEnMemoria;
+    if (termino) {
+      const txt = termino.toLowerCase();
+      lista = lista.filter(
+        (a) =>
+          a.nombre.toLowerCase().includes(txt) ||
+          a.codigoQr.toLowerCase().includes(txt) ||
+          (a.numeroSerie || '').toLowerCase().includes(txt) ||
+          a.ubicacion.toLowerCase().includes(txt),
+      );
+    }
+    return lista.slice(skip, skip + limit);
   }
 
-  async contarTotalActivos(): Promise<number> {
+  async contarTotalActivos(busqueda?: string): Promise<number> {
+    const termino = busqueda?.trim();
     try {
       if (this.prisma?.activo) {
-        return await this.prisma.activo.count();
+        const where = termino
+          ? {
+              OR: [
+                { nombre: { contains: termino, mode: 'insensitive' as const } },
+                { codigoQr: { contains: termino, mode: 'insensitive' as const } },
+                { numeroSerie: { contains: termino, mode: 'insensitive' as const } },
+                { ubicacion: { contains: termino, mode: 'insensitive' as const } },
+                { modelo: { contains: termino, mode: 'insensitive' as const } },
+              ],
+            }
+          : undefined;
+        return await this.prisma.activo.count({ where });
       }
     } catch {
       // Fallback a memoria
     }
-    return this.activosEnMemoria.length;
+    if (!termino) return this.activosEnMemoria.length;
+    const txt = termino.toLowerCase();
+    return this.activosEnMemoria.filter(
+      (a) =>
+        a.nombre.toLowerCase().includes(txt) ||
+        a.codigoQr.toLowerCase().includes(txt) ||
+        (a.numeroSerie || '').toLowerCase().includes(txt) ||
+        a.ubicacion.toLowerCase().includes(txt),
+    ).length;
+  }
+
+  async crearActivo(payload: any): Promise<Activo> {
+    const nombre = String(payload?.nombre || '').trim();
+    const codigoQr = String(payload?.codigoQr || payload?.codigo_qr || '').trim().toUpperCase();
+    const ubicacion = String(payload?.ubicacion || '').trim();
+    const categoriaRaw = String(payload?.categoria || CategoriaActivo.OTRO).trim().toUpperCase();
+    const estadoRaw = String(payload?.estado || EstadoActivo.OPERATIVO).trim().toUpperCase();
+    const modelo = payload?.modelo ? String(payload.modelo).trim() : null;
+    const numeroSerie = (payload?.numeroSerie ?? payload?.numero_serie)
+      ? String(payload.numeroSerie ?? payload.numero_serie).trim()
+      : null;
+
+    if (!nombre || !codigoQr || !ubicacion) {
+      throw new BadRequestException(
+        'Los campos nombre, codigoQr y ubicacion son obligatorios para registrar un activo.',
+      );
+    }
+
+    const categoriasValidas = Object.values(CategoriaActivo) as string[];
+    const estadosValidos = Object.values(EstadoActivo) as string[];
+    if (!categoriasValidas.includes(categoriaRaw)) {
+      throw new BadRequestException(`Categoría inválida. Valores permitidos: ${categoriasValidas.join(', ')}`);
+    }
+    if (!estadosValidos.includes(estadoRaw)) {
+      throw new BadRequestException(`Estado inválido. Valores permitidos: ${estadosValidos.join(', ')}`);
+    }
+
+    try {
+      if (this.prisma?.activo?.findFirst && this.prisma?.activo?.create) {
+        const existente = await this.prisma.activo.findFirst({
+          where: { codigoQr: { equals: codigoQr, mode: 'insensitive' } },
+        });
+        if (existente) {
+          throw new ConflictException(`Ya existe un activo registrado con el código QR '${codigoQr}'.`);
+        }
+
+        const creado = await this.prisma.activo.create({
+          data: {
+            id: randomUUID(),
+            codigoQr,
+            nombre,
+            categoria: categoriaRaw as any,
+            modelo,
+            numeroSerie,
+            ubicacion,
+            estado: estadoRaw as any,
+          },
+        });
+        return creado as unknown as Activo;
+      }
+    } catch (err) {
+      if (err instanceof ConflictException || err instanceof BadRequestException) {
+        throw err;
+      }
+    }
+
+    const duplicadoMem = this.activosEnMemoria.find(
+      (a) => a.codigoQr.toUpperCase() === codigoQr,
+    );
+    if (duplicadoMem) {
+      throw new ConflictException(`Ya existe un activo registrado con el código QR '${codigoQr}'.`);
+    }
+
+    const nuevoMem: Activo = {
+      id: randomUUID(),
+      codigoQr,
+      nombre,
+      categoria: categoriaRaw as CategoriaActivo,
+      modelo: modelo ?? undefined,
+      numeroSerie: numeroSerie ?? undefined,
+      ubicacion,
+      estado: estadoRaw as EstadoActivo,
+      fechaRegistro: new Date().toISOString(),
+    };
+    this.activosEnMemoria.unshift(nuevoMem);
+    return nuevoMem;
+  }
+
+  async actualizarActivo(id: string, payload: any): Promise<Activo> {
+    const actual = await this.obtenerPorId(id);
+    if (!actual) {
+      throw new NotFoundException(`No se encontró ningún activo con ID '${id}'.`);
+    }
+
+    const dataUpdate: Record<string, any> = {};
+    if (payload?.nombre !== undefined) {
+      const n = String(payload.nombre).trim();
+      if (!n) throw new BadRequestException('El nombre del activo no puede quedar vacío.');
+      dataUpdate.nombre = n;
+    }
+    if (payload?.codigoQr !== undefined || payload?.codigo_qr !== undefined) {
+      const qr = String(payload.codigoQr ?? payload.codigo_qr).trim().toUpperCase();
+      if (!qr) throw new BadRequestException('El código QR no puede quedar vacío.');
+      dataUpdate.codigoQr = qr;
+    }
+    if (payload?.ubicacion !== undefined) {
+      const u = String(payload.ubicacion).trim();
+      if (!u) throw new BadRequestException('La ubicación no puede quedar vacía.');
+      dataUpdate.ubicacion = u;
+    }
+    if (payload?.modelo !== undefined) {
+      dataUpdate.modelo = payload.modelo ? String(payload.modelo).trim() : null;
+    }
+    if (payload?.numeroSerie !== undefined || payload?.numero_serie !== undefined) {
+      const ns = payload.numeroSerie ?? payload.numero_serie;
+      dataUpdate.numeroSerie = ns ? String(ns).trim() : null;
+    }
+    if (payload?.categoria !== undefined) {
+      const cat = String(payload.categoria).trim().toUpperCase();
+      if (!(Object.values(CategoriaActivo) as string[]).includes(cat)) {
+        throw new BadRequestException('Categoría de activo no válida.');
+      }
+      dataUpdate.categoria = cat;
+    }
+    if (payload?.estado !== undefined) {
+      const est = String(payload.estado).trim().toUpperCase();
+      if (!(Object.values(EstadoActivo) as string[]).includes(est)) {
+        throw new BadRequestException('Estado de activo no válido.');
+      }
+      dataUpdate.estado = est;
+    }
+
+    try {
+      if (this.prisma?.activo?.update) {
+        if (dataUpdate.codigoQr && dataUpdate.codigoQr !== actual.codigoQr) {
+          const colision = await this.prisma.activo.findFirst({
+            where: {
+              codigoQr: { equals: dataUpdate.codigoQr, mode: 'insensitive' },
+              NOT: { id: actual.id },
+            },
+          });
+          if (colision) {
+            throw new ConflictException(
+              `El código QR '${dataUpdate.codigoQr}' ya está asignado a otro equipo.`,
+            );
+          }
+        }
+        const actualizado = await this.prisma.activo.update({
+          where: { id: actual.id },
+          data: dataUpdate,
+        });
+        return actualizado as unknown as Activo;
+      }
+    } catch (err) {
+      if (err instanceof ConflictException || err instanceof BadRequestException) {
+        throw err;
+      }
+    }
+
+    const idx = this.activosEnMemoria.findIndex((a) => a.id === actual.id);
+    const fusionado: Activo = {
+      ...actual,
+      ...dataUpdate,
+    };
+    if (idx >= 0) {
+      this.activosEnMemoria[idx] = fusionado;
+    }
+    return fusionado;
+  }
+
+  async darDeBajaActivo(id: string): Promise<Activo> {
+    return this.actualizarActivo(id, { estado: EstadoActivo.DADO_DE_BAJA });
   }
 
   async obtenerEstadisticas(filtros?: FiltroEstadisticasDto): Promise<RespuestaEstadisticas> {
@@ -1012,6 +1280,131 @@ export class ActivosService {
               fecha_creacion: m.fecha_creacion ? new Date(m.fecha_creacion).toISOString() : undefined,
             },
           });
+        }
+      }
+    }
+
+    // Integrar incidencias y órdenes de trabajo reales desde ms-incidencias (F-03)
+    const incidenciasReales = await this.obtenerIncidenciasRealesDeActivo(activoEncontrado.id);
+    for (const inc of incidenciasReales) {
+      const idInc = String(inc.id_incidencia || inc.id || '');
+      if (!idInc) continue;
+
+      const estadoInc =
+        (typeof inc.estado === 'object' ? inc.estado?.nombre_estado : inc.estado) || 'Reportada';
+      const estadoNorm = String(estadoInc).toLowerCase();
+      const ordenAsociada = inc.orden_trabajo || inc.ordenes_trabajo?.[0] || null;
+      const nombreRep = inc.nombre_reportante || 'Usuario Reportante';
+      const inicialesRep = nombreRep
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p: string) => p[0].toUpperCase())
+        .join('') || 'REP';
+
+      if (!todosLosEventos.some((e) => e.id === `INC-${idInc.substring(0, 8)}`)) {
+        todosLosEventos.push({
+          id: `INC-${idInc.substring(0, 8)}`,
+          fecha: inc.fecha_creacion
+            ? new Date(inc.fecha_creacion).toISOString()
+            : new Date().toISOString(),
+          tipo: 'fallo',
+          tipoLabel: 'Avería / Incidencia Reportada',
+          titulo: `Incidencia Registrada: ${inc.titulo || 'Reporte de falla'}`,
+          descripcion: inc.descripcion || 'Falla reportada sobre el activo.',
+          estadoAnterior: EstadoActivo.OPERATIVO,
+          estadoNuevo: EstadoActivo.EN_REVISION,
+          responsable: {
+            nombre: nombreRep,
+            rol: 'Reportante',
+            avatar: inicialesRep,
+          },
+          detalles: {
+            id_incidencia: idInc,
+            prioridad: inc.prioridad || 'media',
+            estado_incidencia: estadoInc,
+            fecha_creacion: inc.fecha_creacion,
+          },
+        });
+      }
+
+      if (ordenAsociada) {
+        const idOrden = String(ordenAsociada.id_orden || idInc);
+        const nombreTec = ordenAsociada.nombre_tecnico || inc.nombre_tecnico || 'Técnico Asignado';
+        const inicialesTec = nombreTec
+          .split(' ')
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((p: string) => p[0].toUpperCase())
+          .join('') || 'TEC';
+
+        if (['resuelta', 'completada', 'cerrada', 'rechazada', 'rechazado'].includes(estadoNorm)) {
+          const esRechazada = estadoNorm.startsWith('rechaz');
+          const idEventoRes = `RES-${idOrden.substring(0, 8)}`;
+          if (!todosLosEventos.some((e) => e.id === idEventoRes)) {
+            todosLosEventos.push({
+              id: idEventoRes,
+              fecha: ordenAsociada.fecha_cierre
+                ? new Date(ordenAsociada.fecha_cierre).toISOString()
+                : new Date(ordenAsociada.fecha_creacion || inc.fecha_creacion).toISOString(),
+              tipo: 'resolucion',
+              tipoLabel: esRechazada ? 'Incidencia Desestimada' : 'Resolución de Falla',
+              titulo: esRechazada
+                ? `Incidencia Rechazada: ${inc.titulo}`
+                : `Resolución Técnica: ${inc.titulo}`,
+              descripcion:
+                ordenAsociada.diagnostico_tecnico ||
+                (esRechazada
+                  ? 'Incidencia desestimada tras revisión técnica.'
+                  : 'Intervención completada y activo operativo.'),
+              estadoAnterior: EstadoActivo.EN_MANTENIMIENTO,
+              estadoNuevo: EstadoActivo.OPERATIVO,
+              responsable: {
+                nombre: nombreTec,
+                rol: 'Técnico',
+                avatar: inicialesTec,
+              },
+              detalles: {
+                id_incidencia: idInc,
+                id_orden: idOrden,
+                prioridad: inc.prioridad || 'media',
+                estado_orden: estadoInc,
+                diagnostico_tecnico: ordenAsociada.diagnostico_tecnico || undefined,
+                fecha_asignacion: ordenAsociada.fecha_creacion,
+                fecha_termino: ordenAsociada.fecha_cierre || null,
+              },
+            });
+          }
+        } else {
+          const idEventoOrd = `ORD-${idOrden.substring(0, 8)}`;
+          if (!todosLosEventos.some((e) => e.id === idEventoOrd)) {
+            todosLosEventos.push({
+              id: idEventoOrd,
+              fecha: ordenAsociada.fecha_creacion
+                ? new Date(ordenAsociada.fecha_creacion).toISOString()
+                : new Date().toISOString(),
+              tipo: 'mantenimiento',
+              tipoLabel: 'Orden de Trabajo Asignada',
+              titulo: `Orden de Trabajo en Atención: ${inc.titulo}`,
+              descripcion:
+                ordenAsociada.diagnostico_tecnico ||
+                `Orden asignada a ${nombreTec} para diagnóstico e intervención.`,
+              estadoAnterior: EstadoActivo.EN_REVISION,
+              estadoNuevo: EstadoActivo.EN_MANTENIMIENTO,
+              responsable: {
+                nombre: nombreTec,
+                rol: 'Técnico',
+                avatar: inicialesTec,
+              },
+              detalles: {
+                id_incidencia: idInc,
+                id_orden: idOrden,
+                prioridad: inc.prioridad || 'media',
+                estado_orden: estadoInc,
+                fecha_asignacion: ordenAsociada.fecha_creacion,
+              },
+            });
+          }
         }
       }
     }

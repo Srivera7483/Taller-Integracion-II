@@ -36,13 +36,13 @@ const CATEGORIAS_RAPIDAS = [
   { id: 'otro', nombre: 'Otro', icon: FiHelpCircle, desc: 'Otra anomalía' },
 ];
 
-// Activos sugeridos comunes para selección con 1 tap
-const ACTIVOS_FRECUENTES = [
-  { id: 'ACT-2026-0001', etiqueta: 'Proyector Epson' },
-  { id: 'SRV-BLADE-07', etiqueta: 'Servidor Blade' },
-  { id: 'SW-CORE-01', etiqueta: 'Switch Cisco' },
-  { id: 'ACT-2026-0002', etiqueta: 'All-in-One Dell' },
-  { id: 'SN-MPM2-2023-001', etiqueta: 'MacBook Pro' },
+// Activos sugeridos institucionales UCT para selección con 1 tap
+const ACTIVOS_FRECUENTES_BASE = [
+  { id: 'UCT-PRJ-01', etiqueta: 'Proyector Epson' },
+  { id: 'UCT-PC-01', etiqueta: 'Dell OptiPlex' },
+  { id: 'UCT-SW-01', etiqueta: 'Switch Cisco' },
+  { id: 'UCT-PRJ-03', etiqueta: 'ViewSonic Auditorio' },
+  { id: 'UCT-PC-06', etiqueta: 'HP ProDesk' },
 ];
 
 /**
@@ -73,6 +73,29 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errores, setErrores] = useState({});
   const [tocado, setTocado] = useState({});
+  const [activosFrecuentes, setActivosFrecuentes] = useState(ACTIVOS_FRECUENTES_BASE);
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    let cancelado = false;
+    api
+      .get('/activos?limit=6', { skipGlobalErrorHandler: true })
+      .then((res) => {
+        const datos = res.data?.datos || (Array.isArray(res.data) ? res.data : []);
+        if (!cancelado && Array.isArray(datos) && datos.length > 0) {
+          setActivosFrecuentes(
+            datos.slice(0, 6).map((a) => ({
+              id: a.codigoQr || a.codigo_qr || a.id,
+              etiqueta: a.nombre,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, [isOpen]);
 
   // Limpieza preventiva de URLs en memoria al desmontar
   useEffect(() => {
@@ -440,7 +463,7 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
                 onChange={(e) => handleFieldChange('idActivo', e.target.value)}
                 onBlur={() => handleBlur('idActivo')}
                 disabled={isSubmitting}
-                placeholder="Ej. ACT-2026-0001 o SN-EPS-9921"
+                placeholder="Ej. UCT-PRJ-01 o UCT-PC-01"
                 className={`w-full pl-9 pr-3 py-2.5 rounded-lg border text-base sm:text-sm font-mono outline-none transition-all ${
                   tocado.idActivo && errores.idActivo
                     ? 'border-red-400 bg-red-50/20 focus:ring-2 focus:ring-red-200'
@@ -453,7 +476,7 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
             {/* Chips rápidos de activos comunes para evitar escribir en celular */}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] text-gray-400 font-medium">Sugeridos:</span>
-              {ACTIVOS_FRECUENTES.map((act) => {
+              {activosFrecuentes.map((act) => {
                 const seleccionado = idActivo === act.id;
                 return (
                   <button

@@ -8,6 +8,7 @@ import Toast from './components/Toast';
 import PublicRoute from './components/PublicRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import AxiosInterceptor from './components/AxiosInterceptor';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Componentes Estructurales y Vistas (Code Splitting con React.lazy — TAL-203)
 // Login se carga en el bundle inicial para evitar waterfalls de red en el LCP de entrada
@@ -45,7 +46,8 @@ function App() {
         <ToastProvider>
           <ConnectivityBadge />
           <AxiosInterceptor>
-            <Suspense fallback={<RouteFallback />}>
+            <ErrorBoundary>
+              <Suspense fallback={<RouteFallback />}>
               <Routes>
                 {/* Rutas globales de error */}
                 <Route path="/500" element={<ServerError />} />
@@ -101,7 +103,8 @@ function App() {
                 <Route path="/404" element={<NotFound />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </Suspense>
+              </Suspense>
+            </ErrorBoundary>
 
             {/* Componente global para notificaciones y PWA */}
             <Toast />

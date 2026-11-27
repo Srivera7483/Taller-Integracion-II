@@ -68,4 +68,27 @@ describe('ActivosController - TAL-6 y TAL-13', () => {
       await expect(controller.obtenerTrazabilidad('CODIGO-INEXISTENTE')).rejects.toThrow();
     });
   });
+
+  describe('Gestión CRUD de Activos para ADMINISTRADOR (activos:gestionar)', () => {
+    it('registra, modifica y da de baja un activo en inventario', async () => {
+      const creado = await controller.crearActivo({
+        codigoQr: 'UCT-TEST-99',
+        nombre: 'Switch de Prueba Laboratorio',
+        categoria: 'REDES',
+        modelo: 'Catalyst 2960',
+        numeroSerie: 'SN-UCT-99',
+        ubicacion: 'Edificio C - Rack 1',
+      });
+      expect(creado.valido).toBe(true);
+      expect(creado.datos.codigoQr).toBe('UCT-TEST-99');
+
+      const actualizado = await controller.actualizarActivo(creado.datos.id, {
+        ubicacion: 'Edificio E - Sala Servidores',
+      });
+      expect(actualizado.datos.ubicacion).toBe('Edificio E - Sala Servidores');
+
+      const baja = await controller.darDeBajaActivo(creado.datos.id);
+      expect(baja.datos.estado).toBe('DADO_DE_BAJA');
+    });
+  });
 });

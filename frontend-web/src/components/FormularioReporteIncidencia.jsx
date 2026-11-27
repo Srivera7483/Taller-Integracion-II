@@ -63,8 +63,36 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const fileInputRef = useRef(null);
   const [evidenciasAdjuntas, setEvidenciasAdjuntas] = useState([]);
   const [evidenciaPreviewModal, setEvidenciaPreviewModal] = useState(null);
+  const [catalogoActivos, setCatalogoActivos] = useState([]);
   const evidenciasRef = useRef(evidenciasAdjuntas);
   evidenciasRef.current = evidenciasAdjuntas;
+
+  // Cargar catálogo real de activos para autocompletar códigos QR / nombres UCT
+  useEffect(() => {
+    let cancelado = false;
+    api
+      .get('/activos?limit=50', { skipGlobalErrorHandler: true })
+      .then((res) => {
+        const datos = res.data?.datos || (Array.isArray(res.data) ? res.data : []);
+        if (!cancelado && Array.isArray(datos) && datos.length > 0) {
+          setCatalogoActivos(datos);
+          if (assetFromUrl) {
+            const match = datos.find(
+              (a) =>
+                a.id === assetFromUrl ||
+                (a.codigoQr && a.codigoQr.toUpperCase() === assetFromUrl.toUpperCase())
+            );
+            if (match?.ubicacion && !ubicacion) {
+              setUbicacion(match.ubicacion);
+            }
+          }
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, [assetFromUrl]);
 
   // Limpieza preventiva de URLs en memoria al desmontar
   useEffect(() => {
@@ -105,15 +133,15 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
         if (val.length < 5) return 'El título debe tener al menos 5 caracteres';
         return '';
 
-      case 'idActivo':
-        if (!val) return 'Debes especificar el ID o número de serie del activo';
-        // Permite UUID v4 estándar, códigos formateados conocidos (ej. ACT-2026-0001) o códigos de serie (ej. SN-...)
+      case 'idActivo': {
+        if (!val) return 'Debes especificar el código QR, ID o número de serie del activo';
         const esUuidValido = UUID_V4_REGEX.test(val);
-        const esCodigoLegible = /^(ACT|SN|QR)-/i.test(val);
+        const esCodigoLegible = /^[A-Z0-9][A-Z0-9_-]{2,40}$/i.test(val);
         if (!esUuidValido && !esCodigoLegible) {
-          return 'Ingresa un UUID válido (ej. 550e8400-e29b-41d4-a716-446655440000) o un código de activo válido (ej. ACT-2026-0001)';
+          return 'Ingresa un código QR válido (ej. UCT-PRJ-01) o un UUID válido';
         }
         return '';
+      }
 
       case 'categoria':
         if (!val) return 'Selecciona una categoría de falla';
@@ -330,14 +358,19 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       'SN-MPM2-2023-001': '550e8400-e29b-41d4-a716-446655440000',
       'SW-CORE-01': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
       'SRV-BLADE-07': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
-      'UCT-SW-01': '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-      'UCT-PRJ-01': 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
     };
 
     if (!isUuid) {
-      // 1. Intentar resolver por mapa conocido local
-      if (mapaConocido[resolvedActivoId.toUpperCase()]) {
-        resolvedActivoId = mapaConocido[resolvedActivoId.toUpperCase()];
+      // 1. Resolver contra el catálogo real ya cargado en memoria (ej. UCT-PRJ-01 -> UUID real de PostgreSQL)
+      const enCatalogo = catalogoActivos.find(
+        (a) =>
+          (a.codigoQr && a.codigoQr.toUpperCase() === resolvedActivoId.toUpperCase()) ||
+          (a.codigo_qr && a.codigo_qr.toUpperCase() === resolvedActivoId.toUpperCase()) ||
+          (a.numeroSerie && a.numeroSerie.toUpperCase() === resolvedActivoId.toUpperCase()) ||
+          a.id === resolvedActivoId
+      );
+      if (enCatalogo?.id && UUID_V4_REGEX.test(enCatalogo.id)) {
+        resolvedActivoId = enCatalogo.id;
         isUuid = true;
       } else if (!esOffline) {
         // 2. Intentar resolver vía API de activos (código QR, número de serie o ID)
@@ -351,8 +384,14 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             }
           }
         } catch {
-          // Si la API falla (microservicio ms-activos apagado o inestable), continuar
+          // Si la API falla (microservicio ms-activos apagado o código mock), continuar al fallback
         }
+      }
+
+      // 3. Fallback a mapa conocido de demostración
+      if (!isUuid && mapaConocido[resolvedActivoId.toUpperCase()]) {
+        resolvedActivoId = mapaConocido[resolvedActivoId.toUpperCase()];
+        isUuid = true;
       }
     }
 
@@ -557,11 +596,23 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                     <input
                       id="incidencia-id-activo"
                       type="text"
+                      list="catalogo-activos-uct"
                       value={idActivo}
-                      onChange={(e) => handleFieldChange('idActivo', e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        handleFieldChange('idActivo', val);
+                        const match = catalogoActivos.find(
+                          (a) =>
+                            a.codigoQr?.toUpperCase() === val.trim().toUpperCase() ||
+                            a.id === val.trim()
+                        );
+                        if (match?.ubicacion) {
+                          setUbicacion(match.ubicacion);
+                        }
+                      }}
                       onBlur={() => handleBlur('idActivo')}
                       disabled={isSubmitting}
-                      placeholder="Ej. 550e8400-e29b-41d4-a716-446655440000 o ACT-2026-0001"
+                      placeholder="Ej. UCT-PRJ-01, UCT-PC-01 o selecciona del inventario"
                       className={`w-full pl-11 ${isUrlPreloaded ? 'pr-10 bg-primary-50/30' : 'pr-4 bg-white'
                         } py-2.5 rounded-lg border text-sm transition-all outline-none font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${touched.idActivo && errors.idActivo
                           ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
@@ -569,6 +620,15 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                         } disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed`}
                       required
                     />
+                    {catalogoActivos.length > 0 && (
+                      <datalist id="catalogo-activos-uct">
+                        {catalogoActivos.map((act) => (
+                          <option key={act.id} value={act.codigoQr || act.id}>
+                            {act.nombre} — {act.ubicacion || ''}
+                          </option>
+                        ))}
+                      </datalist>
+                    )}
                     {isUrlPreloaded && (
                       <button
                         type="button"

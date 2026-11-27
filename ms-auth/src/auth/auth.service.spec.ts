@@ -22,6 +22,7 @@ describe('AuthService', () => {
       findById: vi.fn(),
       findMany: vi.fn(),
       updateRole: vi.fn(),
+      softDelete: vi.fn(),
     };
 
     jwtMock = {
@@ -236,6 +237,21 @@ describe('AuthService', () => {
       expect(res.currentPage).toBe(1);
       expect(res.totalPages).toBe(2);
       expect(res.datos).toHaveLength(1);
+    });
+  });
+
+  describe('deleteUser (Caso de Uso Eliminar Usuario - Soft Delete MER)', () => {
+    it('marca fechaEliminacion mediante softDelete cuando el usuario existe', async () => {
+      userRepositoryMock.findById.mockResolvedValue({
+        id: 'u-target',
+        email: 'target@uct.cl',
+        fechaEliminacion: null,
+      });
+      userRepositoryMock.softDelete.mockResolvedValue({ id: 'u-target' });
+
+      const res = await service.deleteUser('u-target', 'u-admin');
+      expect(userRepositoryMock.softDelete).toHaveBeenCalledWith('u-target');
+      expect(res.id_usuario).toBe('u-target');
     });
   });
 });

@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useState, useEffect } from 'react';
+import { useToast } from '../context/ToastContext';
 
 const PWAInstallBanner = lazy(() => import('./PWAInstallBanner'));
 
@@ -32,6 +33,7 @@ const verificarDescarteVigente = () => {
 };
 
 const PWAInstallPrompt = () => {
+  const { showToast } = useToast();
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isIOS] = useState(() => {
@@ -98,7 +100,14 @@ const PWAInstallPrompt = () => {
   }, [isIOS, isInstalled]);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      showToast(
+        'Para instalar InfraManager en este dispositivo, usa el ícono de instalación en la barra de direcciones del navegador.',
+        'info',
+      );
+      setShowPrompt(false);
+      return;
+    }
 
     deferredPrompt.prompt();
 

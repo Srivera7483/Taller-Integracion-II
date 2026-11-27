@@ -153,27 +153,38 @@ async function main() {
     await incidenciasPrisma.estadoIncidencia.upsert({ where: { id_estado: eb.id_estado }, update: {}, create: eb });
   }
 
+  await incidenciasPrisma.evidencia.deleteMany();
+  await incidenciasPrisma.ordenTrabajo.deleteMany();
   await incidenciasPrisma.historialEstados.deleteMany();
   await incidenciasPrisma.incidencias.deleteMany();
 
   const problemasEscolares = [
-    { t: 'Proyector con imagen amarillenta', d: 'La lámpara del proyector parece estar agotándose.' },
-    { t: 'Computador no da video', d: 'El equipo enciende pero el monitor dice "No Signal".' },
-    { t: 'Switch parpadea en rojo', d: 'El puerto 14 del switch core de la sala de servidores marca colisión constante.' },
-    { t: 'Equipo extremadamente lento', d: 'Al abrir software pesado, el equipo se congela por completo.' },
+    { t: 'Proyector con imagen amarillenta', d: 'La lámpara del proyector parece estar agotándose.', prio: 'media' },
+    { t: 'Computador no da video', d: 'El equipo enciende pero el monitor dice "No Signal".', prio: 'alta' },
+    { t: 'Switch parpadea en rojo', d: 'El puerto 14 del switch core de la sala de servidores marca colisión constante.', prio: 'critica' },
+    { t: 'Equipo extremadamente lento', d: 'Al abrir software pesado, el equipo se congela por completo.', prio: 'baja' },
   ];
 
   for (let i = 0; i < 20; i++) {
-    const activo = activosCreados[Math.floor(Math.random() * activosCreados.length)];
-    const problema = problemasEscolares[Math.floor(Math.random() * problemasEscolares.length)];
-    const tecnicoResp = tecnicosCreados[Math.floor(Math.random() * tecnicosCreados.length)];
+    const activo = activosCreados[i % activosCreados.length];
+    const problema = problemasEscolares[i % problemasEscolares.length];
+    const tecnicoResp = tecnicosCreados[i % tecnicosCreados.length];
+    const idReportanteAleatorio = reportantesCreados[i % reportantesCreados.length];
 
-    // <-- Seleccionamos un reportante aleatorio del nuevo arreglo en lugar del Admin
-    const idReportanteAleatorio = reportantesCreados[Math.floor(Math.random() * reportantesCreados.length)];
-
-    const diasAtras = Math.floor(Math.random() * 30);
+    const diasAtras = (i % 15) + 1;
     const fechaCreacion = new Date(Date.now() - (diasAtras * 24 * 60 * 60 * 1000));
-    const estadoSimulado = Math.floor(Math.random() * 4) + 1;
+    // Incluir también 1 incidencia Rechazada (id_estado = 5) con justificación técnica para TAL-135
+    const estadoSimulado = i === 19 ? 5 : ((i % 4) + 1);
+    const fechaOrden = new Date(fechaCreacion.getTime() + (60 * 60 * 1000));
+    const fechaCierre = new Date(fechaCreacion.getTime() + (3 * 60 * 60 * 1000));
+
+    const requiereOrden = estadoSimulado >= 2;
+    const diagnosticoSemilla =
+      estadoSimulado === 5
+        ? 'Incidencia desestimada tras inspección en terreno: el cable HDMI del docente estaba desconectado y el equipo UCT opera dentro de parámetros normales.'
+        : estadoSimulado >= 3
+          ? 'Se realizó limpieza preventiva de contactos, ajuste de parámetros y pruebas de estrés satisfactorias.'
+          : null;
 
     await incidenciasPrisma.incidencias.create({
       data: {
@@ -182,16 +193,30 @@ async function main() {
         id_reportante: idReportanteAleatorio,
         titulo: problema.t,
         descripcion: problema.d,
+        prioridad: problema.prio,
         fecha_creacion: fechaCreacion,
         historial_estados: {
           create: [
             { id_historial: crypto.randomUUID(), id_estado: 1, id_usuario_cambio: idReportanteAleatorio, fecha_creacion: fechaCreacion },
             ...(estadoSimulado > 1 ? [{
-              id_historial: crypto.randomUUID(), id_estado: estadoSimulado, id_usuario_cambio: tecnicoResp,
-              fecha_creacion: new Date(fechaCreacion.getTime() + (2 * 60 * 60 * 1000))
+              id_historial: crypto.randomUUID(),
+              id_estado: estadoSimulado,
+              id_usuario_cambio: tecnicoResp,
+              fecha_creacion: fechaCierre,
             }] : [])
           ]
-        }
+        },
+        ...(requiereOrden ? {
+          ordenes_trabajo: {
+            create: [{
+              id_orden: crypto.randomUUID(),
+              id_tecnico: tecnicoResp,
+              diagnostico_tecnico: diagnosticoSemilla,
+              fecha_creacion: fechaOrden,
+              fecha_cierre: estadoSimulado >= 3 ? fechaCierre : null,
+            }]
+          }
+        } : {}),
       }
     });
   }

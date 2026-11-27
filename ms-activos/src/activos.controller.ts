@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -86,10 +88,11 @@ export class ActivosController {
   }
 
   @Get()
-  @RequirePermissions('activos:gestionar')
   async listarActivos(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('limite') limite?: string,
+    @Query('busqueda') busqueda?: string,
   ): Promise<{
     valido: boolean;
     total: number;
@@ -99,10 +102,15 @@ export class ActivosController {
     limit: number;
     datos: Activo[];
   }> {
+    const rawLimit = limit ?? limite;
     const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
-    const limitNum = Math.max(1, Math.min(50, parseInt(limit || '20', 10) || 20));
-    const activos = await this.activosService.listarTodos({ page: pageNum, limit: limitNum });
-    const total = await this.activosService.contarTotalActivos();
+    const limitNum = Math.max(1, Math.min(50, parseInt(rawLimit || '20', 10) || 20));
+    const activos = await this.activosService.listarTodos({
+      page: pageNum,
+      limit: limitNum,
+      busqueda,
+    });
+    const total = await this.activosService.contarTotalActivos(busqueda);
     return {
       valido: true,
       total,
@@ -111,6 +119,42 @@ export class ActivosController {
       currentPage: pageNum,
       limit: limitNum,
       datos: activos,
+    };
+  }
+
+  @Post()
+  @RequirePermissions('activos:gestionar')
+  async crearActivo(@Body() body: any) {
+    const creado = await this.activosService.crearActivo(body);
+    return {
+      valido: true,
+      mensaje: 'Activo registrado exitosamente en el inventario.',
+      datos: creado,
+    };
+  }
+
+  @Patch(':id_activo')
+  @RequirePermissions('activos:gestionar')
+  async actualizarActivo(
+    @Param('id_activo') idActivo: string,
+    @Body() body: any,
+  ) {
+    const actualizado = await this.activosService.actualizarActivo(idActivo, body);
+    return {
+      valido: true,
+      mensaje: 'Activo actualizado exitosamente.',
+      datos: actualizado,
+    };
+  }
+
+  @Delete(':id_activo')
+  @RequirePermissions('activos:gestionar')
+  async darDeBajaActivo(@Param('id_activo') idActivo: string) {
+    const dadoDeBaja = await this.activosService.darDeBajaActivo(idActivo);
+    return {
+      valido: true,
+      mensaje: 'Activo dado de baja exitosamente.',
+      datos: dadoDeBaja,
     };
   }
 }

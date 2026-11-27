@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Headers,
   Get,
   HttpCode,
@@ -122,6 +123,18 @@ export class AuthController {
     @Body() updateRoleDto: UpdateRoleDto,
   ) {
     return await this.authService.updateUserRole(id, updateRoleDto);
+  }
+
+  @Delete('usuarios/:id')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @RequirePermissions('usuarios:gestionar')
+  async deleteUser(
+    @Param('id') id: string,
+    @Req() request?: Request & { user?: any },
+  ) {
+    const requesterId = request?.user?.sub || request?.user?.userId;
+    return await this.authService.deleteUser(id, requesterId);
   }
 
   @Get('usuarios')

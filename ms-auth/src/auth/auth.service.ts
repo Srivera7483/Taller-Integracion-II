@@ -1,10 +1,15 @@
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { verify } from 'argon2';
 import { UserRepository } from './user.repository.js';
 import { LoginDto } from './dto/login.dto.js';
 import { UpdateRoleDto } from './dto/update-role.dto.js';
-import { ConflictException } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto.js';
 import * as argon2 from 'argon2';
 
@@ -182,6 +187,23 @@ export class AuthService {
     }
 
     return await this.userRepository.updateRole(id, updateRoleDto.rol);
+  }
+
+  async deleteUser(id: string, requesterId?: string) {
+    if (requesterId && id === requesterId) {
+      throw new BadRequestException('No puedes eliminar tu propia cuenta activa');
+    }
+
+    const user = await this.userRepository.findById(id);
+    if (!user || user.fechaEliminacion) {
+      throw new NotFoundException(`Usuario con ID '${id}' no fue encontrado`);
+    }
+
+    await this.userRepository.softDelete(id);
+    return {
+      message: 'Usuario eliminado exitosamente',
+      id_usuario: id,
+    };
   }
 
   async getAuthenticatedUser(userId: string) {

@@ -180,6 +180,7 @@ const DetalleIncidencia = () => {
     usuarioSesion?.nombre ||
     null;
   const puedeClasificar = hasPermission('incidencias:clasificar_prioridad');
+  const puedeAsignar = hasPermission('ordenes:asignar');
   const puedeResolver = hasPermission('incidencias:resolver');
   const puedeSubirEvidencia = hasPermission('evidencias:subir');
 
@@ -629,22 +630,33 @@ const DetalleIncidencia = () => {
                         : incidencia.asignado || 'Sin asignar')}
                 </span>
               </div>
-              {esSupervisor && !estaCerrada && (
-                <Link
-                  to={`/incidencias/asignar?incidenciaId=${incidencia.id}`}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary-50 text-primary border border-primary-200 hover:bg-primary-100 transition-colors"
-                >
-                  {incidencia.asignado ? (
-                    <>
-                      <FiRepeat className="w-3.5 h-3.5" /> Reasignar
-                    </>
-                  ) : (
-                    <>
-                      <FiUserCheck className="w-3.5 h-3.5" /> Asignar
-                    </>
-                  )}
-                </Link>
-              )}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {incidencia.id_orden && (puedeResolver || puedeAsignar) && (
+                  <Link
+                    to={`/ordenes/${encodeURIComponent(incidencia.id_orden)}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                    title="Abrir detalle de la Orden de Trabajo"
+                  >
+                    <FiFileText className="w-3.5 h-3.5" /> Orden
+                  </Link>
+                )}
+                {puedeAsignar && !estaCerrada && (
+                  <Link
+                    to={`/incidencias/asignar?incidenciaId=${incidencia.id}`}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary-50 text-primary border border-primary-200 hover:bg-primary-100 transition-colors"
+                  >
+                    {incidencia.asignado ? (
+                      <>
+                        <FiRepeat className="w-3.5 h-3.5" /> Reasignar
+                      </>
+                    ) : (
+                      <>
+                        <FiUserCheck className="w-3.5 h-3.5" /> Asignar
+                      </>
+                    )}
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
           <div>

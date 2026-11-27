@@ -38,6 +38,14 @@ export class UserRepository {
     });
   }
 
+  async softDelete(id: string) {
+    return await this.prisma.user.update({
+      where: { id },
+      data: { fechaEliminacion: new Date() },
+      include: { role: true },
+    });
+  }
+
   async findMany(page: number = 1, limit: number = 15) {
     const take = Math.max(1, Math.min(50, limit));
     const skip = (Math.max(1, page) - 1) * take;

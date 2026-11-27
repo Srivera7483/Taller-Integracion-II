@@ -15,6 +15,7 @@ describe('AuthController', () => {
       login: vi.fn(),
       refresh: vi.fn(),
       updateUserRole: vi.fn(),
+      deleteUser: vi.fn(),
       getAuthenticatedUser: vi.fn(),
     } as unknown as AuthService;
 
@@ -171,6 +172,13 @@ describe('AuthController', () => {
       ).toEqual(['usuarios:ver']);
       expect(
         Reflect.getMetadata(ROLES_KEY, AuthController.prototype.listUsers),
+      ).toBeUndefined();
+
+      expect(
+        Reflect.getMetadata(PERMISSIONS_KEY, AuthController.prototype.deleteUser),
+      ).toEqual(['usuarios:gestionar']);
+      expect(
+        Reflect.getMetadata(ROLES_KEY, AuthController.prototype.deleteUser),
       ).toBeUndefined();
     });
   });

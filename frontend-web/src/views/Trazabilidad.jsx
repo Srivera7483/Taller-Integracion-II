@@ -15,6 +15,7 @@ import {
 import StatusBadge from '../components/StatusBadge';
 import TimelineActivo from '../components/TimelineActivo';
 import { useToast } from '../context/ToastContext';
+import { hasPermission } from '../services/authService';
 import {
   obtenerTrazabilidadActivoApi,
   obtenerCatalogoActivosResumen
@@ -47,14 +48,18 @@ const Trazabilidad = () => {
     return [...baseSeed, ...respaldo.filter((r) => !vistos.has(r.id))];
   });
 
+  const puedeReportarFalla = hasPermission('incidencias:crear');
+
+  useEffect(() => {
+    const paramActual = idActivo || searchParams.get('id_activo');
+    if (paramActual && paramActual !== activoSeleccionado) {
+      setActivoSeleccionado(paramActual);
+    }
+  }, [idActivo, searchParams]);
+
   useEffect(() => {
     let cancelado = false;
     try {
-      const rawUser = localStorage.getItem('usuario');
-      const user = rawUser ? JSON.parse(rawUser) : null;
-      const perms = Array.isArray(user?.permissions) ? user.permissions : [];
-      if (!perms.includes('activos:gestionar')) return undefined;
-
       const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
       const envUrl =
         import.meta.env.VITE_API_GATEWAY_URL ||
@@ -70,6 +75,7 @@ const Trazabilidad = () => {
           if (cancelado || !Array.isArray(json?.datos) || json.datos.length === 0) return;
           const reales = json.datos.map((a) => ({
             id: a.codigoQr || a.codigo_qr || a.id,
+            uuid: a.id,
             nombre: a.nombre,
           }));
           setListaActivos((prev) => {
@@ -97,13 +103,20 @@ const Trazabilidad = () => {
 
       if (resp.ok) {
         setDatosTrazabilidad(resp.data);
+        const qrResuelto = resp.data?.activo?.codigoQr;
+        if (qrResuelto && qrResuelto !== activoSeleccionado) {
+          const coincideEnLista = listaActivos.some((item) => item.id === qrResuelto);
+          if (coincideEnLista) {
+            setActivoSeleccionado(qrResuelto);
+          }
+        }
       }
     } catch {
       showToast('No fue posible cargar el historial de trazabilidad del activo', 'error');
     } finally {
       setCargando(false);
     }
-  }, [activoSeleccionado, paginaActual, filtroTipo, showToast]);
+  }, [activoSeleccionado, paginaActual, filtroTipo, showToast, listaActivos]);
 
   useEffect(() => {
     cargarDatos();
@@ -196,16 +209,18 @@ const Trazabilidad = () => {
               </div>
             </div>
 
-            {/* Acción Rápida: Reportar Nueva Falla sobre este equipo */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Link
-                to={`/incidencias/nueva?id_activo=${encodeURIComponent(activo.id)}`}
-                className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 hover:text-rose-800 transition shadow-2xs"
-              >
-                <FiAlertTriangle className="w-4 h-4 text-rose-600" />
-                <span>Reportar Falla en este Activo</span>
-              </Link>
-            </div>
+            {/* Acción Rápida: Reportar Nueva Falla sobre este equipo (solo roles con incidencias:crear) */}
+            {puedeReportarFalla && (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Link
+                  to={`/incidencias/nueva?id_activo=${encodeURIComponent(activo.id)}`}
+                  className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 hover:text-rose-800 transition shadow-2xs"
+                >
+                  <FiAlertTriangle className="w-4 h-4 text-rose-600" />
+                  <span>Reportar Falla en este Activo</span>
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Franja de Metadatos oficiales del Activo (Esquema ms-activos / OpenAPI) */}

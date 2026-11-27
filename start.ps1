@@ -48,6 +48,15 @@ if (Test-Path "ms-auth\.env") {
             $contenido -replace "^JWT_SECRET=.*", "JWT_SECRET=$secretAuth" | Set-Content "ms-incidencias\.env"
             Write-Host "  [OK] JWT_SECRET sincronizado en ms-incidencias." -ForegroundColor Green
         }
+        if (Test-Path "ms-activos\.env") {
+            $contenidoAct = Get-Content "ms-activos\.env"
+            if ($contenidoAct -match "^JWT_SECRET=") {
+                $contenidoAct -replace "^JWT_SECRET=.*", "JWT_SECRET=$secretAuth" | Set-Content "ms-activos\.env"
+            } else {
+                ($contenidoAct + "JWT_SECRET=$secretAuth") | Set-Content "ms-activos\.env"
+            }
+            Write-Host "  [OK] JWT_SECRET sincronizado en ms-activos." -ForegroundColor Green
+        }
     }
 }
 

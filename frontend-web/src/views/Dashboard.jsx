@@ -23,14 +23,42 @@ import {
   sincronizarResumenMetricasEnVivo,
 } from '../utils/realtimeIncidencias';
 import api from '../services/api';
-import { hasPermission } from '../services/authService';
+import { getUsuarioActual, hasPermission } from '../services/authService';
 
 const Dashboard = () => {
   const { showToast } = useToast();
 
   const puedeExportar = hasPermission('reportes:exportar');
+  const usuarioSesion = getUsuarioActual();
+  const idUsuarioSesion =
+    usuarioSesion?.id_usuario || usuarioSesion?.id || usuarioSesion?.userId || null;
+  const nombreSesionCompleto =
+    `${usuarioSesion?.nombre || ''} ${usuarioSesion?.apellido || ''}`.trim() || null;
+
   const [resumenGlobal, setResumenGlobal] = useState(null);
+  const [mapaActivos, setMapaActivos] = useState({});
   const [analiticaRefreshTick, setAnaliticaRefreshTick] = useState(0);
+
+  useEffect(() => {
+    let cancelado = false;
+    api
+      .get('/activos?limit=50', { skipGlobalErrorHandler: true })
+      .then((res) => {
+        const datos = res.data?.datos || (Array.isArray(res.data) ? res.data : []);
+        if (!cancelado && Array.isArray(datos)) {
+          const mapa = {};
+          for (const a of datos) {
+            if (a.id) mapa[a.id] = a;
+            if (a.codigoQr) mapa[a.codigoQr] = a;
+          }
+          setMapaActivos(mapa);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   const cargarResumenGlobal = useCallback(async () => {
     try {
@@ -337,20 +365,53 @@ const Dashboard = () => {
                     ? new Date(inc.fecha_creacion).toLocaleDateString()
                     : (inc.fecha || 'Reciente');
 
-                  // Mapeo seguro para el técnico asignado o reportante real
-                  const usuarioAsignado = inc.nombre_tecnico
-                    ? `Técnico: ${inc.nombre_tecnico}`
-                    : inc.asignado ||
-                      (inc.tecnico_asignado
-                        ? `Técnico: ${inc.tecnico_asignado}`
-                        : inc.nombre_reportante
-                          ? `Reportante: ${inc.nombre_reportante}`
+                  // Mapeo seguro para el técnico asignado o reportante real (evitando UUIDs crudos)
+                  const esUuid = (v) =>
+                    typeof v === 'string' &&
+                    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+                  const idTecnicoInc = inc.orden_trabajo?.id_tecnico || inc.id_tecnico || null;
+                  const esMiOrden = Boolean(
+                    idUsuarioSesion &&
+                      idTecnicoInc &&
+                      String(idTecnicoInc).toLowerCase() === String(idUsuarioSesion).toLowerCase()
+                  );
+                  const esMiReporte = Boolean(
+                    idUsuarioSesion &&
+                      inc.id_reportante &&
+                      String(inc.id_reportante).toLowerCase() === String(idUsuarioSesion).toLowerCase()
+                  );
+                  const candidatoTec = inc.nombre_tecnico || inc.orden_trabajo?.nombre_tecnico || inc.tecnico_asignado || null;
+                  const nombreTecLimpio =
+                    candidatoTec && !esUuid(candidatoTec)
+                      ? candidatoTec
+                      : esMiOrden && nombreSesionCompleto
+                        ? nombreSesionCompleto
+                        : null;
+                  const nombreRepLimpio =
+                    inc.nombre_reportante && !esUuid(inc.nombre_reportante)
+                      ? inc.nombre_reportante
+                      : esMiReporte && nombreSesionCompleto
+                        ? nombreSesionCompleto
+                        : null;
+
+                  const usuarioAsignado = nombreTecLimpio
+                    ? `Técnico: ${nombreTecLimpio}`
+                    : inc.asignado && !esUuid(inc.asignado)
+                      ? inc.asignado
+                      : idTecnicoInc
+                        ? `Técnico ID: ${String(idTecnicoInc).substring(0, 8)}`
+                        : nombreRepLimpio
+                          ? `Reportante: ${nombreRepLimpio}`
                           : inc.id_reportante
-                            ? `Reportante: ${inc.id_reportante.substring(0, 8)}`
-                            : 'Sin asignar');
+                            ? `Reportante ID: ${inc.id_reportante.substring(0, 8)}`
+                            : 'Sin asignar';
+
+                  const activoCat = mapaActivos[inc.id_activo];
                   const etiquetaActivo =
-                    inc.nombre_activo ||
                     inc.codigo_qr_activo ||
+                    activoCat?.codigoQr ||
+                    inc.nombre_activo ||
+                    activoCat?.nombre ||
                     (inc.id_activo ? `${inc.id_activo.substring(0, 8)}...` : null);
 
                   const esDestacadaWs = Boolean(idTexto && filasRecientesWs[idTexto]);
