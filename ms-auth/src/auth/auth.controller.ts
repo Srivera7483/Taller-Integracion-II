@@ -143,10 +143,11 @@ export class AuthController {
   async listUsers(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('rol') rol?: string,
   ) {
     const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
     const limitNum = Math.max(1, Math.min(50, parseInt(limit || '15', 10) || 15));
-    return await this.authService.listUsers(pageNum, limitNum);
+    return await this.authService.listUsers(pageNum, limitNum, rol);
   }
 
   @Post(['register', 'registro'])

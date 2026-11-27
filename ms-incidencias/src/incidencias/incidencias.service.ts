@@ -170,6 +170,7 @@ export class IncidenciasService {
     const idEstado = query.id_estado ?? null;
     const idTecnico = query.id_tecnico ?? null;
     const idReportante = query.id_reportante ?? null;
+    const prioridad = query.prioridad ?? null;
 
     const ids = await this.prisma.$queryRaw<Array<{ id_incidencia: string }>>(
       Prisma.sql`
@@ -193,6 +194,7 @@ export class IncidenciasService {
           AND (${idEstado}::integer IS NULL OR estado_actual."id_estado" = ${idEstado}::integer)
           AND (${idTecnico}::uuid IS NULL OR orden_actual."id_tecnico" = ${idTecnico}::uuid)
           AND (${idReportante}::uuid IS NULL OR i."id_reportante" = ${idReportante}::uuid)
+          AND (${prioridad} IS NULL OR i."prioridad" = ${prioridad}::"PrioridadIncidencia")
         ORDER BY i."fecha_creacion" DESC
         LIMIT ${limite} OFFSET ${offset}
       `,
