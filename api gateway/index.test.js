@@ -985,3 +985,309 @@ test('TAL-138: permite orígenes de cliente móvil (Capacitor/Ionic) y Vite prev
         ['http://localhost:5173', 'capacitor://localhost']
     );
 });
+
+// ============================================================================
+// TAL-178: Pruebas de Capa de Registro de Auditoría de Transacciones (Kubero-ready)
+// ============================================================================
+const { AuditLogger } = require('./audit-logger');
+
+test('TAL-178 (CA-1): Registra transacciones mutantes (POST, PUT, PATCH, DELETE) con < 2 ms de sobrecarga, sin credenciales y encola hacia auditoria.queue', async (t) => {
+    const authTarget = await startTarget({ service: 'auth' });
+    const incidenciasTarget = await startTarget({ service: 'incidencias' });
+    const activosTarget = await startTarget({ service: 'activos' });
+
+    const eventosAuditoriaRecibidos = [];
+    const notificacionesAuditServer = http.createServer((req, res) => {
+        const chunks = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => {
+            if (req.method === 'POST' && req.url === '/eventos/auditoria') {
+                eventosAuditoriaRecibidos.push(JSON.parse(Buffer.concat(chunks).toString()));
+                res.writeHead(200, { 'content-type': 'application/json' });
+                res.end(JSON.stringify({ status: 'publicado' }));
+                return;
+            }
+            res.writeHead(200, { 'content-type': 'application/json' });
+            res.end(JSON.stringify({ status: 'UP' }));
+        });
+    });
+    await new Promise((resolve) => notificacionesAuditServer.listen(0, '127.0.0.1', resolve));
+    const notifPort = notificacionesAuditServer.address().port;
+
+    const app = buildGateway({
+        jwtSecret: TEST_WS_JWT_SECRET,
+        authUrl: authTarget.url,
+        incidenciasUrl: incidenciasTarget.url,
+        activosUrl: activosTarget.url,
+        notificacionesUrl: `http://127.0.0.1:${notifPort}`,
+        logger: false,
+    });
+
+    t.after(async () => {
+        await app.close();
+        authTarget.server.close();
+        incidenciasTarget.server.close();
+        activosTarget.server.close();
+        notificacionesAuditServer.close();
+    });
+
+    const supervisorToken = signTestWsToken({
+        sub: '11111111-2222-3333-4444-555555555555',
+        email: 'supervisor@scgi.local',
+        rol: 'SUPERVISOR',
+        permissions: ['incidencias:crear', 'incidencias:ver', 'ordenes:asignar'],
+    });
+    const adminToken = signTestWsToken({
+        sub: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        email: 'admin@scgi.local',
+        rol: 'ADMINISTRADOR',
+        permissions: ['incidencias:ver', 'usuarios:gestionar', 'estadisticas:ver'],
+    });
+
+    // 1. Petición GET de lectura NO debe generar entrada de auditoría mutante
+    await app.inject({
+        method: 'GET',
+        url: '/api/v1/incidencias',
+        headers: { authorization: `Bearer ${supervisorToken}` },
+    });
+
+    // 2. POST de login con credenciales sensibles en body y query param token sensible
+    const superSecretPassword = 'ClaveUltraSecretaNoRegistrar!999';
+    await app.inject({
+        method: 'POST',
+        url: `/api/v1/auth/login?token=${superSecretPassword}&origen=web`,
+        payload: { email: 'admin@scgi.local', password: superSecretPassword },
+    });
+
+    // 3. PUT, PATCH y DELETE autenticados sobre distintos microservicios
+    await app.inject({
+        method: 'PUT',
+        url: '/api/v1/activos/3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        headers: { authorization: `Bearer ${adminToken}` },
+        payload: { nombre: 'Proyector Actualizado' },
+    });
+
+    await app.inject({
+        method: 'PATCH',
+        url: '/api/v1/incidencias/7fa85f64-5717-4562-b3fc-2c963f66afa9/estado',
+        headers: { authorization: `Bearer ${supervisorToken}` },
+        payload: { id_estado: 2 },
+    });
+
+    await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/usuarios/9fa85f64-5717-4562-b3fc-2c963f66afa0',
+        headers: { authorization: `Bearer ${adminToken}` },
+    });
+
+    // Esperar despacho microtask fire-and-forget hacia ms-notificaciones (/eventos/auditoria -> auditoria.queue)
+    await new Promise((resolve) => setTimeout(resolve, 60));
+
+    const logs = app.auditLogger.getAllNewestFirst();
+    assert.equal(logs.length, 4, 'Solo deben registrarse las 4 operaciones mutantes (no GET)');
+    assert.deepEqual(
+        logs.map((l) => l.metodo),
+        ['DELETE', 'PATCH', 'PUT', 'POST']
+    );
+
+    // Verificar ausencia total de contraseñas y tokens en los registros serializados
+    const serialized = JSON.stringify(logs);
+    assert.equal(serialized.includes(superSecretPassword), false);
+    assert.equal(serialized.includes(supervisorToken), false);
+    assert.equal(serialized.includes(adminToken), false);
+
+    const loginEntry = logs.find((l) => l.accion === 'LOGIN');
+    assert.ok(loginEntry);
+    assert.ok(loginEntry.ruta.includes('token=[REDACTED]'));
+    assert.ok(loginEntry.ruta.includes('origen=web'));
+    assert.equal(loginEntry.servicio_destino, 'ms-auth');
+    assert.ok(!Number.isNaN(Date.parse(loginEntry.timestamp)));
+
+    const patchEntry = logs.find((l) => l.metodo === 'PATCH');
+    assert.equal(patchEntry.servicio_destino, 'ms-incidencias');
+    assert.equal(patchEntry.accion, 'CAMBIO_ESTADO');
+    assert.equal(patchEntry.id_entidad, '7fa85f64-5717-4562-b3fc-2c963f66afa9');
+    assert.equal(patchEntry.usuario.email, 'supervisor@scgi.local');
+    assert.equal(patchEntry.usuario.rol, 'SUPERVISOR');
+
+    // Verificar que los 4 eventos llegaron a /eventos/auditoria con formato válido AuditoriaEventoDto
+    assert.equal(eventosAuditoriaRecibidos.length, 4);
+    for (const dto of eventosAuditoriaRecibidos) {
+        assert.ok(dto.accion);
+        assert.ok(dto.entidad);
+        assert.ok(dto.idEntidad);
+        assert.ok(dto.usuarioId);
+    }
+
+    // Benchmark CA-1: sobrecarga de recordTransaction < 2 ms promedio
+    const benchLogger = new AuditLogger({
+        jwtSecret: TEST_WS_JWT_SECRET,
+        enableAuditQueueDispatch: false,
+    });
+    const fakeReq = {
+        method: 'POST',
+        url: '/api/v1/incidencias',
+        ip: '127.0.0.1',
+        headers: { authorization: `Bearer ${supervisorToken}` },
+    };
+    const fakeReply = { statusCode: 201 };
+    const iteraciones = 50;
+    const t0 = process.hrtime.bigint();
+    for (let i = 0; i < iteraciones; i += 1) {
+        benchLogger.recordTransaction(fakeReq, fakeReply, process.hrtime.bigint());
+    }
+    const promedioMs = Number(process.hrtime.bigint() - t0) / 1e6 / iteraciones;
+    assert.ok(
+        promedioMs < 2,
+        `La sobrecarga promedio debe ser < 2 ms (medido: ${promedioMs.toFixed(3)} ms)`
+    );
+});
+
+test('TAL-178 (Kubero Resiliencia): Limita estrictamente la memoria del buffer circular y no falla si RabbitMQ / ms-notificaciones está caído', async (t) => {
+    const incidenciasTarget = await startTarget({ ok: true });
+    const app = buildGateway({
+        ...unavailableServices,
+        jwtSecret: TEST_WS_JWT_SECRET,
+        incidenciasUrl: incidenciasTarget.url,
+        notificacionesUrl: 'http://127.0.0.1:1', // Simula caída total de ms-notificaciones / RabbitMQ
+        maxAuditEntries: 10,
+        auditDispatchTimeoutMs: 100,
+    });
+
+    t.after(async () => {
+        await app.close();
+        incidenciasTarget.server.close();
+    });
+
+    for (let i = 1; i <= 16; i += 1) {
+        const res = await app.inject({
+            method: 'POST',
+            url: `/api/v1/incidencias?seq=${i}`,
+            payload: { titulo: `Incidencia ${i}` },
+        });
+        assert.equal(res.statusCode, 200);
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    const stored = app.auditLogger.getAllNewestFirst();
+    assert.equal(stored.length, 10, 'El buffer circular nunca debe exceder maxAuditEntries (10)');
+    assert.ok(stored[0].ruta.includes('seq=16'), 'El más reciente debe ser seq=16');
+    assert.ok(stored[9].ruta.includes('seq=7'), 'Los primeros 6 deben haberse rotado en orden FIFO');
+});
+
+test('TAL-178 (CA-2 & CA-3): GET /api/v1/auditoria aplica autorización PBAC (401/403 con esquema Error OpenAPI), filtros/paginación y reporte de salud', async (t) => {
+    const authTarget = await startTarget({ service: 'auth' });
+    const activosTarget = await startTarget({ service: 'activos' });
+
+    const app = buildGateway({
+        ...unavailableServices,
+        jwtSecret: TEST_WS_JWT_SECRET,
+        authUrl: authTarget.url,
+        activosUrl: activosTarget.url,
+        notificacionesUrl: 'http://127.0.0.1:1',
+        // incidenciasUrl y notificacionesUrl quedan en 127.0.0.1:1 (DOWN) para probar estado DEGRADED
+        healthCheckTimeoutMs: 300,
+        enableAuditQueueDispatch: false,
+    });
+
+    t.after(async () => {
+        await app.close();
+        authTarget.server.close();
+        activosTarget.server.close();
+    });
+
+    const reportanteToken = signTestWsToken({
+        sub: 'rep-1',
+        rol: 'REPORTANTE',
+        permissions: ['incidencias:crear', 'incidencias:ver'],
+    });
+    const supervisorToken = signTestWsToken({
+        sub: 'sup-1',
+        rol: 'SUPERVISOR',
+        permissions: ['incidencias:ver', 'ordenes:asignar', 'mantenimientos:crear'],
+    });
+    const auditorPbacToken = signTestWsToken({
+        sub: 'adm-1',
+        email: 'admin@scgi.local',
+        rol: 'OPERADOR_ESPECIAL', // Verifica PBAC real por permiso aunque el nombre del rol no sea ADMINISTRADOR
+        permissions: ['usuarios:gestionar'],
+    });
+
+    // Poblar 3 operaciones mutantes distintas
+    await app.inject({
+        method: 'POST',
+        url: '/api/v1/activos',
+        headers: { authorization: `Bearer ${auditorPbacToken}` },
+        payload: { nombre: 'Switch Core' },
+    });
+    await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/activos/3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        headers: { authorization: `Bearer ${auditorPbacToken}` },
+    });
+    await app.inject({
+        method: 'DELETE',
+        url: '/api/v1/incidencias/9fa85f64-5717-4562-b3fc-2c963f66afa9', // Fallará con 502 porque incidenciasUrl está apagado
+        headers: { authorization: `Bearer ${reportanteToken}` },
+    });
+
+    // 1. Sin JWT -> 401 con campos obligatorios del esquema Error de openapi.yaml
+    const res401 = await app.inject({ method: 'GET', url: '/api/v1/auditoria' });
+    assert.equal(res401.statusCode, 401);
+    const body401 = res401.json();
+    assert.equal(body401.statusCode, 401);
+    assert.ok(body401.mensaje);
+    assert.ok(body401.message);
+    assert.ok(body401.timestamp);
+    assert.equal(body401.path, '/api/v1/auditoria');
+
+    // 2. Con JWT válido pero sin permiso administrativo (REPORTANTE y SUPERVISOR) -> 403
+    const res403Rep = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auditoria',
+        headers: { authorization: `Bearer ${reportanteToken}` },
+    });
+    assert.equal(res403Rep.statusCode, 403);
+
+    const res403Sup = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auditoria',
+        headers: { authorization: `Bearer ${supervisorToken}` },
+    });
+    assert.equal(res403Sup.statusCode, 403);
+
+    // 3. Con permiso PBAC ('usuarios:gestionar') -> 200 OK con paginación y salud en vivo
+    const res200 = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auditoria?page=1&limit=2',
+        headers: { authorization: `Bearer ${auditorPbacToken}` },
+    });
+    assert.equal(res200.statusCode, 200);
+    const body200 = res200.json();
+    assert.equal(body200.data.length, 2);
+    assert.equal(body200.paginacion.total, 3);
+    assert.equal(body200.paginacion.total_paginas, 2);
+    assert.equal(body200.paginacion.almacenamiento_efimero, true);
+
+    assert.equal(body200.servicios.estado_general, 'DEGRADED');
+    const mapaSalud = Object.fromEntries(
+        body200.servicios.microservicios.map((s) => [s.nombre, s])
+    );
+    assert.equal(mapaSalud['ms-auth'].estado, 'UP');
+    assert.equal(mapaSalud['ms-activos'].estado, 'UP');
+    assert.equal(mapaSalud['ms-incidencias'].estado, 'DOWN');
+    assert.equal(mapaSalud['ms-notificaciones'].estado, 'DOWN');
+
+    // 4. Filtros combinados (statusCode=5xx y servicio=ms-incidencias)
+    const resFiltrado = await app.inject({
+        method: 'GET',
+        url: '/api/v1/auditoria?servicio=ms-incidencias&statusCode=5xx&includeHealth=false',
+        headers: { authorization: `Bearer ${auditorPbacToken}` },
+    });
+    assert.equal(resFiltrado.statusCode, 200);
+    const bodyFiltrado = resFiltrado.json();
+    assert.equal(bodyFiltrado.data.length, 1);
+    assert.equal(bodyFiltrado.data[0].status_code, 502);
+    assert.equal(bodyFiltrado.servicios, undefined);
+});
