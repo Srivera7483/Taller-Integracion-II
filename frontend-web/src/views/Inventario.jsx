@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
+import SkeletonTable from '../components/SkeletonTable';
 import PanelEstadisticasAnalitica from '../components/PanelEstadisticasAnalitica';
 import { FiSearch, FiPlus, FiAlertCircle, FiActivity, FiRefreshCw, FiCalendar } from 'react-icons/fi';
 import api from '../services/api';
@@ -218,10 +219,7 @@ const Inventario = () => {
         {/* Vista Móvil / Tablet Estrecha (< md): Tarjetas Apiladas */}
         <div className="md:hidden p-3 sm:p-4 space-y-3">
           {cargando && equipos.length === 0 ? (
-            <div className="py-10 text-center text-gray-500 text-sm">
-              <div className="inline-block animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent mb-2"></div>
-              <p>Cargando equipos del inventario...</p>
-            </div>
+            <SkeletonTable modo="tarjetas" filas={4} />
           ) : equiposFiltrados.length === 0 ? (
             <div className="py-10 text-center text-gray-500 text-sm">
               No se encontraron equipos que coincidan con la búsqueda.
@@ -302,11 +300,7 @@ const Inventario = () => {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {cargando && equipos.length === 0 ? (
-                <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500 text-sm">
-                    Cargando equipos del inventario...
-                  </td>
-                </tr>
+                <SkeletonTable soloFilas columnas={5} filas={6} />
               ) : equiposFiltrados.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="px-6 py-8 text-center text-gray-500 text-sm">

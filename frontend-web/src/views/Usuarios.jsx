@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import StatusBadge from '../components/StatusBadge';
+import SkeletonTable from '../components/SkeletonTable';
 import { useToast } from '../context/ToastContext';
 import { fetchUsuarios } from '../services/usuariosService';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
@@ -158,14 +159,7 @@ const Usuarios = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {loading && usuarios.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-500">
-                    <div className="flex justify-center items-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
-                      <span>Cargando primeros 15 usuarios...</span>
-                    </div>
-                  </td>
-                </tr>
+                <SkeletonTable soloFilas columnas={5} filas={6} />
               ) : usuarios.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-500">

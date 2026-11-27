@@ -49,24 +49,46 @@ async function main() {
   const reportantesCreados = []; // <-- Arreglo para guardar los IDs de los reportantes reales
 
   for (const u of usuariosData) {
-    const user = await authPrisma.user.upsert({
-      where: { rut_o_id: u.rut },
-      update: {
-        nombre: u.nombre,
-        apellido: u.apellido,
-        email: u.email,
-        passwordHash: hash,
-        roleId: u.role,
-      },
-      create: {
-        rut_o_id: u.rut,
-        nombre: u.nombre,
-        apellido: u.apellido,
-        email: u.email,
-        passwordHash: hash,
-        roleId: u.role,
-      },
-    });
+    const porEmail = await authPrisma.user.findUnique({ where: { email: u.email } });
+    const porRut = await authPrisma.user.findUnique({ where: { rut_o_id: u.rut } });
+
+    let user;
+    if (porEmail) {
+      user = await authPrisma.user.update({
+        where: { id: porEmail.id },
+        data: {
+          ...(!porRut || porRut.id === porEmail.id ? { rut_o_id: u.rut } : {}),
+          nombre: u.nombre,
+          apellido: u.apellido,
+          passwordHash: hash,
+          roleId: u.role,
+          fechaEliminacion: null,
+        },
+      });
+    } else if (porRut) {
+      user = await authPrisma.user.update({
+        where: { id: porRut.id },
+        data: {
+          nombre: u.nombre,
+          apellido: u.apellido,
+          email: u.email,
+          passwordHash: hash,
+          roleId: u.role,
+          fechaEliminacion: null,
+        },
+      });
+    } else {
+      user = await authPrisma.user.create({
+        data: {
+          rut_o_id: u.rut,
+          nombre: u.nombre,
+          apellido: u.apellido,
+          email: u.email,
+          passwordHash: hash,
+          roleId: u.role,
+        },
+      });
+    }
 
     if (u.role === rolTecnico.id) tecnicosCreados.push(user.id || user.userId);
     if (u.role === rolReportante.id) reportantesCreados.push(user.id || user.userId);
@@ -124,7 +146,8 @@ async function main() {
   // ==========================================
   const estadosBase = [
     { id_estado: 1, nombre_estado: 'Reportada' }, { id_estado: 2, nombre_estado: 'Asignada' },
-    { id_estado: 3, nombre_estado: 'Resuelta' }, { id_estado: 4, nombre_estado: 'Cerrada' }
+    { id_estado: 3, nombre_estado: 'Resuelta' }, { id_estado: 4, nombre_estado: 'Cerrada' },
+    { id_estado: 5, nombre_estado: 'Rechazada' }, { id_estado: 6, nombre_estado: 'Completada' }
   ];
   for (const eb of estadosBase) {
     await incidenciasPrisma.estadoIncidencia.upsert({ where: { id_estado: eb.id_estado }, update: {}, create: eb });

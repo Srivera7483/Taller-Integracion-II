@@ -145,7 +145,23 @@ const DetalleOrden = () => {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-500 font-medium">Cargando detalles de la orden...</div>;
+    return (
+      <div role="status" aria-label="Cargando detalles de la orden..." className="max-w-4xl mx-auto space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+          <div className="flex justify-between items-start gap-4">
+            <div className="space-y-2 flex-1">
+              <div className="h-6 w-2/5 rounded bg-gray-200 skeleton-shimmer animate-pulse" />
+              <div className="h-4 w-1/4 rounded bg-gray-200/80 skeleton-shimmer animate-pulse" />
+            </div>
+            <div className="h-7 w-28 rounded-full bg-gray-200 skeleton-shimmer animate-pulse" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+            <div className="h-20 rounded-lg bg-gray-50 skeleton-shimmer animate-pulse" />
+            <div className="h-20 rounded-lg bg-gray-50 skeleton-shimmer animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error || !orden) {

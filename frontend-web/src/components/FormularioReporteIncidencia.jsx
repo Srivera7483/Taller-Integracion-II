@@ -23,6 +23,7 @@ import api from '../services/api';
 import { useDraftState, clearDrafts } from '../hooks/useDraftState';
 
 const MAX_FILE_SIZE_BYTES = 5242880;
+const MAX_EVIDENCIAS = 5;
 const MENSAJE_ERROR_LIMITE_5MB = 'El archivo supera el límite de 5MB';
 
 // Expresión regular para formato estándar UUID v4
@@ -58,21 +59,23 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   const [descripcion, setDescripcion] = useDraftState('incidencia', 'descripcion', '');
   const [ubicacion, setUbicacion] = useDraftState('incidencia', 'ubicacion', '');
 
-  // Archivo adjunto y estados para previsualizador de imágenes (TAL-133 y TAL-136)
+  // Archivos adjuntos y previsualizador de imágenes (hasta 5 fotos, máx. 5MB c/u)
   const fileInputRef = useRef(null);
-  const [adjuntoNombre, setAdjuntoNombre] = useState('');
-  const [archivoImagen, setArchivoImagen] = useState(null);
-  const [imagenPreviewUrl, setImagenPreviewUrl] = useState(null);
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [evidenciasAdjuntas, setEvidenciasAdjuntas] = useState([]);
+  const [evidenciaPreviewModal, setEvidenciaPreviewModal] = useState(null);
+  const evidenciasRef = useRef(evidenciasAdjuntas);
+  evidenciasRef.current = evidenciasAdjuntas;
 
-  // Limpieza preventiva de URLs en memoria al desmontar o actualizar
+  // Limpieza preventiva de URLs en memoria al desmontar
   useEffect(() => {
     return () => {
-      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(imagenPreviewUrl);
+      for (const item of evidenciasRef.current) {
+        if (item.previewUrl && item.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
       }
     };
-  }, [imagenPreviewUrl]);
+  }, []);
 
   // Estados de control y validación
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -184,56 +187,69 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
   };
 
   /**
-   * TAL-134: Validador de tamaño de archivo (Max 5MB = 5,242,880 bytes) en cliente.
+   * Agrega hasta MAX_EVIDENCIAS (5) archivos válidos (<= 5MB c/u).
    */
-  const handleFileAccepted = (file) => {
-    if (!file) return;
+  const handleFilesAdded = (files) => {
+    if (!Array.isArray(files) || files.length === 0) return;
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+    const nuevosItems = [];
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        showToast(MENSAJE_ERROR_LIMITE_5MB, 'error');
+        continue;
       }
-      showToast(MENSAJE_ERROR_LIMITE_5MB, 'error');
-      return;
+      const esImagen = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
+      nuevosItems.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        previewUrl: esImagen ? URL.createObjectURL(file) : null,
+        name: file.name,
+        size: file.size,
+      });
     }
 
-    const esImagen = file.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
+    if (nuevosItems.length === 0) return;
 
-    if (esImagen) {
-      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(imagenPreviewUrl);
+    setEvidenciasAdjuntas((prev) => {
+      const disponibles = Math.max(0, MAX_EVIDENCIAS - prev.length);
+      const aInsertar = nuevosItems.slice(0, disponibles);
+      const descartados = nuevosItems.slice(disponibles);
+      for (const desc of descartados) {
+        if (desc.previewUrl && desc.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(desc.previewUrl);
+        }
       }
-      const preview = URL.createObjectURL(file);
-      setArchivoImagen(file);
-      setImagenPreviewUrl(preview);
-      setAdjuntoNombre(file.name);
-      showToast(`Imagen "${file.name}" cargada para previsualización`, 'info');
-    } else {
-      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(imagenPreviewUrl);
+      if (aInsertar.length === 1) {
+        showToast(`"${aInsertar[0].name}" agregada (${prev.length + 1}/${MAX_EVIDENCIAS})`, 'info');
+      } else if (aInsertar.length > 1) {
+        showToast(`${aInsertar.length} fotos agregadas (${prev.length + aInsertar.length}/${MAX_EVIDENCIAS})`, 'info');
       }
-      setArchivoImagen(file);
-      setImagenPreviewUrl(null);
-      setAdjuntoNombre(file.name);
-      showToast(`Archivo "${file.name}" adjuntado al reporte`, 'info');
-    }
+      return [...prev, ...aInsertar];
+    });
   };
 
-  const handleLimpiarImagen = (options = {}) => {
-    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(imagenPreviewUrl);
+  const handleRemoveFile = (idToRemove) => {
+    setEvidenciasAdjuntas((prev) => {
+      const target = prev.find((item) => item.id === idToRemove);
+      if (target?.previewUrl && target.previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((item) => item.id !== idToRemove);
+    });
+    setEvidenciaPreviewModal((prev) => (prev?.id === idToRemove ? null : prev));
+  };
+
+  const handleLimpiarImagenes = (options = {}) => {
+    for (const item of evidenciasAdjuntas) {
+      if (item.previewUrl && item.previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
     }
-    setArchivoImagen(null);
-    setImagenPreviewUrl(null);
-    setAdjuntoNombre('');
-    setIsImageModalOpen(false);
+    setEvidenciasAdjuntas([]);
+    setEvidenciaPreviewModal(null);
     if (!options?.silent) {
-      showToast('Selección de imagen eliminada', 'info');
+      showToast('Selección de imágenes eliminada', 'info');
     }
-  };
-
-  const handleCambiarImagen = () => {
-    handleLimpiarImagen();
   };
 
   const handleResetForm = () => {
@@ -245,13 +261,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
     setCategoria('');
     setDescripcion('');
     setUbicacion('');
-    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(imagenPreviewUrl);
-    }
-    setArchivoImagen(null);
-    setImagenPreviewUrl(null);
-    setAdjuntoNombre('');
-    setIsImageModalOpen(false);
+    handleLimpiarImagenes({ silent: true });
     setErrors({});
     setTouched({});
   };
@@ -277,8 +287,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       return;
     }
 
-    if (archivoImagen && archivoImagen.size > MAX_FILE_SIZE_BYTES) {
-      handleLimpiarImagen({ silent: true });
+    if (evidenciasAdjuntas.some((item) => item.file && item.file.size > MAX_FILE_SIZE_BYTES)) {
       showToast(MENSAJE_ERROR_LIMITE_5MB, 'error');
       return;
     }
@@ -415,19 +424,34 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
       }
     }
 
-        let urlEvidencia = null;
+        const urlsEvidencias = [];
+        let fallosSubida = 0;
 
-          if (!esOffline && idGenerado && archivoImagen && archivoImagen.size <= MAX_FILE_SIZE_BYTES) {
+        if (!esOffline && idGenerado && evidenciasAdjuntas.length > 0) {
+          for (const item of evidenciasAdjuntas.slice(0, MAX_EVIDENCIAS)) {
+            if (!item.file || item.file.size > MAX_FILE_SIZE_BYTES) continue;
             try {
               const formData = new FormData();
-              formData.append('file', archivoImagen);
+              formData.append('file', item.file);
               formData.append('id_tipo_evidencia', '1');
               const uploadResp = await api.post(`/incidencias/${idGenerado}/evidencias`, formData);
-              urlEvidencia = uploadResp.data?.url_cloudinary || uploadResp.data?.url_evidencia;
+              const urlSubida = uploadResp.data?.url_cloudinary || uploadResp.data?.url_evidencia;
+              if (urlSubida) urlsEvidencias.push(urlSubida);
             } catch {
-              showToast('Incidencia creada, pero la evidencia fotográfica no pudo subirse.', 'warning');
+              fallosSubida++;
             }
           }
+          if (fallosSubida > 0) {
+            showToast(
+              `Incidencia creada, pero ${fallosSubida} evidencia(s) fotográfica(s) no pudieron subirse.`,
+              'warning',
+            );
+          }
+        }
+
+          const previewsFallback = evidenciasAdjuntas
+            .map((item) => item.previewUrl)
+            .filter(Boolean);
 
           const nuevaIncidenciaLocal = {
             id: idGenerado || `INC-${Date.now().toString().slice(-4)}`,
@@ -438,8 +462,8 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
             ubicacion,
             estado: 'Pendiente',
             fecha: new Date().toISOString(),
-            evidencias: urlEvidencia ? [urlEvidencia] : (imagenPreviewUrl ? [imagenPreviewUrl] : []),
-            imagenAdjuntaNombre: archivoImagen?.name || null,
+            evidencias: urlsEvidencias.length > 0 ? urlsEvidencias : previewsFallback,
+            imagenAdjuntaNombre: evidenciasAdjuntas[0]?.name || null,
             esOffline,
           };
 
@@ -708,19 +732,19 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 )}
               </div>
 
-              {/* Campo: Adjuntar Evidencias Fotográficas */}
+              {/* Campo: Adjuntar Evidencias Fotográficas (hasta 5 fotos) */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Evidencia Fotográfica o Archivo de Registro <span className="text-xs text-gray-400 font-normal">(Opcional — Máx. 5MB)</span>
+                  Evidencias Fotográficas o Archivos de Registro <span className="text-xs text-gray-400 font-normal">(Opcional — Máx. {MAX_EVIDENCIAS} fotos, 5MB c/u)</span>
                 </label>
 
                 <ImageUploader
-                  archivoImagen={archivoImagen}
-                  imagenPreviewUrl={imagenPreviewUrl}
-                  adjuntoNombre={adjuntoNombre}
-                  onFileAccepted={handleFileAccepted}
-                  onClearFile={handleLimpiarImagen}
-                  onOpenModal={() => setIsImageModalOpen(true)}
+                  archivos={evidenciasAdjuntas}
+                  maxFiles={MAX_EVIDENCIAS}
+                  onFilesAdded={handleFilesAdded}
+                  onRemoveFile={handleRemoveFile}
+                  onClearAll={handleLimpiarImagenes}
+                  onOpenPreview={(item) => setEvidenciaPreviewModal(item)}
                   disabled={isSubmitting}
                   fileInputRef={fileInputRef}
                 />
@@ -781,13 +805,16 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
 
             {/* Modal Previsualizador de Imágenes Subidas */}
             <ModalPrevisualizadorImagen
-              isOpen={isImageModalOpen}
-              onClose={() => setIsImageModalOpen(false)}
-              imageUrl={imagenPreviewUrl}
-              imageName={adjuntoNombre}
-              imageSize={archivoImagen?.size}
-              onLimpiarImagen={handleLimpiarImagen}
-              onCambiarImagen={handleCambiarImagen}
+              isOpen={Boolean(evidenciaPreviewModal)}
+              onClose={() => setEvidenciaPreviewModal(null)}
+              imageUrl={evidenciaPreviewModal?.previewUrl || null}
+              imageName={evidenciaPreviewModal?.name || ''}
+              imageSize={evidenciaPreviewModal?.size}
+              onLimpiarImagen={() => {
+                if (evidenciaPreviewModal?.id) {
+                  handleRemoveFile(evidenciaPreviewModal.id);
+                }
+              }}
             />
 
             {/* TAL-183: Modal Informativo y Alerta de Sincronización Diferida */}

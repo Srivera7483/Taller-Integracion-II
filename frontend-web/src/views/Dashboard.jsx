@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import MetricCard from '../components/MetricCard';
+import SkeletonCard from '../components/SkeletonCard';
+import SkeletonTable from '../components/SkeletonTable';
 import StatusBadge from '../components/StatusBadge';
 import BotonExportarExcel from '../components/BotonExportarExcel';
 import PanelEstadisticasAnalitica from '../components/PanelEstadisticasAnalitica';
@@ -233,32 +235,38 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard
-          title="Total Incidencias"
-          value={resumenMetricas.total.toString()}
-          icon={FiActivity}
-          color="blue"
-        />
-        <MetricCard
-          title="Pendientes / En Atención"
-          value={resumenMetricas.pendientes.toString()}
-          icon={FiClock}
-          color="orange"
-        />
-        <MetricCard
-          title="Incidencias Críticas"
-          value={resumenMetricas.criticas.toString()}
-          icon={FiAlertTriangle}
-          color="red"
-        />
-        <MetricCard
-          title="Órdenes Resueltas"
-          value={resumenMetricas.resueltas.toString()}
-          icon={FiCheckCircle}
-          color="green"
-        />
-      </div>
+      {loading && incidencias.length === 0 && !resumenGlobal ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <SkeletonCard cantidad={4} tipo="metrica" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+          <MetricCard
+            title="Total Incidencias"
+            value={resumenMetricas.total.toString()}
+            icon={FiActivity}
+            color="blue"
+          />
+          <MetricCard
+            title="Pendientes / En Atención"
+            value={resumenMetricas.pendientes.toString()}
+            icon={FiClock}
+            color="orange"
+          />
+          <MetricCard
+            title="Incidencias Críticas"
+            value={resumenMetricas.criticas.toString()}
+            icon={FiAlertTriangle}
+            color="red"
+          />
+          <MetricCard
+            title="Órdenes Resueltas"
+            value={resumenMetricas.resueltas.toString()}
+            icon={FiCheckCircle}
+            color="green"
+          />
+        </div>
+      )}
 
       {/* TAL-207: Estadísticas de Activos (TAL-6) y Métricas MTTR de Resolución (TAL-128) */}
       <PanelEstadisticasAnalitica refreshTrigger={analiticaRefreshTick} />
@@ -306,14 +314,7 @@ const Dashboard = () => {
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {loading && incidencias.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-600">
-                    <div className="flex justify-center items-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
-                      <span>Cargando incidencias iniciales...</span>
-                    </div>
-                  </td>
-                </tr>
+                <SkeletonTable soloFilas columnas={4} filas={5} />
               ) : incidencias.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-sm text-gray-600">

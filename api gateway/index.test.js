@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const http = require('node:http');
 const test = require('node:test');
-const { buildGateway } = require('./index');
+const { buildGateway, DEFAULT_ALLOWED_ORIGINS, getAllowedOrigins } = require('./index');
 const RateLimitStore = require('./rate-limit-store');
 
 const unavailableServices = {
@@ -733,4 +733,88 @@ test('TAL-2 (CA-2): Soporta unión dinámica de salas (join_room/leave_room), re
     });
 
     assert.equal(app.io.sockets.sockets.has(firstSocketId), false);
+});
+
+test('TAL-19: aplica Rate Limiting global por IP y excluye rutas críticas de health y kill-switch', async (t) => {
+    const activos = await startTarget({ service: 'activos' });
+    const app = buildGateway({
+        ...unavailableServices,
+        activosUrl: activos.url,
+        globalRateLimitMax: 3,
+        globalRateLimitWindowMs: 60_000,
+    });
+    t.after(async () => {
+        await app.close();
+        activos.server.close();
+    });
+
+    const firstThree = [];
+    for (let i = 0; i < 3; i += 1) {
+        firstThree.push(await app.inject({
+            method: 'GET',
+            url: '/api/v1/activos',
+            remoteAddress: '198.51.100.50',
+        }));
+    }
+    const fourthBlocked = await app.inject({
+        method: 'GET',
+        url: '/api/v1/activos',
+        remoteAddress: '198.51.100.50',
+    });
+    const exemptHealth = await app.inject({
+        method: 'GET',
+        url: '/api/v1/health',
+        remoteAddress: '198.51.100.50',
+    });
+    const exemptKillSwitch = await app.inject({
+        method: 'GET',
+        url: '/api/v1/kill-switch/status',
+        remoteAddress: '198.51.100.50',
+    });
+
+    assert.deepEqual(firstThree.map((r) => r.statusCode), [200, 200, 200]);
+    assert.equal(fourthBlocked.statusCode, 429);
+    assert.equal(exemptHealth.statusCode, 200);
+    assert.equal(exemptKillSwitch.statusCode, 200);
+});
+
+test('TAL-126: protege también la ruta móvil POST /api/v1/autenticacion/inicio-sesion con límite de 5 intentos', async (t) => {
+    const auth = await startTarget({ service: 'auth-mobile' });
+    const app = buildGateway({
+        ...unavailableServices,
+        authUrl: auth.url,
+    });
+    t.after(async () => {
+        await app.close();
+        auth.server.close();
+    });
+
+    const attempts = [];
+    for (let i = 0; i < 5; i += 1) {
+        attempts.push(await app.inject({
+            method: 'POST',
+            url: '/api/v1/autenticacion/inicio-sesion',
+            remoteAddress: '198.51.100.77',
+            payload: { correo: 'tecnico@uct.cl', contrasena: 'err' },
+        }));
+    }
+    const sixth = await app.inject({
+        method: 'POST',
+        url: '/api/v1/autenticacion/inicio-sesion',
+        remoteAddress: '198.51.100.77',
+        payload: { correo: 'tecnico@uct.cl', contrasena: 'err' },
+    });
+
+    assert.deepEqual(attempts.map((r) => r.statusCode), [200, 200, 200, 200, 200]);
+    assert.equal(sixth.statusCode, 429);
+});
+
+test('TAL-138: permite orígenes de cliente móvil (Capacitor/Ionic) y Vite preview en la configuración CORS', () => {
+    assert.ok(DEFAULT_ALLOWED_ORIGINS.includes('capacitor://localhost'));
+    assert.ok(DEFAULT_ALLOWED_ORIGINS.includes('ionic://localhost'));
+    assert.ok(DEFAULT_ALLOWED_ORIGINS.includes('http://localhost:4173'));
+    assert.deepEqual(
+        getAllowedOrigins('http://localhost:5173, capacitor://localhost'),
+        ['http://localhost:5173', 'capacitor://localhost']
+    );
 });

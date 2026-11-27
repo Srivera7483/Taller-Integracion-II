@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import StatusBadge from '../components/StatusBadge';
 import StatusFilter from '../components/StatusFilter';
+import SkeletonTable from '../components/SkeletonTable';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
 import BotonExportarExcel from '../components/BotonExportarExcel';
 import { hasPermission } from '../services/authService';
@@ -332,10 +333,7 @@ const Incidencias = () => {
       {/* Vista de Tarjetas (Móvil y Tablet Portrait) */}
       <div className="grid grid-cols-1 gap-4 md:hidden">
         {loading ? (
-          <div className="p-8 text-center bg-white rounded-xl shadow-sm border border-gray-200">
-            <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent mx-auto"></div>
-            <p className="font-medium text-gray-500 mt-2">Cargando base de datos...</p>
-          </div>
+          <SkeletonTable modo="tarjetas" filas={4} />
         ) : incidenciasFiltradas.length > 0 ? (
           incidenciasFiltradas.map((inc) => {
             const estadoTexto = getNombreEstado(inc.estado);
@@ -433,11 +431,7 @@ const Incidencias = () => {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                     <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent mx-auto"></div>
-                  </td>
-                </tr>
+                <SkeletonTable soloFilas columnas={6} filas={6} />
               ) : incidenciasFiltradas.length > 0 ? (
                 incidenciasFiltradas.map((inc) => {
                   const estadoTexto = getNombreEstado(inc.estado);

@@ -14,6 +14,8 @@ import {
   FiHash,
 } from 'react-icons/fi';
 import FiltrosRangoFechasMantenimientos from '../components/FiltrosRangoFechasMantenimientos';
+import SkeletonCard from '../components/SkeletonCard';
+import SkeletonTable from '../components/SkeletonTable';
 import { fetchMantenimientos } from '../services/mantenimientosService';
 import { hasPermission } from '../services/authService';
 
@@ -193,49 +195,55 @@ const Mantenimientos = () => {
       </div>
 
       {/* Tarjetas de métricas basadas en fecha_programada */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-primary-50 text-primary rounded-lg">
-            <FiCalendar className="w-5 h-5" />
+      {cargando && mantenimientos.length === 0 ? (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <SkeletonCard cantidad={4} tipo="metrica" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6 animate-fade-in">
+          <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex items-center gap-3">
+            <div className="p-3 bg-primary-50 text-primary rounded-lg">
+              <FiCalendar className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{metricas.total}</div>
+              <div className="text-xs text-gray-500 font-medium">
+                {hayFiltroFechaActivo ? 'En rango seleccionado' : 'Total registrados'}
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="text-2xl font-bold text-gray-900">{metricas.total}</div>
-            <div className="text-xs text-gray-500 font-medium">
-              {hayFiltroFechaActivo ? 'En rango seleccionado' : 'Total registrados'}
+
+          <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex items-center gap-3">
+            <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+              <FiCheckCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{metricas.programados}</div>
+              <div className="text-xs text-gray-500 font-medium">Próximos en agenda</div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex items-center gap-3">
+            <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
+              <FiClock className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{metricas.paraHoy}</div>
+              <div className="text-xs text-gray-500 font-medium">Programados hoy</div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex items-center gap-3">
+            <div className="p-3 bg-rose-50 text-rose-600 rounded-lg">
+              <FiAlertTriangle className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{metricas.vencidos}</div>
+              <div className="text-xs text-gray-500 font-medium">Plazo vencido</div>
             </div>
           </div>
         </div>
-
-        <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
-            <FiCheckCircle className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-gray-900">{metricas.programados}</div>
-            <div className="text-xs text-gray-500 font-medium">Próximos en agenda</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-amber-50 text-amber-600 rounded-lg">
-            <FiClock className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-gray-900">{metricas.paraHoy}</div>
-            <div className="text-xs text-gray-500 font-medium">Programados hoy</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-rose-50 text-rose-600 rounded-lg">
-            <FiAlertTriangle className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-gray-900">{metricas.vencidos}</div>
-            <div className="text-xs text-gray-500 font-medium">Plazo vencido</div>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Toolbar superior con date pickers y sincronización Query String */}
       <FiltrosRangoFechasMantenimientos
@@ -288,9 +296,8 @@ const Mantenimientos = () => {
 
         {/* Estado de carga */}
         {cargando ? (
-          <div className="py-20 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-primary border-t-transparent mb-3"></div>
-            <p className="text-sm font-medium text-gray-600">Consultando cronograma de mantenimientos...</p>
+          <div className="p-4">
+            <SkeletonTable filas={5} columnas={5} mostrarCabecera={false} />
           </div>
         ) : mantenimientosFiltrados.length > 0 ? (
           <>

@@ -1,20 +1,48 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { HttpService } from '@nestjs/axios';
+import { JwtService } from '@nestjs/jwt';
 import { firstValueFrom } from 'rxjs';
 import { PrismaService } from './prisma.service';
+
+const DEFAULT_SYSTEM_REPORTER_ID = '00000000-0000-4000-8000-000000000001';
 
 @Injectable()
 export class MantenimientosCron {
   private readonly logger = new Logger(MantenimientosCron.name);
 
-  // URL del microservicio de incidencias desde las variables de entorno
-  private readonly msIncidenciasUrl = process.env.MS_INCIDENCIAS_URL || '';
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
+    @Optional() private readonly jwtService?: JwtService,
   ) {}
+
+  private obtenerEndpointIncidencias(): string {
+    const rawBase = (process.env.MS_INCIDENCIAS_URL || 'http://localhost:3002').trim().replace(/\/+$/, '');
+    if (rawBase.endsWith('/incidencias')) {
+      return rawBase;
+    }
+    if (rawBase.endsWith('/api/v1')) {
+      return `${rawBase}/incidencias`;
+    }
+    return `${rawBase}/api/v1/incidencias`;
+  }
+
+  private construirHeadersServicio(): Record<string, string> {
+    if (!this.jwtService) {
+      return {};
+    }
+    const token = this.jwtService.sign(
+      {
+        sub: process.env.CRON_SYSTEM_USER_ID || DEFAULT_SYSTEM_REPORTER_ID,
+        email: 'cron-mantenimientos@uct.cl',
+        rol: 'SUPERVISOR',
+        permissions: ['incidencias:crear', 'incidencias:ver'],
+      },
+      { expiresIn: '5m' },
+    );
+    return { Authorization: `Bearer ${token}` };
+  }
 
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async procesarMantenimientosPendientes() {
@@ -39,31 +67,29 @@ export class MantenimientosCron {
       }
 
       this.logger.log(`Se encontraron ${mantenimientos.length} mantenimientos para procesar.`);
+      const endpoint = this.obtenerEndpointIncidencias();
+      const headers = this.construirHeadersServicio();
 
       for (const mant of mantenimientos) {
         try {
-          // Preparamos el cuerpo de la petición (Payload) que espera ms-incidencias
           const payloadIncidencia = {
-            id_activo: mant.id_activo,
+            id_activo: String(mant.id_activo),
             titulo: 'Mantenimiento Preventivo Programado',
-            descripcion: `Generado automáticamente por el CronJob (Ref. Mantenimiento: ${mant.id_mantenimiento})`,
-            estado: 'REPORTADA',
+            descripcion: `Generado automáticamente por el CronJob preventivo (Ref. Mantenimiento: ${mant.id_mantenimiento})`,
+            prioridad: 'alta',
           };
 
-          // Invocamos por HTTP POST a ms-incidencias usando firstValueFrom
           await firstValueFrom(
-            this.httpService.post(this.msIncidenciasUrl, payloadIncidencia)
+            this.httpService.post(endpoint, payloadIncidencia, { headers }),
           );
 
           this.logger.log(`[ALERTA AUTOMATIZADA] Incidencia creada exitosamente en ms-incidencias para el activo: ${mant.id_activo}`);
 
-          // Si el otro microservicio respondió OK, eliminamos el registro local
           await this.prisma.mantenimiento.delete({
             where: { id_mantenimiento: mant.id_mantenimiento },
           });
-
-        } catch (itemError: any) { // Tipado como 'any' para evitar errores de compilación en .response y .message
-          const detalle = itemError.response?.data?.message || itemError.message;
+        } catch (itemError: any) {
+          const detalle = itemError?.response?.data?.message || itemError?.response?.data?.mensaje || itemError?.message;
           this.logger.error(`Error al procesar el mantenimiento ${mant.id_mantenimiento} para el activo ${mant.id_activo}: ${detalle}`);
         }
       }

@@ -94,6 +94,7 @@ const AxiosInterceptor = ({ children }) => {
         } else if (error.response && error.response.status >= 400 && error.response.status < 500) {
           // Errores de cliente (400, 403, 404, etc.)
           let errorMessage =
+            error.response.data?.mensaje ||
             error.response.data?.message ||
             error.response.data?.error ||
             'Error en la solicitud al servidor';

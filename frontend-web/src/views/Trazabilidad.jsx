@@ -25,8 +25,8 @@ const Trazabilidad = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
 
-  // Activo actual (prioriza param de ruta, luego query param, o por defecto el primero)
-  const activoInicial = idActivo || searchParams.get('id_activo') || 'ACT-2026-0001';
+  // Activo actual (prioriza param de ruta, luego query param, o por defecto el primer activo de la semilla UCT)
+  const activoInicial = idActivo || searchParams.get('id_activo') || 'UCT-PRJ-01';
   const [activoSeleccionado, setActivoSeleccionado] = useState(activoInicial);
 
   const [datosTrazabilidad, setDatosTrazabilidad] = useState(null);
@@ -35,8 +35,56 @@ const Trazabilidad = () => {
   const [paginaActual, setPaginaActual] = useState(1);
   const limitePorPagina = 10;
 
-  // Lista de activos disponibles para el selector rápido
-  const listaActivos = obtenerCatalogoActivosResumen();
+  // Lista base combinando los activos institucionales de seed.cjs y el catálogo de respaldo
+  const [listaActivos, setListaActivos] = useState(() => {
+    const baseSeed = [
+      { id: 'UCT-PRJ-01', nombre: 'Proyector Epson PowerLite' },
+      { id: 'UCT-PC-01', nombre: 'Computador Dell OptiPlex' },
+      { id: 'UCT-SW-01', nombre: 'Switch Cisco Catalyst' },
+    ];
+    const respaldo = obtenerCatalogoActivosResumen();
+    const vistos = new Set(baseSeed.map((a) => a.id));
+    return [...baseSeed, ...respaldo.filter((r) => !vistos.has(r.id))];
+  });
+
+  useEffect(() => {
+    let cancelado = false;
+    try {
+      const rawUser = localStorage.getItem('usuario');
+      const user = rawUser ? JSON.parse(rawUser) : null;
+      const perms = Array.isArray(user?.permissions) ? user.permissions : [];
+      if (!perms.includes('activos:gestionar')) return undefined;
+
+      const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+      const envUrl =
+        import.meta.env.VITE_API_GATEWAY_URL ||
+        import.meta.env.VITE_API_URL ||
+        'http://localhost:3000/api/v1';
+      const base = envUrl.replace(/\/+$/, '');
+      const url = base.endsWith('/v1') ? `${base}/activos?limit=50` : `${base}/v1/activos?limit=50`;
+      fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((json) => {
+          if (cancelado || !Array.isArray(json?.datos) || json.datos.length === 0) return;
+          const reales = json.datos.map((a) => ({
+            id: a.codigoQr || a.codigo_qr || a.id,
+            nombre: a.nombre,
+          }));
+          setListaActivos((prev) => {
+            const vistos = new Set(reales.map((x) => x.id));
+            return [...reales, ...prev.filter((p) => !vistos.has(p.id))];
+          });
+        })
+        .catch(() => {});
+    } catch {
+      // Ignorar errores de parseo local
+    }
+    return () => {
+      cancelado = true;
+    };
+  }, []);
 
   const cargarDatos = useCallback(async () => {
     setCargando(true);

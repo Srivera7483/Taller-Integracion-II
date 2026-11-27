@@ -12,15 +12,18 @@ const { attachRedisAdapter } = require('./redis-adapter');
 
 const DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:5173',
+    'http://localhost:4173',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
     'http://127.0.0.1:3000',
     'http://localhost:8081',
     'http://localhost:19006',
+    'capacitor://localhost',
+    'ionic://localhost',
 ];
 
 const getAllowedOrigins = (customOrigins) => {
-    const rawOrigins = customOrigins ?? process.env.CORS_ORIGINS;
+    const rawOrigins = customOrigins ?? process.env.CORS_ORIGINS ?? process.env.CORS_ALLOWED_ORIGINS;
     if (!rawOrigins) {
         return DEFAULT_ALLOWED_ORIGINS;
     }
@@ -84,8 +87,27 @@ const buildGateway = (options = {}) => {
         }
     });
 
+    const rawGlobalMax = Number(
+        options.globalRateLimitMax ?? process.env.RATE_LIMIT_GLOBAL_MAX ?? 300
+    );
+    const rawGlobalWindowMs = Number(
+        options.globalRateLimitWindowMs ?? process.env.RATE_LIMIT_GLOBAL_WINDOW_MS ?? 15 * 60 * 1000
+    );
+
+    // TAL-19: Rate Limiting base por IP (con cuotas aisladas para login en TAL-126)
     fastify.register(rateLimit, {
-        global: false,
+        global: true,
+        max: Number.isFinite(rawGlobalMax) && rawGlobalMax > 0 ? rawGlobalMax : 300,
+        timeWindow: Number.isFinite(rawGlobalWindowMs) && rawGlobalWindowMs > 0 ? rawGlobalWindowMs : 15 * 60 * 1000,
+        allowList: (request) => {
+            const url = request.raw?.url || request.url || '';
+            return (
+                url === '/' ||
+                url.startsWith('/health') ||
+                url.startsWith('/api/v1/health') ||
+                url.startsWith('/api/v1/kill-switch')
+            );
+        },
         store: RateLimitStore,
     });
 
@@ -237,6 +259,21 @@ const buildGateway = (options = {}) => {
         upstream: authUrl,
         prefix: '/api/v1/auth',
         rewritePrefix: '/auth',
+        replyOptions: { onError: handleProxyError }
+    });
+
+    fastify.register(proxy, {
+        upstream: authUrl,
+        prefix: '/api/v1/autenticacion',
+        routes: ['/inicio-sesion'],
+        httpMethods: ['POST'],
+        rewritePrefix: '/autenticacion',
+        config: {
+            rateLimit: {
+                max: 5,
+                timeWindow: 15 * 60 * 1000,
+            },
+        },
         replyOptions: { onError: handleProxyError }
     });
 

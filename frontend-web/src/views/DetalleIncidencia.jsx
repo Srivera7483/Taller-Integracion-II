@@ -21,6 +21,7 @@ import api from '../services/api';
 import ModalCierreMantenimiento from '../components/ModalCierreMantenimiento';
 import ModalPrevisualizadorImagen from '../components/ModalPrevisualizadorImagen';
 import EvidenciaUploader from '../components/EvidenciaUploader';
+import PanelIncidenciaRechazada from '../components/PanelIncidenciaRechazada';
 import { useToast } from '../context/ToastContext';
 import { getUsuarioActual, hasPermission } from '../services/authService';
 
@@ -415,7 +416,16 @@ const DetalleIncidencia = () => {
     void cargarIncidencia();
   };
 
+  const MAX_EVIDENCIAS = 5;
+
   const handleEvidenciaSubidaDesdeDetalle = async (evidenciaPayload) => {
+    const cantidadActual = Array.isArray(incidencia?.evidencias) ? incidencia.evidencias.length : 0;
+    if (cantidadActual >= MAX_EVIDENCIAS) {
+      showToast(`Esta incidencia ya alcanzó el máximo de ${MAX_EVIDENCIAS} evidencias.`, 'warning');
+      setMostrarSubidorNuevo(false);
+      return;
+    }
+
     try {
       let urlSubida = null;
       const file = evidenciaPayload?.file;
@@ -469,7 +479,24 @@ const DetalleIncidencia = () => {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-500 font-medium">Cargando detalles de la incidencia...</div>;
+    return (
+      <div role="status" aria-label="Cargando detalles de la incidencia..." className="max-w-4xl mx-auto space-y-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 space-y-4">
+          <div className="flex justify-between items-start gap-4">
+            <div className="space-y-2 flex-1">
+              <div className="h-6 w-2/5 rounded bg-gray-200 skeleton-shimmer animate-pulse" />
+              <div className="h-4 w-1/4 rounded bg-gray-200/80 skeleton-shimmer animate-pulse" />
+            </div>
+            <div className="h-7 w-28 rounded-full bg-gray-200 skeleton-shimmer animate-pulse" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+            <div className="h-16 rounded-lg bg-gray-50 skeleton-shimmer animate-pulse" />
+            <div className="h-16 rounded-lg bg-gray-50 skeleton-shimmer animate-pulse" />
+            <div className="h-16 rounded-lg bg-gray-50 skeleton-shimmer animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (error || !incidencia) {
@@ -526,6 +553,34 @@ const DetalleIncidencia = () => {
         <FiChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
         <span className="font-semibold text-gray-900">Incidencia {incidencia.id}</span>
       </nav>
+
+      {/* TAL-135: Panel destacado cuando la incidencia fue desestimada / rechazada */}
+      {estaRechazada && (
+        <PanelIncidenciaRechazada
+          motivoRechazo={
+            incidencia.motivo_rechazo ||
+            incidencia.resolucion ||
+            incidencia.diagnostico_tecnico ||
+            incidencia.orden_trabajo?.diagnostico_tecnico ||
+            null
+          }
+          fechaRechazo={
+            incidencia.fecha_cierre
+              ? new Date(incidencia.fecha_cierre).toLocaleString()
+              : incidencia.fecha_actualizacion
+                ? new Date(incidencia.fecha_actualizacion).toLocaleString()
+                : null
+          }
+          tecnicoNombre={
+            esTecnicoAsignado && nombreSesionCompleto
+              ? nombreSesionCompleto
+              : !esUuid(incidencia.asignado)
+                ? incidencia.asignado
+                : null
+          }
+          idActivo={incidencia.codigo_qr_activo || incidencia.id_activo || null}
+        />
+      )}
 
       {/* Información principal de la incidencia */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
@@ -668,16 +723,22 @@ const DetalleIncidencia = () => {
         )}
       </div>
 
-      {/* Sección de Evidencia Fotográfica y Cloudinary */}
+      {/* Sección de Evidencia Fotográfica y Cloudinary (máximo 5 fotos) */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-gray-100 pb-4">
           <div>
-            <h2 className="font-bold text-lg text-gray-900">Evidencia Fotográfica (Cloudinary)</h2>
-            <p className="text-xs text-gray-600">
-              Imágenes adjuntadas por el reportante para respaldo del fallo.
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-bold text-lg text-gray-900">Evidencia Fotográfica (Cloudinary)</h2>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-gray-100 text-gray-700 border border-gray-200 font-mono">
+                {evidencias.length}/{MAX_EVIDENCIAS} fotos
+              </span>
+            </div>
+            <p className="text-xs text-gray-600 mt-0.5">
+              Imágenes adjuntadas para respaldo del fallo (máximo {MAX_EVIDENCIAS} fotos por incidencia).
             </p>
           </div>
-          {puedeSubirEvidencia && !mostrarSubidorNuevo && (
+          {/* El botón de agregar foto se oculta automáticamente al alcanzar 5 evidencias */}
+          {puedeSubirEvidencia && evidencias.length < MAX_EVIDENCIAS && !mostrarSubidorNuevo && (
             <button
               type="button"
               onClick={() => setMostrarSubidorNuevo(true)}
@@ -689,7 +750,7 @@ const DetalleIncidencia = () => {
           )}
         </div>
 
-        {puedeSubirEvidencia && mostrarSubidorNuevo && (
+        {puedeSubirEvidencia && evidencias.length < MAX_EVIDENCIAS && mostrarSubidorNuevo && (
           <div className="bg-slate-50 border border-primary-200 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-primary">Subir nueva evidencia para esta incidencia:</span>

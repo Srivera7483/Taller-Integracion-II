@@ -24,6 +24,7 @@ import { isKillSwitchError } from '../services/killSwitchService';
 import { useDraftState, clearDrafts } from '../hooks/useDraftState';
 
 const MAX_FILE_SIZE_BYTES = 5242880; // 5MB
+const MAX_EVIDENCIAS = 5;
 
 // Categorías optimizadas para selección táctil rápida en móviles
 const CATEGORIAS_RAPIDAS = [
@@ -63,23 +64,26 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
   const [descripcion, setDescripcion] = useDraftState('incidencia-mobile', 'descripcion', '');
   const [ubicacion, setUbicacion] = useDraftState('incidencia-mobile', 'ubicacion', '');
 
-  // Evidencia fotográfica
-  const [archivoImagen, setArchivoImagen] = useState(null);
-  const [imagenPreviewUrl, setImagenPreviewUrl] = useState(null);
+  // Evidencias fotográficas (hasta 5 fotos, máx. 5MB c/u)
+  const [evidenciasAdjuntas, setEvidenciasAdjuntas] = useState([]);
+  const evidenciasRef = useRef(evidenciasAdjuntas);
+  evidenciasRef.current = evidenciasAdjuntas;
 
   // Estados de control y validación
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errores, setErrores] = useState({});
   const [tocado, setTocado] = useState({});
 
-  // Limpieza preventiva de URLs en memoria
+  // Limpieza preventiva de URLs en memoria al desmontar
   useEffect(() => {
     return () => {
-      if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(imagenPreviewUrl);
+      for (const item of evidenciasRef.current) {
+        if (item.previewUrl && item.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
       }
     };
-  }, [imagenPreviewUrl]);
+  }, []);
 
   // Bloquear scroll de la página trasera mientras el modal esté abierto
   useEffect(() => {
@@ -150,33 +154,63 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
     setErrores((prev) => ({ ...prev, [campo]: validarCampo(campo, val) }));
   };
 
-  // Manejo de archivo fotográfico
+  // Manejo de archivos fotográficos (máx. 5 fotos)
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const seleccionados = Array.from(e.target.files || []).filter(Boolean);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (seleccionados.length === 0) return;
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      showToast('El archivo supera el límite de 5MB', 'error');
-      if (fileInputRef.current) fileInputRef.current.value = '';
+    const cuposDisponibles = Math.max(0, MAX_EVIDENCIAS - evidenciasAdjuntas.length);
+    if (cuposDisponibles <= 0) {
+      showToast(`Máximo ${MAX_EVIDENCIAS} fotos permitidas`, 'warning');
       return;
     }
 
-    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(imagenPreviewUrl);
+    const nuevosItems = [];
+    for (const file of seleccionados) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        showToast(`"${file.name}" supera el límite de 5MB`, 'error');
+        continue;
+      }
+      nuevosItems.push({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+        name: file.name,
+        size: file.size,
+      });
     }
 
-    const preview = URL.createObjectURL(file);
-    setArchivoImagen(file);
-    setImagenPreviewUrl(preview);
-    showToast('Foto adjuntada correctamente', 'info');
+    if (nuevosItems.length === 0) return;
+
+    const aInsertar = nuevosItems.slice(0, cuposDisponibles);
+    const descartados = nuevosItems.slice(cuposDisponibles);
+    for (const desc of descartados) {
+      if (desc.previewUrl?.startsWith('blob:')) URL.revokeObjectURL(desc.previewUrl);
+    }
+
+    if (descartados.length > 0) {
+      showToast(`Solo se agregaron ${aInsertar.length} foto(s) (máximo ${MAX_EVIDENCIAS})`, 'warning');
+    } else {
+      showToast(
+        aInsertar.length === 1
+          ? `Foto adjuntada (${evidenciasAdjuntas.length + 1}/${MAX_EVIDENCIAS})`
+          : `${aInsertar.length} fotos adjuntadas (${evidenciasAdjuntas.length + aInsertar.length}/${MAX_EVIDENCIAS})`,
+        'info',
+      );
+    }
+
+    setEvidenciasAdjuntas((prev) => [...prev, ...aInsertar]);
   };
 
-  const handleEliminarFoto = () => {
-    if (imagenPreviewUrl && imagenPreviewUrl.startsWith('blob:')) {
-      URL.revokeObjectURL(imagenPreviewUrl);
-    }
-    setArchivoImagen(null);
-    setImagenPreviewUrl(null);
+  const handleEliminarFoto = (idFoto) => {
+    setEvidenciasAdjuntas((prev) => {
+      const target = prev.find((item) => item.id === idFoto);
+      if (target?.previewUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((item) => item.id !== idFoto);
+    });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -245,7 +279,7 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
     };
 
     let idGenerado = null;
-    let urlEvidencia = null;
+    const urlsEvidencias = [];
 
     try {
       const resp = await createIncidencia(payloadApi);
@@ -259,18 +293,22 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
       // Continuar con fallback local
     }
 
-    // Subir evidencia si fue adjuntada
-    if (idGenerado && archivoImagen && archivoImagen.size <= MAX_FILE_SIZE_BYTES) {
-      try {
-        const formData = new FormData();
-        formData.append('file', archivoImagen);
-        formData.append('id_tipo_evidencia', '1');
-        const uploadResp = await api.post(`/incidencias/${idGenerado}/evidencias/upload`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        urlEvidencia = uploadResp.data?.url_evidencia || uploadResp.data?.url_cloudinary;
-      } catch {
-        // Fallback controlado
+    // Subir todas las evidencias adjuntas (máx. 5)
+    if (idGenerado && evidenciasAdjuntas.length > 0) {
+      for (const item of evidenciasAdjuntas.slice(0, MAX_EVIDENCIAS)) {
+        if (!item.file || item.file.size > MAX_FILE_SIZE_BYTES) continue;
+        try {
+          const formData = new FormData();
+          formData.append('file', item.file);
+          formData.append('id_tipo_evidencia', '1');
+          const uploadResp = await api.post(`/incidencias/${idGenerado}/evidencias/upload`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          const urlSubida = uploadResp.data?.url_evidencia || uploadResp.data?.url_cloudinary;
+          if (urlSubida) urlsEvidencias.push(urlSubida);
+        } catch {
+          // Fallback controlado
+        }
       }
     }
 
@@ -283,8 +321,11 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
       ubicacion: ubicacion.trim(),
       estado: 'Pendiente',
       fecha: new Date().toISOString(),
-      evidencias: urlEvidencia ? [urlEvidencia] : (imagenPreviewUrl ? [imagenPreviewUrl] : []),
-      imagenAdjuntaNombre: archivoImagen?.name || null,
+      evidencias:
+        urlsEvidencias.length > 0
+          ? urlsEvidencias
+          : evidenciasAdjuntas.map((item) => item.previewUrl).filter(Boolean),
+      imagenAdjuntaNombre: evidenciasAdjuntas[0]?.name || null,
     };
 
     // Guardar en cookies / almacenamiento local y emitir evento
@@ -524,44 +565,58 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
             />
           </div>
 
-          {/* Campo: Adjuntar Foto o Captura Rápida (Máx. 5MB) */}
-          <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-              Foto o Evidencia <span className="text-gray-400 text-[10px] lowercase">(máx. 5MB)</span>
-            </label>
+          {/* Campo: Adjuntar Fotos o Capturas Rápidas (Máx. 5 fotos, 5MB c/u) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                Fotos o Evidencias <span className="text-gray-400 text-[10px] lowercase">(máx. {MAX_EVIDENCIAS}, 5MB c/u)</span>
+              </label>
+              <span className="text-[11px] font-semibold text-gray-500 font-mono">
+                {evidenciasAdjuntas.length}/{MAX_EVIDENCIAS}
+              </span>
+            </div>
 
-            {imagenPreviewUrl ? (
-              <div className="relative rounded-lg border border-gray-200 p-2 flex items-center gap-3 bg-gray-50">
-                <img
-                  src={imagenPreviewUrl}
-                  alt="Previsualización de evidencia"
-                  className="w-14 h-14 object-cover rounded-md border border-gray-300 flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-800 truncate">
-                    {archivoImagen?.name || 'Foto adjuntada'}
-                  </p>
-                  <p className="text-[11px] text-gray-400">
-                    {archivoImagen?.size ? `${(archivoImagen.size / (1024 * 1024)).toFixed(2)} MB` : 'Listo para enviar'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleEliminarFoto}
-                  className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                  title="Eliminar foto"
-                >
-                  <FiTrash2 className="w-4 h-4" />
-                </button>
+            {evidenciasAdjuntas.length > 0 && (
+              <div className="space-y-2">
+                {evidenciasAdjuntas.map((item) => (
+                  <div
+                    key={item.id}
+                    className="relative rounded-lg border border-gray-200 p-2 flex items-center gap-3 bg-gray-50"
+                  >
+                    <img
+                      src={item.previewUrl}
+                      alt={item.name}
+                      className="w-12 h-12 object-cover rounded-md border border-gray-300 flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-800 truncate">{item.name}</p>
+                      <p className="text-[11px] text-gray-400">
+                        {item.size ? `${(item.size / (1024 * 1024)).toFixed(2)} MB` : 'Listo para enviar'}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleEliminarFoto(item.id)}
+                      className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                      title="Eliminar foto"
+                      aria-label={`Eliminar ${item.name}`}
+                    >
+                      <FiTrash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
-            ) : (
+            )}
+
+            {/* El botón para agregar fotos se oculta automáticamente al llegar a 5 */}
+            {evidenciasAdjuntas.length < MAX_EVIDENCIAS && (
               <div>
                 <input
                   ref={fileInputRef}
                   type="file"
                   id="mobile-file-input"
                   accept="image/*"
-                  capture="environment"
+                  multiple
                   onChange={handleFileChange}
                   disabled={isSubmitting}
                   className="hidden"
@@ -573,7 +628,11 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
                   className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-dashed border-gray-300 hover:border-primary bg-gray-50/50 hover:bg-primary-50/40 text-gray-600 hover:text-primary transition-all cursor-pointer min-h-[44px]"
                 >
                   <FiCamera className="w-4 h-4" />
-                  <span className="text-xs font-semibold">Tomar foto o subir captura</span>
+                  <span className="text-xs font-semibold">
+                    {evidenciasAdjuntas.length === 0
+                      ? 'Tomar foto o subir capturas'
+                      : `Agregar otra foto (${MAX_EVIDENCIAS - evidenciasAdjuntas.length} disp.)`}
+                  </span>
                 </button>
               </div>
             )}

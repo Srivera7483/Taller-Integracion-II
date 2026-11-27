@@ -664,18 +664,26 @@ export const hidratarNotificacionesDesdeApi = async (usuario, clienteApi) => {
   const rol = obtenerRolUsuarioActual(usuario);
   if (!idUsuario) return [];
 
+  const permisosUsuario = Array.isArray(usuario?.permissions)
+    ? usuario.permissions
+    : Array.isArray(usuario?.permisos)
+      ? usuario.permisos
+      : [];
+  const tienePermiso = (permiso) => permisosUsuario.includes(permiso);
+  const opcionesSilenciosas = { skipGlobalErrorHandler: true };
+
   const notificacionesCargadas = [];
 
   try {
-    if (rol === 'TECNICO') {
+    if (tienePermiso('ordenes:diagnosticar') || (permisosUsuario.length === 0 && rol === 'TECNICO')) {
       // 1. Obtener órdenes de trabajo asignadas al técnico
       let ordenes = [];
       try {
-        const res = await clienteApi.get('/ordenes-trabajo/mis-ordenes?limit=10');
+        const res = await clienteApi.get('/ordenes-trabajo/mis-ordenes?limit=10', opcionesSilenciosas);
         ordenes = res.data?.data || res.data?.ordenes || (Array.isArray(res.data) ? res.data : []);
       } catch {
         try {
-          const resFallback = await clienteApi.get(`/ordenes-trabajo/tecnico/${idUsuario}?limit=10`);
+          const resFallback = await clienteApi.get(`/ordenes-trabajo/tecnico/${idUsuario}?limit=10`, opcionesSilenciosas);
           ordenes = resFallback.data?.data || (Array.isArray(resFallback.data) ? resFallback.data : []);
         } catch {}
       }
@@ -697,35 +705,37 @@ export const hidratarNotificacionesDesdeApi = async (usuario, clienteApi) => {
         if (notif) notificacionesCargadas.push(notif);
       }
     } else if (rol === 'SUPERVISOR' || rol === 'ADMINISTRADOR') {
-      // 2. Obtener órdenes e incidencias recientes para supervisor / admin
-      try {
-        const resOt = await clienteApi.get('/ordenes-trabajo?limit=10');
-        const ordenes = resOt.data?.data || (Array.isArray(resOt.data) ? resOt.data : []);
-        for (const ot of ordenes) {
-          const inc = ot.incidencia || {};
-          const nombreTec =
-            ot.tecnico?.nombre
-              ? `${ot.tecnico.nombre} ${ot.tecnico.apellido || ''}`.trim()
-              : ot.nombre_tecnico || null;
-          const payload = {
-            id_orden: ot.id_orden,
-            id_incidencia: ot.id_incidencia || inc.id_incidencia,
-            titulo: inc.titulo || ot.titulo,
-            id_tecnico: ot.id_tecnico,
-            nombre_tecnico: nombreTec,
-            timestamp: ot.fecha_creacion || inc.fecha_creacion,
-            tipo_evento: 'ASIGNACION_ORDEN',
-            nuevo_estado: 'ASIGNADA',
-            es_reasignacion: Boolean(ot.es_reasignacion),
-          };
-          const notif = normalizarEventoNotificacion(payload, 'orden_asignada', usuario);
-          if (notif) notificacionesCargadas.push(notif);
-        }
-      } catch {}
+      // 2. Obtener órdenes solo si posee permiso PBAC `ordenes:asignar` (evita 403 en ADMINISTRADOR)
+      if (tienePermiso('ordenes:asignar') || (permisosUsuario.length === 0 && rol === 'SUPERVISOR')) {
+        try {
+          const resOt = await clienteApi.get('/ordenes-trabajo?limit=10', opcionesSilenciosas);
+          const ordenes = resOt.data?.data || (Array.isArray(resOt.data) ? resOt.data : []);
+          for (const ot of ordenes) {
+            const inc = ot.incidencia || {};
+            const nombreTec =
+              ot.tecnico?.nombre
+                ? `${ot.tecnico.nombre} ${ot.tecnico.apellido || ''}`.trim()
+                : ot.nombre_tecnico || null;
+            const payload = {
+              id_orden: ot.id_orden,
+              id_incidencia: ot.id_incidencia || inc.id_incidencia,
+              titulo: inc.titulo || ot.titulo,
+              id_tecnico: ot.id_tecnico,
+              nombre_tecnico: nombreTec,
+              timestamp: ot.fecha_creacion || inc.fecha_creacion,
+              tipo_evento: 'ASIGNACION_ORDEN',
+              nuevo_estado: 'ASIGNADA',
+              es_reasignacion: Boolean(ot.es_reasignacion),
+            };
+            const notif = normalizarEventoNotificacion(payload, 'orden_asignada', usuario);
+            if (notif) notificacionesCargadas.push(notif);
+          }
+        } catch {}
+      }
 
       try {
-        const resInc = await clienteApi.get('/incidencias?limit=10');
-        const incidencias = resInc.data?.data || (Array.isArray(resInc.data) ? resInc.data : []);
+        const resInc = await clienteApi.get('/incidencias?limit=10', opcionesSilenciosas);
+        const incidencias = resInc.data?.datos || resInc.data?.data || (Array.isArray(resInc.data) ? resInc.data : []);
         for (const inc of incidencias) {
           const payload = {
             id_incidencia: inc.id_incidencia,
@@ -741,8 +751,8 @@ export const hidratarNotificacionesDesdeApi = async (usuario, clienteApi) => {
     } else {
       // 3. Reportante: incidencias creadas por él
       try {
-        const resInc = await clienteApi.get('/incidencias?limit=10');
-        const incidencias = resInc.data?.data || (Array.isArray(resInc.data) ? resInc.data : []);
+        const resInc = await clienteApi.get('/incidencias?limit=10', opcionesSilenciosas);
+        const incidencias = resInc.data?.datos || resInc.data?.data || (Array.isArray(resInc.data) ? resInc.data : []);
         for (const inc of incidencias) {
           if (inc.id_reportante && String(inc.id_reportante).toLowerCase() === idUsuario) {
             const payload = {

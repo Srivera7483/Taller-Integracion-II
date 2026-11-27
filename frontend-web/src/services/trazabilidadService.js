@@ -448,13 +448,18 @@ export const MOCK_TRAZABILIDAD_POR_ACTIVO = {
  * Función que simula o consume el endpoint GET /api/v1/activos/:id/trazabilidad
  */
 export async function obtenerTrazabilidadActivoApi(idActivo, { page = 1, limit = 10, tipoFiltro = 'todos', usarMock = false } = {}) {
-  const activoNormalizado = (idActivo || 'ACT-2026-0001').trim().toUpperCase();
+  const activoNormalizado = (idActivo || 'UCT-PRJ-01').trim();
 
   // Intento de conexión al API Gateway real
   if (!usarMock) {
     try {
-      const baseUrl = getApiGatewayBaseUrl();
-      const endpoint = `${baseUrl}/v1/activos/${encodeURIComponent(activoNormalizado)}/trazabilidad?page=${page}&limit=${limit}`;
+      const baseUrl = getApiGatewayBaseUrl().replace(/\/+$/, '');
+      const prefijoActivos = baseUrl.endsWith('/v1') ? `${baseUrl}/activos` : `${baseUrl}/v1/activos`;
+      const filtroParam =
+        tipoFiltro && tipoFiltro !== 'todos'
+          ? `&tipoFiltro=${encodeURIComponent(tipoFiltro)}`
+          : '';
+      const endpoint = `${prefijoActivos}/${encodeURIComponent(activoNormalizado)}/trazabilidad?page=${page}&limit=${limit}${filtroParam}`;
 
       const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
       const headers = { 'Content-Type': 'application/json' };
@@ -470,9 +475,11 @@ export async function obtenerTrazabilidadActivoApi(idActivo, { page = 1, limit =
     }
   }
 
+  const claveUpper = activoNormalizado.toUpperCase();
+
   // --- Mocking Inteligente 100% alineado con Prisma y OpenAPI ---
   const registroMock =
-    MOCK_TRAZABILIDAD_POR_ACTIVO[activoNormalizado] ||
+    MOCK_TRAZABILIDAD_POR_ACTIVO[claveUpper] ||
     MOCK_TRAZABILIDAD_POR_ACTIVO['ACT-2026-0001'];
 
   // Orden cronológico estricto (más reciente primero)
