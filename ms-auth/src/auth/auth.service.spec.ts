@@ -231,12 +231,24 @@ describe('AuthService', () => {
 
       const res = await service.listUsers(1, 100);
 
-      expect(userRepositoryMock.findMany).toHaveBeenCalledWith(1, 50);
+      expect(userRepositoryMock.findMany).toHaveBeenCalledWith(1, 50, undefined);
       expect(res.totalItems).toBe(100);
       expect(res.limit).toBe(50);
       expect(res.currentPage).toBe(1);
       expect(res.totalPages).toBe(2);
       expect(res.datos).toHaveLength(1);
+    });
+
+    it('debe aplicar el filtro por rol junto con la paginación', async () => {
+      userRepositoryMock.findMany.mockResolvedValue({
+        usuarios: [],
+        total: 0,
+        totalPages: 0,
+      });
+
+      await service.listUsers(2, 15, 'REPORTANTE');
+
+      expect(userRepositoryMock.findMany).toHaveBeenCalledWith(2, 15, 'REPORTANTE');
     });
   });
 
