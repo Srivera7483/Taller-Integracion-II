@@ -600,12 +600,29 @@ test('TAL-4: Desactivar el Kill Switch reanuda inmediatamente las operaciones de
     assert.equal(JSON.parse(allowedRes.body).creada, true);
 });
 
-// TAL-2: Pruebas de Sincronización WebSockets y Gateway en Tiempo Real
+// TAL-2 & TAL-184: Pruebas de Sincronización WebSockets, Handshake JWT y Salas PBAC en Tiempo Real
 const { io: createSocketClient } = require('socket.io-client');
+const jwt = require('jsonwebtoken');
 
-test('TAL-2 (CA-1): Cliente web establece conexión WebSocket estable y recibe eventos de la sala incidencias y directos', async (t) => {
+const TEST_WS_JWT_SECRET = 'test-ws-jwt-secret-tal-184';
+
+const signTestWsToken = (overrides = {}, signOptions = {}) => {
+    const payload = {
+        sub: 'usr-coord-01',
+        userId: 'usr-coord-01',
+        email: 'supervisor.demo@ejemplo.local',
+        rol: 'SUPERVISOR',
+        permissions: ['incidencias:ver', 'ordenes:asignar'],
+        tokenUse: 'access',
+        ...overrides,
+    };
+    return jwt.sign(payload, TEST_WS_JWT_SECRET, { expiresIn: '15m', ...signOptions });
+};
+
+test('TAL-2 (CA-1): Cliente web autenticado establece conexión WebSocket estable y recibe eventos de la sala incidencias y directos', async (t) => {
     const app = buildGateway({
         ...unavailableServices,
+        jwtSecret: TEST_WS_JWT_SECRET,
         corsOrigins: ['http://localhost:5173'],
     });
     await app.listen({ port: 0, host: '127.0.0.1' });
@@ -615,8 +632,11 @@ test('TAL-2 (CA-1): Cliente web establece conexión WebSocket estable y recibe e
         await app.close();
     });
 
+    const token = signTestWsToken({ sub: 'tecnico-01', rol: 'COORDINADOR' });
+
     await new Promise((resolve, reject) => {
         const client = createSocketClient(`http://127.0.0.1:${port}`, {
+            auth: { token },
             query: { userId: 'tecnico-01', rol: 'COORDINADOR', edificio: 'ed-1' },
             transports: ['websocket', 'polling'],
             extraHeaders: { origin: 'http://localhost:5173' },
@@ -661,6 +681,7 @@ test('TAL-2 (CA-1): Cliente web establece conexión WebSocket estable y recibe e
 test('TAL-2: Middleware CORS de Socket.io rechaza orígenes no autorizados', async (t) => {
     const app = buildGateway({
         ...unavailableServices,
+        jwtSecret: TEST_WS_JWT_SECRET,
         corsOrigins: ['http://localhost:5173'],
     });
     await app.listen({ port: 0, host: '127.0.0.1' });
@@ -672,6 +693,7 @@ test('TAL-2: Middleware CORS de Socket.io rechaza orígenes no autorizados', asy
 
     await new Promise((resolve, reject) => {
         const unauthorizedClient = createSocketClient(`http://127.0.0.1:${port}`, {
+            auth: { token: signTestWsToken() },
             transports: ['websocket', 'polling'],
             reconnection: false,
             extraHeaders: { origin: 'http://sitio-malicioso.evil.com' },
@@ -691,7 +713,10 @@ test('TAL-2: Middleware CORS de Socket.io rechaza orígenes no autorizados', asy
 });
 
 test('TAL-2 (CA-2): Soporta unión dinámica de salas (join_room/leave_room), reconexión limpia y cierre de descriptores sin fugas de memoria', async (t) => {
-    const app = buildGateway(unavailableServices);
+    const app = buildGateway({
+        ...unavailableServices,
+        jwtSecret: TEST_WS_JWT_SECRET,
+    });
     await app.listen({ port: 0, host: '127.0.0.1' });
     const { port } = app.server.address();
 
@@ -700,6 +725,7 @@ test('TAL-2 (CA-2): Soporta unión dinámica de salas (join_room/leave_room), re
     });
 
     const client = createSocketClient(`http://127.0.0.1:${port}`, {
+        auth: { token: signTestWsToken({ rol: 'SUPERVISOR' }) },
         transports: ['websocket', 'polling'],
         extraHeaders: { origin: 'http://localhost:5173' },
     });
@@ -733,6 +759,147 @@ test('TAL-2 (CA-2): Soporta unión dinámica de salas (join_room/leave_room), re
     });
 
     assert.equal(app.io.sockets.sockets.has(firstSocketId), false);
+});
+
+test('TAL-184 (CA-1): Rechaza conexiones WebSocket anónimas, con firma inválida, expiradas o con refresh token devolviendo código 4401', async (t) => {
+    const app = buildGateway({
+        ...unavailableServices,
+        jwtSecret: TEST_WS_JWT_SECRET,
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = app.server.address();
+
+    t.after(async () => {
+        await app.close();
+    });
+
+    const assertRejected4401 = (socketOptions) =>
+        new Promise((resolve, reject) => {
+            const client = createSocketClient(`http://127.0.0.1:${port}`, {
+                transports: ['websocket'],
+                reconnection: false,
+                extraHeaders: { origin: 'http://localhost:5173' },
+                ...socketOptions,
+            });
+            client.on('connect', () => {
+                client.close();
+                reject(new Error('No debía aceptar un handshake no autenticado o inválido'));
+            });
+            client.on('connect_error', (err) => {
+                assert.equal(err.data?.code, 4401);
+                client.close();
+                resolve();
+            });
+        });
+
+    // 1. Anónimo (sin token)
+    await assertRejected4401({});
+    // 2. Firma inválida
+    const badSigToken = jwt.sign({ sub: 'u-1', rol: 'ADMINISTRADOR', tokenUse: 'access' }, 'wrong-secret');
+    await assertRejected4401({ auth: { token: badSigToken } });
+    // 3. Token expirado
+    const expiredToken = signTestWsToken({}, { expiresIn: '-10s' });
+    await assertRejected4401({ auth: { token: expiredToken } });
+    // 4. Refresh token intentando abrir WebSocket
+    const refreshTok = signTestWsToken({ tokenUse: 'refresh' });
+    await assertRejected4401({ auth: { token: refreshTok } });
+});
+
+test('TAL-184 (CA-2): Asigna salas usando únicamente claims del JWT e impide spoofing de rol o sala coordinadores', async (t) => {
+    const app = buildGateway({
+        ...unavailableServices,
+        jwtSecret: TEST_WS_JWT_SECRET,
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = app.server.address();
+
+    t.after(async () => {
+        await app.close();
+    });
+
+    const reportanteToken = signTestWsToken({
+        sub: 'usr-rep-99',
+        rol: 'REPORTANTE',
+        permissions: ['incidencias:crear', 'incidencias:ver'],
+    });
+
+    const client = createSocketClient(`http://127.0.0.1:${port}`, {
+        auth: { token: reportanteToken },
+        // Intento malicioso de spoofing por query
+        query: { rol: 'ADMINISTRADOR', userId: 'spoofed-admin' },
+        transports: ['websocket'],
+        extraHeaders: { origin: 'http://localhost:5173' },
+    });
+
+    await new Promise((resolve, reject) => {
+        client.on('connect_error', reject);
+        client.on('connect', resolve);
+    });
+
+    const serverSocket = app.io.sockets.sockets.get(client.id);
+    assert.equal(serverSocket.data.user.sub, 'usr-rep-99');
+    assert.equal(serverSocket.data.user.rol, 'REPORTANTE');
+    assert.equal(serverSocket.rooms.has('rol_REPORTANTE'), true);
+    assert.equal(serverSocket.rooms.has('rol_ADMINISTRADOR'), false);
+    assert.equal(serverSocket.rooms.has('coordinadores'), false);
+
+    // Intento malicioso de unirse a salas privilegiadas mediante join_room
+    const ack = await new Promise((resolve) => {
+        client.emit(
+            'join_room',
+            { rooms: ['coordinadores', 'rol_ADMINISTRADOR', 'incidencia_77'], rol: 'SUPERVISOR' },
+            resolve
+        );
+    });
+
+    assert.equal(ack.status, 'joined');
+    assert.deepEqual(ack.rooms, ['incidencia_77']);
+    assert.ok(ack.denied.includes('coordinadores'));
+    assert.ok(ack.denied.includes('rol_ADMINISTRADOR'));
+    assert.ok(ack.denied.includes('rol_SUPERVISOR'));
+    assert.equal(serverSocket.rooms.has('coordinadores'), false);
+
+    client.disconnect();
+});
+
+test('TAL-184 (CA-3): Emite proactivamente token_expirado antes del vencimiento del JWT y limpia temporizadores al desconectar', async (t) => {
+    const app = buildGateway({
+        ...unavailableServices,
+        jwtSecret: TEST_WS_JWT_SECRET,
+        tokenExpiryLeadMs: 1800,
+    });
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const { port } = app.server.address();
+
+    t.after(async () => {
+        await app.close();
+    });
+
+    const shortLivedToken = signTestWsToken({ sub: 'usr-short-1' }, { expiresIn: '2s' });
+    const client = createSocketClient(`http://127.0.0.1:${port}`, {
+        auth: { token: shortLivedToken },
+        transports: ['websocket'],
+        reconnection: false,
+        extraHeaders: { origin: 'http://localhost:5173' },
+    });
+
+    const aviso = await new Promise((resolve, reject) => {
+        client.on('connect_error', reject);
+        client.on('token_expirado', (payload) => resolve(payload));
+    });
+
+    assert.equal(aviso.requiresRefresh, true);
+    assert.ok(typeof aviso.timeRemaining === 'number');
+    assert.ok(aviso.message.includes('expirar'));
+
+    const serverSocket = app.io.sockets.sockets.get(client.id);
+    await new Promise((resolve) => {
+        serverSocket.on('disconnect', () => {
+            assert.equal(serverSocket.data.tokenExpiryTimeout, null);
+            resolve();
+        });
+        client.disconnect();
+    });
 });
 
 test('TAL-19: aplica Rate Limiting global por IP y excluye rutas críticas de health y kill-switch', async (t) => {

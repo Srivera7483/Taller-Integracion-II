@@ -1,4 +1,4 @@
-# Script de Inicialización Automatizado de Microservicios
+﻿# Script de Inicialización Automatizado de Microservicios
 # ------------------------------------------------------------------------------
 $ErrorActionPreference = "Stop"
 
@@ -97,6 +97,15 @@ if (Test-Path "ms-auth\.env") {
                 ($contenidoAct + "JWT_SECRET=$secretAuth") | Set-Content "ms-activos\.env"
             }
             Write-Host "  [OK] JWT_SECRET sincronizado en ms-activos." -ForegroundColor Green
+        }
+        if (Test-Path "api gateway\.env") {
+            $contenidoGw = Get-Content "api gateway\.env"
+            if ($contenidoGw -match "^JWT_SECRET=") {
+                $contenidoGw -replace "^JWT_SECRET=.*", "JWT_SECRET=$secretAuth" | Set-Content "api gateway\.env"
+            } else {
+                ($contenidoGw + "JWT_SECRET=$secretAuth") | Set-Content "api gateway\.env"
+            }
+            Write-Host "  [OK] JWT_SECRET sincronizado en api gateway." -ForegroundColor Green
         }
     }
 }

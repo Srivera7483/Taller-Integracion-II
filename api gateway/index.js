@@ -9,6 +9,7 @@ const KillSwitchManager = require('./kill-switch');
 const { Server: IoServer } = require('socket.io');
 const { io: createIoClient } = require('socket.io-client');
 const { attachRedisAdapter } = require('./redis-adapter');
+const jwt = require('jsonwebtoken');
 
 const DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:5173',
@@ -51,6 +52,150 @@ const getTrustProxy = (value) => {
     }
 
     return trustedProxies.length === 1 ? trustedProxies[0] : trustedProxies;
+};
+
+/**
+ * Extrae el token JWT del handshake de Socket.io priorizando:
+ * 1. socket.handshake.auth.token (enviado por socket.io-client vía opción auth)
+ * 2. Cabecera Authorization: Bearer ...
+ * 3. Parámetro query ?token=...
+ * 4. Cookie HttpOnly (access_token o token)
+ * @param {Object} socket - Instancia de socket de Socket.io
+ * @returns {string|null} - El token JWT limpio o null si no se encuentra
+ */
+const extractTokenFromHandshake = (socket) => {
+    const handshake = socket?.handshake || {};
+
+    // 1. Prioridad máxima: socket.handshake.auth.token
+    if (handshake.auth && typeof handshake.auth.token === 'string' && handshake.auth.token.trim()) {
+        const rawAuthToken = handshake.auth.token.trim();
+        return rawAuthToken.startsWith('Bearer ') ? rawAuthToken.slice(7).trim() : rawAuthToken;
+    }
+
+    // 2. Fallback: Cabecera Authorization: Bearer ...
+    const authHeader = handshake.headers?.authorization;
+    if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+        const bearerToken = authHeader.slice(7).trim();
+        if (bearerToken) return bearerToken;
+    }
+
+    // 3. Fallback: Parámetro ?token=...
+    const queryToken = handshake.query?.token;
+    if (queryToken) {
+        const resolved = Array.isArray(queryToken) ? queryToken[0] : queryToken;
+        if (typeof resolved === 'string' && resolved.trim()) {
+            return resolved.trim();
+        }
+    }
+
+    // 4. Fallback: Cookie (access_token o token)
+    const cookieHeader = handshake.headers?.cookie;
+    if (typeof cookieHeader === 'string' && cookieHeader.trim()) {
+        for (const fragment of cookieHeader.split(';')) {
+            const [rawName, ...rest] = fragment.trim().split('=');
+            if (rawName === 'access_token' || rawName === 'token') {
+                const cookieVal = decodeURIComponent(rest.join('=').trim());
+                if (cookieVal) return cookieVal;
+            }
+        }
+    }
+
+    return null;
+};
+
+/**
+ * Verifica criptográficamente y decodifica un token JWT de acceso.
+ * Lanza error con err.data = { code: 4401 } si falta, expiró, firma inválida o es un refresh token.
+ * @param {string} token - El token JWT
+ * @param {string} jwtSecret - Secreto compartido con ms-auth
+ * @returns {Object} - Payload verificado del JWT
+ */
+const verifyJWT = (token, jwtSecret) => {
+    if (!token) {
+        const err = new Error('Token de acceso requerido');
+        err.data = { code: 4401 };
+        throw err;
+    }
+
+    let payload;
+    try {
+        payload = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] });
+    } catch (err) {
+        if (err.name === 'TokenExpiredError') {
+            try {
+                const expiredPayload = jwt.decode(token);
+                err.exp = expiredPayload?.exp;
+                err.iat = expiredPayload?.iat;
+            } catch {}
+        }
+        err.data = { code: 4401 };
+        throw err;
+    }
+
+    if (payload?.tokenUse && payload.tokenUse !== 'access') {
+        const err = new Error('Tipo de token inválido para WebSocket: se requiere access token');
+        err.data = { code: 4401 };
+        throw err;
+    }
+
+    return payload;
+};
+
+const ROLES_COORDINADORES = new Set(['COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR']);
+const ROLES_AUTENTICADOS_INCIDENCIAS = new Set([
+    'REPORTANTE',
+    'TECNICO',
+    'SUPERVISOR',
+    'COORDINADOR',
+    'ADMINISTRADOR',
+]);
+
+const esUsuarioCoordinador = (user) => {
+    if (!user) return false;
+    const rol = String(user.rol || '').toUpperCase();
+    const perms = Array.isArray(user.permissions) ? user.permissions : [];
+    return (
+        ROLES_COORDINADORES.has(rol) ||
+        perms.includes('COORDINADOR') ||
+        perms.includes('ordenes:asignar')
+    );
+};
+
+const tieneAccesoLecturaIncidencias = (user) => {
+    if (!user) return false;
+    const rol = String(user.rol || '').toUpperCase();
+    const perms = Array.isArray(user.permissions) ? user.permissions : [];
+    return perms.includes('incidencias:ver') || ROLES_AUTENTICADOS_INCIDENCIAS.has(rol);
+};
+
+/**
+ * Valida mediante PBAC si un socket autenticado puede suscribirse a una sala específica.
+ * Previene escalación horizontal/vertical por spoofing de nombres de sala o roles.
+ */
+const esSalaAutorizadaPBAC = (roomName, user) => {
+    if (typeof roomName !== 'string') return false;
+    const cleanRoom = roomName.trim();
+    if (!cleanRoom) return false;
+
+    if (cleanRoom === 'coordinadores') {
+        return esUsuarioCoordinador(user);
+    }
+
+    if (cleanRoom.startsWith('rol_')) {
+        const targetRol = cleanRoom.slice(4).toUpperCase();
+        return Boolean(user?.rol) && String(user.rol).toUpperCase() === targetRol;
+    }
+
+    if (cleanRoom === 'incidencias') {
+        return tieneAccesoLecturaIncidencias(user);
+    }
+
+    if (cleanRoom.startsWith('incidencia_') || cleanRoom.startsWith('edificio_')) {
+        const suffix = cleanRoom.slice(cleanRoom.indexOf('_') + 1).trim();
+        return Boolean(suffix) && tieneAccesoLecturaIncidencias(user);
+    }
+
+    return false;
 };
 
 const buildGateway = (options = {}) => {
@@ -310,7 +455,7 @@ const buildGateway = (options = {}) => {
         allowEIO3: true,
     });
 
-    // Middleware CORS del lado de Socket.io sincronizado con HTTP
+    // 1. Middleware CORS del lado de Socket.io sincronizado con HTTP (rechazo perimetral inmediato)
     io.use((socket, next) => {
         const origin = socket.handshake.headers.origin;
         const currentAllowed = getAllowedOrigins(options.corsOrigins);
@@ -319,6 +464,51 @@ const buildGateway = (options = {}) => {
             return next();
         }
         return next(new Error('[Ciberseguridad - CORS] Origen no autorizado para Socket.io'));
+    });
+
+    // 2. Middleware de autenticación JWT y extracción de claims PBAC en handshake (TAL-184)
+    const gatewayJwtSecret =
+        options.jwtSecret ||
+        process.env.JWT_SECRET ||
+        (process.env.NODE_ENV === 'production' ? '' : 'super_secret_key_change_me');
+
+    io.use((socket, next) => {
+        try {
+            if (!gatewayJwtSecret) {
+                const cfgErr = new Error('JWT_SECRET no configurado en API Gateway');
+                cfgErr.data = { code: 4401 };
+                return next(cfgErr);
+            }
+
+            const token = extractTokenFromHandshake(socket);
+            const payload = verifyJWT(token, gatewayJwtSecret);
+            const normalizedRol = String(payload.rol || payload.role || '')
+                .trim()
+                .toUpperCase();
+
+            // Adjuntar claims del JWT verificado — CERO CONFIANZA en parámetros query del cliente
+            socket.data.user = {
+                sub: payload.sub || payload.userId,
+                email: payload.email,
+                rol: normalizedRol,
+                permissions: Array.isArray(payload.permissions) ? payload.permissions : [],
+                userId: payload.userId || payload.sub,
+                tokenUse: payload.tokenUse || 'access',
+                exp: payload.exp,
+                iat: payload.iat,
+            };
+
+            return next();
+        } catch (err) {
+            fastify.log.warn(
+                { err: err.message, code: err.data?.code || 4401 },
+                `[Socket.io] Fallo en la autenticación JWT para socket ${socket.id}`
+            );
+            if (!err.data) {
+                err.data = { code: 4401 };
+            }
+            return next(err);
+        }
     });
 
     let upstreamSocket = null;
@@ -384,76 +574,101 @@ const buildGateway = (options = {}) => {
         upstreamSocket.on('nueva_incidencia', emitirNuevaIncidenciaBridge);
     }
 
+    const anticipoEmisionMs = Number.isFinite(options.tokenExpiryLeadMs)
+        ? Math.max(0, options.tokenExpiryLeadMs)
+        : 30000;
+
     io.on('connection', (socket) => {
-        const origin = socket.handshake.headers.origin;
+        // Claims verificados exclusivamente desde el JWT firmado por ms-auth (TAL-184)
+        const user = socket.data.user || { sub: 'anonymous', rol: 'ANONIMO', permissions: [] };
         const query = socket.handshake.query || {};
-        const userId = query.userId || 'anonymous';
 
-        fastify.log.info(`[Socket.io] Cliente conectado: ${socket.id}, origen: ${origin || 'direct'}, userId: ${userId}`);
+        fastify.log.info(
+            `[Socket.io] Cliente conectado: ${socket.id}, user: ${user.sub || 'anonymous'}, rol: ${user.rol}`
+        );
 
-        // Unirse a la sala general de incidencias y salas por query (compatibilidad TAL-185 / TAL-186)
-        socket.join('incidencias');
+        // Sala general de incidencias (validada por PBAC)
+        if (tieneAccesoLecturaIncidencias(user)) {
+            socket.join('incidencias');
+        }
 
-        if (query.incidencia) {
+        // Asignación automática de salas de rol y coordinación SOLO desde claims verificados del JWT
+        if (esUsuarioCoordinador(user)) {
+            socket.join('coordinadores');
+        }
+        if (user.rol) {
+            socket.join(`rol_${user.rol}`);
+        }
+
+        // Suscripción contextual opcional de incidencia/edificio si el usuario posee permiso de lectura
+        if (query.incidencia && tieneAccesoLecturaIncidencias(user)) {
             const roomInc = `incidencia_${query.incidencia}`;
             socket.join(roomInc);
             upstreamSocket?.emit('join_room', { room: roomInc });
         }
-        if (query.edificio) {
+        if (query.edificio && tieneAccesoLecturaIncidencias(user)) {
             const roomEd = `edificio_${query.edificio}`;
             socket.join(roomEd);
             upstreamSocket?.emit('join_room', { room: roomEd });
         }
-        if (query.rol) {
-            const rolUpper = String(query.rol).toUpperCase();
-            socket.join(`rol_${rolUpper}`);
-            if (['COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolUpper)) {
-                socket.join('coordinadores');
-            }
-        }
 
+        // Eventos dinámicos join_room / unirse_sala filtrados estrictamente con PBAC (cero spoofing)
         const handleJoinRoom = (data, ack) => {
-            const salasUnidas = [];
-            if (typeof data === 'string' && data) {
-                socket.join(data);
-                salasUnidas.push(data);
+            const solicitadas = new Set();
+
+            if (typeof data === 'string' && data.trim()) {
+                solicitadas.add(data.trim());
             } else if (data && typeof data === 'object') {
                 const roomName = data.room || data.sala;
-                if (roomName) {
-                    socket.join(roomName);
-                    salasUnidas.push(roomName);
+                if (typeof roomName === 'string' && roomName.trim()) {
+                    solicitadas.add(roomName.trim());
                 }
-                const roomList = Array.isArray(data.rooms) ? data.rooms : Array.isArray(data.salas) ? data.salas : [];
-                for (const room of roomList) {
-                    if (room) {
-                        socket.join(room);
-                        salasUnidas.push(room);
+                const roomList = Array.isArray(data.rooms)
+                    ? data.rooms
+                    : Array.isArray(data.salas)
+                      ? data.salas
+                      : [];
+                for (const r of roomList) {
+                    if (typeof r === 'string' && r.trim()) {
+                        solicitadas.add(r.trim());
                     }
                 }
                 if (data.id_incidencia) {
-                    const roomInc = `incidencia_${data.id_incidencia}`;
-                    socket.join(roomInc);
-                    salasUnidas.push(roomInc);
+                    solicitadas.add(`incidencia_${data.id_incidencia}`);
                 }
                 if (data.id_edificio) {
-                    const roomEd = `edificio_${data.id_edificio}`;
-                    socket.join(roomEd);
-                    salasUnidas.push(roomEd);
+                    solicitadas.add(`edificio_${data.id_edificio}`);
                 }
                 if (data.rol) {
-                    const rolUpper = String(data.rol).toUpperCase();
-                    socket.join(`rol_${rolUpper}`);
-                    salasUnidas.push(`rol_${rolUpper}`);
-                    if (['COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolUpper)) {
-                        socket.join('coordinadores');
-                        salasUnidas.push('coordinadores');
+                    const rolSolicitado = String(data.rol).trim().toUpperCase();
+                    solicitadas.add(`rol_${rolSolicitado}`);
+                    if (ROLES_COORDINADORES.has(rolSolicitado)) {
+                        solicitadas.add('coordinadores');
                     }
                 }
             }
+
+            const salasUnidas = [];
+            const salasDenegadas = [];
+
+            for (const candidate of solicitadas) {
+                if (esSalaAutorizadaPBAC(candidate, user)) {
+                    socket.join(candidate);
+                    salasUnidas.push(candidate);
+                } else {
+                    salasDenegadas.push(candidate);
+                }
+            }
+
             if (salasUnidas.length > 0) {
                 upstreamSocket?.emit('join_room', { rooms: salasUnidas });
             }
-            const response = { status: 'joined', rooms: salasUnidas };
+
+            const response = {
+                status: 'joined',
+                rooms: salasUnidas,
+                ...(salasDenegadas.length > 0 ? { denied: salasDenegadas } : {}),
+            };
             if (typeof ack === 'function') {
                 ack(response);
             }
@@ -461,7 +676,7 @@ const buildGateway = (options = {}) => {
         };
 
         const handleLeaveRoom = (data, ack) => {
-            const room = typeof data === 'string' ? data : (data?.room || data?.sala);
+            const room = typeof data === 'string' ? data.trim() : String(data?.room || data?.sala || '').trim();
             if (room) {
                 socket.leave(room);
                 upstreamSocket?.emit('leave_room', { room });
@@ -483,9 +698,35 @@ const buildGateway = (options = {}) => {
         socket.on('leave_room', handleLeaveRoom);
         socket.on('dejar_sala', handleLeaveRoom);
 
+        // TAL-184: Temporizador proactivo de expiración de token basado en el claim 'exp' del JWT
+        let tokenExpiryTimeout = null;
+        if (user.tokenUse === 'access' && typeof user.exp === 'number') {
+            const tiempoHastaExpiracion = user.exp * 1000 - Date.now();
+            if (tiempoHastaExpiracion > 0) {
+                const delayMs = Math.max(25, tiempoHastaExpiracion - anticipoEmisionMs);
+                tokenExpiryTimeout = setTimeout(() => {
+                    const restanteSegundos = Math.max(
+                        0,
+                        Math.ceil((user.exp * 1000 - Date.now()) / 1000)
+                    );
+                    fastify.log.info(`[Socket.io] Emitiendo token_expirado para socket ${socket.id}`);
+                    socket.emit('token_expirado', {
+                        message: 'Su token de acceso está por expirar. Renueve su sesión.',
+                        timeRemaining: restanteSegundos,
+                        requiresRefresh: true,
+                    });
+                }, delayMs);
+            }
+        }
+
+        socket.data.tokenExpiryTimeout = tokenExpiryTimeout;
+
         socket.on('disconnect', (reason) => {
             fastify.log.info(`[Socket.io] Cliente desconectado: ${socket.id}, reason: ${reason}`);
-            // Limpiar listeners y descriptores para evitar fugas de memoria (CA-2 TAL-2)
+            if (socket.data.tokenExpiryTimeout) {
+                clearTimeout(socket.data.tokenExpiryTimeout);
+                socket.data.tokenExpiryTimeout = null;
+            }
             socket.removeAllListeners();
         });
 

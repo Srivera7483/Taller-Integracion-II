@@ -200,4 +200,11 @@ describe('TAL-186: Hook Personalizado useWebSocket y Gestión de Salas en React'
     assert.ok(hookSource.includes('ultimoEvento'));
     assert.ok(hookSource.includes('ultimosEventos'));
   });
+
+  test('TAL-184 (CA-3): Escucha el aviso proactivo token_expirado, renueva el token y reconecta limpiamente', () => {
+    assert.equal(WS_EVENTS.TOKEN_EXPIRADO, 'token_expirado');
+    assert.ok(hookSource.includes('sock.on(WS_EVENTS.TOKEN_EXPIRADO'));
+    assert.ok(hookSource.includes('/api/v1/autenticacion/renovar-token'));
+    assert.ok(hookSource.includes('/api/v1/auth/refresh'));
+  });
 });

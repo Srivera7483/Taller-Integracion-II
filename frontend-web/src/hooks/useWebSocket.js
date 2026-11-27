@@ -89,6 +89,7 @@ export const WS_EVENTS = Object.freeze({
   ESTADO_CAMBIADO: 'estado_cambiado',
   NUEVA_INCIDENCIA: 'nueva_incidencia',
   NUEVA_INCIDENCIA_LEGACY: 'nueva-incidencia',
+  TOKEN_EXPIRADO: 'token_expirado',
   UNIRSE_SALA: 'unirse_sala',
   DEJAR_SALA: 'dejar_sala',
   JOIN_ROOM: 'join_room',
@@ -646,6 +647,70 @@ export const useWebSocket = (callbacks = {}, options = {}) => {
     sock.on(WS_EVENTS.NUEVA_INCIDENCIA_LEGACY, (payload) =>
       registrarEventoRecibido(WS_EVENTS.NUEVA_INCIDENCIA_LEGACY, payload),
     );
+
+    // TAL-184: Renovación transparente y reconexión limpia ante aviso proactivo 'token_expirado'
+    let renovandoTokenWs = false;
+    sock.on(WS_EVENTS.TOKEN_EXPIRADO, async (payload) => {
+      if (unmountedRef.current || renovandoTokenWs) return;
+      renovandoTokenWs = true;
+
+      if (typeof callbacksRef.current?.onTokenExpirado === 'function') {
+        callbacksRef.current.onTokenExpirado(payload);
+      }
+
+      try {
+        if (typeof fetch === 'function' && typeof localStorage !== 'undefined') {
+          const refreshToken = localStorage.getItem('refreshToken');
+          const body = JSON.stringify(refreshToken ? { refreshToken } : {});
+          const headers = { 'Content-Type': 'application/json' };
+
+          let res = await fetch(`${wsUrl}/api/v1/autenticacion/renovar-token`, {
+            method: 'POST',
+            credentials: 'include',
+            headers,
+            body,
+          });
+          if (res.status === 404) {
+            res = await fetch(`${wsUrl}/api/v1/auth/refresh`, {
+              method: 'POST',
+              credentials: 'include',
+              headers,
+              body,
+            });
+          }
+
+          if (res.ok) {
+            const data = await res.json();
+            const nuevoToken = data?.accessToken || data?.token || data?.access_token;
+            if (nuevoToken && !unmountedRef.current && socketRef.current) {
+              localStorage.setItem('token', nuevoToken);
+              if (data?.refreshToken || data?.refresh_token) {
+                localStorage.setItem('refreshToken', data.refreshToken || data.refresh_token);
+              }
+              socketRef.current.auth = {
+                ...(socketRef.current.auth || {}),
+                token: nuevoToken,
+                bearer: `Bearer ${nuevoToken}`,
+              };
+              if (socketRef.current.io?.opts) {
+                socketRef.current.io.opts.query = {
+                  ...(socketRef.current.io.opts.query || {}),
+                  token: nuevoToken,
+                };
+              }
+              socketRef.current.disconnect();
+              if (!unmountedRef.current && !manualDisconnectRef.current) {
+                socketRef.current.connect();
+              }
+            }
+          }
+        }
+      } catch {
+        // Si falla el refresh proactivo, el flujo HTTP 401/reconexión estándar tomará control
+      } finally {
+        renovandoTokenWs = false;
+      }
+    });
 
     const handleSessionChange = () => {
       if (unmountedRef.current || !socketRef.current) return;
