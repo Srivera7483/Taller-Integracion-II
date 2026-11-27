@@ -276,20 +276,18 @@ async function main() {
   console.log(`${mantenimientosBase.length} Mantenimientos preventivos programados.`);
 
   // ==========================================
-  // 3. ESTADOS E INCIDENCIAS
+  // 3. ESTADOS E INCIDENCIAS (4 estados oficiales: Reportada, Asignada, Resuelta, Rechazada)
   // ==========================================
   const estadosBase = [
     { id_estado: 1, nombre_estado: 'Reportada' },
     { id_estado: 2, nombre_estado: 'Asignada' },
     { id_estado: 3, nombre_estado: 'Resuelta' },
-    { id_estado: 4, nombre_estado: 'Cerrada' },
     { id_estado: 5, nombre_estado: 'Rechazada' },
-    { id_estado: 6, nombre_estado: 'Completada' },
   ];
   for (const eb of estadosBase) {
     await incidenciasPrisma.estadoIncidencia.upsert({
       where: { id_estado: eb.id_estado },
-      update: {},
+      update: { nombre_estado: eb.nombre_estado },
       create: eb,
     });
   }
@@ -298,6 +296,9 @@ async function main() {
   await incidenciasPrisma.ordenTrabajo.deleteMany();
   await incidenciasPrisma.historialEstados.deleteMany();
   await incidenciasPrisma.incidencias.deleteMany();
+  await incidenciasPrisma.estadoIncidencia.deleteMany({
+    where: { id_estado: { in: [4, 6] } },
+  });
 
   const problemasEscolares = [
     { t: 'Proyector con imagen amarillenta', d: 'La lámpara del proyector parece estar agotándose.', prio: 'media' },
@@ -305,6 +306,8 @@ async function main() {
     { t: 'Switch parpadea en rojo', d: 'El puerto 14 del switch core de la sala de servidores marca colisión constante.', prio: 'critica' },
     { t: 'Equipo extremadamente lento', d: 'Al abrir software pesado, el equipo se congela por completo.', prio: 'baja' },
   ];
+
+  const cicloEstadosDemo = [1, 2, 3, 3, 5];
 
   for (let i = 0; i < 20; i++) {
     const activo = activosCreados[i % activosCreados.length];
@@ -314,8 +317,8 @@ async function main() {
 
     const diasAtras = (i % 15) + 1;
     const fechaCreacion = new Date(Date.now() - diasAtras * 24 * 60 * 60 * 1000);
-    // Incluir también 1 incidencia Rechazada (id_estado = 5) con justificación técnica para TAL-135
-    const estadoSimulado = i === 19 ? 5 : (i % 4) + 1;
+    // Distribuir entre los 4 estados oficiales (1: Reportada, 2: Asignada, 3: Resuelta, 5: Rechazada)
+    const estadoSimulado = cicloEstadosDemo[i % cicloEstadosDemo.length];
     const fechaOrden = new Date(fechaCreacion.getTime() + 60 * 60 * 1000);
     const fechaCierre = new Date(fechaCreacion.getTime() + 3 * 60 * 60 * 1000);
 
@@ -323,7 +326,7 @@ async function main() {
     const diagnosticoSemilla =
       estadoSimulado === 5
         ? 'Incidencia desestimada tras inspección en terreno: el cable HDMI del docente estaba desconectado y el equipo UCT opera dentro de parámetros normales.'
-        : estadoSimulado >= 3
+        : estadoSimulado === 3
           ? 'Se realizó limpieza preventiva de contactos, ajuste de parámetros y pruebas de estrés satisfactorias.'
           : null;
 
@@ -344,7 +347,17 @@ async function main() {
               id_usuario_cambio: idReportanteAleatorio,
               fecha_creacion: fechaCreacion,
             },
-            ...(estadoSimulado > 1
+            ...(estadoSimulado >= 2
+              ? [
+                  {
+                    id_historial: crypto.randomUUID(),
+                    id_estado: 2,
+                    id_usuario_cambio: tecnicoResp,
+                    fecha_creacion: fechaOrden,
+                  },
+                ]
+              : []),
+            ...(estadoSimulado === 3 || estadoSimulado === 5
               ? [
                   {
                     id_historial: crypto.randomUUID(),
@@ -365,7 +378,7 @@ async function main() {
                     id_tecnico: tecnicoResp,
                     diagnostico_tecnico: diagnosticoSemilla,
                     fecha_creacion: fechaOrden,
-                    fecha_cierre: estadoSimulado >= 3 ? fechaCierre : null,
+                    fecha_cierre: estadoSimulado === 3 || estadoSimulado === 5 ? fechaCierre : null,
                   },
                 ],
               },

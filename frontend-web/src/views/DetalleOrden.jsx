@@ -79,6 +79,9 @@ const DetalleOrden = () => {
           }
         }
 
+        const estadoHistorial =
+          apiOrden.incidencia?.historial_estados?.[0]?.estado?.nombre_estado || null;
+
         setOrden({
           ...apiOrden,
           id_orden: apiOrden.id_orden || idOrden,
@@ -87,7 +90,9 @@ const DetalleOrden = () => {
           id_activo: idActivo || 'N/A',
           nombre_activo: nombreActivo,
           codigo_qr_activo: codigoQrActivo,
-          estado: apiOrden.estado || (apiOrden.fecha_cierre ? 'Completada' : 'Asignada'),
+          estado: formatearNombreEstadoCanonico(
+            estadoHistorial || apiOrden.estado || (apiOrden.fecha_cierre ? 'Resuelta' : 'Asignada')
+          ),
           tecnico_nombre: tecnicoNombre,
           tecnico_id: apiOrden.id_tecnico,
           fecha_emision: apiOrden.fecha_creacion || new Date().toISOString(),
@@ -135,7 +140,7 @@ const DetalleOrden = () => {
   const handleCierreExitoso = (datosActualizados) => {
     setOrden((prev) => ({
       ...prev,
-      estado: 'Completada',
+      estado: datosActualizados?.estado || 'Resuelta',
       resolucion: datosActualizados.resolucion,
       horasInvertidas: datosActualizados.horasInvertidas,
       materialesUsados: datosActualizados.materialesUsados,
@@ -180,7 +185,8 @@ const DetalleOrden = () => {
 
   const estaCompletada =
     orden.estado?.toLowerCase() === 'completada' ||
-    orden.estado?.toLowerCase() === 'resuelta';
+    orden.estado?.toLowerCase() === 'resuelta' ||
+    orden.estado?.toLowerCase() === 'rechazada';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -267,7 +273,7 @@ const DetalleOrden = () => {
               </div>
             </div>
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-              Completada
+              {orden.estado === 'Rechazada' ? 'Rechazada' : 'Resuelta'}
             </span>
           </div>
 

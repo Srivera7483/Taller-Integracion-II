@@ -436,22 +436,71 @@ export class IncidenciasService {
       }
 
       const idEstadoActual = incidencia.historial_estados?.[0]?.estado?.id_estado;
+      const nombreEstadoActual = (
+        incidencia.historial_estados?.[0]?.estado?.nombre_estado ?? 'Reportada'
+      )
+        .trim()
+        .toLowerCase();
+      const nombreEstadoNuevo = estado.nombre_estado.trim().toLowerCase();
       const rolUpper = this.normalizarRol(rolUsuario);
+
+      // 1. Bloquear estados terminales (Resuelta y Rechazada no admiten reapertura ni transiciones posteriores)
+      if (idEstadoActual === 3 || nombreEstadoActual === 'resuelta' || nombreEstadoActual === 'cerrada' || nombreEstadoActual === 'completada') {
+        throw new BadRequestException(
+          'La funcionalidad de aprobación, reapertura o rechazo de resolución fue retirada. La incidencia ya se encuentra resuelta.',
+        );
+      }
+      if (idEstadoActual === 5 || nombreEstadoActual === 'rechazada') {
+        throw new BadRequestException(
+          'Transición no permitida: la incidencia ya se encuentra en estado terminal Rechazada.',
+        );
+      }
+
+      // 2. Bloquear estados históricos retirados (4: Cerrada, 6: Completada)
+      if (
+        idEstadoNuevo === 4 ||
+        idEstadoNuevo === 6 ||
+        nombreEstadoNuevo === 'cerrada' ||
+        nombreEstadoNuevo === 'completada'
+      ) {
+        throw new BadRequestException(
+          'Estado retirado (funcionalidad retirada): el ciclo oficial admite únicamente Reportada, Asignada, Resuelta y Rechazada.',
+        );
+      }
+
+      if (idEstadoActual === idEstadoNuevo) {
+        throw new BadRequestException('La incidencia ya se encuentra actualmente en ese estado.');
+      }
 
       if (rolUpper === 'TECNICO') {
         await this.verificarOwnershipTecnico(incidenciaId, usuarioId, transaction);
       }
 
-      if (idEstadoActual === 1 && idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR' && rolUpper !== 'ADMINISTRADOR') {
-        throw new ForbiddenException('Solo un SUPERVISOR puede pasar de Reportada a Asignada');
-      }
-      if (idEstadoActual === 2 && (idEstadoNuevo === 3 || idEstadoNuevo === 6) && (rolUpper !== 'TECNICO' && rolUpper !== 'ADMINISTRADOR')) {
-        throw new ForbiddenException('Solo un TECNICO puede pasar de Asignada a Resuelta o Completada');
-      }
-      if (idEstadoActual === 3 && (idEstadoNuevo === 4 || idEstadoNuevo === 5)) {
-        throw new BadRequestException(
-          'La funcionalidad de aprobación o rechazo de resolución fue retirada. La incidencia ya se encuentra resuelta.',
-        );
+      // 3. Máquina de estados estricta de 4 estados: Reportada (1) -> Asignada (2) -> Resuelta (3) | Rechazada (5)
+      if (idEstadoActual === 1 || nombreEstadoActual === 'reportada') {
+        if (idEstadoNuevo === 3 || nombreEstadoNuevo === 'resuelta') {
+          throw new BadRequestException(
+            'Transición no válida: no se puede pasar directamente de Reportada a Resuelta sin haber sido Asignada previamente.',
+          );
+        }
+        if (idEstadoNuevo === 2 && rolUpper !== 'SUPERVISOR' && rolUpper !== 'ADMINISTRADOR') {
+          throw new ForbiddenException('Solo un SUPERVISOR puede pasar de Reportada a Asignada');
+        }
+        if (idEstadoNuevo === 5 && !['SUPERVISOR', 'ADMINISTRADOR', 'TECNICO'].includes(rolUpper)) {
+          throw new ForbiddenException('No cuenta con permisos para rechazar una incidencia');
+        }
+      } else if (idEstadoActual === 2 || nombreEstadoActual === 'asignada') {
+        if (idEstadoNuevo === 1 || nombreEstadoNuevo === 'reportada') {
+          throw new BadRequestException(
+            'Transición no válida: no se puede retroceder una incidencia Asignada nuevamente a Reportada.',
+          );
+        }
+        if (idEstadoNuevo === 3 && rolUpper !== 'TECNICO' && rolUpper !== 'ADMINISTRADOR' && rolUpper !== 'SUPERVISOR') {
+          throw new ForbiddenException('Solo un TECNICO autorizado puede pasar de Asignada a Resuelta');
+        }
+        if (idEstadoNuevo === 5 && !['TECNICO', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolUpper)) {
+          throw new ForbiddenException('Solo personal técnico o de supervisión puede rechazar una incidencia asignada');
+        }
       }
 
       await transaction.historialEstados.create({
@@ -461,6 +510,16 @@ export class IncidenciasService {
           id_usuario_cambio: usuarioId,
         },
       });
+
+      if (
+        (idEstadoNuevo === 3 || idEstadoNuevo === 5) &&
+        typeof (transaction.ordenTrabajo as any)?.updateMany === 'function'
+      ) {
+        await transaction.ordenTrabajo.updateMany({
+          where: { id_incidencia: incidencia.id_incidencia, fecha_cierre: null },
+          data: { fecha_cierre: new Date() },
+        });
+      }
 
       const incidenciaActualizada = await transaction.incidencias.findUnique({
         where: { id_incidencia: incidenciaId },
@@ -629,6 +688,7 @@ export class IncidenciasService {
 
   async listarEstados() {
     return this.prisma.estadoIncidencia.findMany({
+      where: { id_estado: { in: [1, 2, 3, 5] } },
       select: { id_estado: true, nombre_estado: true },
       orderBy: { id_estado: 'asc' },
     });
@@ -695,9 +755,9 @@ export class IncidenciasService {
       const nombreEstadoActual =
         ultimoHistorial.estado.nombre_estado.trim().toUpperCase();
 
-      if (!['REPORTADA', 'ASIGNADA'].includes(nombreEstadoActual)) {
+      if (nombreEstadoActual !== 'ASIGNADA') {
         throw new BadRequestException(
-          `Transición no válida: No se puede pasar de ${nombreEstadoActual} a RESUELTA.`,
+          `Transición no válida: Solo una incidencia ASIGNADA puede pasar a RESUELTA (estado actual: ${nombreEstadoActual}).`,
         );
       }
 

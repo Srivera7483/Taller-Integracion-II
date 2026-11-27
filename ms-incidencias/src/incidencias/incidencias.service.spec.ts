@@ -797,5 +797,46 @@ const transaction = {
         service.actualizarEstado('incidencia-1', 5, 'reportante-1', 'REPORTANTE'),
       ).rejects.toThrow('retirada');
     });
+
+    it('impone el ciclo estricto de 4 estados (bloquea Reportada -> Resuelta directo, retroceso Asignada -> Reportada y reapertura desde Rechazada)', async () => {
+      // 1. Bloquea salto directo Reportada (1) -> Resuelta (3)
+      transaction.incidencias.findUnique.mockResolvedValue({
+        ...incidenciaCreada,
+        historial_estados: [{ estado: { id_estado: 1, nombre_estado: 'Reportada' } }],
+      });
+      transaction.estadoIncidencia.findUnique.mockResolvedValue({
+        id_estado: 3,
+        nombre_estado: 'Resuelta',
+      });
+      await expect(
+        service.actualizarEstado('incidencia-1', 3, 'admin-1', 'ADMINISTRADOR'),
+      ).rejects.toThrow('Asignada previamente');
+
+      // 2. Bloquea retroceso Asignada (2) -> Reportada (1)
+      transaction.incidencias.findUnique.mockResolvedValue({
+        ...incidenciaCreada,
+        historial_estados: [{ estado: { id_estado: 2, nombre_estado: 'Asignada' } }],
+      });
+      transaction.estadoIncidencia.findUnique.mockResolvedValue({
+        id_estado: 1,
+        nombre_estado: 'Reportada',
+      });
+      await expect(
+        service.actualizarEstado('incidencia-1', 1, 'supervisor-1', 'SUPERVISOR'),
+      ).rejects.toThrow('retroceder');
+
+      // 3. Bloquea reapertura desde estado terminal Rechazada (5)
+      transaction.incidencias.findUnique.mockResolvedValue({
+        ...incidenciaCreada,
+        historial_estados: [{ estado: { id_estado: 5, nombre_estado: 'Rechazada' } }],
+      });
+      transaction.estadoIncidencia.findUnique.mockResolvedValue({
+        id_estado: 2,
+        nombre_estado: 'Asignada',
+      });
+      await expect(
+        service.actualizarEstado('incidencia-1', 2, 'supervisor-1', 'SUPERVISOR'),
+      ).rejects.toThrow('estado terminal Rechazada');
+    });
   });
 });

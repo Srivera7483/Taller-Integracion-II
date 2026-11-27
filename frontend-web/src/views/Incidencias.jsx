@@ -198,24 +198,26 @@ const Incidencias = () => {
     return () => window.removeEventListener('incidencia-creada', handleIncidenciaCreada);
   }, [cargarIncidenciasReales]);
 
-  // Función auxiliar para obtener el nombre del estado
+  // Función auxiliar para obtener el nombre canónico entre los 4 estados oficiales
   const getNombreEstado = (estado) => {
-    if (!estado) return 'Pendiente';
-    return typeof estado === 'object' ? (estado.nombre_estado || estado.nombre) : estado;
+    const raw = !estado
+      ? 'Reportada'
+      : typeof estado === 'object'
+        ? estado.nombre_estado || estado.nombre || 'Reportada'
+        : String(estado);
+    const lower = raw.trim().toLowerCase();
+    if (lower === 'reportada' || lower === 'pendiente') return 'Reportada';
+    if (lower === 'asignada' || lower === 'en progreso' || lower === 'en proceso') return 'Asignada';
+    if (lower === 'resuelta' || lower === 'completada' || lower === 'cerrada') return 'Resuelta';
+    if (lower === 'rechazada' || lower === 'rechazado') return 'Rechazada';
+    return raw;
   };
 
-  // Calcular contadores por estado
+  // Calcular contadores por los 4 estados oficiales
   const counts = incidencias.reduce(
     (acc, inc) => {
       const estadoStr = getNombreEstado(inc.estado);
       acc[estadoStr] = (acc[estadoStr] || 0) + 1;
-
-      if (estadoStr.toLowerCase() === 'reportada') {
-        acc['Pendiente'] = (acc['Pendiente'] || 0) + 1;
-      }
-      if (estadoStr.toLowerCase() === 'rechazado' || estadoStr.toLowerCase() === 'rechazada') {
-        acc['Rechazado'] = (acc['Rechazado'] || 0) + 1;
-      }
       acc['Todas'] = (acc['Todas'] || 0) + 1;
 
       // Mis Asignadas (Exclusivamente incidencias con orden de trabajo asignada al usuario actual)
@@ -224,7 +226,7 @@ const Incidencias = () => {
       }
       return acc;
     },
-    { Todas: 0, 'Mis Asignadas': 0, Pendiente: 0, Rechazado: 0 }
+    { Todas: 0, 'Mis Asignadas': 0, Reportada: 0, Asignada: 0, Resuelta: 0, Rechazada: 0 }
   );
 
   if (typeof totalGlobal === 'number' && totalGlobal > counts.Todas) {
@@ -258,10 +260,6 @@ const Incidencias = () => {
       matchEstado = true;
     } else if (filtroEstado === 'Mis Asignadas') {
       matchEstado = esIncidenciaAsignadaAMi(inc);
-    } else if (filtroEstado.toLowerCase() === 'rechazado') {
-      matchEstado = incEstado.toLowerCase() === 'rechazado' || incEstado.toLowerCase() === 'rechazada';
-    } else if (filtroEstado.toLowerCase() === 'pendiente') {
-      matchEstado = incEstado.toLowerCase() === 'pendiente' || incEstado.toLowerCase() === 'reportada';
     } else {
       matchEstado = incEstado.toLowerCase() === filtroEstado.toLowerCase();
     }
@@ -351,11 +349,10 @@ const Incidencias = () => {
             options={[
               'Todas',
               ...(puedeResolver ? ['Mis Asignadas'] : []),
-              'Pendiente',
+              'Reportada',
               'Asignada',
               'Resuelta',
-              'Rechazado',
-              'Cerrada',
+              'Rechazada',
             ]}
             activeFilter={filtroEstado}
             onFilterChange={setFiltroEstado}

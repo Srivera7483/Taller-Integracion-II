@@ -266,8 +266,15 @@ export class SincronizacionService {
         throw new NotFoundException('La incidencia referenciada no existe');
       }
 
+      const idEstadoNum = Number(idEstado);
+      if (idEstadoNum === 4 || idEstadoNum === 6) {
+        throw new BadRequestException(
+          'Estado retirado: solo se admiten Reportada (1), Asignada (2), Resuelta (3) y Rechazada (5).',
+        );
+      }
+
       const estado = await tx.estadoIncidencia.findUnique({
-        where: { id_estado: Number(idEstado) },
+        where: { id_estado: idEstadoNum },
       });
       if (!estado) {
         throw new NotFoundException(
@@ -291,6 +298,18 @@ export class SincronizacionService {
               `Conflicto de concurrencia (409): la incidencia ya fue actualizada en el servidor a '${ultimoHistorial.estado?.nombre_estado ?? ultimoHistorial.id_estado}' el ${new Date(ultimoHistorial.fecha_creacion).toISOString()}, posteriormente a la acción offline (${accion.timestamp_local}).`,
             );
           }
+        }
+
+        const estadoServidorNorm = (ultimoHistorial?.estado?.nombre_estado ?? '').trim().toLowerCase();
+        if (
+          ultimoHistorial?.id_estado === 3 ||
+          ultimoHistorial?.id_estado === 5 ||
+          estadoServidorNorm === 'resuelta' ||
+          estadoServidorNorm === 'rechazada'
+        ) {
+          throw new ConflictException(
+            `Conflicto de estado terminal (409): la incidencia ya se encuentra finalizada en '${ultimoHistorial?.estado?.nombre_estado ?? ultimoHistorial?.id_estado}'.`,
+          );
         }
       }
 

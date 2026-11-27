@@ -333,6 +333,7 @@ const ModalCierreMantenimiento = ({
 
         if (onCierreExitoso) {
           onCierreExitoso({
+            estado: 'Resuelta',
             resolucion: resolucion.trim(),
             horasInvertidas: Number(horasInvertidas),
             materialesUsados: sinMateriales ? [] : materialesUsados,
@@ -407,7 +408,7 @@ const ModalCierreMantenimiento = ({
     if (onCierreExitoso) {
       onCierreExitoso({
         resolucion: resolucion.trim() || `[RECHAZADO]: ${motivoRechazo.trim()}`,
-        estado: pendingActionType === 'RECHAZAR' ? 'Rechazada' : 'Completada',
+        estado: pendingActionType === 'RECHAZAR' ? 'Rechazada' : 'Resuelta',
         esOffline: true,
       });
     }
@@ -540,11 +541,11 @@ const ModalCierreMantenimiento = ({
                     <span className="text-gray-600 block text-[10px] uppercase font-semibold">Nuevo Estado</span>
                     {esModoRechazar ? (
                       <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-red-100 text-red-800 border border-red-300">
-                        RECHAZADO
+                        Rechazada
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        Completada
+                        Resuelta
                       </span>
                     )}
                   </div>
@@ -885,12 +886,12 @@ const ModalCierreMantenimiento = ({
               {esModoRechazar ? (
                 <>
                   <LuTriangleAlert className="w-4 h-4 text-red-600" />
-                  <span>Al confirmar, la tarea pasará a <strong>RECHAZADO</strong></span>
+                  <span>Al confirmar, la incidencia pasará a <strong>Rechazada</strong></span>
                 </>
               ) : (
                 <>
                   <FiCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Al confirmar, la tarea pasará a <strong>Completada</strong></span>
+                  <span>Al confirmar, la incidencia pasará a <strong>Resuelta</strong></span>
                 </>
               )}
             </div>

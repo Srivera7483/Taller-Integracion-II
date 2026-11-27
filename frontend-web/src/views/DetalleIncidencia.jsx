@@ -824,16 +824,16 @@ const DetalleIncidencia = () => {
         ) : null}
       </div>
 
-      {/* Reporte de Mantenimiento si ya está completada */}
-      {estaCompletada && (
+      {/* Reporte de Resolución Técnica cuando la incidencia ya está Resuelta */}
+      {(estaResuelta || estaCompletada) && (
         <div className="bg-white rounded-2xl shadow-sm border border-emerald-200 p-5 sm:p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
             <div className="flex items-center gap-2.5">
               <FiCheckCircle className="w-6 h-6 text-emerald-600" aria-hidden="true" />
-              <h2 className="font-bold text-lg text-emerald-950">Mantenimiento Completado</h2>
+              <h2 className="font-bold text-lg text-emerald-950">Incidencia Resuelta</h2>
             </div>
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-              Completada
+              Resuelta
             </span>
           </div>
 
@@ -871,10 +871,13 @@ const DetalleIncidencia = () => {
 
           <div className="space-y-1">
             <span className="text-xs uppercase font-bold text-gray-600 block flex items-center gap-1">
-              <FiFileText className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" /> Resolución Técnica
+              <FiFileText className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" /> Diagnóstico / Resolución Técnica
             </span>
             <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-200 text-sm text-gray-800 whitespace-pre-wrap">
-              {incidencia.resolucion || 'Sin diagnóstico registrado.'}
+              {incidencia.resolucion ||
+                incidencia.diagnostico_tecnico ||
+                incidencia.orden_trabajo?.diagnostico_tecnico ||
+                'Sin diagnóstico registrado.'}
             </div>
           </div>
         </div>

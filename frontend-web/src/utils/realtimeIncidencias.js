@@ -20,11 +20,10 @@ export const extraerNombreEstado = (estado) => {
 
 export const formatearNombreEstadoCanonico = (estadoRaw) => {
   const norm = normalizarTexto(estadoRaw);
-  if (norm === 'asignada') return 'Asignada';
-  if (norm === 'en_proceso' || norm === 'en proceso' || norm === 'en progreso') return 'En Progreso';
-  if (norm === 'resuelta') return 'Resuelta';
-  if (norm === 'completada') return 'Completada';
-  if (norm === 'cerrada') return 'Cerrada';
+  if (norm === 'asignada' || norm === 'en_proceso' || norm === 'en proceso' || norm === 'en progreso') {
+    return 'Asignada';
+  }
+  if (norm === 'resuelta' || norm === 'completada' || norm === 'cerrada') return 'Resuelta';
   if (norm === 'rechazada' || norm === 'rechazado') return 'Rechazada';
   if (norm === 'reportada' || norm === 'pendiente') return 'Reportada';
   return estadoRaw || 'Reportada';
