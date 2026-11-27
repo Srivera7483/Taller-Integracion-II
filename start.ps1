@@ -1,4 +1,4 @@
-﻿# Script de Inicialización Automatizado de Microservicios
+# Script de Inicialización Automatizado de Microservicios
 # ------------------------------------------------------------------------------
 $ErrorActionPreference = "Stop"
 
@@ -34,6 +34,47 @@ foreach ($carpeta in $carpetasEnv) {
         }
     } else {
         Write-Host "  [OK] $rutaEnv detectado (se conserva tu configuracion actual)." -ForegroundColor DarkGray
+    }
+}
+
+# Inicialización local de seed.local.json (ignorado en Git) a partir de la plantilla ficticia seed.example.json
+if (-not (Test-Path "seed.local.json") -and (Test-Path "seed.example.json")) {
+    Copy-Item "seed.example.json" "seed.local.json"
+    Write-Host "  [CREADO] seed.local.json (a partir de seed.example.json)." -ForegroundColor Green
+} elseif (Test-Path "seed.local.json") {
+    Write-Host "  [OK] seed.local.json detectado (datos locales protegidos fuera de Git)." -ForegroundColor DarkGray
+}
+
+# Autogeneración segura de SEED_DEFAULT_PASSWORD en .env local si no existe o está vacía
+$seedPassRecienGenerada = $null
+if (Test-Path ".env") {
+    $envRaizLineas = Get-Content ".env"
+    $valorSeedActual = ""
+    foreach ($ln in $envRaizLineas) {
+        if ($ln -match "^\s*SEED_DEFAULT_PASSWORD\s*=\s*(.*)$") {
+            $valorSeedActual = $matches[1].Trim().Trim('"').Trim("'")
+        }
+    }
+
+    if (-not $valorSeedActual -or $valorSeedActual.Length -lt 8) {
+        $alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#%*+-_"
+        $bytesAleatorios = New-Object byte[] 16
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        $rng.GetBytes($bytesAleatorios)
+        $rng.Dispose()
+        $seedPassRecienGenerada = -join ($bytesAleatorios | ForEach-Object { $alfabeto[$_ % $alfabeto.Length] })
+
+        if ($envRaizLineas -match "^\s*SEED_DEFAULT_PASSWORD\s*=") {
+            $envRaizLineas = $envRaizLineas -replace "^\s*SEED_DEFAULT_PASSWORD\s*=.*", "SEED_DEFAULT_PASSWORD=$seedPassRecienGenerada"
+        } else {
+            $envRaizLineas += ""
+            $envRaizLineas += "# Contraseña local autogenerada para cuentas del seed (no se sube a Git)"
+            $envRaizLineas += "SEED_DEFAULT_PASSWORD=$seedPassRecienGenerada"
+        }
+        $envRaizLineas | Set-Content ".env"
+        Write-Host "  [SEGURIDAD] SEED_DEFAULT_PASSWORD autogenerada en tu .env local: $seedPassRecienGenerada" -ForegroundColor Yellow
+    } else {
+        Write-Host "  [OK] SEED_DEFAULT_PASSWORD configurada en .env local." -ForegroundColor Green
     }
 }
 
@@ -275,5 +316,9 @@ Write-Host "  MS Auth:           http://localhost:3001" -ForegroundColor White
 Write-Host "  MS Incidencias:    http://localhost:3002" -ForegroundColor White
 Write-Host "  MS Activos:        http://localhost:3003" -ForegroundColor White
 Write-Host "  MS Notificaciones: http://localhost:3004 (Docker loopback)" -ForegroundColor White
+if ($seedPassRecienGenerada) {
+    Write-Host "----------------------------------------------------------" -ForegroundColor Yellow
+    Write-Host "  [CLAVE LOCAL SEED] SEED_DEFAULT_PASSWORD = $seedPassRecienGenerada (guardada en .env)" -ForegroundColor Yellow
+}
 Write-Host "----------------------------------------------------------" -ForegroundColor DarkGray
 Write-Host "NOTA: Cerrar las ventanas no acaba realmente los procesos del todo, para realmente detener todos los servicios y liberar puertos, RAM, ejecuta .\stop.ps1" -ForegroundColor Yellow

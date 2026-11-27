@@ -654,6 +654,59 @@ export class ActivosService {
       throw new NotFoundException(`No existe un activo con el ID ${dto.id_activo} en el sistema.`);
     }
 
+    const idActivoCanonico = activoExiste.id || dto.id_activo;
+    const inicioDia = new Date(
+      fechaProgramada.getFullYear(),
+      fechaProgramada.getMonth(),
+      fechaProgramada.getDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+    const finDia = new Date(
+      fechaProgramada.getFullYear(),
+      fechaProgramada.getMonth(),
+      fechaProgramada.getDate(),
+      23,
+      59,
+      59,
+      999,
+    );
+
+    let mantenimientoDuplicado: any = null;
+    try {
+      if (this.prisma?.mantenimiento?.findFirst) {
+        mantenimientoDuplicado = await this.prisma.mantenimiento.findFirst({
+          where: {
+            id_activo: idActivoCanonico,
+            fecha_programada: {
+              gte: inicioDia,
+              lte: finDia,
+            },
+          },
+        });
+      }
+    } catch {
+      // Fallback a validación en memoria si Prisma no está conectado
+    }
+
+    if (!mantenimientoDuplicado) {
+      mantenimientoDuplicado = this.mantenimientosEnMemoria.find((m) => {
+        if (m.id_activo !== idActivoCanonico && m.id_activo !== dto.id_activo) {
+          return false;
+        }
+        const f = new Date(m.fecha_programada);
+        return f >= inicioDia && f <= finDia;
+      });
+    }
+
+    if (mantenimientoDuplicado) {
+      throw new ConflictException(
+        'Este equipo ya cuenta con un mantenimiento preventivo programado para esa misma fecha.',
+      );
+    }
+
     let nuevoMantenimiento: any = null;
     try {
       if (this.prisma?.mantenimiento) {

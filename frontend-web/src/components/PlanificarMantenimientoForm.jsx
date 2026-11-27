@@ -18,7 +18,11 @@ import {
   FiClock
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
-import { planificarMantenimiento, fetchActivosParaMantenimiento } from '../services/mantenimientosService';
+import {
+  planificarMantenimiento,
+  fetchActivosParaMantenimiento,
+  fetchMantenimientos,
+} from '../services/mantenimientosService';
 import { useDraftState } from '../hooks/useDraftState';
 
 const calcularFechaMinima = () => {
@@ -43,8 +47,9 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
     searchParams.get('assetId') ||
     '';
 
-  // Catálogo dinámico de activos
+  // Catálogo dinámico de activos y mantenimientos existentes (para evitar duplicados en misma fecha)
   const [activos, setActivos] = useState([]);
+  const [mantenimientosExistentes, setMantenimientosExistentes] = useState([]);
   const [cargandoActivos, setCargandoActivos] = useState(true);
 
   // Estados del formulario alineados con la tabla MANTENIMIENTOS_PREVENTIVOS del MER (TAL-188: borradores locales)
@@ -59,12 +64,16 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
   // Fecha mínima calculada
   const [fechaMinima] = useState(calcularFechaMinima);
 
-  // Cargar activos desde el backend
+  // Cargar activos y mantenimientos existentes desde el backend
   const cargarCatalogoActivos = useCallback(async () => {
     setCargandoActivos(true);
     try {
-      const data = await fetchActivosParaMantenimiento();
+      const [data, mants] = await Promise.all([
+        fetchActivosParaMantenimiento(),
+        fetchMantenimientos().catch(() => []),
+      ]);
       setActivos(data);
+      setMantenimientosExistentes(Array.isArray(mants) ? mants : []);
 
       if (assetFromParam && Array.isArray(data)) {
         const coincidencia = data.find(
@@ -81,16 +90,20 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
     } finally {
       setCargandoActivos(false);
     }
-  }, [assetFromParam, showToast]);
+  }, [assetFromParam, setIdActivo, showToast]);
 
   useEffect(() => {
     let cancel = false;
     const cargar = async () => {
       setCargandoActivos(true);
       try {
-        const data = await fetchActivosParaMantenimiento();
+        const [data, mants] = await Promise.all([
+          fetchActivosParaMantenimiento(),
+          fetchMantenimientos().catch(() => []),
+        ]);
         if (!cancel) {
           setActivos(data);
+          setMantenimientosExistentes(Array.isArray(mants) ? mants : []);
           if (assetFromParam && Array.isArray(data)) {
             const coincidencia = data.find(
               (a) =>
@@ -168,7 +181,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
   }, [fechaProgramada, fechaMinima]);
 
   // Validación individual de campos según esquema NuevoMantenimiento (OpenAPI v1.3.0)
-  const validateField = (field, value) => {
+  const validateField = (field, value, currentActivoId = idActivo) => {
     const val = typeof value === 'string' ? value.trim() : value;
     switch (field) {
       case 'idActivo':
@@ -181,6 +194,22 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
         if (Number.isNaN(fechaIngresada.getTime())) return 'Formato de fecha u hora no válido.';
         if (fechaIngresada <= ahora) {
           return 'No se puede agendar un mantenimiento con fecha en el pasado.';
+        }
+        if (currentActivoId) {
+          const mismoDiaExistente = mantenimientosExistentes.some((m) => {
+            const idActMant = m.id_activo || m.activo?.id;
+            if (idActMant !== currentActivoId) return false;
+            const fExistente = new Date(m.fecha_programada);
+            if (Number.isNaN(fExistente.getTime())) return false;
+            return (
+              fExistente.getFullYear() === fechaIngresada.getFullYear() &&
+              fExistente.getMonth() === fechaIngresada.getMonth() &&
+              fExistente.getDate() === fechaIngresada.getDate()
+            );
+          });
+          if (mismoDiaExistente) {
+            return 'Este equipo ya tiene un mantenimiento preventivo agendado para esa misma fecha.';
+          }
         }
         return '';
       }
@@ -258,8 +287,13 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
     } catch (err) {
       const mensajeError =
         err.response?.data?.message ||
+        err.response?.data?.mensaje ||
         err.response?.data?.error ||
         'Error al conectar con el servicio de mantenimientos.';
+      if (err.response?.status === 409) {
+        setErrors((prev) => ({ ...prev, fechaProgramada: mensajeError }));
+        setTouched((prev) => ({ ...prev, fechaProgramada: true }));
+      }
       showToast(mensajeError, 'error');
     } finally {
       setIsSubmitting(false);
@@ -310,9 +344,17 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
               id="idActivo"
               value={idActivo}
               onChange={(e) => {
-                setIdActivo(e.target.value);
-                if (touched.idActivo) {
-                  setErrors((prev) => ({ ...prev, idActivo: validateField('idActivo', e.target.value) }));
+                const nuevoActivoId = e.target.value;
+                setIdActivo(nuevoActivoId);
+                setErrors((prev) => ({
+                  ...prev,
+                  ...(touched.idActivo ? { idActivo: validateField('idActivo', nuevoActivoId, nuevoActivoId) } : {}),
+                  ...(fechaProgramada
+                    ? { fechaProgramada: validateField('fechaProgramada', fechaProgramada, nuevoActivoId) }
+                    : {}),
+                }));
+                if (fechaProgramada) {
+                  setTouched((prev) => ({ ...prev, fechaProgramada: true }));
                 }
               }}
               onBlur={() => handleBlur('idActivo')}
@@ -368,9 +410,13 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                   type="button"
                   onClick={() => {
                     setIdActivo('');
-                    if (touched.idActivo) {
-                      setErrors((prev) => ({ ...prev, idActivo: validateField('idActivo', '') }));
-                    }
+                    setErrors((prev) => ({
+                      ...prev,
+                      ...(touched.idActivo ? { idActivo: validateField('idActivo', '', '') } : {}),
+                      ...(fechaProgramada
+                        ? { fechaProgramada: validateField('fechaProgramada', fechaProgramada, '') }
+                        : {}),
+                    }));
                   }}
                   disabled={isSubmitting}
                   className="text-xs text-slate-500 hover:text-slate-800 font-medium px-2 py-1 rounded-lg hover:bg-slate-200/60 transition-colors inline-flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"

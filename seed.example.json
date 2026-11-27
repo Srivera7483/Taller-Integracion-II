@@ -1,0 +1,32 @@
+{
+  "usuarios": [
+    {
+      "rut": "11111111-1",
+      "nombre": "Admin",
+      "apellido": "Demo",
+      "email": "admin.demo@ejemplo.local",
+      "rol": "ADMINISTRADOR"
+    },
+    {
+      "rut": "22222222-2",
+      "nombre": "Supervisor",
+      "apellido": "Demo",
+      "email": "supervisor.demo@ejemplo.local",
+      "rol": "SUPERVISOR"
+    },
+    {
+      "rut": "33333333-3",
+      "nombre": "Tecnico",
+      "apellido": "Demo",
+      "email": "tecnico.demo@ejemplo.local",
+      "rol": "TECNICO"
+    },
+    {
+      "rut": "44444444-4",
+      "nombre": "Reportante",
+      "apellido": "Demo",
+      "email": "reportante.demo@ejemplo.local",
+      "rol": "REPORTANTE"
+    }
+  ]
+}

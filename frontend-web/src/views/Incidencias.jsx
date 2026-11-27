@@ -322,27 +322,27 @@ const Incidencias = () => {
           />
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          {puedeAsignar && (
-            <Link
-              to="/incidencias/asignar"
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-50 text-primary border border-primary-200 rounded-lg hover:bg-primary-100 transition-all font-semibold text-sm shadow-2xs min-h-[44px]"
-            >
-              <FiUserCheck className="w-4 h-4" /> Asignar Técnico
-            </Link>
-          )}
+        {(puedeAsignar || hasPermission('incidencias:crear')) && (
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            {puedeAsignar && (
+              <Link
+                to="/incidencias/asignar"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-50 text-primary border border-primary-200 rounded-lg hover:bg-primary-100 transition-all font-semibold text-sm shadow-2xs min-h-[44px]"
+              >
+                <FiUserCheck className="w-4 h-4" /> Asignar Técnico
+              </Link>
+            )}
 
-          {hasPermission('incidencias:crear') && (
-            <Link
-              to="/incidencias/nueva"
-              className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all font-semibold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 min-h-[44px]"
-            >
-              <FiPlus className="w-4 h-4" /> Reportar Incidencia
-            </Link>
-          )}
-
-          {puedeExportar && <BotonExportarExcel variant="button" />}
-        </div>
+            {hasPermission('incidencias:crear') && (
+              <Link
+                to="/incidencias/nueva"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all font-semibold text-sm shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 min-h-[44px]"
+              >
+                <FiPlus className="w-4 h-4" /> Reportar Incidencia
+              </Link>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -624,6 +624,8 @@ const Incidencias = () => {
           onCierreExitoso={handleCierreExitoso}
         />
       )}
+
+      {puedeExportar && <BotonExportarExcel variant="floating" />}
     </div>
   );
 };

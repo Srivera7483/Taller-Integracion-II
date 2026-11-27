@@ -3,12 +3,40 @@ param(
     [string]$RabbitApiUrl = "http://127.0.0.1:15672/api",
     [string]$RabbitUser = "inframanager",
     [string]$RabbitPass = "inframanager-local",
-    [string]$SeedEmail = "reportante@uct.cl",
-    [string]$SeedPassword = "password123"
+    [string]$SeedEmail = "",
+    [string]$SeedPassword = ""
 )
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$RepoRoot = Resolve-Path (Join-Path $ScriptDir "..\..")
+
+if (-not $SeedPassword) {
+    $envPath = Join-Path $RepoRoot ".env"
+    if (Test-Path $envPath) {
+        Get-Content $envPath | ForEach-Object {
+            if ($_ -match "^\s*SEED_DEFAULT_PASSWORD\s*=\s*(.+)$") {
+                $SeedPassword = $matches[1].Trim().Trim('"').Trim("'")
+            }
+        }
+    }
+}
+if (-not $SeedPassword) {
+    throw "No se proporciono -SeedPassword ni existe SEED_DEFAULT_PASSWORD en .env."
+}
+
+if (-not $SeedEmail) {
+    $seedJsonPath = Join-Path $RepoRoot "seed.local.json"
+    if (-not (Test-Path $seedJsonPath)) {
+        $seedJsonPath = Join-Path $RepoRoot "seed.example.json"
+    }
+    if (Test-Path $seedJsonPath) {
+        $seedData = Get-Content $seedJsonPath -Raw | ConvertFrom-Json
+        $rep = $seedData.usuarios | Where-Object { $_.rol -eq "REPORTANTE" } | Select-Object -First 1
+        if ($rep) { $SeedEmail = $rep.email }
+    }
+    if (-not $SeedEmail) { $SeedEmail = "reportante.demo@ejemplo.local" }
+}
 $ReportsDir = Join-Path $ScriptDir "reports"
 New-Item -ItemType Directory -Force -Path $ReportsDir | Out-Null
 

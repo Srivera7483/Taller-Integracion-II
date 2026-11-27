@@ -317,8 +317,8 @@ const Mantenimientos = () => {
                         <h4 className="font-bold text-sm text-gray-900 leading-snug">
                           {activo.nombre || `Activo ${idActivo}`}
                         </h4>
-                        <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5">
-                          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-md text-gray-700 text-[11px]">
+                        <div className="text-xs text-gray-500 flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-md text-gray-700 text-[11px] whitespace-nowrap shrink-0">
                             {activo.codigoQr || idActivo}
                           </span>
                           {activo.ubicacion && (
@@ -403,7 +403,7 @@ const Mantenimientos = () => {
                             {activo.nombre || `Activo ${idActivo}`}
                           </div>
                           <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
-                            <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-lg text-gray-700">
+                            <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded-lg text-gray-700 whitespace-nowrap shrink-0">
                               {activo.codigoQr || idActivo}
                             </span>
                             {activo.ubicacion && (

@@ -1,8 +1,30 @@
 'use strict';
 
+const fs = require('node:fs');
+const path = require('node:path');
+
+function leerClaveEnvRaiz(claveBuscada) {
+  const rutaEnv = path.resolve(__dirname, '..', '..', '.env');
+  if (!fs.existsSync(rutaEnv)) return '';
+  const lineas = fs.readFileSync(rutaEnv, 'utf8').split(/\r?\n/);
+  for (const l of lineas) {
+    const t = l.trim();
+    if (!t || t.startsWith('#')) continue;
+    const idx = t.indexOf('=');
+    if (idx <= 0) continue;
+    if (t.slice(0, idx).trim() === claveBuscada) {
+      return t.slice(idx + 1).trim().replace(/^['"]|['"]$/g, '');
+    }
+  }
+  return '';
+}
+
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:3000';
-const SEED_EMAIL = process.env.LOAD_TEST_EMAIL || 'reportante@uct.cl';
-const SEED_PASSWORD = process.env.LOAD_TEST_PASSWORD || 'password123';
+const SEED_EMAIL = process.env.LOAD_TEST_EMAIL || 'reportante.demo@ejemplo.local';
+const SEED_PASSWORD =
+  process.env.LOAD_TEST_PASSWORD ||
+  process.env.SEED_DEFAULT_PASSWORD ||
+  leerClaveEnvRaiz('SEED_DEFAULT_PASSWORD');
 
 const ACTIVOS_SEED = [
   { id_activo: '18bc668e-1d4f-4c7a-b6cf-09ee1dcac7b9', codigo_qr: 'UCT-PRJ-01' },

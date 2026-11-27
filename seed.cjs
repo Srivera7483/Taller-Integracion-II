@@ -1,54 +1,172 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const crypto = require('node:crypto');
 const { PrismaClient: AuthPrisma } = require('./ms-auth/node_modules/@prisma/client');
 const { PrismaClient: ActivosPrisma } = require('./ms-activos/node_modules/@prisma/client');
 const { PrismaClient: IncidenciasPrisma } = require('./ms-incidencias/node_modules/@prisma/client');
 const argon2 = require('./ms-auth/node_modules/argon2');
-const crypto = require('node:crypto');
 
-const authPrisma = new AuthPrisma({ datasources: { db: { url: 'postgresql://postgres:postgres@localhost:5435/auth_db' } } });
-const activosPrisma = new ActivosPrisma({ datasources: { db: { url: 'postgresql://postgres:postgres@localhost:5433/activos_db?schema=public' } } });
-const incidenciasPrisma = new IncidenciasPrisma({ datasources: { db: { url: 'postgresql://postgres:postgres@localhost:5434/incidencias_db?schema=public' } } });
+/**
+ * Parsea un archivo .env local sin depender de paquetes externos en la raíz.
+ */
+function leerArchivoEnv(rutaRelativa) {
+  const rutaAbsoluta = path.join(__dirname, rutaRelativa);
+  if (!fs.existsSync(rutaAbsoluta)) {
+    return {};
+  }
+  const resultado = {};
+  const contenido = fs.readFileSync(rutaAbsoluta, 'utf8').replace(/^\uFEFF/, '');
+  for (const lineaCruda of contenido.split(/\r?\n/)) {
+    const linea = lineaCruda.trim();
+    if (!linea || linea.startsWith('#')) continue;
+    const indiceIgual = linea.indexOf('=');
+    if (indiceIgual <= 0) continue;
+    const clave = linea.slice(0, indiceIgual).trim();
+    let valor = linea.slice(indiceIgual + 1).trim();
+    if (
+      (valor.startsWith('"') && valor.endsWith('"')) ||
+      (valor.startsWith("'") && valor.endsWith("'"))
+    ) {
+      valor = valor.slice(1, -1);
+    }
+    resultado[clave] = valor;
+  }
+  return resultado;
+}
+
+const envRaiz = leerArchivoEnv('.env');
+const envAuth = leerArchivoEnv(path.join('ms-auth', '.env'));
+const envActivos = leerArchivoEnv(path.join('ms-activos', '.env'));
+const envIncidencias = leerArchivoEnv(path.join('ms-incidencias', '.env'));
+
+// 1. Candado estricto anti-producción: evita borrado destructivo e inyección de cuentas de desarrollo
+const entornoActual = String(process.env.NODE_ENV || envRaiz.NODE_ENV || 'development')
+  .trim()
+  .toLowerCase();
+
+if (entornoActual === 'production') {
+  console.error(
+    '[SEGURIDAD] Ejecución abortada: seed.cjs contiene datos de desarrollo y operaciones destructivas (deleteMany), por lo que está estrictamente prohibido cuando NODE_ENV=production.',
+  );
+  process.exit(1);
+}
+
+// 2. Resolución de conexiones exclusivamente desde variables de entorno (.env ignorados en Git)
+const authDbUrl = process.env.AUTH_DATABASE_URL || envRaiz.AUTH_DATABASE_URL || envAuth.DATABASE_URL;
+const activosDbUrl =
+  process.env.ACTIVOS_DATABASE_URL || envRaiz.ACTIVOS_DATABASE_URL || envActivos.DATABASE_URL;
+const incidenciasDbUrl =
+  process.env.INCIDENCIAS_DATABASE_URL ||
+  envRaiz.INCIDENCIAS_DATABASE_URL ||
+  envIncidencias.DATABASE_URL;
+
+const urlsFaltantes = [
+  !authDbUrl || authDbUrl.includes('username:password') ? 'ms-auth/.env (DATABASE_URL)' : null,
+  !activosDbUrl || activosDbUrl.includes('username:password') ? 'ms-activos/.env (DATABASE_URL)' : null,
+  !incidenciasDbUrl || incidenciasDbUrl.includes('username:password')
+    ? 'ms-incidencias/.env (DATABASE_URL)'
+    : null,
+].filter(Boolean);
+
+if (urlsFaltantes.length > 0) {
+  console.error(
+    `[SEGURIDAD] Faltan URLs de conexión válidas o siguen con placeholders en: ${urlsFaltantes.join(', ')}.`,
+  );
+  process.exit(1);
+}
+
+// 3. Resolución de contraseña local desde variable de entorno (sin contraseñas en duro en el repositorio)
+const seedPassword = String(
+  process.env.SEED_DEFAULT_PASSWORD || envRaiz.SEED_DEFAULT_PASSWORD || '',
+).trim();
+
+if (!seedPassword || seedPassword.length < 8) {
+  console.error(
+    '[SEGURIDAD] SEED_DEFAULT_PASSWORD no está definida (o tiene menos de 8 caracteres) en el archivo .env raíz. Ejecuta .\\start.ps1 para autogenerar una contraseña local segura o configúrala manualmente en tu .env.',
+  );
+  process.exit(1);
+}
+
+// 4. Carga desacoplada de usuarios desde seed.local.json (ignorado por Git) o plantilla ficticia seed.example.json
+function cargarUsuariosSeed() {
+  const rutaLocal = path.join(__dirname, 'seed.local.json');
+  const rutaEjemplo = path.join(__dirname, 'seed.example.json');
+  const rutaSeleccionada = fs.existsSync(rutaLocal) ? rutaLocal : rutaEjemplo;
+
+  if (!fs.existsSync(rutaSeleccionada)) {
+    throw new Error(
+      'No se encontró seed.local.json ni seed.example.json para poblar los usuarios de desarrollo.',
+    );
+  }
+
+  if (rutaSeleccionada === rutaEjemplo) {
+    console.log(
+      '[AVISO] seed.local.json no detectado; cargando cuentas ficticias desde seed.example.json.',
+    );
+  } else {
+    console.log('[OK] Cargando cuentas locales desde seed.local.json (no versionado en Git).');
+  }
+
+  const parsed = JSON.parse(fs.readFileSync(rutaSeleccionada, 'utf8').replace(/^\uFEFF/, ''));
+  if (!parsed || !Array.isArray(parsed.usuarios) || parsed.usuarios.length === 0) {
+    throw new Error('El archivo JSON de seed debe incluir un arreglo "usuarios" no vacío.');
+  }
+  return parsed.usuarios;
+}
+
+const authPrisma = new AuthPrisma({ datasources: { db: { url: authDbUrl } } });
+const activosPrisma = new ActivosPrisma({ datasources: { db: { url: activosDbUrl } } });
+const incidenciasPrisma = new IncidenciasPrisma({ datasources: { db: { url: incidenciasDbUrl } } });
 
 async function main() {
-  console.log('Iniciando carga de datos reales UCT para la Demo (con Mantenimientos)...');
+  console.log('Iniciando carga segura de datos de desarrollo...');
 
   // ==========================================
   // 1. ROLES Y USUARIOS
   // ==========================================
-  const rolAdmin = await authPrisma.role.upsert({ where: { nombreRol: 'ADMINISTRADOR' }, update: {}, create: { nombreRol: 'ADMINISTRADOR' } });
-  const rolSupervisor = await authPrisma.role.upsert({ where: { nombreRol: 'SUPERVISOR' }, update: {}, create: { nombreRol: 'SUPERVISOR' } }); // <-- AGREGADO
-  const rolTecnico = await authPrisma.role.upsert({ where: { nombreRol: 'TECNICO' }, update: {}, create: { nombreRol: 'TECNICO' } });
-  const rolReportante = await authPrisma.role.upsert({ where: { nombreRol: 'REPORTANTE' }, update: {}, create: { nombreRol: 'REPORTANTE' } });
+  const rolAdmin = await authPrisma.role.upsert({
+    where: { nombreRol: 'ADMINISTRADOR' },
+    update: {},
+    create: { nombreRol: 'ADMINISTRADOR' },
+  });
+  const rolSupervisor = await authPrisma.role.upsert({
+    where: { nombreRol: 'SUPERVISOR' },
+    update: {},
+    create: { nombreRol: 'SUPERVISOR' },
+  });
+  const rolTecnico = await authPrisma.role.upsert({
+    where: { nombreRol: 'TECNICO' },
+    update: {},
+    create: { nombreRol: 'TECNICO' },
+  });
+  const rolReportante = await authPrisma.role.upsert({
+    where: { nombreRol: 'REPORTANTE' },
+    update: {},
+    create: { nombreRol: 'REPORTANTE' },
+  });
 
-  const hash = await argon2.hash('password123');
+  const mapaRoles = {
+    ADMINISTRADOR: rolAdmin.id,
+    SUPERVISOR: rolSupervisor.id,
+    TECNICO: rolTecnico.id,
+    REPORTANTE: rolReportante.id,
+  };
 
-  const usuariosData = [
-    // Administradores
-    { rut: '00000000-0', nombre: 'Admin', apellido: '01', email: 'administrador@uct.cl', role: rolAdmin.id },
-    { rut: '00000000-1', nombre: 'Diego Antonio', apellido: 'Hernández Martínez', email: 'dhernandez@uct.cl', role: rolAdmin.id },
-    { rut: '00000000-2', nombre: 'Loreto', apellido: 'Paredes', email: 'lparedes@uct.cl', role: rolAdmin.id },
-
-    // Supervisores
-    { rut: '10000000-0', nombre: 'Supervisor', apellido: '01', email: 'supervisor@uct.cl', role: rolSupervisor.id },
-    { rut: '10000000-1', nombre: 'Benjamin', apellido: 'Soto', email: 'bsoto@uct.cl', role: rolSupervisor.id },
-    { rut: '10000000-2', nombre: 'Sebastian', apellido: 'Rivera', email: 'srivera@uct.cl', role: rolSupervisor.id },
-
-    // Tecnicos
-    { rut: '20000000-0', nombre: 'Tecnico', apellido: '01', email: 'tecnico@uct.cl', role: rolTecnico.id },
-    { rut: '20000000-1', nombre: 'Eduardo', apellido: 'Necul', email: 'enecul@uct.cl', role: rolTecnico.id },
-    { rut: '20000000-2', nombre: 'Axel', apellido: 'Gonzalez', email: 'agonzalez@uct.cl', role: rolTecnico.id },
-    { rut: '20000000-3', nombre: 'Simon', apellido: 'Molina', email: 'smolina@uct.cl', role: rolTecnico.id },
-
-    // Reportantes
-    { rut: '30000000-0', nombre: 'Reportante', apellido: '01', email: 'reportante@uct.cl', role: rolReportante.id },
-    { rut: '30000000-1', nombre: 'Miku', apellido: 'Hatsune', email: 'mhatsune@uct.cl', role: rolReportante.id },
-    { rut: '30000000-2', nombre: 'Rin', apellido: 'Kagamine', email: 'rkagamine@uct.cl', role: rolReportante.id },
-    { rut: '30000000-3', nombre: 'Len', apellido: 'Kagamine', email: 'lkagamine@uct.cl', role: rolReportante.id },
-  ];
+  const usuariosConfig = cargarUsuariosSeed();
+  const hash = await argon2.hash(seedPassword);
 
   const tecnicosCreados = [];
-  const reportantesCreados = []; // <-- Arreglo para guardar los IDs de los reportantes reales
+  const reportantesCreados = [];
 
-  for (const u of usuariosData) {
+  for (const u of usuariosConfig) {
+    const rolNormalizado = String(u.rol || '').trim().toUpperCase();
+    const roleId = mapaRoles[rolNormalizado];
+    if (!roleId) {
+      throw new Error(
+        `Rol inválido "${u.rol}" para el usuario "${u.email}". Roles válidos: ${Object.keys(mapaRoles).join(', ')}.`,
+      );
+    }
+
     const porEmail = await authPrisma.user.findUnique({ where: { email: u.email } });
     const porRut = await authPrisma.user.findUnique({ where: { rut_o_id: u.rut } });
 
@@ -61,7 +179,7 @@ async function main() {
           nombre: u.nombre,
           apellido: u.apellido,
           passwordHash: hash,
-          roleId: u.role,
+          roleId,
           fechaEliminacion: null,
         },
       });
@@ -73,7 +191,7 @@ async function main() {
           apellido: u.apellido,
           email: u.email,
           passwordHash: hash,
-          roleId: u.role,
+          roleId,
           fechaEliminacion: null,
         },
       });
@@ -85,15 +203,22 @@ async function main() {
           apellido: u.apellido,
           email: u.email,
           passwordHash: hash,
-          roleId: u.role,
+          roleId,
         },
       });
     }
 
-    if (u.role === rolTecnico.id) tecnicosCreados.push(user.id || user.userId);
-    if (u.role === rolReportante.id) reportantesCreados.push(user.id || user.userId);
+    if (roleId === rolTecnico.id) tecnicosCreados.push(user.id || user.userId);
+    if (roleId === rolReportante.id) reportantesCreados.push(user.id || user.userId);
   }
-  console.log('Usuarios reales creados, incluyendo Supervisor y Reportantes.');
+
+  if (tecnicosCreados.length === 0 || reportantesCreados.length === 0) {
+    throw new Error(
+      'El archivo de usuarios del seed debe incluir al menos 1 usuario TECNICO y 1 usuario REPORTANTE.',
+    );
+  }
+
+  console.log(`Usuarios sincronizados correctamente (${usuariosConfig.length} cuentas).`);
 
   // ==========================================
   // 2. ACTIVOS Y MANTENIMIENTOS
@@ -109,24 +234,33 @@ async function main() {
     { id: crypto.randomUUID(), qr: 'UCT-PC-01', nombre: 'Computador Dell OptiPlex', cat: 'COMPUTO', mod: '7000 MFF', ubi: 'Laboratorio TI 1 - Módulo 1' },
     { id: crypto.randomUUID(), qr: 'UCT-PC-02', nombre: 'Computador Dell OptiPlex', cat: 'COMPUTO', mod: '7000 MFF', ubi: 'Laboratorio TI 1 - Módulo 2' },
     { id: crypto.randomUUID(), qr: 'UCT-PC-06', nombre: 'HP ProDesk 400', cat: 'COMPUTO', mod: 'G7 SFF', ubi: 'Biblioteca San Francisco - Recepción' },
-    { id: crypto.randomUUID(), qr: 'UCT-SW-01', nombre: 'Switch Cisco Catalyst', cat: 'REDES', mod: 'Catalyst 9200', ubi: 'Sala de Servidores' }
+    { id: crypto.randomUUID(), qr: 'UCT-SW-01', nombre: 'Switch Cisco Catalyst', cat: 'REDES', mod: 'Catalyst 9200', ubi: 'Sala de Servidores' },
   ];
 
   const activosCreados = [];
   for (const act of activosData) {
     const nuevoActivo = await activosPrisma.activo.create({
-      data: { id: act.id, codigoQr: act.qr, nombre: act.nombre, categoria: act.cat, modelo: act.mod, numeroSerie: `SN-${act.qr}`, ubicacion: act.ubi, estado: 'OPERATIVO' }
+      data: {
+        id: act.id,
+        codigoQr: act.qr,
+        nombre: act.nombre,
+        categoria: act.cat,
+        modelo: act.mod,
+        numeroSerie: `SN-${act.qr}`,
+        ubicacion: act.ubi,
+        estado: 'OPERATIVO',
+      },
     });
     activosCreados.push(nuevoActivo);
   }
-  console.log('✅ Activos (Computadores, Proyectores, Redes) creados.');
+  console.log('Activos de inventario creados.');
 
   const fechaHoy = new Date();
 
   const mantenimientosBase = [
     { id_activo: activosCreados[0].id, dias: 5 },
     { id_activo: activosCreados[7].id, dias: 12 },
-    { id_activo: activosCreados[4].id, dias: 1 }
+    { id_activo: activosCreados[4].id, dias: 1 },
   ];
 
   for (const mant of mantenimientosBase) {
@@ -136,7 +270,7 @@ async function main() {
         id_activo: mant.id_activo,
         fecha_programada: new Date(fechaHoy.getTime() + mant.dias * 24 * 60 * 60 * 1000),
         fecha_creacion: fechaHoy,
-      }
+      },
     });
   }
   console.log(`${mantenimientosBase.length} Mantenimientos preventivos programados.`);
@@ -145,12 +279,19 @@ async function main() {
   // 3. ESTADOS E INCIDENCIAS
   // ==========================================
   const estadosBase = [
-    { id_estado: 1, nombre_estado: 'Reportada' }, { id_estado: 2, nombre_estado: 'Asignada' },
-    { id_estado: 3, nombre_estado: 'Resuelta' }, { id_estado: 4, nombre_estado: 'Cerrada' },
-    { id_estado: 5, nombre_estado: 'Rechazada' }, { id_estado: 6, nombre_estado: 'Completada' }
+    { id_estado: 1, nombre_estado: 'Reportada' },
+    { id_estado: 2, nombre_estado: 'Asignada' },
+    { id_estado: 3, nombre_estado: 'Resuelta' },
+    { id_estado: 4, nombre_estado: 'Cerrada' },
+    { id_estado: 5, nombre_estado: 'Rechazada' },
+    { id_estado: 6, nombre_estado: 'Completada' },
   ];
   for (const eb of estadosBase) {
-    await incidenciasPrisma.estadoIncidencia.upsert({ where: { id_estado: eb.id_estado }, update: {}, create: eb });
+    await incidenciasPrisma.estadoIncidencia.upsert({
+      where: { id_estado: eb.id_estado },
+      update: {},
+      create: eb,
+    });
   }
 
   await incidenciasPrisma.evidencia.deleteMany();
@@ -172,11 +313,11 @@ async function main() {
     const idReportanteAleatorio = reportantesCreados[i % reportantesCreados.length];
 
     const diasAtras = (i % 15) + 1;
-    const fechaCreacion = new Date(Date.now() - (diasAtras * 24 * 60 * 60 * 1000));
+    const fechaCreacion = new Date(Date.now() - diasAtras * 24 * 60 * 60 * 1000);
     // Incluir también 1 incidencia Rechazada (id_estado = 5) con justificación técnica para TAL-135
-    const estadoSimulado = i === 19 ? 5 : ((i % 4) + 1);
-    const fechaOrden = new Date(fechaCreacion.getTime() + (60 * 60 * 1000));
-    const fechaCierre = new Date(fechaCreacion.getTime() + (3 * 60 * 60 * 1000));
+    const estadoSimulado = i === 19 ? 5 : (i % 4) + 1;
+    const fechaOrden = new Date(fechaCreacion.getTime() + 60 * 60 * 1000);
+    const fechaCierre = new Date(fechaCreacion.getTime() + 3 * 60 * 60 * 1000);
 
     const requiereOrden = estadoSimulado >= 2;
     const diagnosticoSemilla =
@@ -197,34 +338,50 @@ async function main() {
         fecha_creacion: fechaCreacion,
         historial_estados: {
           create: [
-            { id_historial: crypto.randomUUID(), id_estado: 1, id_usuario_cambio: idReportanteAleatorio, fecha_creacion: fechaCreacion },
-            ...(estadoSimulado > 1 ? [{
+            {
               id_historial: crypto.randomUUID(),
-              id_estado: estadoSimulado,
-              id_usuario_cambio: tecnicoResp,
-              fecha_creacion: fechaCierre,
-            }] : [])
-          ]
+              id_estado: 1,
+              id_usuario_cambio: idReportanteAleatorio,
+              fecha_creacion: fechaCreacion,
+            },
+            ...(estadoSimulado > 1
+              ? [
+                  {
+                    id_historial: crypto.randomUUID(),
+                    id_estado: estadoSimulado,
+                    id_usuario_cambio: tecnicoResp,
+                    fecha_creacion: fechaCierre,
+                  },
+                ]
+              : []),
+          ],
         },
-        ...(requiereOrden ? {
-          ordenes_trabajo: {
-            create: [{
-              id_orden: crypto.randomUUID(),
-              id_tecnico: tecnicoResp,
-              diagnostico_tecnico: diagnosticoSemilla,
-              fecha_creacion: fechaOrden,
-              fecha_cierre: estadoSimulado >= 3 ? fechaCierre : null,
-            }]
-          }
-        } : {}),
-      }
+        ...(requiereOrden
+          ? {
+              ordenes_trabajo: {
+                create: [
+                  {
+                    id_orden: crypto.randomUUID(),
+                    id_tecnico: tecnicoResp,
+                    diagnostico_tecnico: diagnosticoSemilla,
+                    fecha_creacion: fechaOrden,
+                    fecha_cierre: estadoSimulado >= 3 ? fechaCierre : null,
+                  },
+                ],
+              },
+            }
+          : {}),
+      },
     });
   }
   console.log('20 Incidencias interconectadas registradas a nombre de los Reportantes.');
 }
 
 main()
-  .catch((e) => { console.error('Error:', e); process.exit(1); })
+  .catch((e) => {
+    console.error('Error:', e);
+    process.exit(1);
+  })
   .finally(async () => {
     await authPrisma.$disconnect();
     await activosPrisma.$disconnect();
