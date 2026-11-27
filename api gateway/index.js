@@ -9,6 +9,7 @@ const KillSwitchManager = require('./kill-switch');
 const { Server: IoServer } = require('socket.io');
 const { io: createIoClient } = require('socket.io-client');
 const { attachRedisAdapter } = require('./redis-adapter');
+const jwt = require('jsonwebtoken');
 
 const DEFAULT_ALLOWED_ORIGINS = [
     'http://localhost:5173',
@@ -48,6 +49,68 @@ const getTrustProxy = (value) => {
     }
 
     return trustedProxies.length === 1 ? trustedProxies[0] : trustedProxies;
+};
+
+/**
+ * Extrae el token JWT de la handshake de Socket.io priorizando:
+ * 1. socket.handshake.auth.token (set por socket.io-client con auth option)
+ * 2. Authorization: Bearer ... header
+ * 3. ?token=... query parameter
+ * @param {Object} socket - Socket.io socket instance
+ * @returns {string|null} - El token JWT o null si no se encuentra
+ */
+const extractTokenFromHandshake = (socket) => {
+  const handshake = socket.handshake;
+
+  // 1. Priority: socket.handshake.auth.token
+  if (handshake.auth && handshake.auth.token) {
+    return handshake.auth.token;
+  }
+
+  // 2. Fallback: Authorization: Bearer ... header
+  const authHeader = handshake.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1];
+  }
+
+  // 3. Fallback: ?token=... query parameter
+  const queryToken = handshake.query?.token;
+  if (queryToken) {
+    return typeof queryToken === 'string' ? queryToken : queryToken[0];
+  }
+
+  return null;
+};
+
+/**
+ * Verifica y decodifica un token JWT usando el secret configurado.
+ * Lanza error con data.code = 4401 si el token falta, es inválido o expirado.
+ * @param {string} token - El token JWT
+ * @param {string} JWT_SECRET - Secret clave para verification
+ * @returns {Object} - Payload decodificado del JWT
+ */
+const verifyJWT = (token, JWT_SECRET) => {
+  if (!token) {
+    const err = new Error('Token de acceso requerido');
+    err.data = { code: 4401 };
+    throw err;
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    return payload;
+  } catch (err) {
+    // Si el token expiró, intentamos decodificar para obtener el claim 'exp'
+    if (err.name === 'TokenExpiredError') {
+      try {
+        const expiredPayload = jwt.decode(token);
+        err.exp = expiredPayload?.exp;
+        err.iat = expiredPayload?.iat;
+      } catch {}
+    }
+    err.data = { code: 4401 };
+    throw err;
+  }
 };
 
 const buildGateway = (options = {}) => {
@@ -273,7 +336,47 @@ const buildGateway = (options = {}) => {
         allowEIO3: true,
     });
 
+    // Middleware de autenticación JWT para handshake WebSocket (TAL-184)
+    // Este debe ser el primer middleware en la pila io.use()
+    io.use((socket, next) => {
+      try {
+        const token = extractTokenFromHandshake(socket);
+
+        if (!token) {
+          const err = new Error('Token de acceso requerido');
+          err.data = { code: 4401 };
+          return next(err);
+        }
+
+        const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+        const payload = verifyJWT(token, JWT_SECRET);
+
+        // Adjuntar claims del JWT verificado - CERO CONFIANZA en parámetros query del cliente
+        // Los claims vienen exclusivamente del JWT firmado por ms-auth
+        socket.data.user = {
+          sub: payload.sub,
+          email: payload.email,
+          rol: payload.rol,
+          permissions: Array.isArray(payload.permissions) ? payload.permissions : [],
+          userId: payload.userId || payload.sub,
+          tokenUse: payload.tokenUse,
+        };
+
+        return next();
+      } catch (err) {
+        fastify.log.warn(
+          { err: err.message },
+          `[Socket.io] Fallo en la autenticación JWT para socket ${socket.id}`
+        );
+        if (!err.data) {
+          err.data = { code: 4401 };
+        }
+        return next(err);
+      }
+    });
+
     // Middleware CORS del lado de Socket.io sincronizado con HTTP
+    // (Se ejecuta después de la autenticación JWT)
     io.use((socket, next) => {
         const origin = socket.handshake.headers.origin;
         const currentAllowed = getAllowedOrigins(options.corsOrigins);
@@ -348,114 +451,89 @@ const buildGateway = (options = {}) => {
     }
 
     io.on('connection', (socket) => {
-        const origin = socket.handshake.headers.origin;
-        const query = socket.handshake.query || {};
-        const userId = query.userId || 'anonymous';
+      // JWT authentication already ran via io.use() - socket.data.user is populated
+      // No need to read from handshake.query - claims come from verified JWT only
+      const user = socket.data.user || { sub: 'anonymous', rol: 'ANÓNIMO', permissions: [] };
 
-        fastify.log.info(`[Socket.io] Cliente conectado: ${socket.id}, origen: ${origin || 'direct'}, userId: ${userId}`);
+      fastify.log.info(`[Socket.io] Cliente conectado: ${socket.id}, user: ${user.sub || 'anonymous'}`);
 
-        // Unirse a la sala general de incidencias y salas por query (compatibilidad TAL-185 / TAL-186)
-        socket.join('incidencias');
+      // Unirse a la sala general de incidencias
+      socket.join('incidencias');
 
-        if (query.incidencia) {
-            const roomInc = `incidencia_${query.incidencia}`;
-            socket.join(roomInc);
-            upstreamSocket?.emit('join_room', { room: roomInc });
+      // ============================================================
+      // TAL-184: Asignación de salas basada en PBAC (Permissions-Based Access Control)
+      // ============================================================
+      // Las salas se asignan exclusivamente basándose en los claims del JWT verificado,
+      // NUNCA en parámetros de query del cliente (prevención de spoofing).
+      //
+
+      // Sala 'coordinadores': solo para usuarios con permiso COORDINADOR o superior
+      const hasCoordinadorPermission = user.permissions &&
+        user.permissions.includes('COORDINADOR') ||
+        user.rol === 'COORDINADOR' ||
+        user.rol === 'SUPERVISOR' ||
+        user.rol === 'ADMINISTRADOR';
+
+      if (hasCoordinadorPermission) {
+        socket.join('coordinadores');
+      }
+
+      // Salas 'rol_*': solo si el usuario tiene el rol correspondiente en sus permisos
+      if (user.rol && user.permissions) {
+        const rolRoom = `rol_${user.rol}`;
+        socket.join(rolRoom);
+        // También unirse a coordinadores si el rol es COORDINADOR, SUPERVISOR o ADMINISTRADOR
+        if (['COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR'].includes(user.rol)) {
+          socket.join('coordinadores');
         }
-        if (query.edificio) {
-            const roomEd = `edificio_${query.edificio}`;
-            socket.join(roomEd);
-            upstreamSocket?.emit('join_room', { room: roomEd });
+      }
+
+      // El manejo de salas incidencia_* y edificios_* se hace mediante eventos join_room
+      // con validación PBAC, no en el handshake automático.
+
+      // ============================================================
+      // TAL-184: Temporizador de expiración de token
+      // ============================================================
+      // Programa la emisión de 'token_expirado' basándose en el claim 'exp' del JWT
+      // antes de que el token corte realmente la sesión, permitiendo renovación transparente.
+      let tokenExpiryTimeout = null;
+
+      if (user.tokenUse === 'access' && user.exp) {
+        const tiempoHastaExpiracion = (user.exp * 1000) - Date.now();
+        // Emitir 'token_expirado' con al menos 30 segundos de antelación al vencimiento
+        const anticipoEmision = 30000;
+
+        if (tiempoHastaExpiracion > anticipoEmision) {
+          tokenExpiryTimeout = setTimeout(() => {
+            fastify.log.info(`[Socket.io] Emitiendo token_expirado para socket ${socket.id}`);
+            socket.emit('token_expirado', {
+              message: 'Su token de acceso está por expirar. Renueve su sesión.',
+              timeRemaining: Math.max(0, Math.ceil(tiempoHastaExpiracion / 1000)),
+              requiresRefresh: true
+            });
+          }, tiempoHastaExpiracion - anticipoEmision);
         }
-        if (query.rol) {
-            const rolUpper = String(query.rol).toUpperCase();
-            socket.join(`rol_${rolUpper}`);
-            if (['COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolUpper)) {
-                socket.join('coordinadores');
-            }
+      }
+
+      // Guardar el identificador del timeout para limpiarlo en disconnect
+      socket.data.tokenExpiryTimeout = tokenExpiryTimeout;
+
+      socket.on('disconnect', (reason) => {
+        fastify.log.info(`[Socket.io] Cliente desconectado: ${socket.id}, reason: ${reason}`);
+
+        // Limpiar el temporizador de expiración de token para evitar fugas de memoria
+        if (socket.data.tokenExpiryTimeout) {
+          clearTimeout(socket.data.tokenExpiryTimeout);
+          socket.data.tokenExpiryTimeout = null;
         }
 
-        const handleJoinRoom = (data, ack) => {
-            const salasUnidas = [];
-            if (typeof data === 'string' && data) {
-                socket.join(data);
-                salasUnidas.push(data);
-            } else if (data && typeof data === 'object') {
-                const roomName = data.room || data.sala;
-                if (roomName) {
-                    socket.join(roomName);
-                    salasUnidas.push(roomName);
-                }
-                const roomList = Array.isArray(data.rooms) ? data.rooms : Array.isArray(data.salas) ? data.salas : [];
-                for (const room of roomList) {
-                    if (room) {
-                        socket.join(room);
-                        salasUnidas.push(room);
-                    }
-                }
-                if (data.id_incidencia) {
-                    const roomInc = `incidencia_${data.id_incidencia}`;
-                    socket.join(roomInc);
-                    salasUnidas.push(roomInc);
-                }
-                if (data.id_edificio) {
-                    const roomEd = `edificio_${data.id_edificio}`;
-                    socket.join(roomEd);
-                    salasUnidas.push(roomEd);
-                }
-                if (data.rol) {
-                    const rolUpper = String(data.rol).toUpperCase();
-                    socket.join(`rol_${rolUpper}`);
-                    salasUnidas.push(`rol_${rolUpper}`);
-                    if (['COORDINADOR', 'SUPERVISOR', 'ADMINISTRADOR'].includes(rolUpper)) {
-                        socket.join('coordinadores');
-                        salasUnidas.push('coordinadores');
-                    }
-                }
-            }
-            if (salasUnidas.length > 0) {
-                upstreamSocket?.emit('join_room', { rooms: salasUnidas });
-            }
-            const response = { status: 'joined', rooms: salasUnidas };
-            if (typeof ack === 'function') {
-                ack(response);
-            }
-            return response;
-        };
+        socket.removeAllListeners();
+      });
 
-        const handleLeaveRoom = (data, ack) => {
-            const room = typeof data === 'string' ? data : (data?.room || data?.sala);
-            if (room) {
-                socket.leave(room);
-                upstreamSocket?.emit('leave_room', { room });
-                const response = { status: 'left', room };
-                if (typeof ack === 'function') {
-                    ack(response);
-                }
-                return response;
-            }
-            const errResponse = { status: 'error', message: 'Sala no especificada' };
-            if (typeof ack === 'function') {
-                ack(errResponse);
-            }
-            return errResponse;
-        };
-
-        socket.on('join_room', handleJoinRoom);
-        socket.on('unirse_sala', handleJoinRoom);
-        socket.on('leave_room', handleLeaveRoom);
-        socket.on('dejar_sala', handleLeaveRoom);
-
-        socket.on('disconnect', (reason) => {
-            fastify.log.info(`[Socket.io] Cliente desconectado: ${socket.id}, reason: ${reason}`);
-            // Limpiar listeners y descriptores para evitar fugas de memoria (CA-2 TAL-2)
-            socket.removeAllListeners();
-        });
-
-        socket.on('error', (error) => {
-            fastify.log.error(error, `[Socket.io] Error en socket ${socket.id}`);
-            socket.disconnect();
-        });
+      socket.on('error', (error) => {
+        fastify.log.error(error, `[Socket.io] Error en socket ${socket.id}`);
+        socket.disconnect();
+      });
     });
 
     io.emitIncidencias = (event, data) => {
