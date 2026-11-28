@@ -1,6 +1,45 @@
+# Dependencias locales
 node_modules
+**/node_modules
+
+# Archivos compilados
 dist
+**/dist
+build
+coverage
+.vite
+*.tsbuildinfo
+
+# Variables de entorno y secretos
 .env
+.env.*
+**/.env
+**/.env.*
+.npmrc.local
+*.pem
+*.key
+
+# Control de versiones
+.git
+.gitignore
+
+# Registros
+logs
 *.log
 npm-debug.log*
 pnpm-debug.log*
+
+# Archivos temporales
+.tmp
+temp
+.DS_Store
+Thumbs.db
+
+# Entornos de desarrollo
+.vscode
+.idea
+
+# Resultados de pruebas
+cypress/screenshots
+cypress/videos
+cypress/downloads
