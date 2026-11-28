@@ -1,11 +1,12 @@
 import React, { Suspense, lazy, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload, FiRefreshCw } from 'react-icons/fi';
+import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload, FiRefreshCw, FiShield } from 'react-icons/fi';
 import Header from './Header';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
 import { useColaSincronizacion } from '../hooks/useColaSincronizacion';
 import { cerrarSesion, getUsuarioActual, hasPermission } from '../services/authService';
+import { PERMISOS_AUDITORIA } from '../services/auditoriaService';
 
 const ColaPendientesModal = lazy(() => import('./ColaPendientesModal'));
 
@@ -77,6 +78,7 @@ const Layout = () => {
       case '/mantenimientos': return 'Agenda de Mantenimientos';
       case '/trazabilidad': return 'Trazabilidad de Activos';
       case '/usuarios': return 'Usuarios';
+      case '/auditoria': return 'Bitácora de Auditoría';
       default: return 'Sistema de Gestión';
     }
   };
@@ -94,6 +96,7 @@ const Layout = () => {
     { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar, requiredPermission: 'mantenimientos:crear' },
     { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
     { path: '/usuarios', label: 'Usuarios', icon: FiUsers, requiredPermission: 'usuarios:gestionar' },
+    { path: '/auditoria', label: 'Auditoría', icon: FiShield, requiredPermission: PERMISOS_AUDITORIA },
   ];
 
   // Filtrar los elementos según los permisos del usuario autenticado
