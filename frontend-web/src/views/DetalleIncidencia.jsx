@@ -374,7 +374,7 @@ const DetalleIncidencia = () => {
         ...prev,
         prioridad: nuevaPrioridad,
       }));
-      showToast(`Prioridad actualizada a ${nuevaPrioridad} en PostgreSQL`, 'success');
+      showToast(`Prioridad actualizada a ${nuevaPrioridad} correctamente`, 'success');
     } catch (err) {
       showToast(
         err.response?.data?.mensaje || err.response?.data?.message || 'Error al clasificar prioridad',
@@ -393,7 +393,7 @@ const DetalleIncidencia = () => {
         ...prev,
         estado: 'Resuelta',
       }));
-      showToast('Incidencia marcada como Resuelta exitosamente en PostgreSQL', 'success');
+      showToast('Incidencia marcada como Resuelta exitosamente', 'success');
       void cargarIncidencia();
     } catch (err) {
       showToast(
@@ -898,7 +898,7 @@ const DetalleIncidencia = () => {
                   Usuario autorizado para registrar el cierre.
                 </p>
                 <p className="text-xs text-emerald-800 mt-0.5">
-                  Puedes registrar el diagnóstico técnico y marcar la incidencia como resuelta en PostgreSQL.
+                  Puedes registrar el diagnóstico técnico y confirmar la resolución de la incidencia.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">

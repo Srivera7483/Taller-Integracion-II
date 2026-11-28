@@ -76,7 +76,7 @@ const AxiosInterceptor = ({ children }) => {
           const errorMessage =
             error.response.data?.message ||
             error.response.data?.error ||
-            'Error interno en los microservicios del sistema';
+            'Error interno al procesar la solicitud en el sistema';
 
           showToast(errorMessage, 'error');
 

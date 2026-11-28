@@ -368,7 +368,7 @@ const ModalCierreMantenimiento = ({
           }
         );
 
-        showToast('Incidencia rechazada en PostgreSQL. El motivo ha sido registrado.', 'info');
+        showToast('Incidencia rechazada correctamente. El motivo ha sido registrado.', 'info');
 
         if (onCierreExitoso) {
           onCierreExitoso({

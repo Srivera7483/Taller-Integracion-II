@@ -22,7 +22,7 @@ const ServerError = () => {
   const statusCodigo = errorInfo.status || 500;
   const mensajeError =
     errorInfo.message ||
-    'El servidor o el microservicio de destino experimentó un fallo imprevisto al procesar la solicitud.';
+    'El sistema experimentó un inconveniente temporal al procesar tu solicitud.';
 
   const handleReintentar = () => {
     setReintentando(true);
@@ -83,12 +83,12 @@ const ServerError = () => {
             <FiTerminal className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
             <div className="flex-1 text-xs">
               <p className="font-semibold text-gray-700">Diagnóstico sugerido:</p>
-              <p className="text-gray-500 mt-0.5 font-mono text-[11px]">
+              <p className="text-gray-500 mt-0.5 text-[11px]">
                 {statusCodigo === 502
-                  ? 'El API Gateway no pudo conectar con el microservicio de destino (Host no alcanzable).'
+                  ? 'El servicio solicitado no se encuentra disponible temporalmente.'
                   : statusCodigo === 503
-                    ? 'El servicio se encuentra saturado o en mantenimiento programado.'
-                    : 'Excepción de ejecución interna o inconsistencia de conexión a base de datos.'}
+                    ? 'El servicio se encuentra temporalmente en mantenimiento o con alta demanda.'
+                    : 'Se produjo un error inesperado al procesar la operación.'}
               </p>
             </div>
           </div>
@@ -125,7 +125,7 @@ const ServerError = () => {
           <ul className="space-y-2 text-xs text-gray-600">
             <li className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-              <span>Verifica que los microservicios Docker o el API Gateway (puerto 8080) se encuentren en ejecución.</span>
+              <span>Espera unos segundos y presiona «Reintentar Conexión» para volver a cargar la vista.</span>
             </li>
             <li className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />

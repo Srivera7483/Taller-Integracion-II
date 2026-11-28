@@ -98,7 +98,7 @@ const AsignarTecnico = () => {
       setTecnicos(listaTecnicos);
     } catch (error) {
       console.error('Error general en consulta de BD:', error);
-      setErrorApi('Error al establecer conexión con los microservicios.');
+      setErrorApi('No se pudo establecer conexión con el servidor. Intenta nuevamente.');
       setTecnicos([]);
     } finally {
       setLoadingDatos(false);
@@ -228,7 +228,7 @@ const AsignarTecnico = () => {
             </span>
           </div>
           <p className="text-gray-600 text-sm mt-1">
-            Asigna o reasigna incidencias activas a técnicos registrados en la base de datos.
+            Asigna o reasigna incidencias activas al personal técnico disponible.
           </p>
         </div>
 
@@ -249,11 +249,11 @@ const AsignarTecnico = () => {
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-base text-emerald-900">
                     {ordenEmitida.es_reasignacion
-                      ? '¡Reasignación Registrada en PostgreSQL!'
-                      : '¡Orden de Trabajo Registrada en PostgreSQL!'}
+                      ? '¡Reasignación Confirmada!'
+                      : '¡Orden de Trabajo Emitida!'}
                   </h3>
-                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-200 text-emerald-800 font-mono">
-                    {ordenEmitida.httpStatus} CREATED
+                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-200 text-emerald-800">
+                    Asignada
                   </span>
                 </div>
                 <p className="text-xs text-emerald-800">

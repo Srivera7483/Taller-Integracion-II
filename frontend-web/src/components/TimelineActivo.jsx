@@ -227,19 +227,19 @@ const HitoTimelineCard = ({ evento, _index, isLast }) => {
                 onClick={() => setExpandido(!expandido)}
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-primary py-1 px-2.5 rounded-lg hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
               >
-                <span>{expandido ? 'Ocultar campos del registro' : 'Ver campos del registro (BD)'}</span>
+                <span>{expandido ? 'Ocultar referencias del evento' : 'Ver referencias del evento'}</span>
                 {expandido ? <FiChevronUp className="w-3.5 h-3.5" /> : <FiChevronDown className="w-3.5 h-3.5" />}
               </button>
             )}
           </div>
         )}
 
-        {/* Panel Acordeón de Detalles Técnicos Consolidados (JOIN Prisma) */}
+        {/* Panel Acordeón de Referencias Asociadas */}
         {expandido && tieneDetallesExtras && (
           <div className="mt-3 pt-3 border-t border-dashed border-gray-200 bg-gray-50/70 -mx-4 -mb-4 sm:-mx-5 sm:-mb-5 p-4 sm:p-5 rounded-b-xl space-y-2.5 text-xs text-gray-700">
             <div className="flex items-center gap-2 font-bold text-gray-800 uppercase tracking-wider text-[11px]">
               <FiCpu className="text-primary w-3.5 h-3.5" />
-              <span>Campos Relacionales Prisma (INCIDENCIAS / ORDENES_TRABAJO)</span>
+              <span>Referencias de Incidencia y Orden de Trabajo</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">

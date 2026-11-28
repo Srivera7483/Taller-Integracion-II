@@ -82,7 +82,6 @@ const Inventario = () => {
   const [filtroCategoria, setFiltroCategoria] = useState('Todas');
   const [filtroEstado, setFiltroEstado] = useState('Todos');
   const [cargando, setCargando] = useState(true);
-  const [esDinamico, setEsDinamico] = useState(false);
   const [estadisticasRefreshTick, setEstadisticasRefreshTick] = useState(0);
 
   const [modalEquipoAbierto, setModalEquipoAbierto] = useState(false);
@@ -100,7 +99,6 @@ const Inventario = () => {
       const data = resp.data?.datos || (Array.isArray(resp.data) ? resp.data : []);
       if (Array.isArray(data) && data.length > 0) {
         setEquipos(data);
-        setEsDinamico(!resp.fromOfflineCache);
         if (!resp.fromOfflineCache) {
           void guardarActivosOffline(data).catch(() => {});
         }
@@ -108,14 +106,12 @@ const Inventario = () => {
         const offlineActivos = await obtenerActivosOffline().catch(() => []);
         if (offlineActivos.length > 0) {
           setEquipos(offlineActivos);
-          setEsDinamico(false);
         }
       }
     } catch {
       const offlineActivos = await obtenerActivosOffline().catch(() => []);
       if (offlineActivos.length > 0) {
         setEquipos(offlineActivos);
-        setEsDinamico(false);
       } else {
         setEquipos(EQUIPOS_BASE);
       }
@@ -290,7 +286,7 @@ const Inventario = () => {
               disabled={cargando}
               aria-label="Actualizar inventario"
               className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium text-xs disabled:opacity-50 cursor-pointer"
-              title="Recargar inventario desde el microservicio"
+              title="Actualizar listado de inventario"
             >
               <FiRefreshCw className={`w-3.5 h-3.5 ${cargando ? 'animate-spin text-primary' : ''}`} />
               <span>{cargando ? 'Cargando...' : 'Actualizar'}</span>
@@ -328,14 +324,6 @@ const Inventario = () => {
           </div>
         </div>
       </div>
-
-      {/* Indicador de origen de datos */}
-      {esDinamico && (
-        <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg inline-flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Inventario conectado en tiempo real al microservicio de activos (Prisma DB).</span>
-        </div>
-      )}
 
       {/* Resumen analítico de activos */}
       <PanelEstadisticasAnalitica soloActivos refreshTrigger={estadisticasRefreshTick} />
