@@ -364,6 +364,7 @@ const NotificacionesDropdown = ({
     const handleEscape = (event) => {
       if (event.key === 'Escape') {
         setAbierto(false);
+        dropdownRef.current?.querySelector('[data-testid="notification-bell-btn"]')?.focus();
       }
     };
 

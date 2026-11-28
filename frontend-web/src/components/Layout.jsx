@@ -61,6 +61,12 @@ const Layout = () => {
     if (location.pathname.startsWith('/incidencias/asignar')) {
       return 'Asignar Técnico';
     }
+    if (location.pathname.startsWith('/incidencias/')) {
+      return 'Detalle de Incidencia';
+    }
+    if (location.pathname.startsWith('/ordenes/')) {
+      return 'Orden de Trabajo';
+    }
     if (location.pathname === '/mantenimientos') {
       return 'Agenda de Mantenimientos';
     }

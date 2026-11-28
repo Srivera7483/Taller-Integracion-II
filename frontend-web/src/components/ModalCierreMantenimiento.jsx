@@ -109,10 +109,10 @@ const ModalCierreMantenimiento = ({
   const isOnline = networkContext?.isOnline ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
   const isServerReachable = networkContext?.isServerReachable ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
 
-  // TAL-204 (WCAG 2.1 AA): Focus trap + cierre con Escape
-  const dialogRef = useFocusTrap(Boolean(isOpen && orden), {
+  // TAL-204 (WCAG 2.1 AA): Focus trap + cierre con Escape (pausado si el submodal offline está abierto)
+  const dialogRef = useFocusTrap(Boolean(isOpen && orden && !isOfflineModalOpen), {
     onClose: () => {
-      if (!isSubmitting) onClose();
+      if (!isSubmitting && !isOfflineModalOpen) onClose();
     },
   });
 

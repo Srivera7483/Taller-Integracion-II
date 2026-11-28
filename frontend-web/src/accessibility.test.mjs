@@ -43,6 +43,9 @@ test('TAL-204 (WCAG 2.1 AA): useFocusTrap implementa trampa de foco Tab/Shift+Ta
   assert.match(hook, /event\.key === 'Escape'/, 'useFocusTrap debe manejar Escape');
   assert.match(hook, /event\.key !== 'Tab'/, 'useFocusTrap debe atrapar Tab/Shift+Tab');
   assert.match(hook, /previousFocusRef/, 'useFocusTrap debe restaurar el foco al cerrar');
+  assert.match(hook, /onCloseRef/, 'useFocusTrap debe estabilizar onClose mediante ref para no robar foco al escribir');
+  assert.match(hook, /\},\s*\[isActive\]\)/, 'El efecto principal de useFocusTrap debe depender solo de [isActive]');
+  assert.match(hook, /activeTraps/, 'useFocusTrap debe soportar pila de modales anidados sin doble cierre');
 
   const modalesConTrampa = [
     'components/ColaPendientesModal.jsx',
@@ -60,12 +63,13 @@ test('TAL-204 (WCAG 2.1 AA): useFocusTrap implementa trampa de foco Tab/Shift+Ta
   }
 });
 
-test('TAL-204 (WCAG 2.1 AA): Las 11 vistas activas respetan jerarquía de encabezados, ARIA y contraste >= 4.5:1', () => {
+test('TAL-204 (WCAG 2.1 AA): Las vistas activas respetan jerarquía de encabezados, ARIA y contraste >= 4.5:1', () => {
   const vistas = [
     'views/Dashboard.jsx',
     'views/Incidencias.jsx',
     'views/ReporteIncidencia.jsx',
     'views/DetalleIncidencia.jsx',
+    'views/DetalleOrden.jsx',
     'views/AsignarTecnico.jsx',
     'views/Inventario.jsx',
     'views/Trazabilidad.jsx',
