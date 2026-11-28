@@ -214,9 +214,9 @@ const Trazabilidad = () => {
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Link
                   to={`/incidencias/nueva?id_activo=${encodeURIComponent(activo.id)}`}
-                  className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 hover:text-rose-800 transition shadow-2xs"
+                  className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 rounded-xl hover:bg-rose-100 hover:text-rose-800 transition shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <FiAlertTriangle className="w-4 h-4 text-rose-600" />
+                  <FiAlertTriangle className="w-4 h-4 text-rose-600" aria-hidden="true" />
                   <span>Reportar Falla en este Activo</span>
                 </Link>
               </div>
@@ -226,17 +226,17 @@ const Trazabilidad = () => {
           {/* Franja de Metadatos oficiales del Activo (Esquema ms-activos / OpenAPI) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-gray-100 text-xs text-gray-600">
             <div className="flex items-center gap-2">
-              <FiMapPin className="text-gray-400 w-4 h-4 flex-shrink-0" />
+              <FiMapPin className="text-gray-500 w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <div className="truncate">
-                <span className="text-gray-400 block text-[10px] uppercase font-bold">Ubicación</span>
+                <span className="text-gray-600 block text-[10px] uppercase font-bold">Ubicación</span>
                 <span className="font-semibold text-gray-800">{activo.ubicacion}</span>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <FiCalendar className="text-gray-400 w-4 h-4 flex-shrink-0" />
+              <FiCalendar className="text-gray-500 w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <div className="truncate">
-                <span className="text-gray-400 block text-[10px] uppercase font-bold">Fecha de Registro</span>
+                <span className="text-gray-600 block text-[10px] uppercase font-bold">Fecha de Registro</span>
                 <span className="font-semibold text-gray-800">
                   {activo.fechaRegistro ? new Date(activo.fechaRegistro).toLocaleDateString() : 'N/D'}
                 </span>
@@ -244,17 +244,17 @@ const Trazabilidad = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <FiBox className="text-gray-400 w-4 h-4 flex-shrink-0" />
+              <FiBox className="text-gray-500 w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <div className="truncate">
-                <span className="text-gray-400 block text-[10px] uppercase font-bold">Categoría</span>
+                <span className="text-gray-600 block text-[10px] uppercase font-bold">Categoría</span>
                 <span className="font-semibold text-gray-800">{activo.categoria}</span>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <FiActivity className="text-gray-400 w-4 h-4 flex-shrink-0" />
+              <FiActivity className="text-gray-500 w-4 h-4 flex-shrink-0" aria-hidden="true" />
               <div className="truncate">
-                <span className="text-gray-400 block text-[10px] uppercase font-bold">Estado Operativo</span>
+                <span className="text-gray-600 block text-[10px] uppercase font-bold">Estado Operativo</span>
                 <span className="font-bold text-gray-900">{activo.estadoActual}</span>
               </div>
             </div>
@@ -311,21 +311,22 @@ const Trazabilidad = () => {
       <div className="space-y-4">
         {/* Barra de Filtros de Tipos de Eventos */}
         <div className="bg-white rounded-xl p-3 border border-gray-200 shadow-2xs flex items-center justify-between flex-wrap gap-2.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mr-1">
-              <FiFilter className="w-3.5 h-3.5 text-gray-400" />
+          <div role="group" aria-label="Filtrar hitos de trazabilidad" className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center gap-1.5 mr-1">
+              <FiFilter className="w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
               Filtrar Hitos:
             </span>
 
             {/* Todos */}
             <button
               type="button"
+              aria-pressed={filtroTipo === 'todos'}
               onClick={() => setFiltroTipo('todos')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 filtroTipo === 'todos'
                   ? 'bg-gray-900 text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
             >
               Todos ({resumen?.totalHitos || 0})
             </button>
@@ -333,42 +334,45 @@ const Trazabilidad = () => {
             {/* Solo Fallos (Rojo) */}
             <button
               type="button"
+              aria-pressed={filtroTipo === 'fallo'}
               onClick={() => setFiltroTipo('fallo')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
                 filtroTipo === 'fallo'
-                  ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                  ? 'bg-rose-700 text-white border-rose-700 shadow-xs'
                   : 'bg-rose-50/70 text-rose-800 border-rose-200 hover:bg-rose-100'
-              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
             >
-              <FiAlertTriangle className="w-3.5 h-3.5" />
+              <FiAlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Fallos ({resumen?.totalFallos || 0})</span>
             </button>
 
             {/* Solo Mantenimientos (Azul) */}
             <button
               type="button"
+              aria-pressed={filtroTipo === 'mantenimiento'}
               onClick={() => setFiltroTipo('mantenimiento')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
                 filtroTipo === 'mantenimiento'
                   ? 'bg-primary text-white border-primary shadow-xs'
                   : 'bg-primary-50/70 text-primary border-primary-200 hover:bg-primary-100'
-              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
             >
-              <FiTool className="w-3.5 h-3.5" />
+              <FiTool className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Mantenimientos ({resumen?.totalMantenimientos || 0})</span>
             </button>
 
             {/* Solo Resoluciones (Verde) */}
             <button
               type="button"
+              aria-pressed={filtroTipo === 'resolucion'}
               onClick={() => setFiltroTipo('resolucion')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border cursor-pointer ${
                 filtroTipo === 'resolucion'
-                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                  ? 'bg-emerald-700 text-white border-emerald-700 shadow-xs'
                   : 'bg-emerald-50/70 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
             >
-              <FiCheckCircle className="w-3.5 h-3.5" />
+              <FiCheckCircle className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Resoluciones ({resumen?.totalResoluciones || 0})</span>
             </button>
           </div>

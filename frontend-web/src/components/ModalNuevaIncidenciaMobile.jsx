@@ -22,6 +22,7 @@ import { createIncidencia, saveIncidencia } from '../services/incidenciasService
 import api from '../services/api';
 import { isKillSwitchError } from '../services/killSwitchService';
 import { useDraftState, clearDrafts } from '../hooks/useDraftState';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const MAX_FILE_SIZE_BYTES = 5242880; // 5MB
 const MAX_EVIDENCIAS = 5;
@@ -119,16 +120,12 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
-  // Cerrar con la tecla Escape
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen && !isSubmitting) {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isSubmitting, onClose]);
+  // TAL-204 (WCAG 2.1 AA): Focus trap + cierre con Escape + restauración de foco
+  const dialogRef = useFocusTrap(isOpen, {
+    onClose: () => {
+      if (!isSubmitting) onClose();
+    },
+  });
 
   if (!isOpen) return null;
 
@@ -371,21 +368,25 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
       aria-modal="true"
       aria-labelledby="modal-incidencia-mobile-titulo"
     >
-      <div className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[85vh] overflow-hidden border border-gray-200 animate-in slide-in-from-bottom-4 duration-250">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[85vh] overflow-hidden border border-gray-200 animate-in slide-in-from-bottom-4 duration-250 focus:outline-none"
+      >
         {/* Manilla táctil para arrastrar en celulares */}
-        <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-2.5 sm:hidden" />
+        <div className="w-12 h-1.5 bg-gray-300 rounded-full mx-auto mt-2.5 sm:hidden" aria-hidden="true" />
 
         {/* Cabecera del Modal */}
         <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/70">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-sm">
-              <FiPlus className="w-5 h-5 stroke-[2.5]" />
+            <div className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center shadow-sm" aria-hidden="true">
+              <FiPlus className="w-5 h-5 stroke-[2.5]" aria-hidden="true" />
             </div>
             <div>
               <h2 id="modal-incidencia-mobile-titulo" className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
                 Nueva Incidencia
               </h2>
-              <p className="text-xs text-gray-500 font-medium">Formulario rápido para móviles</p>
+              <p className="text-xs text-gray-600 font-medium">Formulario rápido para móviles</p>
             </div>
           </div>
 
@@ -393,21 +394,21 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
             <button
               type="button"
               onClick={handleIrAFormularioCompleto}
-              className="text-xs font-semibold text-primary hover:text-primary-hover flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-primary-50 transition-colors"
+              className="text-xs font-semibold text-primary hover:text-primary-hover flex items-center gap-1 px-2.5 py-1.5 rounded-lg hover:bg-primary-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               title="Abrir vista completa con recomendaciones detalladas"
             >
               <span>Completo</span>
-              <FiExternalLink className="w-3.5 h-3.5" />
+              <FiExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
 
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="w-9 h-9 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-200/60 flex items-center justify-center transition-colors cursor-pointer"
-              aria-label="Cerrar modal"
+              className="w-9 h-9 rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-200/60 flex items-center justify-center transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              aria-label="Cerrar modal de nueva incidencia"
             >
-              <FiX className="w-5 h-5" />
+              <FiX className="w-5 h-5" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -475,15 +476,16 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
 
             {/* Chips rápidos de activos comunes para evitar escribir en celular */}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-gray-400 font-medium">Sugeridos:</span>
+              <span className="text-[11px] text-gray-600 font-medium">Sugeridos:</span>
               {activosFrecuentes.map((act) => {
                 const seleccionado = idActivo === act.id;
                 return (
                   <button
                     key={act.id}
                     type="button"
+                    aria-pressed={seleccionado}
                     onClick={() => handleFieldChange('idActivo', act.id)}
-                    className={`text-[11px] px-2.5 py-1 rounded-full font-mono transition-all cursor-pointer ${
+                    className={`text-[11px] px-2.5 py-1 rounded-full font-mono transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                       seleccionado
                         ? 'bg-primary text-white font-bold shadow-xs'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -503,12 +505,12 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
             )}
           </div>
 
-          {/* Campo: Categoría con Chips Táctiles Grandes */}
+            {/* Campo: Categoría con Chips Táctiles Grandes */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-              Categoría de Falla <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <span className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+              Categoría de Falla <span className="text-red-600" aria-hidden="true">*</span>
+            </span>
+            <div role="group" aria-label="Categoría de falla" className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {CATEGORIAS_RAPIDAS.map((cat) => {
                 const Icono = cat.icon;
                 const seleccionado = categoria === cat.id;
@@ -516,23 +518,24 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
                   <button
                     key={cat.id}
                     type="button"
+                    aria-pressed={seleccionado}
                     onClick={() => handleFieldChange('categoria', cat.id)}
-                    className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all cursor-pointer min-h-[44px] ${
+                    className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                       seleccionado
                         ? 'bg-primary-50 border-primary text-primary font-bold shadow-xs ring-1 ring-primary'
                         : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    <Icono className={`w-4 h-4 flex-shrink-0 ${seleccionado ? 'text-primary' : 'text-gray-400'}`} />
+                    <Icono className={`w-4 h-4 flex-shrink-0 ${seleccionado ? 'text-primary' : 'text-gray-500'}`} aria-hidden="true" />
                     <span className="text-xs truncate">{cat.nombre}</span>
-                    {seleccionado && <FiCheck className="w-3.5 h-3.5 ml-auto text-primary" />}
+                    {seleccionado && <FiCheck className="w-3.5 h-3.5 ml-auto text-primary" aria-hidden="true" />}
                   </button>
                 );
               })}
             </div>
             {tocado.categoria && errores.categoria && (
-              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              <p role="alert" className="mt-1 text-xs text-red-700 flex items-center gap-1">
+                <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
                 {errores.categoria}
               </p>
             )}
@@ -542,9 +545,9 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <label htmlFor="mobile-descripcion" className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                Descripción del Problema <span className="text-red-500">*</span>
+                Descripción del Problema <span className="text-red-600" aria-hidden="true">*</span>
               </label>
-              <span className="text-[11px] text-gray-400 font-mono">
+              <span className="text-[11px] text-gray-600 font-mono">
                 {descripcion.length}/1000
               </span>
             </div>
@@ -557,7 +560,7 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
               onBlur={() => handleBlur('descripcion')}
               disabled={isSubmitting}
               placeholder="Indica qué anomalía ocurre, luces o códigos de error..."
-              className={`w-full p-3 rounded-lg border text-base sm:text-sm outline-none transition-all resize-none ${
+              className={`w-full p-3 rounded-lg border text-base sm:text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary transition-all resize-none ${
                 tocado.descripcion && errores.descripcion
                   ? 'border-red-400 bg-red-50/20 focus:ring-2 focus:ring-red-200'
                   : 'border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20'
@@ -565,8 +568,8 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
               required
             />
             {tocado.descripcion && errores.descripcion && (
-              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
-                <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+              <p role="alert" className="mt-1 text-xs text-red-700 flex items-center gap-1">
+                <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
                 {errores.descripcion}
               </p>
             )}
@@ -575,7 +578,7 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
           {/* Campo: Ubicación (Opcional) */}
           <div>
             <label htmlFor="mobile-ubicacion" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-              Ubicación o Sala <span className="text-gray-400 text-[10px] lowercase">(opcional)</span>
+              Ubicación o Sala <span className="text-gray-600 text-[10px] lowercase">(opcional)</span>
             </label>
             <input
               id="mobile-ubicacion"
@@ -584,17 +587,17 @@ const ModalNuevaIncidenciaMobile = ({ isOpen, onClose }) => {
               onChange={(e) => handleFieldChange('ubicacion', e.target.value)}
               disabled={isSubmitting}
               placeholder="Ej. Auditorio Edificio A / Piso 2"
-              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 text-base sm:text-sm outline-none"
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 focus-visible:ring-2 focus-visible:ring-primary text-base sm:text-sm outline-none"
             />
           </div>
 
           {/* Campo: Adjuntar Fotos o Capturas Rápidas (Máx. 5 fotos, 5MB c/u) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
-                Fotos o Evidencias <span className="text-gray-400 text-[10px] lowercase">(máx. {MAX_EVIDENCIAS}, 5MB c/u)</span>
-              </label>
-              <span className="text-[11px] font-semibold text-gray-500 font-mono">
+              <span className="block text-xs font-bold text-gray-700 uppercase tracking-wider">
+                Fotos o Evidencias <span className="text-gray-600 text-[10px] lowercase">(máx. {MAX_EVIDENCIAS}, 5MB c/u)</span>
+              </span>
+              <span className="text-[11px] font-semibold text-gray-600 font-mono">
                 {evidenciasAdjuntas.length}/{MAX_EVIDENCIAS}
               </span>
             </div>

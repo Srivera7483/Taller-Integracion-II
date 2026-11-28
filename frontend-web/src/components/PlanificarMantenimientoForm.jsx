@@ -377,8 +377,8 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
             </div>
           </div>
           {errors.idActivo && touched.idActivo && (
-            <p className="mt-2 text-xs text-rose-600 flex items-center gap-1.5 font-medium animate-fadeIn">
-              <FiAlertCircle className="w-4 h-4 shrink-0" />
+            <p role="alert" className="mt-2 text-xs text-rose-700 flex items-center gap-1.5 font-medium animate-fadeIn">
+              <FiAlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>{errors.idActivo}</span>
             </p>
           )}
@@ -430,23 +430,23 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 text-xs">
               <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-primary-100/80 shadow-2xs">
-                <FiLayers className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <FiLayers className="w-4 h-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Categoría</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-600 block tracking-wider">Categoría</span>
                   <span className="font-semibold text-slate-800">{activoSeleccionado.categoria || 'Sin categoría'}</span>
                 </div>
               </div>
               <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-primary-100/80 shadow-2xs">
-                <FiMapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <FiMapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Ubicación</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-600 block tracking-wider">Ubicación</span>
                   <span className="font-semibold text-slate-800">{activoSeleccionado.ubicacion || 'No especificada'}</span>
                 </div>
               </div>
               <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-primary-100/80 shadow-2xs">
-                <FiHash className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <FiHash className="w-4 h-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">N° Serie</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-600 block tracking-wider">N° Serie</span>
                   <span className="font-mono font-semibold text-slate-800">{activoSeleccionado.numeroSerie || activoSeleccionado.numero_serie || 'S/N'}</span>
                 </div>
               </div>
@@ -517,8 +517,8 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
           </div>
 
           {errors.fechaProgramada && touched.fechaProgramada && (
-            <p className="mt-2 text-xs text-rose-600 flex items-center gap-1.5 font-medium animate-fadeIn">
-              <FiAlertCircle className="w-4 h-4 shrink-0" />
+            <p role="alert" className="mt-2 text-xs text-rose-700 flex items-center gap-1.5 font-medium animate-fadeIn">
+              <FiAlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>{errors.fechaProgramada}</span>
             </p>
           )}
@@ -527,41 +527,41 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
 
       {/* TARJETA 3: RESUMEN CORPORATIVO EN TIEMPO REAL */}
       {(idActivo || fechaProgramada) && (
-        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-xl shadow-lg border border-slate-700/80 p-5 sm:p-6 space-y-4">
+        <div role="status" aria-live="polite" className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-xl shadow-lg border border-slate-700/80 p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/80 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 rounded-lg bg-primary/30 text-sky-300 border border-primary/40">
-                <FiActivity className="w-4 h-4" />
+                <FiActivity className="w-4 h-4" aria-hidden="true" />
               </div>
               <div>
                 <h4 className="font-bold text-sm text-slate-100 tracking-wide">
                   Resumen de la Planificación Preventiva
                 </h4>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-300">
                   Previsualización del registro en el cronograma corporativo
                 </p>
               </div>
             </div>
-            <span className="self-start sm:self-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/30 text-sky-300 border border-primary/40">
+            <span className="self-start sm:self-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/30 text-sky-200 border border-primary/40">
               Registro en Cronograma
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
             <div className="bg-slate-800/70 rounded-lg p-3 border border-slate-700/60">
-              <span className="text-slate-400 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
+              <span className="text-slate-300 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
                 Activo Seleccionado (id_activo)
               </span>
               <p className="font-bold text-slate-100 truncate text-sm">
                 {activoSeleccionado ? activoSeleccionado.nombre : 'Por seleccionar...'}
               </p>
-              <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+              <p className="text-[11px] text-slate-300 font-mono mt-0.5">
                 {activoSeleccionado?.codigoQr || (idActivo ? `ID: ${idActivo.slice(0, 8)}...` : 'Sin ID')}
               </p>
             </div>
 
             <div className="bg-slate-800/70 rounded-lg p-3 border border-slate-700/60">
-              <span className="text-slate-400 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
+              <span className="text-slate-300 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
                 Fecha Programada (fecha_programada)
               </span>
               <p className="font-bold text-slate-100 text-sm capitalize">

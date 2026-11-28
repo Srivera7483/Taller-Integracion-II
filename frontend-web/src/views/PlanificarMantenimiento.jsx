@@ -9,23 +9,23 @@ const PlanificarMantenimiento = () => {
       {/* Cabecera y migas de pan corporativas */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/90 pb-6">
         <div>
-          <nav className="flex items-center gap-1.5 text-xs text-slate-500 mb-2">
-            <Link to="/mantenimientos" className="hover:text-primary transition-colors font-medium">
+          <nav aria-label="Ruta de navegación" className="flex items-center gap-1.5 text-xs text-slate-600 mb-2">
+            <Link to="/mantenimientos" className="hover:text-primary transition-colors font-medium rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
               Agenda de Mantenimientos
             </Link>
-            <FiChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-slate-800 font-semibold">Planificación Preventiva</span>
+            <FiChevronRight className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
+            <span className="text-slate-800 font-semibold" aria-current="page">Planificación Preventiva</span>
           </nav>
 
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center shadow-md shadow-primary/20 shrink-0">
-              <FiCalendar className="w-6 h-6" />
+            <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center shadow-md shadow-primary/20 shrink-0" aria-hidden="true">
+              <FiCalendar className="w-6 h-6" aria-hidden="true" />
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
                 Planificar Mantenimiento Preventivo
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
                 Programa intervenciones técnicas con anticipación para salvaguardar la disponibilidad y vida útil de los equipos.
               </p>
             </div>
@@ -34,9 +34,9 @@ const PlanificarMantenimiento = () => {
 
         <Link
           to="/mantenimientos"
-          className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm self-start sm:self-center"
+          className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-all shadow-sm self-start sm:self-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          <FiArrowLeft className="w-4 h-4" />
+          <FiArrowLeft className="w-4 h-4" aria-hidden="true" />
           <span>Volver a Mantenimientos</span>
         </Link>
       </div>

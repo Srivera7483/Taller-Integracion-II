@@ -354,20 +354,27 @@ const NotificacionesDropdown = ({
     }
   }, [idUsuarioActual, esCoordinador, unirseSala, dejarSala]);
 
-  // Cierra el menú al hacer clic afuera (ClickAway listener)
+  // Cierra el menú al hacer clic afuera o pulsar Escape (WCAG 2.1 AA — TAL-204)
   useEffect(() => {
     const handleClickAfuera = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setAbierto(false);
       }
     };
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setAbierto(false);
+      }
+    };
 
     if (abierto) {
       document.addEventListener('mousedown', handleClickAfuera);
+      document.addEventListener('keydown', handleEscape);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickAfuera);
+      document.removeEventListener('keydown', handleEscape);
     };
   }, [abierto]);
 
@@ -395,9 +402,10 @@ const NotificacionesDropdown = ({
             : 'Abrir notificaciones'
         }
         aria-expanded={abierto}
+        aria-haspopup="true"
         data-testid="notification-bell-btn"
       >
-        <FiBell className="w-5 h-5 transition-transform duration-200 hover:rotate-6" />
+        <FiBell className="w-5 h-5 transition-transform duration-200 hover:rotate-6" aria-hidden="true" />
 
         {/* Badge numérico en tiempo real con animación CSS ligera de rebote (Criterios 1 y 3 — TAL-203) */}
         {noLeidas > 0 && (
@@ -426,12 +434,12 @@ const NotificacionesDropdown = ({
                 {noLeidas > 0 ? (
                   <span
                     data-testid="badge-contador-dropdown"
-                    className="px-2 py-0.5 text-[11px] font-black bg-red-50 text-red-600 rounded-full border border-red-100 shadow-2xs"
+                    className="px-2 py-0.5 text-[11px] font-black bg-red-50 text-red-700 rounded-full border border-red-100 shadow-2xs"
                   >
                     {formatBadgeCount(noLeidas)} nuevas
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200">
                     Al día
                   </span>
                 )}
@@ -474,7 +482,7 @@ const NotificacionesDropdown = ({
                         setAbierto(false);
                       }}
                       data-testid={`notif-item-${item.id}`}
-                      className={`group relative flex items-start gap-3 p-3 rounded-xl transition-all duration-150 cursor-pointer ${
+                      className={`group relative flex items-start gap-3 p-3 rounded-xl transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                         item.leida
                           ? 'bg-transparent hover:bg-gray-50/80 opacity-75'
                           : 'bg-primary-50/40 hover:bg-primary-50/80'
@@ -554,10 +562,10 @@ const NotificacionesDropdown = ({
               <Link
                 to="/incidencias"
                 onClick={() => setAbierto(false)}
-                className="text-[11px] text-primary hover:text-primary-hover font-bold flex items-center gap-1 transition-colors"
+                className="text-[11px] text-primary hover:text-primary-hover font-bold flex items-center gap-1 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span>Ver incidencias</span>
-                <FiArrowRight className="w-3 h-3" />
+                <FiArrowRight className="w-3 h-3" aria-hidden="true" />
               </Link>
             </div>
         </div>
