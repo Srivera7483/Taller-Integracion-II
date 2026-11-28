@@ -130,18 +130,28 @@ const HitoTimelineCard = ({ evento, _index, isLast }) => {
     <div className="relative flex items-start gap-4 sm:gap-6 group">
       {/* Columna Izquierda: Nodo circular e icono con línea conectora */}
       <div className="flex flex-col items-center flex-shrink-0 relative">
-        {/* Nodo con icono representativo */}
-        <div
-          className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full ${cfg.nodeBg} text-white flex items-center justify-center shadow-md ${cfg.nodeShadow} ring-4 ${cfg.nodeRing} z-10 transition-transform duration-300 group-hover:scale-110`}
-          title={cfg.label}
-        >
-          <IconComponent className="w-5 h-5 sm:w-5 sm:h-5" />
-        </div>
+        {/* Contenedor concéntrico sin recorte para halo, anillo y escala hover */}
+        <div className="relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11">
+          {/* Onda concéntrica suave en averías reportadas */}
+          {cfg.pulse && (
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full bg-rose-500 animate-timeline-ring pointer-events-none"
+            />
+          )}
 
-        {/* Efecto de pulso en averías críticas */}
-        {cfg.pulse && (
-          <span className="absolute -top-1 -left-1 w-12 h-12 rounded-full bg-rose-500 opacity-30 animate-ping pointer-events-none" />
-        )}
+          {/* Nodo con icono representativo */}
+          <div
+            className={`relative w-10 h-10 sm:w-11 sm:h-11 rounded-full ${cfg.nodeBg} text-white flex items-center justify-center shadow-md ${cfg.nodeShadow} ring-4 ${cfg.nodeRing} z-10 transition-transform duration-300 ease-out group-hover:scale-110`}
+            title={cfg.label}
+          >
+            <IconComponent
+              className={`w-5 h-5 transition-transform duration-300 ease-out ${
+                evento.tipo === 'mantenimiento' ? 'group-hover:-rotate-12' : 'group-hover:scale-105'
+              }`}
+            />
+          </div>
+        </div>
 
         {/* Línea conectora vertical entre nodos */}
         {!isLast && (
@@ -353,9 +363,9 @@ const TimelineActivo = ({
   }
 
   return (
-    <div className="w-full max-w-full overflow-hidden">
-      {/* Contenedor del Timeline Vertical con padding seguro para no desbordar en móviles */}
-      <div className="relative pt-2">
+    <div className="w-full max-w-full overflow-visible">
+      {/* Contenedor del Timeline Vertical con margen de respiración para halos, anillos y escalado hover */}
+      <div className="relative px-3 py-3 sm:px-4">
         {eventos.map((evento, index) => (
           <HitoTimelineCard
             key={evento.id || index}
