@@ -76,6 +76,7 @@ test('TAL-204 (WCAG 2.1 AA): Las vistas activas respetan jerarquía de encabezad
     'views/Mantenimientos.jsx',
     'views/PlanificarMantenimiento.jsx',
     'views/Usuarios.jsx',
+    'views/Auditoria.jsx',
   ];
 
   for (const rel of vistas) {

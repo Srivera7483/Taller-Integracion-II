@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload, FiRefreshCw, FiHelpCircle } from 'react-icons/fi';
+import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload, FiRefreshCw, FiHelpCircle, FiShield } from 'react-icons/fi';
 import Header from './Header';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
@@ -8,6 +8,7 @@ import UserTourGuide from './UserTourGuide';
 import { haCompletadoRecorrido } from '../utils/userTourStorage';
 import { useColaSincronizacion } from '../hooks/useColaSincronizacion';
 import { cerrarSesion, getUsuarioActual, hasPermission } from '../services/authService';
+import { PERMISOS_AUDITORIA } from '../services/auditoriaService';
 
 const ColaPendientesModal = lazy(() => import('./ColaPendientesModal'));
 
@@ -22,15 +23,17 @@ const Layout = () => {
   const { cantidadPendientes, estaSincronizando } = controladorCola;
 
   const usuario = getUsuarioActual();
+  const idUsuarioTour = usuario?.id || usuario?.id_usuario || usuario?.sub || usuario?.correo || usuario?.email || null;
   const rolUsuario = usuario?.rol?.nombre_rol || usuario?.rol || null;
   const nombreUsuario = usuario ? `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || usuario.correo : 'Usuario';
 
   // Activación automática de la Guía Interactiva en el primer inicio de sesión del usuario
   useEffect(() => {
-    if (usuario && !haCompletadoRecorrido(usuario)) {
+    const sesionActual = getUsuarioActual();
+    if (sesionActual && !haCompletadoRecorrido(sesionActual)) {
       setEstaAbiertoTour(true);
     }
-  }, [usuario]);
+  }, [idUsuarioTour]);
 
 
   // Identificación visual del rol del usuario autenticado
@@ -94,6 +97,7 @@ const Layout = () => {
       case '/mantenimientos': return 'Agenda de Mantenimientos';
       case '/trazabilidad': return 'Trazabilidad de Activos';
       case '/usuarios': return 'Usuarios';
+      case '/auditoria': return 'Bitácora de Auditoría';
       default: return 'Sistema de Gestión';
     }
   };
@@ -123,6 +127,7 @@ const Layout = () => {
     { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar, requiredPermission: 'mantenimientos:crear', tourId: 'nav-mantenimientos' },
     { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity, tourId: 'nav-trazabilidad' },
     { path: '/usuarios', label: 'Usuarios', icon: FiUsers, requiredPermission: 'usuarios:gestionar', tourId: 'nav-usuarios' },
+    { path: '/auditoria', label: 'Auditoría', icon: FiShield, requiredPermission: PERMISOS_AUDITORIA, tourId: 'nav-auditoria' },
   ];
 
   // Filtrar los elementos según los permisos del usuario autenticado
@@ -310,7 +315,7 @@ const Layout = () => {
               setEstaAbiertoTour(true);
             }}
             data-testid="boton-ayuda-tour-sidebar"
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded-xl transition-colors cursor-pointer border border-gray-200 shadow-2xs"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded-xl transition-colors cursor-pointer border border-gray-200 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             title="Abrir guía interactiva del sistema"
             aria-label="Abrir guía interactiva de usuario"
           >

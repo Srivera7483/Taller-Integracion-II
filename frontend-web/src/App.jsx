@@ -9,6 +9,7 @@ import PublicRoute from './components/PublicRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import AxiosInterceptor from './components/AxiosInterceptor';
 import ErrorBoundary from './components/ErrorBoundary';
+import { PERMISOS_AUDITORIA } from './services/auditoriaService';
 
 // Componentes Estructurales y Vistas (Code Splitting con React.lazy — TAL-203)
 // Login se carga en el bundle inicial para evitar waterfalls de red en el LCP de entrada
@@ -22,6 +23,7 @@ const AsignarTecnico = lazy(() => import('./views/AsignarTecnico'));
 const DetalleOrden = lazy(() => import('./views/DetalleOrden'));
 const DetalleIncidencia = lazy(() => import('./views/DetalleIncidencia'));
 const Usuarios = lazy(() => import('./views/Usuarios'));
+const Auditoria = lazy(() => import('./views/Auditoria'));
 const Trazabilidad = lazy(() => import('./views/Trazabilidad'));
 const PlanificarMantenimiento = lazy(() => import('./views/PlanificarMantenimiento'));
 const Mantenimientos = lazy(() => import('./views/Mantenimientos'));
@@ -85,6 +87,9 @@ function App() {
                     </Route>
                     <Route element={<ProtectedRoute requiredPermission="usuarios:gestionar" />}>
                       <Route path="usuarios" element={<Usuarios />} />
+                    </Route>
+                    <Route element={<ProtectedRoute requiredPermission={PERMISOS_AUDITORIA} />}>
+                      <Route path="auditoria" element={<Auditoria />} />
                     </Route>
                     <Route element={<ProtectedRoute requiredPermission="mantenimientos:crear" />}>
                       <Route path="mantenimientos" element={<Mantenimientos />} />
