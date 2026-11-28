@@ -212,7 +212,7 @@ const Usuarios = () => {
             Gestión de Usuarios
           </h2>
           <p className="mt-1 text-sm text-gray-600">
-            Administración de cuentas institucionales, asignación de roles y control de acceso.
+            Administración de cuentas institucionales, asignación de roles y bajas de usuarios.
           </p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
