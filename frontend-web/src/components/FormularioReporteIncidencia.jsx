@@ -555,7 +555,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                       onChange={(e) => handleFieldChange('titulo', e.target.value)}
                       onBlur={() => handleBlur('titulo')}
                       disabled={isSubmitting}
-                      placeholder="Ej. Interrupción de servicio en base de datos PostgreSQL principal"
+                      placeholder="Ej. Proyector de sala C101 enciende sin señal de video"
                       className={`w-full pl-11 pr-4 py-2.5 rounded-lg border text-sm transition-all outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${touched.titulo && errors.titulo
                           ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
                           : 'border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white'

@@ -130,18 +130,28 @@ const HitoTimelineCard = ({ evento, _index, isLast }) => {
     <div className="relative flex items-start gap-4 sm:gap-6 group">
       {/* Columna Izquierda: Nodo circular e icono con línea conectora */}
       <div className="flex flex-col items-center flex-shrink-0 relative">
-        {/* Nodo con icono representativo */}
-        <div
-          className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full ${cfg.nodeBg} text-white flex items-center justify-center shadow-md ${cfg.nodeShadow} ring-4 ${cfg.nodeRing} z-10 transition-transform duration-300 group-hover:scale-110`}
-          title={cfg.label}
-        >
-          <IconComponent className="w-5 h-5 sm:w-5 sm:h-5" />
-        </div>
+        {/* Contenedor concéntrico sin recorte para halo, anillo y escala hover */}
+        <div className="relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11">
+          {/* Onda concéntrica suave en averías reportadas */}
+          {cfg.pulse && (
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full bg-rose-500 animate-timeline-ring pointer-events-none"
+            />
+          )}
 
-        {/* Efecto de pulso en averías críticas */}
-        {cfg.pulse && (
-          <span className="absolute -top-1 -left-1 w-12 h-12 rounded-full bg-rose-500 opacity-30 animate-ping pointer-events-none" />
-        )}
+          {/* Nodo con icono representativo */}
+          <div
+            className={`relative w-10 h-10 sm:w-11 sm:h-11 rounded-full ${cfg.nodeBg} text-white flex items-center justify-center shadow-md ${cfg.nodeShadow} ring-4 ${cfg.nodeRing} z-10 transition-transform duration-300 ease-out group-hover:scale-110`}
+            title={cfg.label}
+          >
+            <IconComponent
+              className={`w-5 h-5 transition-transform duration-300 ease-out ${
+                evento.tipo === 'mantenimiento' ? 'group-hover:-rotate-12' : 'group-hover:scale-105'
+              }`}
+            />
+          </div>
+        </div>
 
         {/* Línea conectora vertical entre nodos */}
         {!isLast && (
@@ -228,19 +238,19 @@ const HitoTimelineCard = ({ evento, _index, isLast }) => {
                 onClick={() => setExpandido(!expandido)}
                 className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-primary py-1 px-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <span>{expandido ? 'Ocultar campos del registro' : 'Ver campos del registro (BD)'}</span>
-                {expandido ? <FiChevronUp className="w-3.5 h-3.5" aria-hidden="true" /> : <FiChevronDown className="w-3.5 h-3.5" aria-hidden="true" />}
+                <span>{expandido ? 'Ocultar referencias del evento' : 'Ver referencias del evento'}</span>
+                {expandido ? <FiChevronUp className="w-3.5 h-3.5" /> : <FiChevronDown className="w-3.5 h-3.5" />}
               </button>
             )}
           </div>
         )}
 
-        {/* Panel Acordeón de Detalles Técnicos Consolidados (JOIN Prisma) */}
+        {/* Panel Acordeón de Referencias Asociadas */}
         {expandido && tieneDetallesExtras && (
           <div className="mt-3 pt-3 border-t border-dashed border-gray-200 bg-gray-50/70 -mx-4 -mb-4 sm:-mx-5 sm:-mb-5 p-4 sm:p-5 rounded-b-xl space-y-2.5 text-xs text-gray-700">
             <div className="flex items-center gap-2 font-bold text-gray-800 uppercase tracking-wider text-[11px]">
               <FiCpu className="text-primary w-3.5 h-3.5" />
-              <span>Campos Relacionales Prisma (INCIDENCIAS / ORDENES_TRABAJO)</span>
+              <span>Referencias de Incidencia y Orden de Trabajo</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
@@ -354,9 +364,9 @@ const TimelineActivo = ({
   }
 
   return (
-    <div className="w-full max-w-full overflow-hidden">
-      {/* Contenedor del Timeline Vertical con padding seguro para no desbordar en móviles */}
-      <div className="relative pt-2">
+    <div className="w-full max-w-full overflow-visible">
+      {/* Contenedor del Timeline Vertical con margen de respiración para halos, anillos y escalado hover */}
+      <div className="relative px-3 py-3 sm:px-4">
         {eventos.map((evento, index) => (
           <HitoTimelineCard
             key={evento.id || index}

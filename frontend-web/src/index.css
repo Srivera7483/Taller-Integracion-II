@@ -218,9 +218,25 @@ body {
   transform: translateY(0);
 }
 
+@keyframes timelinePulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.42;
+  }
+  75%, 100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+.animate-timeline-ring {
+  animation: timelinePulseRing 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .skeleton-shimmer::after,
-  .animate-fade-in {
+  .animate-fade-in,
+  .animate-timeline-ring {
     animation: none !important;
   }
 }

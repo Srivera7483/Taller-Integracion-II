@@ -48,6 +48,22 @@ describe('AuthController', () => {
       expect(result).not.toHaveProperty('refreshToken');
     });
 
+    it('debe incluir refreshToken en el JSON cuando el cliente móvil envía X-Client-Type: mobile (TAL-199)', async () => {
+      const dto = { email: 'tecnico@test.com', password: 'pass' };
+      const response = { header: vi.fn() };
+      vi.spyOn(authServiceMock, 'login').mockResolvedValue({
+        token: 'mock-access-token',
+        accessToken: 'mock-access-token',
+        refreshToken: 'mock-mobile-refresh-token',
+        usuario: { id_usuario: 'user-mobile-1' },
+      } as any);
+
+      const result = await authController.login(dto, response, 'mobile');
+
+      expect(result.refreshToken).toBe('mock-mobile-refresh-token');
+      expect(result.token).toBe('mock-access-token');
+    });
+
     it('debe relanzar UnauthorizedException si falla el login', async () => {
       vi.spyOn(authServiceMock, 'login').mockRejectedValue(
         new UnauthorizedException('Credenciales inválidas'),

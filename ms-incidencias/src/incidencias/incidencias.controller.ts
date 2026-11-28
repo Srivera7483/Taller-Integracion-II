@@ -162,6 +162,23 @@ export class IncidenciasController {
     );
   }
 
+  /**
+   * Alias opcional negociado con TI-IV: PATCH /incidencias/{id_incidencia}/clasificacion.
+   * Equivalente a PATCH /incidencias/{id_incidencia}/prioridad, protegido con PBAC
+   * (incidencias:clasificar_prioridad).
+   */
+  @Patch(':id_incidencia/clasificacion')
+  @RequirePermissions('incidencias:clasificar_prioridad')
+  async clasificarPrioridadAlias(
+    @Param('id_incidencia', ParseUUIDPipe) idIncidencia: string,
+    @Body() body: ClasificarPrioridadDto,
+  ) {
+    return this.incidenciasService.clasificarPrioridad(
+      idIncidencia,
+      body.prioridad,
+    );
+  }
+
   @Patch(':id_incidencia/resolver')
   @RequirePermissions('incidencias:resolver')
   async resolverIncidencia(

@@ -421,7 +421,7 @@ const PanelEstadisticasAnalitica = ({ soloActivos = false, refreshTrigger = 0 })
               <div className="flex items-center gap-2.5 text-xs text-amber-800">
                 <FiAlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" aria-hidden="true" />
                 <span>
-                  No se pudieron obtener las estadísticas de inventario desde el microservicio de activos.
+                  No se pudieron cargar las estadísticas de inventario en este momento.
                 </span>
               </div>
               <button

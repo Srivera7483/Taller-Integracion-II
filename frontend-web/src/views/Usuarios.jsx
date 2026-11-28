@@ -212,7 +212,7 @@ const Usuarios = () => {
             Gestión de Usuarios
           </h2>
           <p className="mt-1 text-sm text-gray-600">
-            Administración de cuentas institucionales, asignación de roles PBAC y bajas lógicas sincronizadas con PostgreSQL.
+            Administración de cuentas institucionales, asignación de roles y control de acceso.
           </p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -689,12 +689,12 @@ const Usuarios = () => {
                   ¿Dar de baja a este usuario?
                 </h2>
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  Se registrará la baja lógica (<code className="font-mono">fecha_eliminacion</code>) para{' '}
+                  Se desactivará la cuenta de{' '}
                   <strong>
                     {`${usuarioAEliminar.nombre || ''} ${usuarioAEliminar.apellido || ''}`.trim() ||
                       usuarioAEliminar.correo}
                   </strong>
-                  , revocando su acceso al sistema sin perder la trazabilidad histórica en PostgreSQL.
+                  , revocando su acceso al sistema pero conservando el historial de sus registros.
                 </p>
               </div>
             </div>

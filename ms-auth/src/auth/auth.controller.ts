@@ -56,6 +56,7 @@ export class AuthController {
   async login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) response: any,
+    @Headers('x-client-type') clientType?: string,
   ): Promise<any> {
     const result = await this.authService.login(loginDto);
     const secureAttribute = process.env.NODE_ENV === 'production' ? '; Secure' : '';
@@ -65,6 +66,10 @@ export class AuthController {
       response.raw.setHeader('Set-Cookie', cookieValue);
     } else {
       response.header('Set-Cookie', cookieValue);
+    }
+
+    if (typeof clientType === 'string' && clientType.trim().toLowerCase() === 'mobile') {
+      return result;
     }
 
     const { refreshToken: _refreshToken, ...loginResponse } = result;
@@ -143,10 +148,11 @@ export class AuthController {
   async listUsers(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('rol') rol?: string,
   ) {
     const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
     const limitNum = Math.max(1, Math.min(50, parseInt(limit || '15', 10) || 15));
-    return await this.authService.listUsers(pageNum, limitNum);
+    return await this.authService.listUsers(pageNum, limitNum, rol);
   }
 
   @Post(['register', 'registro'])
