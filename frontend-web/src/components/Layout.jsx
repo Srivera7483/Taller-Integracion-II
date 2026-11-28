@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload, FiRefreshCw } from 'react-icons/fi';
 import Header from './Header';
@@ -82,9 +82,21 @@ const Layout = () => {
   };
 
   const handleLogout = async () => {
-  await cerrarSesion();
-  navigate('/login', { replace: true });
+    await cerrarSesion();
+    navigate('/login', { replace: true });
   };
+
+  // TAL-204: Cerrar menú móvil con tecla Escape
+  useEffect(() => {
+    if (!isMobileMenuOpen) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileMenuOpen]);
 
   // Definición completa de las opciones del menú (autorización basada en permisos PBAC)
   const allNavItems = [
@@ -106,19 +118,32 @@ const Layout = () => {
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden text-gray-900">
+      {/* TAL-204 (WCAG 2.4.1): Enlace de salto directo al contenido principal */}
+      <a
+        href="#contenido-principal"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-lg focus:text-sm focus:font-semibold focus:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
+      >
+        Saltar al contenido principal
+      </a>
+
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
         <div
+          aria-hidden="true"
           className="fixed inset-0 z-40 bg-gray-900/50 lg:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0
-        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+      <aside
+        id="sidebar-navegacion"
+        aria-label="Menú lateral de navegación"
+        className={`
+          fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0 transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0
+          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
         <div className="h-16 flex items-center justify-between px-5 border-b border-gray-200">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-black text-xs shadow-sm ring-1 ring-primary/20">
@@ -128,12 +153,12 @@ const Layout = () => {
               <span className="text-base font-bold text-gray-900 tracking-tight leading-none">
                 Infra<span className="text-primary font-black">Manager</span>
               </span>
-              <span className="text-[10px] text-gray-500 font-medium">Infraestructura TI</span>
+              <span className="text-[10px] text-gray-600 font-medium">Infraestructura TI</span>
             </div>
           </div>
           <button 
             type="button"
-            className="lg:hidden text-gray-500 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded-lg p-1"
+            className="lg:hidden text-gray-600 hover:text-gray-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg p-1 cursor-pointer"
             onClick={() => setIsMobileMenuOpen(false)}
             aria-label="Cerrar menú de navegación"
             title="Cerrar menú de navegación"
@@ -152,14 +177,14 @@ const Layout = () => {
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={({ isActive }) => `
-                      flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all
+                      flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1
                       ${isActive 
                         ? 'bg-primary text-white shadow-md shadow-primary/25' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                       }
                     `}
                   >
-                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <Icon className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
                     <span>{item.label}</span>
                   </NavLink>
                 </li>
@@ -175,8 +200,9 @@ const Layout = () => {
           <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-gray-200 shadow-2xs">
             <div
               className={`w-9 h-9 rounded-lg flex items-center justify-center ${coloresRol.avatar}`}
+              aria-hidden="true"
             >
-              <FiUser className="w-5 h-5" />
+              <FiUser className="w-5 h-5" aria-hidden="true" />
             </div>
 
             <div className="flex flex-col min-w-0 flex-1 gap-1">
@@ -200,7 +226,7 @@ const Layout = () => {
               setEstaAbiertoModalCola(true);
             }}
             data-testid="boton-cola-sincronizacion-sidebar"
-            className="w-full flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-left cursor-pointer group shadow-2xs"
+            className="w-full flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-left cursor-pointer group shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             title="Ver cola de sincronización offline"
             aria-label={
               cantidadPendientes === 0
@@ -212,8 +238,8 @@ const Layout = () => {
               <div
                 className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 transition-colors ${
                   estaSincronizando || cantidadPendientes > 0
-                    ? 'bg-amber-50 text-amber-700 group-hover:bg-amber-100'
-                    : 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100'
+                    ? 'bg-amber-50 text-amber-800 group-hover:bg-amber-100'
+                    : 'bg-emerald-50 text-emerald-700 group-hover:bg-emerald-100'
                 }`}
               >
                 <FiRefreshCw
@@ -233,12 +259,12 @@ const Layout = () => {
             {cantidadPendientes > 0 ? (
               <span
                 data-testid="badge-cola-sidebar"
-                className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-black rounded-full bg-amber-500 text-white shadow-2xs"
+                className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-black rounded-full bg-amber-700 text-white shadow-2xs"
               >
                 {cantidadPendientes > 99 ? '99+' : cantidadPendientes}
               </span>
             ) : (
-              <span className="w-2 h-2 rounded-full bg-emerald-500 mr-1" title="Sincronizado" />
+              <span className="w-2 h-2 rounded-full bg-emerald-600 mr-1" aria-hidden="true" />
             )}
           </button>
 
@@ -246,10 +272,10 @@ const Layout = () => {
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent('pwa-install-trigger'))}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 rounded-xl transition-colors cursor-pointer border border-primary-200"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 rounded-xl transition-colors cursor-pointer border border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             title="Instalar InfraManager en pantalla de inicio"
           >
-            <FiDownload className="w-4 h-4" />
+            <FiDownload className="w-4 h-4" aria-hidden="true" />
             <span>Instalar App</span>
           </button>
 
@@ -257,9 +283,9 @@ const Layout = () => {
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-xl transition-colors cursor-pointer border border-red-200"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 rounded-xl transition-colors cursor-pointer border border-red-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <FiLogOut className="w-4 h-4" />
+            <FiLogOut className="w-4 h-4" aria-hidden="true" />
             <span>Cerrar Sesión</span>
           </button>
 
@@ -272,6 +298,7 @@ const Layout = () => {
         <Header
           title={getPageTitle()}
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
+          isMobileMenuOpen={isMobileMenuOpen}
         >
           {/* Acceso a la Cola de Sincronización con Badge Numérico en Header (TAL-198 Criterio 1) */}
           <button
@@ -289,7 +316,7 @@ const Layout = () => {
             {cantidadPendientes > 0 && (
               <span
                 data-testid="badge-cola-header"
-                className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black text-white bg-amber-500 rounded-full ring-2 ring-white shadow-xs"
+                className="absolute -top-1 -right-1 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-black text-white bg-amber-700 rounded-full ring-2 ring-white shadow-xs"
               >
                 {cantidadPendientes > 99 ? '99+' : cantidadPendientes}
               </span>
@@ -301,7 +328,11 @@ const Layout = () => {
         <CriticalAlertBanner />
 
         {/* Main View Area */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50">
+        <main
+          id="contenido-principal"
+          tabIndex={-1}
+          className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gray-50 focus:outline-none"
+        >
           <Outlet />
         </main>
       </div>

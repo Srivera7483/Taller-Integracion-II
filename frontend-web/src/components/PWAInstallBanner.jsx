@@ -38,10 +38,10 @@ const PWAInstallBanner = ({ onInstall, onDismiss, isIOS }) => {
             <button
               type="button"
               onClick={onDismiss}
-              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+              className="text-gray-500 hover:text-gray-700 p-1 rounded-lg cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
               aria-label="Cerrar sugerencia de instalación"
             >
-              <FiX className="w-4 h-4" />
+              <FiX className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
           <p className="text-xs text-gray-600 mt-0.5">
@@ -73,7 +73,7 @@ const PWAInstallBanner = ({ onInstall, onDismiss, isIOS }) => {
                 type="button"
                 id="btn-pwa-dismiss"
                 onClick={onDismiss}
-                className="text-xs text-gray-500 hover:text-gray-700 py-2 px-2.5 rounded-xl hover:bg-gray-100 transition-colors"
+                className="text-xs text-gray-600 hover:text-gray-800 py-2 px-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Más tarde
               </button>

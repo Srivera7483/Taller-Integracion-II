@@ -230,60 +230,64 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
 
           {/* Mensaje de validación de fechas */}
           {errorValidacion && (
-            <div className="flex items-center gap-2 p-2.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg animate-fadeIn">
-              <FiAlertCircle className="w-4 h-4 flex-shrink-0 text-red-500" />
+            <div role="alert" className="flex items-center gap-2 p-2.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg animate-fadeIn">
+              <FiAlertCircle className="w-4 h-4 flex-shrink-0 text-red-600" aria-hidden="true" />
               <span>{errorValidacion}</span>
             </div>
           )}
 
           {/* Presets rápidos para comodidad del técnico */}
           <div className="pt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <span className="text-xs font-medium text-gray-500 flex items-center gap-1 mr-1">
-                <FiClock className="w-3.5 h-3.5" />
+            <div role="group" aria-label="Atajos de rango de fechas" className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="text-xs font-medium text-gray-600 flex items-center gap-1 mr-1">
+                <FiClock className="w-3.5 h-3.5" aria-hidden="true" />
                 Atajos:
               </span>
               <button
                 type="button"
+                aria-pressed={presetActivo === 'hoy'}
                 onClick={() => aplicarPreset('hoy')}
                 className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
                   presetActivo === 'hoy'
                     ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
               >
                 Hoy
               </button>
               <button
                 type="button"
+                aria-pressed={presetActivo === 'semana'}
                 onClick={() => aplicarPreset('semana')}
                 className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
                   presetActivo === 'semana'
                     ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
               >
                 Esta semana
               </button>
               <button
                 type="button"
+                aria-pressed={presetActivo === 'mes'}
                 onClick={() => aplicarPreset('mes')}
                 className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
                   presetActivo === 'mes'
                     ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
               >
                 Este mes
               </button>
               <button
                 type="button"
+                aria-pressed={presetActivo === 'proximos30'}
                 onClick={() => aplicarPreset('proximos30')}
                 className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors cursor-pointer ${
                   presetActivo === 'proximos30'
                     ? 'bg-primary-50 text-primary border border-primary-200 font-semibold'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring`}
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
               >
                 Próximos 30 días
               </button>
@@ -291,18 +295,19 @@ const FiltrosRangoFechasMantenimientos = ({ onFiltrar, totalResultados = 0, carg
 
             {/* Indicador de estado de filtrado activo */}
             {hayFiltrosAplicados && (
-              <div className="flex items-center gap-2 text-xs text-primary bg-primary-50 px-3 py-1 rounded-full border border-primary-200">
-                <FiCheck className="w-3.5 h-3.5 text-primary" />
+              <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-primary bg-primary-50 px-3 py-1 rounded-full border border-primary-200">
+                <FiCheck className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
                 <span>
                   Filtro activo: {searchParams.get('startDate') || 'Inicio'} → {searchParams.get('endDate') || 'Fin'} ({totalResultados} {totalResultados === 1 ? 'mantenimiento' : 'mantenimientos'})
                 </span>
                 <button
                   type="button"
                   onClick={handleLimpiar}
-                  className="ml-1 text-primary/70 hover:text-primary font-bold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
+                  aria-label="Quitar filtro de fechas"
+                  className="ml-1 text-primary hover:text-primary-hover font-bold cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   title="Quitar filtro"
                 >
-                  ×
+                  <span aria-hidden="true">×</span>
                 </button>
               </div>
             )}

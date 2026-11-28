@@ -183,7 +183,7 @@ const PanelEstadisticasAnalitica = ({ soloActivos = false, refreshTrigger = 0 })
           onClick={handleRecargaManual}
           disabled={actualizandoManual || cargandoActivos || cargandoMttr}
           aria-label="Actualizar métricas analíticas"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition shadow-2xs disabled:opacity-50 cursor-pointer w-fit"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg transition shadow-2xs disabled:opacity-50 cursor-pointer w-fit focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <FiRefreshCw
             className={`w-3.5 h-3.5 ${
@@ -349,7 +349,7 @@ const PanelEstadisticasAnalitica = ({ soloActivos = false, refreshTrigger = 0 })
                             <div className="flex items-center justify-between text-xs">
                               <Link
                                 to={`/trazabilidad/${encodeURIComponent(act.id_activo)}`}
-                                className="font-semibold text-indigo-700 hover:underline truncate pr-2"
+                                className="font-semibold text-indigo-700 hover:underline truncate pr-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 title={`Ver trazabilidad de ${act.nombre_activo}`}
                               >
                                 {act.nombre_activo}
@@ -437,7 +437,7 @@ const PanelEstadisticasAnalitica = ({ soloActivos = false, refreshTrigger = 0 })
               {/* Resumen superior del inventario */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200/80">
-                  <span className="text-[11px] font-semibold text-gray-500 uppercase">
+                  <span className="text-[11px] font-semibold text-gray-600 uppercase">
                     Activos Totales
                   </span>
                   <p
@@ -446,7 +446,7 @@ const PanelEstadisticasAnalitica = ({ soloActivos = false, refreshTrigger = 0 })
                   >
                     {estadisticasActivos.totalActivos}
                   </p>
-                  <span className="text-[11px] text-gray-500">
+                  <span className="text-[11px] text-gray-600">
                     {estadisticasActivos.resumen.disponibles} disponibles
                   </span>
                 </div>

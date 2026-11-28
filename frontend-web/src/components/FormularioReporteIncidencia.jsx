@@ -564,12 +564,12 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                     />
                   </div>
                   {touched.titulo && errors.titulo ? (
-                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
-                      <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <p role="alert" className="mt-1 text-xs text-red-700 flex items-center gap-1 font-medium">
+                      <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
                       {errors.titulo}
                     </p>
                   ) : (
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-gray-600">
                       Un resumen conciso y claro de la anomalía identificada.
                     </p>
                   )}
@@ -634,26 +634,27 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                         type="button"
                         onClick={handleClearPreloadedAsset}
                         disabled={isSubmitting}
-                        title="Limpiar ID pre-cargado" aria-label="Eliminar"
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
+                        title="Limpiar ID pre-cargado"
+                        aria-label="Limpiar ID de activo pre-cargado"
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 transition-colors disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded cursor-pointer"
                       >
-                        <FiX className="w-4 h-4" />
+                        <FiX className="w-4 h-4" aria-hidden="true" />
                       </button>
                     )}
                   </div>
 
                   {touched.idActivo && errors.idActivo ? (
-                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
-                      <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <p role="alert" className="mt-1 text-xs text-red-700 flex items-center gap-1 font-medium">
+                      <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
                       {errors.idActivo}
                     </p>
                   ) : isUrlPreloaded ? (
                     <p className="mt-1 text-xs text-primary font-medium flex items-center gap-1">
-                      <FiCheckCircle className="w-3.5 h-3.5" />
+                      <FiCheckCircle className="w-3.5 h-3.5" aria-hidden="true" />
                       Identificador de equipo cargado automáticamente desde el enlace.
                     </p>
                   ) : (
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-gray-600">
                       UUID v4 de la base de datos o código de inventario formateado del activo.
                     </p>
                   )}
@@ -662,7 +663,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 {/* Campo: Ubicación Física / Sala */}
                 <div className="space-y-1.5">
                   <label htmlFor="incidencia-ubicacion" className="block text-sm font-medium text-gray-700">
-                    Ubicación o Entorno <span className="text-xs text-gray-400 font-normal">(Opcional)</span>
+                    Ubicación o Entorno <span className="text-xs text-gray-600 font-normal">(Opcional)</span>
                   </label>
                   <div className="relative">
                     <input
@@ -674,7 +675,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                       className="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring outline-none text-sm transition-all"
                     />
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600">
                     Lugar físico o entorno donde se encuentra el dispositivo.
                   </p>
                 </div>
@@ -727,12 +728,12 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                   </div>
 
                   {touched.categoria && errors.categoria ? (
-                    <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
-                      <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <p role="alert" className="mt-1 text-xs text-red-700 flex items-center gap-1 font-medium">
+                      <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
                       {errors.categoria}
                     </p>
                   ) : (
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-gray-600">
                       {categoria
                         ? CATEGORIAS_FALLA.find(c => c.id === categoria)?.desc
                         : 'Ayuda a canalizar el ticket al equipo técnico idóneo.'}
@@ -747,14 +748,14 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               <div className="border-b border-gray-100 pb-4 flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <FiAlignLeft className="text-primary" />
+                    <FiAlignLeft className="text-primary" aria-hidden="true" />
                     Detalle y Diagnóstico
                   </h3>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-gray-600 mt-1">
                     Proporciona suficiente detalle para reproducir y diagnosticar el problema.
                   </p>
                 </div>
-                <span className="text-xs font-mono text-gray-400">
+                <span className="text-xs font-mono text-gray-600" aria-live="polite">
                   {descripcion.length} / 1000 caracteres
                 </span>
               </div>
@@ -762,7 +763,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               {/* Campo: Descripción */}
               <div>
                 <label htmlFor="incidencia-descripcion" className="block text-sm font-medium text-gray-700 mb-1">
-                  Descripción de la Falla <span className="text-red-500">*</span>
+                  Descripción de la Falla <span className="text-red-600" aria-hidden="true">*</span>
                 </label>
                 <textarea
                   id="incidencia-descripcion"
@@ -772,6 +773,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                   onChange={(e) => handleFieldChange('descripcion', e.target.value)}
                   onBlur={() => handleBlur('descripcion')}
                   disabled={isSubmitting}
+                  aria-invalid={Boolean(touched.descripcion && errors.descripcion)}
                   placeholder="Describe qué ocurrió, cuáles fueron los síntomas observados, mensajes de error en pantalla o códigos emitidos, y si el incidente causó la detención de operaciones..."
                   className={`w-full p-4 rounded-lg border text-sm transition-all outline-none resize-y focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring ${touched.descripcion && errors.descripcion
                       ? 'border-red-400 focus:ring-2 focus:ring-red-300 focus:border-red-500 bg-red-50/20'
@@ -781,12 +783,12 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
                 />
 
                 {touched.descripcion && errors.descripcion ? (
-                  <p className="mt-1 text-xs text-red-600 flex items-center gap-1 font-medium">
-                    <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  <p role="alert" className="mt-1 text-xs text-red-700 flex items-center gap-1 font-medium">
+                    <FiAlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
                     {errors.descripcion}
                   </p>
                 ) : (
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-gray-600">
                     Sé lo más específico posible para agilizar el diagnóstico del equipo de soporte.
                   </p>
                 )}
@@ -794,9 +796,9 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
 
               {/* Campo: Adjuntar Evidencias Fotográficas (hasta 5 fotos) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Evidencias Fotográficas o Archivos de Registro <span className="text-xs text-gray-400 font-normal">(Opcional — Máx. {MAX_EVIDENCIAS} fotos, 5MB c/u)</span>
-                </label>
+                <span className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Evidencias Fotográficas o Archivos de Registro <span className="text-xs text-gray-600 font-normal">(Opcional — Máx. {MAX_EVIDENCIAS} fotos, 5MB c/u)</span>
+                </span>
 
                 <ImageUploader
                   archivos={evidenciasAdjuntas}

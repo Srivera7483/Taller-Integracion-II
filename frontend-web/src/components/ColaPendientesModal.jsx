@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect } from 'react';
 import {
   FiX,
   FiRefreshCw,
@@ -12,6 +12,7 @@ import {
 } from 'react-icons/fi';
 import { useColaSincronizacion } from '../hooks/useColaSincronizacion';
 import { useNetworkStatus } from '../context/NetworkStatusContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 /**
  * Retorna las clases de estilo Tailwind apropiadas según el estado de sincronización del ítem.
@@ -56,26 +57,8 @@ const ColaPendientesModal = ({
     cargarColaPendiente,
   } = controladorCola;
 
-  // Cierra el modal con la tecla Escape para cumplir con accesibilidad W3C Dialog
-  const manejarTeclaEscape = useCallback(
-    (eventoTeclado) => {
-      if (eventoTeclado.key === 'Escape' && estaAbierto) {
-        alCerrar();
-      }
-    },
-    [estaAbierto, alCerrar],
-  );
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.addEventListener('keydown', manejarTeclaEscape);
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('keydown', manejarTeclaEscape);
-      }
-    };
-  }, [manejarTeclaEscape]);
+  // TAL-204 (WCAG 2.1 AA): Focus trap + cierre con Escape + restauración de foco
+  const dialogRef = useFocusTrap(estaAbierto, { onClose: alCerrar });
 
   // Si el modal se abre, refrescamos el contenido para garantizar exactitud inmediata
   useEffect(() => {
@@ -96,8 +79,15 @@ const ColaPendientesModal = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="titulo-cola-pendientes"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) alCerrar();
+      }}
     >
-      <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col max-h-[90vh] overflow-hidden">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col max-h-[90vh] overflow-hidden focus:outline-none"
+      >
         {/* Cabecera del modal */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 bg-gray-50/70">
           <div className="flex items-center gap-3">
@@ -127,7 +117,7 @@ const ColaPendientesModal = ({
           <button
             type="button"
             onClick={alCerrar}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-label="Cerrar modal de cola de pendientes"
             title="Cerrar ventana"
           >
@@ -258,7 +248,7 @@ const ColaPendientesModal = ({
                     <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100 flex items-start gap-2">
                       <FiBox className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider block">
                           Activo Asociado
                         </span>
                         <span
@@ -268,7 +258,7 @@ const ColaPendientesModal = ({
                         >
                           {itemAccion.activoDetalle?.nombre || 'Activo institucional'}
                         </span>
-                        <span className="text-[11px] text-gray-500 block truncate">
+                        <span className="text-[11px] text-gray-600 block truncate">
                           Código: {itemAccion.activoDetalle?.codigo || 'N/A'}
                           {itemAccion.activoDetalle?.ubicacion
                             ? ` • ${itemAccion.activoDetalle.ubicacion}`
@@ -279,9 +269,9 @@ const ColaPendientesModal = ({
 
                     {/* Orden / Incidencia asociada */}
                     <div className="bg-gray-50 rounded-lg p-2.5 border border-gray-100 flex items-start gap-2">
-                      <FiFileText className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+                      <FiFileText className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
                       <div className="min-w-0 flex-1">
-                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">
+                        <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider block">
                           Orden / Incidencia
                         </span>
                         <span
@@ -291,7 +281,7 @@ const ColaPendientesModal = ({
                         >
                           {itemAccion.ordenDetalle?.titulo || 'Operación general'}
                         </span>
-                        <span className="text-[11px] text-gray-500 block truncate">
+                        <span className="text-[11px] text-gray-600 block truncate">
                           Referencia: {itemAccion.ordenDetalle?.codigo || 'Pendiente'}
                           {itemAccion.ordenDetalle?.prioridad
                             ? ` • Prioridad ${itemAccion.ordenDetalle.prioridad}`
@@ -327,13 +317,13 @@ const ColaPendientesModal = ({
 
         {/* Pie del modal */}
         <div className="px-5 py-3.5 border-t border-gray-200 bg-gray-50/70 flex items-center justify-between text-xs">
-          <span className="text-gray-500 text-[11px]">
+          <span className="text-gray-600 text-[11px]">
             Sincronización automática activa en segundo plano mediante Service Worker.
           </span>
           <button
             type="button"
             onClick={alCerrar}
-            className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Cerrar
           </button>

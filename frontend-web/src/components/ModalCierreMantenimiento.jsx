@@ -20,6 +20,7 @@ import NetworkStatusContext from '../context/NetworkStatusContext';
 import OfflineActionModal, { ACTION_TYPES } from './OfflineActionModal';
 import api from '../services/api';
 import { hasPermission } from '../services/authService';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 // Lista de materiales e insumos comunes para selección rápida táctil en tablets
 const MATERIALES_FRECUENTES = [
@@ -107,6 +108,13 @@ const ModalCierreMantenimiento = ({
   const networkContext = useContext(NetworkStatusContext);
   const isOnline = networkContext?.isOnline ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
   const isServerReachable = networkContext?.isServerReachable ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  // TAL-204 (WCAG 2.1 AA): Focus trap + cierre con Escape
+  const dialogRef = useFocusTrap(Boolean(isOpen && orden), {
+    onClose: () => {
+      if (!isSubmitting) onClose();
+    },
+  });
 
   // Reiniciar estado cuando se abre para una nueva orden
   useEffect(() => {
@@ -430,8 +438,10 @@ const ModalCierreMantenimiento = ({
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         id="modal-cierre-contenedor"
-        className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] transform transition-all"
+        className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] transform transition-all focus:outline-none"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-cierre-titulo"
@@ -855,11 +865,11 @@ const ModalCierreMantenimiento = ({
                                     type="button"
                                     onClick={() => eliminarMaterial(idx)}
                                     disabled={isSubmitting}
-                                    className="text-gray-400 hover:text-red-600 p-1 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring cursor-pointer"
+                                    className="text-gray-500 hover:text-red-700 p-1 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 cursor-pointer"
                                     title="Eliminar material"
-                                    aria-label="Eliminar"
+                                    aria-label={`Eliminar material ${m.nombre}`}
                                   >
-                                    <FiTrash2 className="w-3.5 h-3.5" />
+                                    <FiTrash2 className="w-3.5 h-3.5" aria-hidden="true" />
                                   </button>
                                 </div>
                               ))}

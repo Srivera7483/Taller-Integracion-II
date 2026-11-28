@@ -164,7 +164,7 @@ const HitoTimelineCard = ({ evento, _index, isLast }) => {
             </span>
 
             {/* Código de Trazabilidad */}
-            <span className="font-mono text-[11px] text-gray-500 font-semibold bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+            <span className="font-mono text-[11px] text-gray-700 font-semibold bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
               {evento.id}
             </span>
 
@@ -173,8 +173,8 @@ const HitoTimelineCard = ({ evento, _index, isLast }) => {
               <span className="inline-flex items-center gap-1 text-[11px] text-gray-600 font-medium">
                 {evento.estadoAnterior && (
                   <>
-                    <span className="line-through text-gray-400">{evento.estadoAnterior}</span>
-                    <FiArrowRight className="w-3 h-3 text-gray-400" />
+                    <span className="line-through text-gray-600">{evento.estadoAnterior}</span>
+                    <FiArrowRight className="w-3 h-3 text-gray-500" aria-hidden="true" />
                   </>
                 )}
                 <StatusBadge status={evento.estadoNuevo} />
@@ -183,13 +183,13 @@ const HitoTimelineCard = ({ evento, _index, isLast }) => {
           </div>
 
           {/* Fecha y tiempo relativo */}
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 whitespace-nowrap">
-            <FiClock className="w-3.5 h-3.5 text-gray-400" />
+          <div className="flex items-center gap-1.5 text-xs text-gray-600 whitespace-nowrap">
+            <FiClock className="w-3.5 h-3.5 text-gray-500" aria-hidden="true" />
             <time dateTime={evento.fecha} title={evento.fecha}>
               {formatearFecha(evento.fecha)}
             </time>
-            <span className="text-gray-300">•</span>
-            <span className="text-[11px] text-gray-400 font-medium">{tiempoRelativo(evento.fecha)}</span>
+            <span className="text-gray-400" aria-hidden="true">•</span>
+            <span className="text-[11px] text-gray-600 font-medium">{tiempoRelativo(evento.fecha)}</span>
           </div>
         </div>
 
@@ -224,11 +224,12 @@ const HitoTimelineCard = ({ evento, _index, isLast }) => {
             {tieneDetallesExtras && (
               <button
                 type="button"
+                aria-expanded={expandido}
                 onClick={() => setExpandido(!expandido)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-primary py-1 px-2.5 rounded-lg hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-primary py-1 px-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span>{expandido ? 'Ocultar campos del registro' : 'Ver campos del registro (BD)'}</span>
-                {expandido ? <FiChevronUp className="w-3.5 h-3.5" /> : <FiChevronDown className="w-3.5 h-3.5" />}
+                {expandido ? <FiChevronUp className="w-3.5 h-3.5" aria-hidden="true" /> : <FiChevronDown className="w-3.5 h-3.5" aria-hidden="true" />}
               </button>
             )}
           </div>
@@ -331,8 +332,8 @@ const TimelineActivo = ({
 }) => {
   if (cargando) {
     return (
-      <div className="w-full py-16 flex flex-col items-center justify-center gap-3 bg-white rounded-xl border border-gray-200 shadow-xs">
-        <div className="w-9 h-9 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+      <div role="status" aria-live="polite" className="w-full py-16 flex flex-col items-center justify-center gap-3 bg-white rounded-xl border border-gray-200 shadow-xs">
+        <div className="w-9 h-9 border-3 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
         <p className="text-sm font-semibold text-gray-600">
           Consultando y consolidando ciclo de vida del activo...
         </p>

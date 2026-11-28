@@ -501,7 +501,7 @@ const DetalleIncidencia = () => {
   }
 
   if (error || !incidencia) {
-    return <div className="p-8 text-center text-red-500 font-medium">Error al cargar la incidencia.</div>;
+    return <div role="alert" className="p-8 text-center text-red-700 font-medium">Error al cargar la incidencia.</div>;
   }
 
   const estadoLower = (incidencia.estado || '').toLowerCase();
@@ -548,11 +548,11 @@ const DetalleIncidencia = () => {
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Navegación */}
       <nav aria-label="Ruta de navegación" className="flex items-center gap-2 text-sm text-gray-600">
-        <Link to="/dashboard" className="hover:text-blue-600 transition-colors">Inicio</Link>
+        <Link to="/dashboard" className="hover:text-blue-700 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Inicio</Link>
         <FiChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-        <Link to="/incidencias" className="hover:text-blue-600 transition-colors">Incidencias</Link>
+        <Link to="/incidencias" className="hover:text-blue-700 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Incidencias</Link>
         <FiChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-        <span className="font-semibold text-gray-900">Incidencia {incidencia.id}</span>
+        <span className="font-semibold text-gray-900" aria-current="page">Incidencia {incidencia.id}</span>
       </nav>
 
       {/* TAL-135: Panel destacado cuando la incidencia fue desestimada / rechazada */}
@@ -587,8 +587,8 @@ const DetalleIncidencia = () => {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-gray-100">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{incidencia.titulo}</h1>
-            <p className="text-xs text-gray-500 font-mono mt-0.5">ID: {incidencia.id}</p>
+            <h2 className="text-xl font-bold text-gray-900">{incidencia.titulo}</h2>
+            <p className="text-xs text-gray-600 font-mono mt-0.5">ID: {incidencia.id}</p>
           </div>
           <div className="flex flex-col items-start md:items-end gap-1.5">
             <StatusBadge status={incidencia.estado} />
@@ -600,7 +600,7 @@ const DetalleIncidencia = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <h4 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Activo Afectado</h4>
+            <h3 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Activo Afectado</h3>
             <div className="flex items-start gap-2 text-gray-800 font-medium">
               <FiBox className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
               <div className="space-y-0.5 min-w-0">
@@ -610,7 +610,7 @@ const DetalleIncidencia = () => {
                     : incidencia.codigo_qr_activo || (incidencia.id_activo ? (esUuid(incidencia.id_activo) ? `ID ${incidencia.id_activo.substring(0, 8)}` : incidencia.id_activo) : 'Sin activo asociado')}
                 </span>
                 {incidencia.numero_serie_activo && (
-                  <span className="inline-block text-xs font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                  <span className="inline-block text-xs font-mono text-gray-700 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
                     S/N: {incidencia.numero_serie_activo}
                   </span>
                 )}
@@ -618,7 +618,7 @@ const DetalleIncidencia = () => {
             </div>
           </div>
           <div>
-            <h4 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Técnico Asignado</h4>
+            <h3 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Técnico Asignado</h3>
             <div className="flex items-center justify-between gap-2 text-gray-800 font-medium">
               <div className="flex items-center gap-2">
                 <FiUser className="w-4 h-4 text-blue-600" aria-hidden="true" />
@@ -634,24 +634,24 @@ const DetalleIncidencia = () => {
                 {incidencia.id_orden && (puedeResolver || puedeAsignar) && (
                   <Link
                     to={`/ordenes/${encodeURIComponent(incidencia.id_orden)}`}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     title="Abrir detalle de la Orden de Trabajo"
                   >
-                    <FiFileText className="w-3.5 h-3.5" /> Orden
+                    <FiFileText className="w-3.5 h-3.5" aria-hidden="true" /> Orden
                   </Link>
                 )}
                 {puedeAsignar && !estaCerrada && (
                   <Link
                     to={`/incidencias/asignar?incidenciaId=${incidencia.id}`}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary-50 text-primary border border-primary-200 hover:bg-primary-100 transition-colors"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary-50 text-primary border border-primary-200 hover:bg-primary-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     {incidencia.asignado ? (
                       <>
-                        <FiRepeat className="w-3.5 h-3.5" /> Reasignar
+                        <FiRepeat className="w-3.5 h-3.5" aria-hidden="true" /> Reasignar
                       </>
                     ) : (
                       <>
-                        <FiUserCheck className="w-3.5 h-3.5" /> Asignar
+                        <FiUserCheck className="w-3.5 h-3.5" aria-hidden="true" /> Asignar
                       </>
                     )}
                   </Link>
@@ -660,17 +660,18 @@ const DetalleIncidencia = () => {
             </div>
           </div>
           <div>
-            <h4 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Prioridad (Clasificación)</h4>
+            <h3 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">Prioridad (Clasificación)</h3>
             <div className="flex items-center gap-2 flex-wrap">
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border uppercase ${getPriorityBadgeClass(incidencia.prioridad)}`}>
                 {incidencia.prioridad || 'Media'}
               </span>
               {puedeClasificar && (
                 <select
+                  aria-label="Clasificar prioridad de la incidencia"
                   disabled={actualizandoPrioridad}
                   value={(incidencia.prioridad || 'Media').toLowerCase()}
                   onChange={(e) => void handleCambiarPrioridad(e.target.value)}
-                  className="text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white text-gray-700 font-medium focus:ring-2 focus:ring-primary focus:outline-none cursor-pointer"
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white text-gray-700 font-medium focus:ring-2 focus:ring-primary focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
                   title="Clasificar Prioridad (Solo Supervisor / Administrador)"
                 >
                   <option value="baja">Baja</option>
@@ -684,7 +685,7 @@ const DetalleIncidencia = () => {
         </div>
 
         <div className="space-y-2">
-          <h4 className="text-xs uppercase tracking-wider text-gray-600 font-semibold">Descripción del problema</h4>
+          <h3 className="text-xs uppercase tracking-wider text-gray-600 font-semibold">Descripción del problema</h3>
           <p className="text-sm text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-100 whitespace-pre-wrap leading-relaxed">
             {incidencia.descripcion}
           </p>
@@ -693,9 +694,9 @@ const DetalleIncidencia = () => {
         {/* Historial de Asignaciones / Órdenes de Trabajo */}
         {historialAsignaciones.length > 0 && (
           <div className="pt-3 border-t border-gray-100 space-y-2">
-            <h4 className="text-xs uppercase tracking-wider text-gray-600 font-semibold">
+            <h3 className="text-xs uppercase tracking-wider text-gray-600 font-semibold">
               Trazabilidad de Asignaciones ({historialAsignaciones.length})
-            </h4>
+            </h3>
             <div className="space-y-2">
               {historialAsignaciones.map((item) => (
                 <div
@@ -754,9 +755,9 @@ const DetalleIncidencia = () => {
             <button
               type="button"
               onClick={() => setMostrarSubidorNuevo(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <FiPlusCircle className="w-3.5 h-3.5" />
+              <FiPlusCircle className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Agregar Foto</span>
             </button>
           )}
@@ -769,7 +770,7 @@ const DetalleIncidencia = () => {
               <button
                 type="button"
                 onClick={() => setMostrarSubidorNuevo(false)}
-                className="text-xs text-gray-500 hover:text-gray-800"
+                className="text-xs text-gray-600 hover:text-gray-900 rounded px-1.5 py-0.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Cancelar
               </button>
@@ -814,9 +815,9 @@ const DetalleIncidencia = () => {
               <button
                 type="button"
                 onClick={() => setMostrarSubidorNuevo(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 mt-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
-                <FiUploadCloud className="w-4 h-4" />
+                <FiUploadCloud className="w-4 h-4" aria-hidden="true" />
                 <span>Subir Evidencia a Cloudinary</span>
               </button>
             )}
@@ -906,17 +907,17 @@ const DetalleIncidencia = () => {
                   type="button"
                   disabled={resolviendo}
                   onClick={() => void handleResolverDirecto()}
-                  className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px]"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
-                  <FiCheckCircle className="w-4 h-4" />
+                  <FiCheckCircle className="w-4 h-4" aria-hidden="true" />
                   <span>{resolviendo ? 'Resolviendo...' : 'Marcar como Resuelta'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(true)}
-                  className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px]"
+                  className="w-full sm:w-auto px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 >
-                  <FiFileText className="w-4 h-4" />
+                  <FiFileText className="w-4 h-4" aria-hidden="true" />
                   <span>Diagnóstico y Cierre</span>
                 </button>
               </div>

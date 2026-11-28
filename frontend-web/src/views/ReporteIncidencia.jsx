@@ -13,30 +13,30 @@ const ReporteIncidencia = () => {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Breadcrumb Navigation */}
-      <nav className="flex items-center gap-2 text-sm text-gray-500">
-        <Link to="/dashboard" className="hover:text-primary transition-colors">
+      <nav aria-label="Ruta de navegación" className="flex items-center gap-2 text-sm text-gray-600">
+        <Link to="/dashboard" className="hover:text-primary transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           Inicio
         </Link>
-        <FiChevronRight className="w-3.5 h-3.5" />
-        <Link to="/incidencias" className="hover:text-primary transition-colors">
+        <FiChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+        <Link to="/incidencias" className="hover:text-primary transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           Incidencias
         </Link>
-        <FiChevronRight className="w-3.5 h-3.5" />
-        <span className="font-semibold text-gray-900">Nueva Incidencia</span>
+        <FiChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+        <span className="font-semibold text-gray-900" aria-current="page">Nueva Incidencia</span>
       </nav>
 
       {/* Header Banner */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
             Reportar Nueva Incidencia
-          </h1>
+          </h2>
           <p className="text-gray-600 text-sm mt-1">
             Completa el formulario a continuación para notificar al equipo de infraestructura sobre una falla o anomalía operativa.
           </p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-primary-50 text-primary text-xs font-semibold rounded-lg border border-primary-200 self-start md:self-auto">
-          <FiShield className="w-4 h-4" /> Mesa de Ayuda Activa (24/7)
+          <FiShield className="w-4 h-4" aria-hidden="true" /> Mesa de Ayuda Activa (24/7)
         </div>
       </div>
 
@@ -107,8 +107,8 @@ const ReporteIncidencia = () => {
                 <FiPhoneCall className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="text-sm font-semibold">¿Incidente Catastrófico?</h4>
-                <p className="text-xs text-slate-400">Canal directo con el NOC</p>
+                <h3 className="text-sm font-semibold">¿Incidente Catastrófico?</h3>
+                <p className="text-xs text-slate-300">Canal directo con el NOC</p>
               </div>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">

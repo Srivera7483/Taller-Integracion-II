@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
   FiX,
   FiTrash2,
@@ -7,6 +7,7 @@ import {
   FiUploadCloud,
   FiAlertCircle
 } from 'react-icons/fi';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 /**
  * ModalPrevisualizadorImagen
@@ -23,21 +24,8 @@ const ModalPrevisualizadorImagen = ({
   onLimpiarImagen,
   onCambiarImagen,
 }) => {
-  const modalRef = useRef(null);
-
-  // Manejador de teclado para cerrar con tecla Escape
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  // TAL-204 (WCAG 2.1 AA): Focus trap + cierre con Escape + restauración de foco
+  const modalRef = useFocusTrap(Boolean(isOpen && imageUrl), { onClose });
 
   // Si no está abierto o no hay URL, no renderizar nada
   if (!isOpen || !imageUrl) return null;
@@ -64,8 +52,9 @@ const ModalPrevisualizadorImagen = ({
     >
       <div
         ref={modalRef}
+        tabIndex={-1}
         id="modal-previsualizador-contenedor"
-        className="relative bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden flex flex-col w-full max-w-4xl max-h-[92vh] transform transition-all text-slate-100"
+        className="relative bg-slate-900 border border-slate-700/80 rounded-xl shadow-2xl overflow-hidden flex flex-col w-full max-w-4xl max-h-[92vh] transform transition-all text-slate-100 focus:outline-none"
       >
         {/* Cabecera del Modal */}
         <div className="bg-slate-800/90 border-b border-slate-700/70 px-4 sm:px-6 py-3.5 flex items-center justify-between flex-shrink-0">

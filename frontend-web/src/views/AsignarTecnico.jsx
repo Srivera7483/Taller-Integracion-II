@@ -207,12 +207,12 @@ const AsignarTecnico = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <nav className="flex items-center gap-2 text-sm text-gray-500">
-        <Link to="/dashboard" className="hover:text-primary transition-colors">Inicio</Link>
-        <FiChevronRight className="w-3.5 h-3.5" />
-        <Link to="/incidencias" className="hover:text-primary transition-colors">Incidencias</Link>
-        <FiChevronRight className="w-3.5 h-3.5" />
-        <span className="font-semibold text-gray-900">
+      <nav aria-label="Ruta de navegación" className="flex items-center gap-2 text-sm text-gray-600">
+        <Link to="/dashboard" className="hover:text-primary transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Inicio</Link>
+        <FiChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+        <Link to="/incidencias" className="hover:text-primary transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Incidencias</Link>
+        <FiChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+        <span className="font-semibold text-gray-900" aria-current="page">
           {esReasignacion ? 'Reasignación de Técnico' : 'Asignación de Órdenes'}
         </span>
       </nav>
@@ -220,9 +220,9 @@ const AsignarTecnico = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
               {esReasignacion ? 'Reasignar Técnico a Incidencia' : 'Asignación de Técnico a Incidencia'}
-            </h1>
+            </h2>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary-50 text-primary border border-primary-200">
               Panel de Supervisor
             </span>
@@ -233,17 +233,17 @@ const AsignarTecnico = () => {
         </div>
 
         <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-800 text-xs font-medium rounded-lg border border-amber-200 self-start md:self-auto">
-          <FiShield className="w-4 h-4 text-amber-600 flex-shrink-0" />
+          <FiShield className="w-4 h-4 text-amber-700 flex-shrink-0" aria-hidden="true" />
           <span>Rol <strong>Supervisor / Administrador</strong></span>
         </div>
       </div>
 
       {ordenEmitida && (
-        <div id="banner-orden-emitida" className="bg-emerald-50 border border-emerald-300 rounded-xl p-5 shadow-sm text-emerald-950">
+        <div id="banner-orden-emitida" role="status" aria-live="polite" className="bg-emerald-50 border border-emerald-300 rounded-xl p-5 shadow-sm text-emerald-950">
           <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
             <div className="flex items-start gap-3.5">
               <div className="p-2.5 bg-emerald-100 text-emerald-700 rounded-xl flex-shrink-0 mt-0.5">
-                <FiCheckCircle className="w-6 h-6" />
+                <FiCheckCircle className="w-6 h-6" aria-hidden="true" />
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -252,7 +252,7 @@ const AsignarTecnico = () => {
                       ? '¡Reasignación Registrada en PostgreSQL!'
                       : '¡Orden de Trabajo Registrada en PostgreSQL!'}
                   </h3>
-                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-200 text-emerald-800 font-mono">
+                  <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-200 text-emerald-900 font-mono">
                     {ordenEmitida.httpStatus} CREATED
                   </span>
                 </div>
@@ -261,15 +261,15 @@ const AsignarTecnico = () => {
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-2">
                   <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200">
-                    <span className="text-[11px] text-emerald-700 font-medium block">ID Orden</span>
+                    <span className="text-[11px] text-emerald-800 font-medium block">ID Orden</span>
                     <strong className="font-mono text-gray-900">{ordenEmitida.id_orden.substring(0, 12)}...</strong>
                   </div>
                   <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200">
-                    <span className="text-[11px] text-emerald-700 font-medium block">Técnico Designado</span>
+                    <span className="text-[11px] text-emerald-800 font-medium block">Técnico Designado</span>
                     <strong className="text-gray-900">{ordenEmitida.tecnico_nombre}</strong>
                   </div>
                   <div className="bg-white/80 p-2.5 rounded-lg border border-emerald-200">
-                    <span className="text-[11px] text-emerald-700 font-medium block">Hora de Emisión</span>
+                    <span className="text-[11px] text-emerald-800 font-medium block">Hora de Emisión</span>
                     <strong className="text-gray-900">{ordenEmitida.fecha_emision}</strong>
                   </div>
                 </div>
@@ -279,13 +279,13 @@ const AsignarTecnico = () => {
               <button
                 type="button"
                 onClick={() => setOrdenEmitida(null)}
-                className="text-xs px-3.5 py-2 rounded-lg bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-medium cursor-pointer w-full sm:w-auto"
+                className="text-xs px-3.5 py-2 rounded-lg bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 font-medium cursor-pointer w-full sm:w-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Cerrar aviso
               </button>
               <Link
                 to={`/incidencias/${ordenEmitida.incidencia_id}`}
-                className="text-xs px-3.5 py-2 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-medium w-full sm:w-auto text-center"
+                className="text-xs px-3.5 py-2 rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 font-medium w-full sm:w-auto text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
               >
                 Ver Detalle
               </Link>
@@ -295,9 +295,9 @@ const AsignarTecnico = () => {
       )}
 
       {errorApi && (
-        <div id="alerta-error-api" className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-900 text-xs shadow-sm flex items-start justify-between gap-3">
+        <div id="alerta-error-api" role="alert" className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-900 text-xs shadow-sm flex items-start justify-between gap-3">
           <div className="flex items-start gap-2.5">
-            <FiAlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <FiAlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
             <div>
               <p className="font-bold text-red-800 text-sm">Error en la operación</p>
               <p className="mt-0.5 text-red-700">{errorApi}</p>
@@ -306,9 +306,9 @@ const AsignarTecnico = () => {
           <button
             type="button"
             onClick={cargarDatosReales}
-            className="px-3 py-1.5 bg-white border border-red-300 text-red-800 font-semibold rounded-lg hover:bg-red-100 flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+            className="px-3 py-1.5 bg-white border border-red-300 text-red-800 font-semibold rounded-lg hover:bg-red-100 flex items-center gap-1.5 flex-shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <FiRefreshCw className="w-3.5 h-3.5" /> Reintentar
+            <FiRefreshCw className="w-3.5 h-3.5" aria-hidden="true" /> Reintentar
           </button>
         </div>
       )}
@@ -316,15 +316,15 @@ const AsignarTecnico = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           {loadingDatos ? (
-            <div className="py-12 text-center text-gray-500">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mx-auto mb-3" />
+            <div role="status" aria-live="polite" className="py-12 text-center text-gray-600">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent mx-auto mb-3" aria-hidden="true" />
               <p className="text-sm font-medium">Consultando incidencias y técnicos en la base de datos...</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="select-incidencia" className="block text-sm font-semibold text-gray-800 mb-1.5">
-                  1. Seleccionar Incidencia Activa <span className="text-red-500">*</span>
+                  1. Seleccionar Incidencia Activa <span className="text-red-600" aria-hidden="true">*</span>
                 </label>
                 <select
                   id="select-incidencia"
@@ -334,7 +334,7 @@ const AsignarTecnico = () => {
                     setSelectedTecnicoId('');
                   }}
                   required
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary outline-none cursor-pointer"
                 >
                   <option value="">-- Selecciona una incidencia --</option>
                   {incidenciasGestionables.map((inc) => {
@@ -382,14 +382,14 @@ const AsignarTecnico = () => {
 
               <div>
                 <label htmlFor="select-tecnico" className="block text-sm font-semibold text-gray-800 mb-1.5">
-                  2. {esReasignacion ? 'Nuevo Técnico Responsable' : 'Técnico Responsable'} <span className="text-red-500">*</span>
+                  2. {esReasignacion ? 'Nuevo Técnico Responsable' : 'Técnico Responsable'} <span className="text-red-600" aria-hidden="true">*</span>
                 </label>
                 <select
                   id="select-tecnico"
                   value={selectedTecnicoId}
                   onChange={(e) => setSelectedTecnicoId(e.target.value)}
                   required
-                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer font-medium"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary outline-none cursor-pointer font-medium"
                 >
                   <option value="">-- Seleccionar técnico registrado --</option>
                   {tecnicos.map((tec) => {
@@ -405,7 +405,7 @@ const AsignarTecnico = () => {
                   })}
                 </select>
                 {mismoTecnicoSeleccionado && (
-                  <p className="text-xs text-red-600 mt-1">
+                  <p role="alert" className="text-xs text-red-700 mt-1 font-medium">
                     Debes elegir un técnico distinto al que ya tiene asignada esta incidencia.
                   </p>
                 )}
@@ -414,28 +414,28 @@ const AsignarTecnico = () => {
               <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <Link
                   to="/incidencias"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <FiArrowLeft className="w-4 h-4" /> Cancelar y Volver
+                  <FiArrowLeft className="w-4 h-4" aria-hidden="true" /> Cancelar y Volver
                 </Link>
 
                 <button
                   type="submit"
                   disabled={!isFormValid || isSubmitting}
-                  className={`w-full sm:w-auto px-6 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2 ${
+                  className={`w-full sm:w-auto px-6 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-md flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${
                     isFormValid && !isSubmitting
                       ? 'bg-primary hover:bg-primary-hover text-white cursor-pointer'
-                      : 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300'
+                      : 'bg-gray-200 text-gray-600 cursor-not-allowed border border-gray-300'
                   }`}
                 >
                   {isSubmitting ? (
                     <>
-                      <FiRefreshCw className="w-4 h-4 animate-spin" />
+                      <FiRefreshCw className="w-4 h-4 animate-spin" aria-hidden="true" />
                       <span>Guardando...</span>
                     </>
                   ) : (
                     <>
-                      {esReasignacion ? <FiRepeat className="w-4 h-4" /> : <FiSend className="w-4 h-4" />}
+                      {esReasignacion ? <FiRepeat className="w-4 h-4" aria-hidden="true" /> : <FiSend className="w-4 h-4" aria-hidden="true" />}
                       <span>{esReasignacion ? 'Confirmar Reasignación' : 'Asignar Orden'}</span>
                     </>
                   )}
@@ -448,17 +448,17 @@ const AsignarTecnico = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-gray-900 text-sm flex items-center gap-2">
-              <FiUserCheck className="text-primary w-4 h-4" />
+              <FiUserCheck className="text-primary w-4 h-4" aria-hidden="true" />
               Técnicos Disponibles
             </h3>
-            <span className="text-[11px] bg-gray-100 text-gray-600 font-semibold px-2 py-0.5 rounded-full">
+            <span className="text-[11px] bg-gray-100 text-gray-700 font-semibold px-2 py-0.5 rounded-full">
               {tecnicos.length} Activos
             </span>
           </div>
 
           <div className="divide-y divide-gray-100 max-h-[380px] overflow-y-auto">
             {tecnicos.length === 0 ? (
-              <p className="text-xs text-gray-500 py-4 text-center">Sin técnicos activos en la BD</p>
+              <p className="text-xs text-gray-600 py-4 text-center">Sin técnicos activos en la BD</p>
             ) : (
               tecnicos.map((tec) => {
                 const idTec = tec.id_usuario || tec.id;
@@ -472,8 +472,9 @@ const AsignarTecnico = () => {
                     key={idTec}
                     type="button"
                     disabled={esElActual}
+                    aria-pressed={isSelected}
                     onClick={() => setSelectedTecnicoId(idTec)}
-                    className={`w-full text-left py-2.5 px-2.5 rounded-lg flex items-center justify-between transition-colors ${
+                    className={`w-full text-left py-2.5 px-2.5 rounded-lg flex items-center justify-between transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                       esElActual
                         ? 'opacity-50 cursor-not-allowed bg-gray-50'
                         : isSelected
@@ -482,12 +483,12 @@ const AsignarTecnico = () => {
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0">
+                      <div className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center flex-shrink-0" aria-hidden="true">
                         {nombreCompleto.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs font-medium text-gray-900 truncate">{nombreCompleto}</p>
-                        <p className="text-[11px] text-gray-500 truncate">{correo}</p>
+                        <p className="text-[11px] text-gray-600 truncate">{correo}</p>
                       </div>
                     </div>
                     {esElActual && (
