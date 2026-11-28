@@ -228,10 +228,10 @@ export class AuthService {
     };
   }
 
-  async listUsers(page: number = 1, limit: number = 15) {
+  async listUsers(page: number = 1, limit: number = 15, rol?: string) {
     const clampedLimit = Math.max(1, Math.min(50, limit));
     const clampedPage = Math.max(1, page);
-    const { usuarios, total, totalPages } = await this.userRepository.findMany(clampedPage, clampedLimit);
+    const { usuarios, total, totalPages } = await this.userRepository.findMany(clampedPage, clampedLimit, rol);
     return {
       datos: usuarios.map((user: any) => ({
         id_usuario: user.id,

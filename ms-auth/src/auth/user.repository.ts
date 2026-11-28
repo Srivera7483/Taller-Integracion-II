@@ -46,20 +46,22 @@ export class UserRepository {
     });
   }
 
-  async findMany(page: number = 1, limit: number = 15) {
+  async findMany(page: number = 1, limit: number = 15, rol?: string) {
     const take = Math.max(1, Math.min(50, limit));
     const skip = (Math.max(1, page) - 1) * take;
+    const where: any = { fechaEliminacion: null };
+    if (rol && rol.trim()) {
+      where.role = { nombreRol: rol.trim().toUpperCase() };
+    }
     const [usuarios, total] = await Promise.all([
       this.prisma.user.findMany({
         skip,
         take,
-        where: { fechaEliminacion: null },
+        where,
         include: { role: true },
         orderBy: { fechaCreacion: 'desc' },
       }),
-      this.prisma.user.count({
-        where: { fechaEliminacion: null },
-      }),
+      this.prisma.user.count({ where }),
     ]);
     return {
       usuarios,
