@@ -1,9 +1,11 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload, FiRefreshCw } from 'react-icons/fi';
+import { FiHome, FiAlertCircle, FiBox, FiLogOut, FiUsers, FiX, FiActivity, FiCalendar, FiUser, FiDownload, FiRefreshCw, FiHelpCircle } from 'react-icons/fi';
 import Header from './Header';
 import CriticalAlertBanner from './CriticalAlertBanner';
 import FabNuevaIncidencia from './FabNuevaIncidencia';
+import UserTourGuide from './UserTourGuide';
+import { haCompletadoRecorrido } from '../utils/userTourStorage';
 import { useColaSincronizacion } from '../hooks/useColaSincronizacion';
 import { cerrarSesion, getUsuarioActual, hasPermission } from '../services/authService';
 
@@ -14,12 +16,21 @@ const Layout = () => {
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [estaAbiertoModalCola, setEstaAbiertoModalCola] = useState(false);
+  const [estaAbiertoTour, setEstaAbiertoTour] = useState(false);
+  const [claveReinicioTour, setClaveReinicioTour] = useState(0);
   const controladorCola = useColaSincronizacion();
   const { cantidadPendientes, estaSincronizando } = controladorCola;
 
   const usuario = getUsuarioActual();
   const rolUsuario = usuario?.rol?.nombre_rol || usuario?.rol || null;
   const nombreUsuario = usuario ? `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || usuario.correo : 'Usuario';
+
+  // Activación automática de la Guía Interactiva en el primer inicio de sesión del usuario
+  useEffect(() => {
+    if (usuario && !haCompletadoRecorrido(usuario)) {
+      setEstaAbiertoTour(true);
+    }
+  }, [usuario]);
 
 
   // Identificación visual del rol del usuario autenticado
@@ -106,12 +117,12 @@ const Layout = () => {
 
   // Definición completa de las opciones del menú (autorización basada en permisos PBAC)
   const allNavItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: FiHome },
-    { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle },
-    { path: '/inventario', label: 'Inventario', icon: FiBox, requiredPermission: 'activos:gestionar' },
-    { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar, requiredPermission: 'mantenimientos:crear' },
-    { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity },
-    { path: '/usuarios', label: 'Usuarios', icon: FiUsers, requiredPermission: 'usuarios:gestionar' },
+    { path: '/dashboard', label: 'Dashboard', icon: FiHome, tourId: 'nav-dashboard' },
+    { path: '/incidencias', label: 'Incidencias', icon: FiAlertCircle, tourId: 'nav-incidencias' },
+    { path: '/inventario', label: 'Inventario', icon: FiBox, requiredPermission: 'activos:gestionar', tourId: 'nav-inventario' },
+    { path: '/mantenimientos', label: 'Mantenimientos', icon: FiCalendar, requiredPermission: 'mantenimientos:crear', tourId: 'nav-mantenimientos' },
+    { path: '/trazabilidad', label: 'Trazabilidad', icon: FiActivity, tourId: 'nav-trazabilidad' },
+    { path: '/usuarios', label: 'Usuarios', icon: FiUsers, requiredPermission: 'usuarios:gestionar', tourId: 'nav-usuarios' },
   ];
 
   // Filtrar los elementos según los permisos del usuario autenticado
@@ -181,6 +192,7 @@ const Layout = () => {
                 <li key={item.path}>
                   <NavLink
                     to={item.path}
+                    data-tour={item.tourId}
                     onClick={() => setIsMobileMenuOpen(false)}
                     className={({ isActive }) => `
                       flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1
@@ -203,7 +215,10 @@ const Layout = () => {
         <div className="p-4 border-t border-gray-200 bg-gray-50/50 space-y-3">
 
           {/* Tarjeta del usuario */}
-          <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-gray-200 shadow-2xs">
+          <div
+            data-tour="tarjeta-usuario"
+            className="flex items-center gap-3 p-2 bg-white rounded-xl border border-gray-200 shadow-2xs"
+          >
             <div
               className={`w-9 h-9 rounded-lg flex items-center justify-center ${coloresRol.avatar}`}
               aria-hidden="true"
@@ -231,6 +246,7 @@ const Layout = () => {
               setIsMobileMenuOpen(false);
               setEstaAbiertoModalCola(true);
             }}
+            data-tour="cola-sincronizacion"
             data-testid="boton-cola-sincronizacion-sidebar"
             className="w-full flex items-center justify-between p-2.5 bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all text-left cursor-pointer group shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             title="Ver cola de sincronización offline"
@@ -285,6 +301,23 @@ const Layout = () => {
             <span>Instalar App</span>
           </button>
 
+          {/* Guía Interactiva de Usuario (TAL-206) */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              setClaveReinicioTour((previo) => previo + 1);
+              setEstaAbiertoTour(true);
+            }}
+            data-testid="boton-ayuda-tour-sidebar"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-gray-700 bg-white hover:bg-gray-100 rounded-xl transition-colors cursor-pointer border border-gray-200 shadow-2xs"
+            title="Abrir guía interactiva del sistema"
+            aria-label="Abrir guía interactiva de usuario"
+          >
+            <FiHelpCircle className="w-4 h-4 text-primary" aria-hidden="true" />
+            <span>Guía de Usuario</span>
+          </button>
+
           {/* Cerrar sesión */}
           <button
             type="button"
@@ -306,6 +339,22 @@ const Layout = () => {
           onOpenMobileMenu={() => setIsMobileMenuOpen(true)}
           isMobileMenuOpen={isMobileMenuOpen}
         >
+          {/* Botón accesible para Guía Interactiva de Usuario (TAL-206) */}
+          <button
+            type="button"
+            onClick={() => {
+              setClaveReinicioTour((previo) => previo + 1);
+              setEstaAbiertoTour(true);
+            }}
+            data-tour="boton-ayuda-tour"
+            data-testid="boton-ayuda-tour-header"
+            className="p-2 rounded-xl text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            title="Abrir guía interactiva de usuario"
+            aria-label="Abrir guía interactiva de usuario"
+          >
+            <FiHelpCircle className="w-5 h-5 text-gray-600 hover:text-primary transition-colors" aria-hidden="true" />
+          </button>
+
           {/* Acceso a la Cola de Sincronización con Badge Numérico en Header (TAL-198 Criterio 1) */}
           <button
             type="button"
@@ -356,6 +405,17 @@ const Layout = () => {
           />
         </Suspense>
       )}
+
+      {/* Guía Visual Interactiva de Usuario (TAL-206) */}
+      <UserTourGuide
+        key={claveReinicioTour}
+        estaAbierto={estaAbiertoTour}
+        alCerrar={() => {
+          setIsMobileMenuOpen(false);
+          setEstaAbiertoTour(false);
+        }}
+        alCambiarEstadoMenuMovil={(abrir) => setIsMobileMenuOpen(abrir)}
+      />
     </div>
   );
 };
