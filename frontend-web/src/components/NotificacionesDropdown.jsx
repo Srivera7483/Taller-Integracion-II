@@ -45,13 +45,12 @@ export {
 
 /**
  * Componente NotificacionesDropdown (TAL-190).
- * Integra campana en el Header, badge dinámico, sincronización instantánea vía WebSocket,
- * animación de rebote y visualización de las últimas 5 notificaciones.
- * Inicialmente vacía hasta registrarse un suceso reciente, con deduplicación estricta para evitar repeticiones.
+ * Integra campana en el Header, badge dinámico sincronizado 1:1 con la lista desplazable,
+ * sincronización instantánea vía WebSocket y animación de rebote.
  */
 const NotificacionesDropdown = ({
   initialNotifications = NOTIFICACIONES_INICIALES,
-  maxDisplay = 5,
+  maxDisplay = 50,
   wsSalas = ['incidencias'],
 }) => {
   const [abierto, setAbierto] = useState(false);
@@ -83,8 +82,17 @@ const NotificacionesDropdown = ({
     notificacionesRef.current = notificaciones;
   }, [notificaciones]);
 
-  // Cuenta notificaciones no leídas
-  const noLeidas = notificaciones.filter((n) => !n.leida).length;
+  // Lista acotada sincronizada 1:1 con el contador del badge y la persistencia local
+  const ultimasNotificaciones = useMemo(
+    () => (typeof maxDisplay === 'number' && maxDisplay > 0 ? notificaciones.slice(0, maxDisplay) : notificaciones),
+    [notificaciones, maxDisplay],
+  );
+
+  // Cuenta notificaciones no leídas exclusivamente sobre las notificaciones accesibles en la lista
+  const noLeidas = useMemo(
+    () => ultimasNotificaciones.filter((n) => !n.leida).length,
+    [ultimasNotificaciones],
+  );
   const prevNoLeidasRef = useRef(noLeidas);
 
   // Sincronizar notificaciones en caso de cambio de usuario en la misma sesión
@@ -158,12 +166,12 @@ const NotificacionesDropdown = ({
       const usuario = getUsuarioActual();
       const storageKey = obtenerStorageKeyNotificaciones(usuario);
       if (storageKey && typeof localStorage !== 'undefined') {
-        localStorage.setItem(storageKey, JSON.stringify(notificaciones.slice(0, 30)));
+        localStorage.setItem(storageKey, JSON.stringify(notificaciones.slice(0, maxDisplay)));
       }
     } catch {
       // Ignorar errores de cuota o serialización
     }
-  }, [notificaciones]);
+  }, [notificaciones, maxDisplay]);
 
   // Forzar actualización periódica para que los tiempos relativos avancen (Ahora mismo -> 1 minuto -> n minutos)
   const [, setRelojTick] = useState(0);
@@ -373,9 +381,6 @@ const NotificacionesDropdown = ({
     setNotificaciones((prev) => marcarTodasComoLeidas(prev));
   };
 
-  // Últimas 5 notificaciones para desplegar en el menú según descripción
-  const ultimasNotificaciones = notificaciones.slice(0, maxDisplay);
-
   return (
     <div className="relative inline-block text-left" ref={dropdownRef}>
       {/* Botón de campana interactivo con badge dinámico */}
@@ -444,8 +449,11 @@ const NotificacionesDropdown = ({
               )}
             </div>
 
-            {/* Lista con las últimas 5 notificaciones desplegadas con enlaces navegables */}
-            <div className="max-h-80 overflow-y-auto divide-y divide-gray-100/80 p-1.5">
+            {/* Lista desplazable con todas las notificaciones sincronizadas y enlaces navegables */}
+            <div
+              data-testid="notification-scroll-list"
+              className="max-h-80 overflow-y-auto overscroll-contain scroll-smooth divide-y divide-gray-100/80 p-1.5"
+            >
               {ultimasNotificaciones.length === 0 ? (
                 <div className="py-8 px-4 text-center">
                   <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
@@ -536,8 +544,13 @@ const NotificacionesDropdown = ({
               )}
             </div>
 
-            {/* Pie del popover con enlace global a incidencias */}
-            <div className="px-4 py-2.5 bg-gray-50/90 border-t border-gray-100 flex items-center justify-end text-xs">
+            {/* Pie del popover con resumen de cantidad y enlace global a incidencias */}
+            <div className="px-4 py-2.5 bg-gray-50/90 border-t border-gray-100 flex items-center justify-between text-xs">
+              <span className="text-[11px] text-gray-500 font-medium">
+                {ultimasNotificaciones.length > 0
+                  ? `${ultimasNotificaciones.length} ${ultimasNotificaciones.length === 1 ? 'notificación' : 'notificaciones'}`
+                  : ''}
+              </span>
               <Link
                 to="/incidencias"
                 onClick={() => setAbierto(false)}
