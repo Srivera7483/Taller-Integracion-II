@@ -35,6 +35,10 @@ model Incidencias {
   ordenes_trabajo   OrdenTrabajo[]
   evidencias        Evidencia[]
 
+  @@index([fecha_creacion(sort: Desc)])
+  @@index([prioridad, fecha_creacion(sort: Desc)])
+  @@index([id_activo, fecha_creacion(sort: Desc)])
+  @@index([id_reportante, fecha_creacion(sort: Desc)])
   @@map("INCIDENCIAS")
 }
 
@@ -50,6 +54,7 @@ model HistorialEstados {
 
   @@index([id_incidencia])
   @@index([id_estado])
+  @@index([id_incidencia, fecha_creacion(sort: Desc), id_historial(sort: Desc)])
   @@map("HISTORIAL_ESTADOS")
 }
 
@@ -65,6 +70,8 @@ model OrdenTrabajo {
 
   @@index([id_incidencia])
   @@index([id_tecnico])
+  @@index([id_incidencia, fecha_creacion(sort: Desc), id_orden(sort: Desc)])
+  @@index([id_tecnico, fecha_cierre, fecha_creacion(sort: Desc)])
   @@map("ORDENES_TRABAJO")
 }
 

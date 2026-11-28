@@ -36,6 +36,8 @@ model Activo {
 
   mantenimientos Mantenimiento[]
 
+  @@index([estado, categoria])
+  @@index([numeroSerie])
   @@map("activos")
 }
 
@@ -47,5 +49,6 @@ model Mantenimiento {
 
   activo           Activo   @relation(fields: [id_activo], references: [id], onDelete: Cascade)
 
+  @@index([id_activo, fecha_programada(sort: Desc)])
   @@map("mantenimientos_preventivos")
 }
