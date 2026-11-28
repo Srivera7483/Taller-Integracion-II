@@ -18,7 +18,11 @@ import {
   FiClock
 } from 'react-icons/fi';
 import { useToast } from '../context/ToastContext';
-import { planificarMantenimiento, fetchActivosParaMantenimiento } from '../services/mantenimientosService';
+import {
+  planificarMantenimiento,
+  fetchActivosParaMantenimiento,
+  fetchMantenimientos,
+} from '../services/mantenimientosService';
 import { useDraftState } from '../hooks/useDraftState';
 
 const calcularFechaMinima = () => {
@@ -43,8 +47,9 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
     searchParams.get('assetId') ||
     '';
 
-  // Catálogo dinámico de activos
+  // Catálogo dinámico de activos y mantenimientos existentes (para evitar duplicados en misma fecha)
   const [activos, setActivos] = useState([]);
+  const [mantenimientosExistentes, setMantenimientosExistentes] = useState([]);
   const [cargandoActivos, setCargandoActivos] = useState(true);
 
   // Estados del formulario alineados con la tabla MANTENIMIENTOS_PREVENTIVOS del MER (TAL-188: borradores locales)
@@ -59,12 +64,16 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
   // Fecha mínima calculada
   const [fechaMinima] = useState(calcularFechaMinima);
 
-  // Cargar activos desde el backend
+  // Cargar activos y mantenimientos existentes desde el backend
   const cargarCatalogoActivos = useCallback(async () => {
     setCargandoActivos(true);
     try {
-      const data = await fetchActivosParaMantenimiento();
+      const [data, mants] = await Promise.all([
+        fetchActivosParaMantenimiento(),
+        fetchMantenimientos().catch(() => []),
+      ]);
       setActivos(data);
+      setMantenimientosExistentes(Array.isArray(mants) ? mants : []);
 
       if (assetFromParam && Array.isArray(data)) {
         const coincidencia = data.find(
@@ -81,16 +90,20 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
     } finally {
       setCargandoActivos(false);
     }
-  }, [assetFromParam, showToast]);
+  }, [assetFromParam, setIdActivo, showToast]);
 
   useEffect(() => {
     let cancel = false;
     const cargar = async () => {
       setCargandoActivos(true);
       try {
-        const data = await fetchActivosParaMantenimiento();
+        const [data, mants] = await Promise.all([
+          fetchActivosParaMantenimiento(),
+          fetchMantenimientos().catch(() => []),
+        ]);
         if (!cancel) {
           setActivos(data);
+          setMantenimientosExistentes(Array.isArray(mants) ? mants : []);
           if (assetFromParam && Array.isArray(data)) {
             const coincidencia = data.find(
               (a) =>
@@ -168,7 +181,7 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
   }, [fechaProgramada, fechaMinima]);
 
   // Validación individual de campos según esquema NuevoMantenimiento (OpenAPI v1.3.0)
-  const validateField = (field, value) => {
+  const validateField = (field, value, currentActivoId = idActivo) => {
     const val = typeof value === 'string' ? value.trim() : value;
     switch (field) {
       case 'idActivo':
@@ -181,6 +194,22 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
         if (Number.isNaN(fechaIngresada.getTime())) return 'Formato de fecha u hora no válido.';
         if (fechaIngresada <= ahora) {
           return 'No se puede agendar un mantenimiento con fecha en el pasado.';
+        }
+        if (currentActivoId) {
+          const mismoDiaExistente = mantenimientosExistentes.some((m) => {
+            const idActMant = m.id_activo || m.activo?.id;
+            if (idActMant !== currentActivoId) return false;
+            const fExistente = new Date(m.fecha_programada);
+            if (Number.isNaN(fExistente.getTime())) return false;
+            return (
+              fExistente.getFullYear() === fechaIngresada.getFullYear() &&
+              fExistente.getMonth() === fechaIngresada.getMonth() &&
+              fExistente.getDate() === fechaIngresada.getDate()
+            );
+          });
+          if (mismoDiaExistente) {
+            return 'Este equipo ya tiene un mantenimiento preventivo agendado para esa misma fecha.';
+          }
         }
         return '';
       }
@@ -258,8 +287,13 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
     } catch (err) {
       const mensajeError =
         err.response?.data?.message ||
+        err.response?.data?.mensaje ||
         err.response?.data?.error ||
         'Error al conectar con el servicio de mantenimientos.';
+      if (err.response?.status === 409) {
+        setErrors((prev) => ({ ...prev, fechaProgramada: mensajeError }));
+        setTouched((prev) => ({ ...prev, fechaProgramada: true }));
+      }
       showToast(mensajeError, 'error');
     } finally {
       setIsSubmitting(false);
@@ -310,9 +344,17 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
               id="idActivo"
               value={idActivo}
               onChange={(e) => {
-                setIdActivo(e.target.value);
-                if (touched.idActivo) {
-                  setErrors((prev) => ({ ...prev, idActivo: validateField('idActivo', e.target.value) }));
+                const nuevoActivoId = e.target.value;
+                setIdActivo(nuevoActivoId);
+                setErrors((prev) => ({
+                  ...prev,
+                  ...(touched.idActivo ? { idActivo: validateField('idActivo', nuevoActivoId, nuevoActivoId) } : {}),
+                  ...(fechaProgramada
+                    ? { fechaProgramada: validateField('fechaProgramada', fechaProgramada, nuevoActivoId) }
+                    : {}),
+                }));
+                if (fechaProgramada) {
+                  setTouched((prev) => ({ ...prev, fechaProgramada: true }));
                 }
               }}
               onBlur={() => handleBlur('idActivo')}
@@ -335,8 +377,8 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
             </div>
           </div>
           {errors.idActivo && touched.idActivo && (
-            <p className="mt-2 text-xs text-rose-600 flex items-center gap-1.5 font-medium animate-fadeIn">
-              <FiAlertCircle className="w-4 h-4 shrink-0" />
+            <p role="alert" className="mt-2 text-xs text-rose-700 flex items-center gap-1.5 font-medium animate-fadeIn">
+              <FiAlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>{errors.idActivo}</span>
             </p>
           )}
@@ -368,9 +410,13 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
                   type="button"
                   onClick={() => {
                     setIdActivo('');
-                    if (touched.idActivo) {
-                      setErrors((prev) => ({ ...prev, idActivo: validateField('idActivo', '') }));
-                    }
+                    setErrors((prev) => ({
+                      ...prev,
+                      ...(touched.idActivo ? { idActivo: validateField('idActivo', '', '') } : {}),
+                      ...(fechaProgramada
+                        ? { fechaProgramada: validateField('fechaProgramada', fechaProgramada, '') }
+                        : {}),
+                    }));
                   }}
                   disabled={isSubmitting}
                   className="text-xs text-slate-500 hover:text-slate-800 font-medium px-2 py-1 rounded-lg hover:bg-slate-200/60 transition-colors inline-flex items-center gap-1 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring"
@@ -384,23 +430,23 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 text-xs">
               <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-primary-100/80 shadow-2xs">
-                <FiLayers className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <FiLayers className="w-4 h-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Categoría</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-600 block tracking-wider">Categoría</span>
                   <span className="font-semibold text-slate-800">{activoSeleccionado.categoria || 'Sin categoría'}</span>
                 </div>
               </div>
               <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-primary-100/80 shadow-2xs">
-                <FiMapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <FiMapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Ubicación</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-600 block tracking-wider">Ubicación</span>
                   <span className="font-semibold text-slate-800">{activoSeleccionado.ubicacion || 'No especificada'}</span>
                 </div>
               </div>
               <div className="flex items-start gap-2.5 bg-white/80 rounded-lg p-2.5 border border-primary-100/80 shadow-2xs">
-                <FiHash className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <FiHash className="w-4 h-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">N° Serie</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-600 block tracking-wider">N° Serie</span>
                   <span className="font-mono font-semibold text-slate-800">{activoSeleccionado.numeroSerie || activoSeleccionado.numero_serie || 'S/N'}</span>
                 </div>
               </div>
@@ -471,8 +517,8 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
           </div>
 
           {errors.fechaProgramada && touched.fechaProgramada && (
-            <p className="mt-2 text-xs text-rose-600 flex items-center gap-1.5 font-medium animate-fadeIn">
-              <FiAlertCircle className="w-4 h-4 shrink-0" />
+            <p role="alert" className="mt-2 text-xs text-rose-700 flex items-center gap-1.5 font-medium animate-fadeIn">
+              <FiAlertCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>{errors.fechaProgramada}</span>
             </p>
           )}
@@ -481,41 +527,41 @@ const PlanificarMantenimientoForm = ({ onCancel, initialAssetId }) => {
 
       {/* TARJETA 3: RESUMEN CORPORATIVO EN TIEMPO REAL */}
       {(idActivo || fechaProgramada) && (
-        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-xl shadow-lg border border-slate-700/80 p-5 sm:p-6 space-y-4">
+        <div role="status" aria-live="polite" className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-xl shadow-lg border border-slate-700/80 p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-700/80 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="p-1.5 rounded-lg bg-primary/30 text-sky-300 border border-primary/40">
-                <FiActivity className="w-4 h-4" />
+                <FiActivity className="w-4 h-4" aria-hidden="true" />
               </div>
               <div>
                 <h4 className="font-bold text-sm text-slate-100 tracking-wide">
                   Resumen de la Planificación Preventiva
                 </h4>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-300">
                   Previsualización del registro en el cronograma corporativo
                 </p>
               </div>
             </div>
-            <span className="self-start sm:self-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/30 text-sky-300 border border-primary/40">
+            <span className="self-start sm:self-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/30 text-sky-200 border border-primary/40">
               Registro en Cronograma
             </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 text-xs">
             <div className="bg-slate-800/70 rounded-lg p-3 border border-slate-700/60">
-              <span className="text-slate-400 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
+              <span className="text-slate-300 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
                 Activo Seleccionado (id_activo)
               </span>
               <p className="font-bold text-slate-100 truncate text-sm">
                 {activoSeleccionado ? activoSeleccionado.nombre : 'Por seleccionar...'}
               </p>
-              <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+              <p className="text-[11px] text-slate-300 font-mono mt-0.5">
                 {activoSeleccionado?.codigoQr || (idActivo ? `ID: ${idActivo.slice(0, 8)}...` : 'Sin ID')}
               </p>
             </div>
 
             <div className="bg-slate-800/70 rounded-lg p-3 border border-slate-700/60">
-              <span className="text-slate-400 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
+              <span className="text-slate-300 block font-semibold mb-1 text-[10px] uppercase tracking-wider">
                 Fecha Programada (fecha_programada)
               </span>
               <p className="font-bold text-slate-100 text-sm capitalize">

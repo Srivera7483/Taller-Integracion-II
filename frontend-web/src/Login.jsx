@@ -159,8 +159,8 @@ const Login = () => {
 
           {/* Notificación de sesión expirada por inactividad */}
           {sesionExpirada && mode === 'login' && (
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2 animate-fadeIn">
-              <IoAlertCircleOutline className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <div role="alert" aria-live="assertive" className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2 animate-fadeIn">
+              <IoAlertCircleOutline className="w-5 h-5 text-amber-700 flex-shrink-0" aria-hidden="true" />
               <span>Tu sesión ha expirado por inactividad. Por favor, ingresa tus credenciales nuevamente.</span>
             </div>
           )}
@@ -172,10 +172,10 @@ const Login = () => {
               <>
                 <div>
                   <label htmlFor="rut_o_id" className="block text-sm font-medium text-gray-700 mb-1">
-                    RUT / Identificación <span className="text-red-500">*</span>
+                    RUT / Identificación <span className="text-red-600" aria-hidden="true">*</span>
                   </label>
                   <div className="relative">
-                    <IoCardOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
+                    <IoCardOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none" aria-hidden="true" />
                     <input
                       type="text"
                       id="rut_o_id"
@@ -191,10 +191,10 @@ const Login = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-1">
-                      Nombre <span className="text-red-500">*</span>
+                      Nombre <span className="text-red-600" aria-hidden="true">*</span>
                     </label>
                     <div className="relative">
-                      <IoPersonOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
+                      <IoPersonOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none" aria-hidden="true" />
                       <input
                         type="text"
                         id="nombre"
@@ -208,7 +208,7 @@ const Login = () => {
                   </div>
                   <div>
                     <label htmlFor="apellido" className="block text-sm font-medium text-gray-700 mb-1">
-                      Apellido <span className="text-red-500">*</span>
+                      Apellido <span className="text-red-600" aria-hidden="true">*</span>
                     </label>
                     <input
                       type="text"
@@ -227,22 +227,24 @@ const Login = () => {
             {/* Input Correo Electrónico */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Correo Electrónico {mode === 'register' && <span className="text-red-500">*</span>}
+                Correo Electrónico {mode === 'register' && <span className="text-red-600" aria-hidden="true">*</span>}
               </label>
               <div className="relative">
-                <IoMailOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
+                <IoMailOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none" aria-hidden="true" />
                 <input
                   type="email"
                   id="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={mode === 'register' ? 'usuario@uct.cl' : 'usuario@empresa.com'}
+                  aria-invalid={mode === 'register' && email.length > 0 && !isUctEmail(email) ? 'true' : undefined}
+                  aria-describedby={mode === 'register' && email.length > 0 && !isUctEmail(email) ? 'email-error-msg' : undefined}
                   required
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring transition-all"
                 />
               </div>
               {mode === 'register' && email.length > 0 && !isUctEmail(email) && (
-                <p className="text-xs text-red-500 mt-1">
+                <p id="email-error-msg" role="alert" className="text-xs text-red-700 mt-1 font-medium">
                   Solo se permiten correos institucionales terminados en @uct.cl
                 </p>
               )}
@@ -254,31 +256,32 @@ const Login = () => {
                 Contraseña
               </label>
               <div className="relative">
-                <IoLockClosedOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
+                <IoLockClosedOutline className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg pointer-events-none" aria-hidden="true" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  aria-describedby={mode === 'register' ? 'password-req-text' : undefined}
                   required
                   className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary focus-visible:ring transition-all"
                 />
 
-                {/* Botón interactivo para visualizar/ocultar contraseña */}
+                {/* Botón interactivo para visualizar/ocultar contraseña (accesible por teclado — TAL-204) */}
                 <button
                   type="button"
                   id="toggle-password-btn"
-                  tabIndex={-1}
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded flex items-center justify-center p-1 cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring rounded flex items-center justify-center p-1 cursor-pointer"
                   title={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Ver contraseña'}
+                  aria-pressed={showPassword}
                 >
                   {showPassword ? (
-                    <IoEyeOffOutline id="toggle-password-icon" className="text-xl" />
+                    <IoEyeOffOutline id="toggle-password-icon" className="text-xl" aria-hidden="true" />
                   ) : (
-                    <IoEyeOutline id="toggle-password-icon" className="text-xl" />
+                    <IoEyeOutline id="toggle-password-icon" className="text-xl" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -287,6 +290,7 @@ const Login = () => {
               {mode === 'register' && (
                 <p
                   id="password-req-text"
+                  aria-live="polite"
                   className={`text-xs mt-2 transition-colors ${getPasswordReqColor()}`}
                 >
                   La contraseña debe poseer al menos: 8 caracteres totales, minimo 1 caracter numerico y minimo 1 símbolo especial.
@@ -309,14 +313,14 @@ const Login = () => {
                     ? 'Ingresar al Sistema'
                     : 'Registrarse'}
               </span>
-              <IoArrowForwardOutline className="text-base" />
+              <IoArrowForwardOutline className="text-base" aria-hidden="true" />
             </button>
           </form>
 
           {/* Separador */}
-          <div className="my-6 flex items-center gap-3">
+          <div className="my-6 flex items-center gap-3" aria-hidden="true">
             <div className="h-px flex-1 bg-gray-100" />
-            <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">O</span>
+            <span className="text-xs text-gray-600 font-medium uppercase tracking-wider">O</span>
             <div className="h-px flex-1 bg-gray-100" />
           </div>
 

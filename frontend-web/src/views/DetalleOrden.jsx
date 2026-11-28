@@ -79,6 +79,9 @@ const DetalleOrden = () => {
           }
         }
 
+        const estadoHistorial =
+          apiOrden.incidencia?.historial_estados?.[0]?.estado?.nombre_estado || null;
+
         setOrden({
           ...apiOrden,
           id_orden: apiOrden.id_orden || idOrden,
@@ -87,7 +90,9 @@ const DetalleOrden = () => {
           id_activo: idActivo || 'N/A',
           nombre_activo: nombreActivo,
           codigo_qr_activo: codigoQrActivo,
-          estado: apiOrden.estado || (apiOrden.fecha_cierre ? 'Completada' : 'Asignada'),
+          estado: formatearNombreEstadoCanonico(
+            estadoHistorial || apiOrden.estado || (apiOrden.fecha_cierre ? 'Resuelta' : 'Asignada')
+          ),
           tecnico_nombre: tecnicoNombre,
           tecnico_id: apiOrden.id_tecnico,
           fecha_emision: apiOrden.fecha_creacion || new Date().toISOString(),
@@ -135,7 +140,7 @@ const DetalleOrden = () => {
   const handleCierreExitoso = (datosActualizados) => {
     setOrden((prev) => ({
       ...prev,
-      estado: 'Completada',
+      estado: datosActualizados?.estado || 'Resuelta',
       resolucion: datosActualizados.resolucion,
       horasInvertidas: datosActualizados.horasInvertidas,
       materialesUsados: datosActualizados.materialesUsados,
@@ -165,7 +170,7 @@ const DetalleOrden = () => {
   }
 
   if (error || !orden) {
-    return <div className="p-8 text-center text-red-500 font-medium">Error al cargar la orden de trabajo.</div>;
+    return <div role="alert" className="p-8 text-center text-red-700 font-medium">Error al cargar la orden de trabajo.</div>;
   }
 
   // Validación de Ownership: ¿Es el técnico asignado?
@@ -180,17 +185,18 @@ const DetalleOrden = () => {
 
   const estaCompletada =
     orden.estado?.toLowerCase() === 'completada' ||
-    orden.estado?.toLowerCase() === 'resuelta';
+    orden.estado?.toLowerCase() === 'resuelta' ||
+    orden.estado?.toLowerCase() === 'rechazada';
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Navegación tipo Breadcrumbs */}
       <nav aria-label="Ruta de navegación" className="flex items-center gap-2 text-sm text-gray-600">
-        <Link to="/dashboard" className="hover:text-blue-600 transition-colors">Inicio</Link>
+        <Link to="/dashboard" className="hover:text-blue-700 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Inicio</Link>
         <FiChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-        <Link to="/incidencias" className="hover:text-blue-600 transition-colors">Órdenes</Link>
+        <Link to="/incidencias" className="hover:text-blue-700 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">Órdenes</Link>
         <FiChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
-        <span className="font-semibold text-gray-900">Detalle de Orden {orden.id_orden}</span>
+        <span className="font-semibold text-gray-900" aria-current="page">Detalle de Orden {orden.id_orden}</span>
       </nav>
 
       {/* Encabezado Principal de la Orden */}
@@ -198,7 +204,7 @@ const DetalleOrden = () => {
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-gray-100 pb-5">
           <div>
             <div className="flex items-center gap-3 mb-2 flex-wrap">
-              <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Orden de Trabajo</h1>
+              <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Orden de Trabajo</h2>
               <span className="font-mono text-sm bg-gray-100 text-gray-700 px-2.5 py-1 rounded-md border border-gray-200 font-semibold">
                 {orden.id_orden}
               </span>
@@ -216,9 +222,9 @@ const DetalleOrden = () => {
         {/* Detalles e Instrucciones */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-1">
-            <h2 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">
+            <h3 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">
               Técnico Designado (Supervisor)
-            </h2>
+            </h3>
             <div className="flex items-center gap-2 text-gray-900 font-semibold text-base">
               <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center">
                 <FiUser className="w-4 h-4" aria-hidden="true" />
@@ -233,9 +239,9 @@ const DetalleOrden = () => {
             </div>
           </div>
           <div className="space-y-1">
-            <h2 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">
+            <h3 className="text-xs uppercase tracking-wider text-gray-600 font-semibold mb-1">
               Incidencia y Activo Asociado
-            </h2>
+            </h3>
             <div className="flex items-center gap-2 text-gray-800 font-medium text-sm">
               <FiBox className="w-4 h-4 text-orange-600" aria-hidden="true" />
               <span>{orden.incidencia_id}</span>
@@ -267,7 +273,7 @@ const DetalleOrden = () => {
               </div>
             </div>
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-              Completada
+              {orden.estado === 'Rechazada' ? 'Rechazada' : 'Resuelta'}
             </span>
           </div>
 

@@ -267,5 +267,28 @@ describe('ActivosService - TAL-6 y TAL-13', () => {
       expect(creado.datos.tipo).toBeUndefined();
       expect(creado.datos.estado).toBeUndefined();
     });
+
+    it('rechaza agendar dos mantenimientos en la misma fecha para el mismo activo, pero lo permite para otro activo distinto', async () => {
+      const fechaComun = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+
+      const primero = await service.crearMantenimiento({
+        id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        fecha_programada: fechaComun,
+      });
+      expect(primero.valido).toBe(true);
+
+      await expect(
+        service.crearMantenimiento({
+          id_activo: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+          fecha_programada: fechaComun,
+        }),
+      ).rejects.toThrow('ya cuenta con un mantenimiento preventivo programado');
+
+      const otroActivoMismaFecha = await service.crearMantenimiento({
+        id_activo: '550e8400-e29b-41d4-a716-446655440000',
+        fecha_programada: fechaComun,
+      });
+      expect(otroActivoMismaFecha.valido).toBe(true);
+    });
   });
 });

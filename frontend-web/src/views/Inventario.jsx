@@ -20,6 +20,7 @@ import api from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { hasPermission } from '../services/authService';
 import { guardarActivosOffline, obtenerActivosOffline } from '../services/storage/offlineDb';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const CATEGORIAS_ACTIVO = [
   'AUDIOVISUAL',
@@ -82,7 +83,6 @@ const Inventario = () => {
   const [filtroCategoria, setFiltroCategoria] = useState('Todas');
   const [filtroEstado, setFiltroEstado] = useState('Todos');
   const [cargando, setCargando] = useState(true);
-  const [esDinamico, setEsDinamico] = useState(false);
   const [estadisticasRefreshTick, setEstadisticasRefreshTick] = useState(0);
 
   const [modalEquipoAbierto, setModalEquipoAbierto] = useState(false);
@@ -93,6 +93,18 @@ const Inventario = () => {
   const [equipoBaja, setEquipoBaja] = useState(null);
   const [procesandoBaja, setProcesandoBaja] = useState(false);
 
+  const modalEquipoRef = useFocusTrap(modalEquipoAbierto, {
+    onClose: () => {
+      if (!guardandoEquipo) setModalEquipoAbierto(false);
+    },
+  });
+
+  const modalBajaRef = useFocusTrap(Boolean(equipoBaja), {
+    onClose: () => {
+      if (!procesandoBaja) setEquipoBaja(null);
+    },
+  });
+
   const cargarEquipos = async () => {
     setCargando(true);
     try {
@@ -100,7 +112,6 @@ const Inventario = () => {
       const data = resp.data?.datos || (Array.isArray(resp.data) ? resp.data : []);
       if (Array.isArray(data) && data.length > 0) {
         setEquipos(data);
-        setEsDinamico(!resp.fromOfflineCache);
         if (!resp.fromOfflineCache) {
           void guardarActivosOffline(data).catch(() => {});
         }
@@ -108,14 +119,12 @@ const Inventario = () => {
         const offlineActivos = await obtenerActivosOffline().catch(() => []);
         if (offlineActivos.length > 0) {
           setEquipos(offlineActivos);
-          setEsDinamico(false);
         }
       }
     } catch {
       const offlineActivos = await obtenerActivosOffline().catch(() => []);
       if (offlineActivos.length > 0) {
         setEquipos(offlineActivos);
-        setEsDinamico(false);
       } else {
         setEquipos(EQUIPOS_BASE);
       }
@@ -238,19 +247,20 @@ const Inventario = () => {
 
   return (
     <div className="space-y-6">
+      <h2 className="sr-only">Catálogo y gestión del inventario de activos</h2>
       {/* Barra superior de búsqueda, filtros y acciones */}
       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs space-y-3">
         <div className="flex flex-col lg:flex-row justify-between gap-3 items-stretch lg:items-center">
           <div className="flex flex-col sm:flex-row gap-2.5 flex-1">
             <div className="relative flex-1 max-w-md">
-              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" aria-hidden="true" />
               <input
                 type="text"
                 value={terminoBusqueda}
                 onChange={(e) => setTerminoBusqueda(e.target.value)}
                 placeholder="Buscar por equipo, serie, QR o ubicación..."
                 aria-label="Buscar en inventario"
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all text-sm bg-white"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary outline-none transition-all text-sm bg-white"
               />
             </div>
 
@@ -258,7 +268,7 @@ const Inventario = () => {
               aria-label="Filtrar por categoría"
               value={filtroCategoria}
               onChange={(e) => setFiltroCategoria(e.target.value)}
-              className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-700 outline-none cursor-pointer"
+              className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-700 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
             >
               <option value="Todas">Todas las categorías</option>
               {CATEGORIAS_ACTIVO.map((cat) => (
@@ -272,7 +282,7 @@ const Inventario = () => {
               aria-label="Filtrar por estado operativo"
               value={filtroEstado}
               onChange={(e) => setFiltroEstado(e.target.value)}
-              className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-700 outline-none cursor-pointer"
+              className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-700 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer"
             >
               <option value="Todos">Todos los estados</option>
               {ESTADOS_ACTIVO.map((est) => (
@@ -290,28 +300,28 @@ const Inventario = () => {
               disabled={cargando}
               aria-label="Actualizar inventario"
               className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors font-medium text-xs disabled:opacity-50 cursor-pointer"
-              title="Recargar inventario desde el microservicio"
+              title="Actualizar listado de inventario"
             >
-              <FiRefreshCw className={`w-3.5 h-3.5 ${cargando ? 'animate-spin text-primary' : ''}`} />
+              <FiRefreshCw className={`w-3.5 h-3.5 ${cargando ? 'animate-spin text-primary' : ''}`} aria-hidden="true" />
               <span>{cargando ? 'Cargando...' : 'Actualizar'}</span>
             </button>
 
             {puedePlanificarMantenimiento && (
               <Link
                 to="/mantenimientos/planificar"
-                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors font-semibold text-xs shadow-2xs"
+                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-emerald-700 text-white rounded-lg hover:bg-emerald-800 transition-colors font-semibold text-xs shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                 title="Agendar nuevo mantenimiento preventivo"
               >
-                <FiCalendar className="w-3.5 h-3.5" />
+                <FiCalendar className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Planificar Mantenimiento</span>
               </Link>
             )}
 
             <Link
               to="/trazabilidad"
-              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-primary-50 border border-primary-200 text-primary rounded-lg hover:bg-primary-100 transition-colors font-semibold text-xs shadow-2xs"
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-primary-50 border border-primary-200 text-primary rounded-lg hover:bg-primary-100 transition-colors font-semibold text-xs shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <FiActivity className="w-3.5 h-3.5 text-primary" />
+              <FiActivity className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
               <span>Módulo de Trazabilidad</span>
             </Link>
 
@@ -319,23 +329,15 @@ const Inventario = () => {
               <button
                 type="button"
                 onClick={abrirModalNuevo}
-                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all font-semibold text-xs shadow-md cursor-pointer"
+                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg transition-all font-semibold text-xs shadow-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
-                <FiPlus className="w-3.5 h-3.5" />
+                <FiPlus className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Añadir Equipo</span>
               </button>
             )}
           </div>
         </div>
       </div>
-
-      {/* Indicador de origen de datos */}
-      {esDinamico && (
-        <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg inline-flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>Inventario conectado en tiempo real al microservicio de activos (Prisma DB).</span>
-        </div>
-      )}
 
       {/* Resumen analítico de activos */}
       <PanelEstadisticasAnalitica soloActivos refreshTrigger={estadisticasRefreshTick} />
@@ -372,15 +374,15 @@ const Inventario = () => {
 
                   <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50/80 p-2.5 rounded-lg border border-gray-100">
                     <div>
-                      <span className="text-gray-400 block text-[10px] uppercase font-bold">Categoría</span>
+                      <span className="text-gray-600 block text-[10px] uppercase font-bold">Categoría</span>
                       <span className="font-medium text-gray-800">{item.categoria}</span>
                     </div>
                     <div>
-                      <span className="text-gray-400 block text-[10px] uppercase font-bold">Ubicación</span>
+                      <span className="text-gray-600 block text-[10px] uppercase font-bold">Ubicación</span>
                       <span className="font-medium text-gray-800">{item.ubicacion}</span>
                     </div>
                     <div className="col-span-2 pt-1 border-t border-gray-200/60 flex items-center justify-between">
-                      <span className="text-gray-400 text-[10px] uppercase font-bold">N° Serie</span>
+                      <span className="text-gray-600 text-[10px] uppercase font-bold">N° Serie</span>
                       <span className="font-mono font-medium text-gray-700">{numeroSerie}</span>
                     </div>
                   </div>
@@ -388,9 +390,9 @@ const Inventario = () => {
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Link
                       to={`/trazabilidad/${encodeURIComponent(idPrincipal)}`}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
-                      <FiActivity className="w-3.5 h-3.5" />
+                      <FiActivity className="w-3.5 h-3.5" aria-hidden="true" />
                       <span>Trazabilidad</span>
                     </Link>
 
@@ -399,18 +401,20 @@ const Inventario = () => {
                         <button
                           type="button"
                           onClick={() => abrirModalEditar(item)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer"
+                          aria-label={`Editar activo ${item.nombre}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
-                          <FiEdit2 className="w-3.5 h-3.5" />
+                          <FiEdit2 className="w-3.5 h-3.5" aria-hidden="true" />
                           <span>Editar</span>
                         </button>
                         <button
                           type="button"
                           disabled={yaDadoDeBaja}
                           onClick={() => setEquipoBaja(item)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg disabled:opacity-40 cursor-pointer"
+                          aria-label={`Dar de baja activo ${item.nombre}`}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg disabled:opacity-40 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
-                          <FiTrash2 className="w-3.5 h-3.5" />
+                          <FiTrash2 className="w-3.5 h-3.5" aria-hidden="true" />
                           <span>Dar de Baja</span>
                         </button>
                       </>
@@ -425,13 +429,13 @@ const Inventario = () => {
         {/* Vista Escritorio (>= md) */}
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-600">
-            <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+            <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
               <tr>
-                <th className="px-6 py-3.5 font-semibold">Equipo / Identificador</th>
-                <th className="px-6 py-3.5 font-semibold">Categoría / Ubicación</th>
-                <th className="px-6 py-3.5 font-semibold">Modelo / Serie</th>
-                <th className="px-6 py-3.5 font-semibold">Estado</th>
-                <th className="px-6 py-3.5 font-semibold text-right">Acciones de Ciclo de Vida</th>
+                <th scope="col" className="px-6 py-3.5 font-semibold">Equipo / Identificador</th>
+                <th scope="col" className="px-6 py-3.5 font-semibold">Categoría / Ubicación</th>
+                <th scope="col" className="px-6 py-3.5 font-semibold">Modelo / Serie</th>
+                <th scope="col" className="px-6 py-3.5 font-semibold">Estado</th>
+                <th scope="col" className="px-6 py-3.5 font-semibold text-right">Acciones de Ciclo de Vida</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -475,20 +479,20 @@ const Inventario = () => {
                         <div className="inline-flex items-center gap-2 justify-end flex-wrap">
                           <Link
                             to={`/trazabilidad/${encodeURIComponent(idPrincipal)}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-primary bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             title="Ver línea de tiempo y trazabilidad completa del activo"
                           >
-                            <FiActivity className="w-3.5 h-3.5 text-primary" />
+                            <FiActivity className="w-3.5 h-3.5 text-primary" aria-hidden="true" />
                             <span>Trazabilidad</span>
                           </Link>
 
                           {puedePlanificarMantenimiento && (
                             <Link
                               to={`/mantenimientos/planificar?id_activo=${encodeURIComponent(item.id || idPrincipal)}`}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                               title="Planificar mantenimiento preventivo para este equipo"
                             >
-                              <FiCalendar className="w-3.5 h-3.5 text-emerald-700" />
+                              <FiCalendar className="w-3.5 h-3.5 text-emerald-700" aria-hidden="true" />
                               <span>Mantenimiento</span>
                             </Link>
                           )}
@@ -496,10 +500,10 @@ const Inventario = () => {
                           {puedeReportarFalla && (
                             <Link
                               to={`/incidencias/nueva?id_activo=${encodeURIComponent(item.id || idPrincipal)}`}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                               title="Reportar incidencia para este equipo"
                             >
-                              <FiAlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                              <FiAlertCircle className="w-3.5 h-3.5 text-rose-600" aria-hidden="true" />
                               <span>Reportar Falla</span>
                             </Link>
                           )}
@@ -511,9 +515,9 @@ const Inventario = () => {
                                 onClick={() => abrirModalEditar(item)}
                                 aria-label={`Editar activo ${item.nombre}`}
                                 title="Modificar datos o estado del activo"
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition-colors cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                               >
-                                <FiEdit2 className="w-3.5 h-3.5" />
+                                <FiEdit2 className="w-3.5 h-3.5" aria-hidden="true" />
                                 <span>Editar</span>
                               </button>
                               <button
@@ -522,9 +526,9 @@ const Inventario = () => {
                                 onClick={() => setEquipoBaja(item)}
                                 aria-label={`Dar de baja activo ${item.nombre}`}
                                 title={yaDadoDeBaja ? 'El activo ya se encuentra dado de baja' : 'Dar de baja este activo'}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                               >
-                                <FiTrash2 className="w-3.5 h-3.5" />
+                                <FiTrash2 className="w-3.5 h-3.5" aria-hidden="true" />
                                 <span>Baja</span>
                               </button>
                             </>
@@ -551,10 +555,14 @@ const Inventario = () => {
             if (e.target === e.currentTarget && !guardandoEquipo) setModalEquipoAbierto(false);
           }}
         >
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-lg overflow-hidden">
+          <div
+            ref={modalEquipoRef}
+            tabIndex={-1}
+            className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-lg overflow-hidden focus:outline-none"
+          >
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/70">
               <div className="flex items-center gap-2">
-                <FiBox className="w-5 h-5 text-primary" />
+                <FiBox className="w-5 h-5 text-primary" aria-hidden="true" />
                 <h2 id="titulo-modal-activo" className="text-base font-bold text-gray-900">
                   {equipoEditando ? 'Modificar Activo de Inventario' : 'Registrar Nuevo Activo'}
                 </h2>
@@ -563,10 +571,10 @@ const Inventario = () => {
                 type="button"
                 onClick={() => setModalEquipoAbierto(false)}
                 disabled={guardandoEquipo}
-                aria-label="Cerrar modal"
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+                aria-label="Cerrar modal de activo"
+                className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <FiX className="w-4 h-4" />
+                <FiX className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -583,7 +591,7 @@ const Inventario = () => {
                     value={formEquipo.codigoQr}
                     onChange={(e) => setFormEquipo((p) => ({ ...p, codigoQr: e.target.value.toUpperCase() }))}
                     placeholder="Ej. UCT-PRJ-05"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                   />
                 </div>
                 <div>
@@ -594,7 +602,7 @@ const Inventario = () => {
                     id="activo-categoria"
                     value={formEquipo.categoria}
                     onChange={(e) => setFormEquipo((p) => ({ ...p, categoria: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-semibold outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-semibold outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     {CATEGORIAS_ACTIVO.map((c) => (
                       <option key={c} value={c}>
@@ -616,7 +624,7 @@ const Inventario = () => {
                   value={formEquipo.nombre}
                   onChange={(e) => setFormEquipo((p) => ({ ...p, nombre: e.target.value }))}
                   placeholder="Ej. Proyector Epson PowerLite Sala C204"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                 />
               </div>
 
@@ -631,7 +639,7 @@ const Inventario = () => {
                     value={formEquipo.modelo}
                     onChange={(e) => setFormEquipo((p) => ({ ...p, modelo: e.target.value }))}
                     placeholder="Ej. L210W / OptiPlex 7000"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                   />
                 </div>
                 <div>
@@ -644,7 +652,7 @@ const Inventario = () => {
                     value={formEquipo.numeroSerie}
                     onChange={(e) => setFormEquipo((p) => ({ ...p, numeroSerie: e.target.value }))}
                     placeholder="Ej. SN-UCT-0091"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                   />
                 </div>
               </div>
@@ -661,7 +669,7 @@ const Inventario = () => {
                     value={formEquipo.ubicacion}
                     onChange={(e) => setFormEquipo((p) => ({ ...p, ubicacion: e.target.value }))}
                     placeholder="Ej. Edificio C - Sala C204"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                   />
                 </div>
                 <div>
@@ -672,7 +680,7 @@ const Inventario = () => {
                     id="activo-estado"
                     value={formEquipo.estado}
                     onChange={(e) => setFormEquipo((p) => ({ ...p, estado: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-semibold outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-semibold outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     {ESTADOS_ACTIVO.map((est) => (
                       <option key={est.value} value={est.value}>
@@ -688,14 +696,14 @@ const Inventario = () => {
                   type="button"
                   disabled={guardandoEquipo}
                   onClick={() => setModalEquipoAbierto(false)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={guardandoEquipo}
-                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-sm disabled:opacity-60 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-sm disabled:opacity-60 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                 >
                   {guardandoEquipo
                     ? 'Guardando...'
@@ -720,10 +728,14 @@ const Inventario = () => {
             if (e.target === e.currentTarget && !procesandoBaja) setEquipoBaja(null);
           }}
         >
-          <div className="bg-white rounded-2xl shadow-xl border border-red-200 w-full max-w-md p-6 space-y-4">
+          <div
+            ref={modalBajaRef}
+            tabIndex={-1}
+            className="bg-white rounded-2xl shadow-xl border border-red-200 w-full max-w-md p-6 space-y-4 focus:outline-none"
+          >
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
-                <FiAlertTriangle className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center flex-shrink-0">
+                <FiAlertTriangle className="w-5 h-5" aria-hidden="true" />
               </div>
               <div className="space-y-1">
                 <h2 id="titulo-modal-baja-activo" className="text-base font-bold text-gray-900">
@@ -740,7 +752,7 @@ const Inventario = () => {
                 type="button"
                 disabled={procesandoBaja}
                 onClick={() => setEquipoBaja(null)}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Cancelar
               </button>
@@ -748,7 +760,7 @@ const Inventario = () => {
                 type="button"
                 disabled={procesandoBaja}
                 onClick={() => void handleConfirmarBaja()}
-                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm disabled:opacity-60 cursor-pointer"
+                className="px-4 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold shadow-sm disabled:opacity-60 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-1"
               >
                 {procesandoBaja ? 'Procesando...' : 'Confirmar Baja'}
               </button>

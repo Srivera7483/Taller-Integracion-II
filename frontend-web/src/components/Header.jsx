@@ -15,6 +15,7 @@ import NetworkStatusIndicator from './NetworkStatusIndicator';
  */
 export const Header = ({
   onOpenMobileMenu,
+  isMobileMenuOpen = false,
   title,
   notificacionesIniciales,
   children,
@@ -28,12 +29,14 @@ export const Header = ({
         {onOpenMobileMenu && (
           <button
             type="button"
-            className="lg:hidden text-gray-600 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg p-1"
+            className="lg:hidden text-gray-600 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg p-1 cursor-pointer"
             onClick={onOpenMobileMenu}
             aria-label="Abrir menú de navegación"
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="sidebar-navegacion"
             title="Abrir menú de navegación"
           >
-            <FiMenu className="w-6 h-6" />
+            <FiMenu className="w-6 h-6" aria-hidden="true" />
           </button>
         )}
         {title && (

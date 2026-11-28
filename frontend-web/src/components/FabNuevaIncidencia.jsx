@@ -46,7 +46,7 @@ const FabNuevaIncidencia = () => {
           type="button"
           id="btn-fab-nueva-incidencia"
           onClick={() => setIsModalOpen(true)}
-          className="pointer-events-auto w-14 h-14 rounded-full bg-primary hover:bg-primary-hover active:bg-primary-active text-white shadow-lg shadow-primary/35 hover:shadow-xl active:shadow-md flex items-center justify-center transition-all duration-200 transform active:scale-95 focus:outline-none focus:ring-4 focus:ring-primary/30 cursor-pointer"
+          className="pointer-events-auto w-14 h-14 rounded-full bg-primary hover:bg-primary-hover active:bg-primary-active text-white shadow-lg shadow-primary/35 hover:shadow-xl active:shadow-md flex items-center justify-center transition-all duration-200 transform active:scale-95 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 cursor-pointer"
           title="Crear nueva incidencia"
           aria-label="Crear nueva incidencia"
         >

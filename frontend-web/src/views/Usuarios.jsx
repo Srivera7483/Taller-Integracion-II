@@ -18,6 +18,7 @@ import {
 } from '../services/usuariosService';
 import { getUsuarioActual, hasPermission } from '../services/authService';
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const ROLES_SISTEMA = ['ADMINISTRADOR', 'SUPERVISOR', 'TECNICO', 'REPORTANTE'];
 
@@ -43,6 +44,18 @@ const Usuarios = () => {
     email: '',
     password: '',
     rol: 'REPORTANTE',
+  });
+
+  const modalCrearRef = useFocusTrap(modalCrearAbierto, {
+    onClose: () => {
+      if (!creando) setModalCrearAbierto(false);
+    },
+  });
+
+  const modalEliminarRef = useFocusTrap(Boolean(usuarioAEliminar), {
+    onClose: () => {
+      if (!eliminando) setUsuarioAEliminar(null);
+    },
   });
 
   const fetchUsuariosCallback = useCallback(async (page, limit) => {
@@ -195,11 +208,11 @@ const Usuarios = () => {
     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-primary tracking-tight">
             Gestión de Usuarios
-          </h1>
+          </h2>
           <p className="mt-1 text-sm text-gray-600">
-            Administración de cuentas institucionales, asignación de roles PBAC y bajas lógicas sincronizadas con PostgreSQL.
+            Administración de cuentas institucionales, asignación de roles y control de acceso.
           </p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
@@ -210,9 +223,9 @@ const Usuarios = () => {
             <button
               type="button"
               onClick={() => setModalCrearAbierto(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             >
-              <FiPlus className="w-4 h-4" />
+              <FiPlus className="w-4 h-4" aria-hidden="true" />
               <span>Nuevo Usuario</span>
             </button>
           )}
@@ -222,25 +235,25 @@ const Usuarios = () => {
       {/* Barra de búsqueda y filtro por rol */}
       <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" aria-hidden="true" />
           <input
             type="text"
             value={terminoBusqueda}
             onChange={(e) => setTerminoBusqueda(e.target.value)}
             placeholder="Buscar por nombre, correo o RUT..."
             aria-label="Buscar usuarios por nombre, correo o RUT"
-            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
+            className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary outline-none"
           />
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor="filtro-rol-usuarios" className="text-xs font-semibold text-gray-600">
+          <label htmlFor="filtro-rol-usuarios" className="text-xs font-semibold text-gray-700">
             Filtrar por Rol:
           </label>
           <select
             id="filtro-rol-usuarios"
             value={filtroRol}
             onChange={(e) => setFiltroRol(e.target.value)}
-            className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none cursor-pointer"
+            className="px-3 py-2 text-xs font-semibold bg-gray-50 border border-gray-300 rounded-lg text-gray-800 focus:ring-2 focus:ring-primary/20 focus:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary outline-none cursor-pointer"
           >
             <option value="Todos">Todos los roles</option>
             {ROLES_SISTEMA.map((r) => (
@@ -288,10 +301,10 @@ const Usuarios = () => {
                           {inicial}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-semibold text-sm text-gray-900 truncate">
+                          <h3 className="font-semibold text-sm text-gray-900 truncate">
                             {nombreCompleto} {esMiCuenta && <span className="text-[10px] text-primary font-bold">(Tú)</span>}
-                          </h4>
-                          <span className="text-xs text-gray-500 break-all">{usr.correo || usr.email}</span>
+                          </h3>
+                          <span className="text-xs text-gray-600 break-all">{usr.correo || usr.email}</span>
                         </div>
                       </div>
                       <StatusBadge status={usr.estado === 'inactivo' ? 'inactivo' : 'activo'} />
@@ -299,12 +312,12 @@ const Usuarios = () => {
 
                     <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50/80 p-2.5 rounded-lg border border-gray-100">
                       <div>
-                        <span className="text-gray-400 block text-[10px] uppercase font-bold">RUT / ID</span>
-                        <span className="font-mono text-xs font-semibold text-gray-700">{usr.rut_o_id || 'N/A'}</span>
+                        <span className="text-gray-600 block text-[10px] uppercase font-bold">RUT / ID</span>
+                        <span className="font-mono text-xs font-semibold text-gray-800">{usr.rut_o_id || 'N/A'}</span>
                       </div>
                       <div>
-                        <span className="text-gray-400 block text-[10px] uppercase font-bold">Fecha Registro</span>
-                        <span className="font-medium text-xs">{fechaTexto}</span>
+                        <span className="text-gray-600 block text-[10px] uppercase font-bold">Fecha Registro</span>
+                        <span className="font-medium text-xs text-gray-800">{fechaTexto}</span>
                       </div>
                     </div>
 
@@ -315,7 +328,7 @@ const Usuarios = () => {
                           disabled={esMiCuenta || actualizandoRolId === idUsr}
                           value={rolActual}
                           onChange={(e) => void handleCambioRol(usr, e.target.value)}
-                          className="flex-1 px-2.5 py-1.5 text-xs font-semibold border border-gray-300 rounded-lg bg-white text-gray-800 disabled:opacity-50"
+                          className="flex-1 px-2.5 py-1.5 text-xs font-semibold border border-gray-300 rounded-lg bg-white text-gray-800 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
                           {ROLES_SISTEMA.map((r) => (
                             <option key={r} value={r}>
@@ -327,10 +340,11 @@ const Usuarios = () => {
                           type="button"
                           disabled={esMiCuenta}
                           onClick={() => setUsuarioAEliminar(usr)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 disabled:opacity-40 cursor-pointer"
+                          aria-label={`Eliminar usuario ${nombreCompleto}`}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 disabled:opacity-40 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                           title={esMiCuenta ? 'No puedes eliminar tu propia cuenta activa' : 'Eliminar usuario'}
                         >
-                          <FiTrash2 className="w-3.5 h-3.5" />
+                          <FiTrash2 className="w-3.5 h-3.5" aria-hidden="true" />
                           <span>Eliminar</span>
                         </button>
                       </div>
@@ -346,23 +360,23 @@ const Usuarios = () => {
             <table className="min-w-full divide-y divide-gray-200 text-left text-sm text-gray-600">
               <thead className="bg-gray-50/95 sticky top-0 z-10 shadow-xs">
                 <tr>
-                  <th className="px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3.5 text-xs font-bold text-gray-600 uppercase tracking-wider">
                     Usuario
                   </th>
-                  <th className="px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3.5 text-xs font-bold text-gray-600 uppercase tracking-wider">
                     RUT / ID
                   </th>
-                  <th className="px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3.5 text-xs font-bold text-gray-600 uppercase tracking-wider">
                     Rol Asignado
                   </th>
-                  <th className="px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3.5 text-xs font-bold text-gray-600 uppercase tracking-wider">
                     Estado
                   </th>
-                  <th className="px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-3.5 text-xs font-bold text-gray-600 uppercase tracking-wider">
                     Fecha Registro
                   </th>
                   {puedeGestionar && (
-                    <th className="px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                    <th scope="col" className="px-6 py-3.5 text-xs font-bold text-gray-600 uppercase tracking-wider text-right">
                       Acciones
                     </th>
                   )}
@@ -431,7 +445,7 @@ const Usuarios = () => {
                                     ? 'No puedes modificar el rol de tu propia sesión activa'
                                     : 'Seleccionar nuevo rol institucional'
                                 }
-                                className={`px-2.5 py-1 text-xs font-bold rounded-lg border outline-none cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${getRoleBadgeClass(
+                                className={`px-2.5 py-1 text-xs font-bold rounded-lg border outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${getRoleBadgeClass(
                                   rolActual
                                 )}`}
                               >
@@ -451,7 +465,7 @@ const Usuarios = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <StatusBadge status={usr.estado === 'inactivo' ? 'inactivo' : 'activo'} />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-600">
                           {fechaTexto}
                         </td>
                         {puedeGestionar && (
@@ -466,9 +480,9 @@ const Usuarios = () => {
                                   : `Dar de baja a ${nombreCompleto}`
                               }
                               aria-label={`Eliminar usuario ${nombreCompleto}`}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             >
-                              <FiTrash2 className="w-3.5 h-3.5" />
+                              <FiTrash2 className="w-3.5 h-3.5" aria-hidden="true" />
                               <span>Eliminar</span>
                             </button>
                           </td>
@@ -482,14 +496,14 @@ const Usuarios = () => {
           </div>
 
           {loadingMore && (
-            <div className="flex justify-center items-center py-4 bg-gray-50/70 border-t border-gray-100">
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent"></div>
-              <span className="ml-2.5 text-xs font-medium text-gray-600">Cargando siguientes usuarios...</span>
+            <div role="status" aria-live="polite" className="flex justify-center items-center py-4 bg-gray-50/70 border-t border-gray-100">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-primary border-t-transparent" aria-hidden="true"></div>
+              <span className="ml-2.5 text-xs font-medium text-gray-700">Cargando siguientes usuarios...</span>
             </div>
           )}
 
           {!hasMore && usuarios.length > 0 && (
-            <div className="text-center py-3 text-xs text-gray-400 font-medium bg-gray-50/40 border-t border-gray-100">
+            <div role="status" aria-live="polite" className="text-center py-3 text-xs text-gray-600 font-medium bg-gray-50/40 border-t border-gray-100">
               Directorio sincronizado ({usuarios.length} usuarios activos en total)
             </div>
           )}
@@ -507,10 +521,14 @@ const Usuarios = () => {
             if (e.target === e.currentTarget && !creando) setModalCrearAbierto(false);
           }}
         >
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md overflow-hidden">
+          <div
+            ref={modalCrearRef}
+            tabIndex={-1}
+            className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md overflow-hidden focus:outline-none"
+          >
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/70">
               <div className="flex items-center gap-2">
-                <FiShield className="w-5 h-5 text-primary" />
+                <FiShield className="w-5 h-5 text-primary" aria-hidden="true" />
                 <h2 id="titulo-modal-nuevo-usuario" className="text-base font-bold text-gray-900">
                   Registrar Nuevo Usuario
                 </h2>
@@ -519,10 +537,10 @@ const Usuarios = () => {
                 type="button"
                 onClick={() => setModalCrearAbierto(false)}
                 disabled={creando}
-                aria-label="Cerrar modal"
-                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+                aria-label="Cerrar modal de nuevo usuario"
+                className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <FiX className="w-4 h-4" />
+                <FiX className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -539,7 +557,7 @@ const Usuarios = () => {
                     value={nuevoUsuario.nombre}
                     onChange={(e) => setNuevoUsuario((p) => ({ ...p, nombre: e.target.value }))}
                     placeholder="Ej. Camila"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                   />
                 </div>
                 <div>
@@ -553,7 +571,7 @@ const Usuarios = () => {
                     value={nuevoUsuario.apellido}
                     onChange={(e) => setNuevoUsuario((p) => ({ ...p, apellido: e.target.value }))}
                     placeholder="Ej. Muñoz"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                   />
                 </div>
               </div>
@@ -570,7 +588,7 @@ const Usuarios = () => {
                     value={nuevoUsuario.rut_o_id}
                     onChange={(e) => setNuevoUsuario((p) => ({ ...p, rut_o_id: e.target.value }))}
                     placeholder="Ej. 19876543-2"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                   />
                 </div>
                 <div>
@@ -581,7 +599,7 @@ const Usuarios = () => {
                     id="nuevo-usr-rol"
                     value={nuevoUsuario.rol}
                     onChange={(e) => setNuevoUsuario((p) => ({ ...p, rol: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-semibold outline-none focus:border-primary"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-semibold outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     {ROLES_SISTEMA.map((r) => (
                       <option key={r} value={r}>
@@ -603,7 +621,7 @@ const Usuarios = () => {
                   value={nuevoUsuario.email}
                   onChange={(e) => setNuevoUsuario((p) => ({ ...p, email: e.target.value }))}
                   placeholder="usuario@uct.cl"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                 />
               </div>
 
@@ -620,7 +638,7 @@ const Usuarios = () => {
                   value={nuevoUsuario.password}
                   onChange={(e) => setNuevoUsuario((p) => ({ ...p, password: e.target.value }))}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-primary"
                 />
               </div>
 
@@ -629,14 +647,14 @@ const Usuarios = () => {
                   type="button"
                   disabled={creando}
                   onClick={() => setModalCrearAbierto(false)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={creando}
-                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-sm disabled:opacity-60 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-sm disabled:opacity-60 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1"
                 >
                   {creando ? 'Registrando...' : 'Crear Usuario'}
                 </button>
@@ -657,22 +675,26 @@ const Usuarios = () => {
             if (e.target === e.currentTarget && !eliminando) setUsuarioAEliminar(null);
           }}
         >
-          <div className="bg-white rounded-2xl shadow-xl border border-red-200 w-full max-w-md p-6 space-y-4">
+          <div
+            ref={modalEliminarRef}
+            tabIndex={-1}
+            className="bg-white rounded-2xl shadow-xl border border-red-200 w-full max-w-md p-6 space-y-4 focus:outline-none"
+          >
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
-                <FiAlertTriangle className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center flex-shrink-0">
+                <FiAlertTriangle className="w-5 h-5" aria-hidden="true" />
               </div>
               <div className="space-y-1">
                 <h2 id="titulo-modal-eliminar-usuario" className="text-base font-bold text-gray-900">
                   ¿Dar de baja a este usuario?
                 </h2>
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  Se registrará la baja lógica (<code className="font-mono">fecha_eliminacion</code>) para{' '}
+                  Se desactivará la cuenta de{' '}
                   <strong>
                     {`${usuarioAEliminar.nombre || ''} ${usuarioAEliminar.apellido || ''}`.trim() ||
                       usuarioAEliminar.correo}
                   </strong>
-                  , revocando su acceso al sistema sin perder la trazabilidad histórica en PostgreSQL.
+                  , revocando su acceso al sistema pero conservando el historial de sus registros.
                 </p>
               </div>
             </div>
@@ -681,7 +703,7 @@ const Usuarios = () => {
                 type="button"
                 disabled={eliminando}
                 onClick={() => setUsuarioAEliminar(null)}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer"
+                className="px-4 py-2 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 Cancelar
               </button>
@@ -689,7 +711,7 @@ const Usuarios = () => {
                 type="button"
                 disabled={eliminando}
                 onClick={() => void confirmarEliminacionUsuario()}
-                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm disabled:opacity-60 cursor-pointer"
+                className="px-4 py-2 rounded-lg bg-red-700 hover:bg-red-800 text-white text-xs font-bold shadow-sm disabled:opacity-60 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-1"
               >
                 {eliminando ? 'Eliminando...' : 'Confirmar Baja'}
               </button>

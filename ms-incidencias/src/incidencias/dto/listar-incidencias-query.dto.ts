@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { PrioridadIncidencia } from '@prisma/client';
 
 export class ListarIncidenciasQueryDto {
   @IsOptional()
@@ -9,6 +10,12 @@ export class ListarIncidenciasQueryDto {
   @IsOptional()
   @IsUUID()
   id_tecnico?: string;
+
+  @IsOptional()
+  @IsEnum(PrioridadIncidencia, {
+    message: 'prioridad debe ser una de: baja, media, alta o critica',
+  })
+  prioridad?: PrioridadIncidencia;
 
   @IsOptional()
   @IsUUID()

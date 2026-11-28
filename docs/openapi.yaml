@@ -1,72 +1,184 @@
 openapi: 3.0.3
 info:
   title: SCGI API
-  version: 1.1.0
+  version: 1.6.0
+  license:
+    name: UNLICENSED
+    url: https://github.com/Srivera7483/Taller-Integracion-II
   description: |
-    Contrato de la API REST del Sistema Centralizado de Gestión de Infraestructura (SCGI),
-    acordado entre Taller de Integración II (backend y web) y Taller de Integración IV (app móvil).
+    Contrato de la API REST del Sistema Centralizado de Gestion de Infraestructura (SCGI),
+    acordado entre Taller de Integracion II (backend y web) y Taller de Integracion IV (app movil).
+
+    Servicios (un microservicio por grupo de rutas):
+    - Autenticacion: usuarios, roles y permisos.
+    - Activos: edificios, ubicaciones, categorias, activos y mantenimientos preventivos.
+    - Incidencias: incidencias, historial de estados, ordenes de trabajo y evidencias.
 
     Reglas:
     - Todas las rutas van bajo /api/v1 y se sirven solo por HTTPS (RNF3).
-    - Todas las rutas, salvo POST /auth/login, exigen el token JWT (RNF4).
+    - Todas las rutas, salvo el inicio de sesion, exigen el token JWT (RNF4).
     - Todos los errores responden con el esquema Error.
+    - Los nombres de campos van en espanol, sin tildes ni la letra n con virgulilla.
+      Las excepciones son los campos estandar del JWT y los campos de monitoreo
+      del esquema Error, que TI2 necesita con esos nombres.
+    - El servicio de incidencias guarda solo los identificadores de usuarios y activos,
+      porque viven en otras bases de datos. La app los consulta en su propio servicio.
 
     Versionado:
-    - Agregar rutas o campos opcionales sube la versión menor (1.0.0 a 1.1.0).
-    - Quitar o renombrar rutas o campos, o cambiar su tipo, sube la versión mayor (2.0.0)
+    - Agregar rutas o campos opcionales sube la version menor (1.1.0 a 1.2.0).
+    - Quitar o renombrar rutas o campos, o cambiar su tipo, sube la version mayor (2.0.0)
       y la ruta base pasa a /api/v2.
     - Todo cambio se acuerda entre TI2 y TI4 antes de implementarlo.
 
-    Historial de versiones:
-    - 1.0.0: Auth y Activos.
-    - 1.1.0: Incidencias (RF3) — rutas /incidencias, /estados-incidencia, /tipos-evidencia.
+    Cambios de la version 1.6.0:
+    - Se agrega GET /auditoria para consulta administrativa paginada y filtrable de transacciones
+      mutantes registradas en el API Gateway y estado de salud de los microservicios (TAL-178).
+    - Homologacion final con App Movil TI-IV (TAL-199): soporte de cabecera X-Client-Type: mobile
+      en inicio de sesion y cuerpo refreshToken en /auth/refresh, listado paginado GET /usuarios
+      con filtro por rol, filtro prioridad en GET /incidencias y alias PATCH /incidencias/{id_incidencia}/clasificacion.
+
+    Cambios de la version 1.5.0:
+    - Se agregan GET /estadisticas/tiempo-resolucion y GET /incidencias/estadisticas/tiempo-resolucion
+      para consulta de MTTR (Tiempo de Resolucion Promedio) e indicadores globales (TAL-128).
+
+    Cambios de la version 1.3.0:
+    - Se incorporan los endpoints de ordenes de trabajo, diagnostico tecnico,
+      estados de incidencia y tipos de evidencia.
+
+    Cambios de la version 1.4.0:
+    - Se agrega POST /sincronizacion/lote para sincronizacion masiva en lote
+      de acciones offline (Offline-First). Admite hasta 50 acciones por llamada
+      con procesamiento de fallo parcial aislado (HTTP 207) y reporte por ítem.
+
+    Cambios de la version 1.2.0:
+    - Se agrega a Incidencia el arreglo opcional evidencias (RF4).
+    - url_evidencia de NuevaEvidencia debe ser una direccion valida de Cloudinary.
+    - POST /incidencias detalla cuando responde 400 y 404.
+    - POST /incidencias/{id_incidencia}/evidencias admite como maximo 5 evidencias
+      y responde 409 al superar el limite.
+
+    Cambios de la version 1.1.0:
+    - Se incorpora el servicio de incidencias completo.
+    - Se adopta el formato de error propuesto por TI2, con metadatos de monitoreo.
+    - Se traducen al espanol los nombres que estaban en ingles.
+    - Se agrega diagnostico_tecnico a las ordenes de trabajo.
 
 servers:
   - url: /api/v1
 
 security:
-  - bearerAuth: []
+  - autenticacionJwt: []
 
 tags:
   - name: Autenticacion
-    description: Inicio de sesión y usuario actual (RF1).
+    description: Inicio de sesion, usuario actual y roles (RF1).
   - name: Activos
-    description: Identificación de activos por QR y búsqueda manual (RF2).
+    description: Activos, sus catalogos y mantenimientos preventivos (RF2, RF9).
   - name: Incidencias
-    description: Reporte, consulta y seguimiento de incidencias (RF3).
-  - name: Catalogos
-    description: Catálogos de estados de incidencia y tipos de evidencia (RF3).
+    description: Incidencias, ciclo de vida, ordenes de trabajo y evidencias (RF3 a RF7).
+  - name: Auditoria
+    description: Bitacora estructurada de transacciones mutantes y salud operativa de microservicios (TAL-178).
 
 paths:
+
+  # ----------------------------------------------------------------
+  # Servicio de autenticacion
+  # ----------------------------------------------------------------
 
   /auth/login:
     post:
       tags:
         - Autenticacion
-      summary: Iniciar sesión con correo y contraseña
+      summary: Iniciar sesion con correo y contrasena (alias /autenticacion/inicio-sesion)
       operationId: iniciarSesion
       security: []
+      parameters:
+        - name: X-Client-Type
+          in: header
+          required: false
+          description: |
+            Si se envia `mobile`, la respuesta JSON incluye ademas `refreshToken` (vigencia 7 dias)
+            para almacenamiento seguro en clientes moviles sin soporte de cookies HttpOnly.
+          schema:
+            type: string
+            enum:
+              - web
+              - mobile
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: '#/components/schemas/CredencialesAcceso'
       responses:
         '200':
           description: Credenciales correctas. Devuelve el token y el usuario.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoginResponse'
+                $ref: '#/components/schemas/SesionIniciada'
+              example:
+                token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example
+                usuario:
+                  id_usuario: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+                  rut_o_id: 12.345.678-9
+                  nombre: Ana
+                  apellido: Perez
+                  correo: tecnico@scgi.cl
+                  rol:
+                    id_rol: 3
+                    nombre_rol: TECNICO
+                  fecha_creacion: '2026-10-31T18:00:00.000Z'
         '400':
           $ref: '#/components/responses/DatosInvalidos'
         '401':
-          description: Correo o contraseña incorrectos, o usuario eliminado.
+          description: Correo o contrasena incorrectos, o usuario eliminado.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/DemasiadasSolicitudes'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Autenticacion
+      summary: Renovar el token de acceso (alias /autenticacion/renovar-token)
+      description: |
+        En clientes web el refresh token se lee desde la cookie HttpOnly `refresh_token`.
+        En clientes moviles (`X-Client-Type: mobile`) tambien puede enviarse en el cuerpo JSON
+        como `{ "refreshToken": "<token>" }`.
+      operationId: renovarSesion
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Refresh token emitido para clientes moviles.
+      responses:
+        '200':
+          description: Nuevo token de acceso emitido.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [accessToken]
+                properties:
+                  accessToken:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.example
+              example:
+                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.refresh.example
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
         '500':
           $ref: '#/components/responses/ErrorServidor'
 
@@ -74,8 +186,8 @@ paths:
     get:
       tags:
         - Autenticacion
-      summary: Obtener el usuario dueño del token
-      description: Se usa en el auto-login para comprobar que el token guardado sigue siendo válido.
+      summary: Obtener el usuario dueno del token
+      description: Se usa al abrir la app para comprobar que el token guardado sigue siendo valido.
       operationId: obtenerUsuarioActual
       responses:
         '200':
@@ -89,14 +201,105 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorServidor'
 
+  /roles:
+    get:
+      tags:
+        - Autenticacion
+      summary: Listar los roles y sus permisos
+      operationId: listarRoles
+      responses:
+        '200':
+          description: Roles registrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Rol'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /usuarios:
+    get:
+      tags:
+        - Autenticacion
+      summary: Listar usuarios paginados con filtro opcional por rol
+      description: Requiere permiso usuarios:ver (SUPERVISOR o ADMINISTRADOR).
+      operationId: listarUsuarios
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 15
+        - name: rol
+          in: query
+          required: false
+          description: Filtra por nombre de rol (ej. TECNICO, SUPERVISOR, REPORTANTE, ADMINISTRADOR).
+          schema:
+            type: string
+            enum:
+              - REPORTANTE
+              - SUPERVISOR
+              - TECNICO
+              - ADMINISTRADOR
+      responses:
+        '200':
+          description: Pagina de usuarios activos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - datos
+                  - totalItems
+                  - currentPage
+                  - limit
+                  - totalPages
+                properties:
+                  datos:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Usuario'
+                  totalItems:
+                    type: integer
+                  currentPage:
+                    type: integer
+                  limit:
+                    type: integer
+                  totalPages:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  # ----------------------------------------------------------------
+  # Servicio de activos
+  # ----------------------------------------------------------------
+
   /activos:
     get:
       tags:
         - Activos
-      summary: Buscar activos por texto (búsqueda manual)
+      summary: Buscar activos por texto (busqueda manual)
       description: |
-        Busca en nombre y codigo_qr. Se usa cuando el QR no se puede leer
-        o el código no está registrado.
+        Busca en nombre y codigo_qr. Se usa cuando el codigo QR no se puede leer
+        o no esta registrado.
       operationId: buscarActivos
       parameters:
         - name: busqueda
@@ -109,7 +312,7 @@ paths:
         - name: limite
           in: query
           required: false
-          description: Cantidad máxima de resultados.
+          description: Cantidad maxima de resultados.
           schema:
             type: integer
             minimum: 1
@@ -117,7 +320,7 @@ paths:
             default: 20
       responses:
         '200':
-          description: Activos que coinciden. Lista vacía si no hay coincidencias.
+          description: Activos que coinciden. Lista vacia si no hay coincidencias.
           content:
             application/json:
               schema:
@@ -131,17 +334,17 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorServidor'
 
-  /activos/qr/{codigo_qr}:
+  /activos/codigo-qr/{codigo_qr}:
     get:
       tags:
         - Activos
-      summary: Obtener un activo a partir del contenido de su código QR
-      operationId: obtenerActivoPorQr
+      summary: Obtener un activo a partir del contenido de su codigo QR
+      operationId: obtenerActivoPorCodigoQr
       parameters:
         - name: codigo_qr
           in: path
           required: true
-          description: Contenido leído del código QR, codificado para URL.
+          description: Contenido leido del codigo QR, codificado para URL.
           schema:
             type: string
       responses:
@@ -162,15 +365,10 @@ paths:
     get:
       tags:
         - Activos
-      summary: Obtener un activo por su id
+      summary: Obtener un activo por su identificador
       operationId: obtenerActivoPorId
       parameters:
-        - name: id_activo
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/IdActivo'
       responses:
         '200':
           description: Activo encontrado.
@@ -187,38 +385,215 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorServidor'
 
-  # ─────────────────────────────────────────────────────
-  # RF3 – Incidencias
-  # ─────────────────────────────────────────────────────
+  /edificios:
+    get:
+      tags:
+        - Activos
+      summary: Listar los edificios
+      operationId: listarEdificios
+      responses:
+        '200':
+          description: Edificios registrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Edificio'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /ubicaciones:
+    get:
+      tags:
+        - Activos
+      summary: Listar las ubicaciones
+      operationId: listarUbicaciones
+      parameters:
+        - name: id_edificio
+          in: query
+          required: false
+          description: Filtra las ubicaciones de un edificio.
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ubicaciones registradas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Ubicacion'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /categorias:
+    get:
+      tags:
+        - Activos
+      summary: Listar las categorias de activos
+      operationId: listarCategorias
+      responses:
+        '200':
+          description: Categorias registradas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Categoria'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /estados-activo:
+    get:
+      tags:
+        - Activos
+      summary: Listar los estados posibles de un activo
+      operationId: listarEstadosActivo
+      responses:
+        '200':
+          description: Estados registrados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EstadoActivo'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /mantenimientos:
+    get:
+      tags:
+        - Activos
+      summary: Listar los mantenimientos preventivos programados
+      operationId: listarMantenimientos
+      parameters:
+        - name: id_activo
+          in: query
+          required: false
+          description: Filtra los mantenimientos de un activo.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Mantenimientos programados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MantenimientoPreventivo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+    post:
+      tags:
+        - Activos
+      summary: Programar un mantenimiento preventivo
+      description: Solo para el rol ADMINISTRADOR.
+      operationId: programarMantenimiento
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NuevoMantenimiento'
+      responses:
+        '201':
+          description: Mantenimiento programado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MantenimientoPreventivo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  # ----------------------------------------------------------------
+  # Servicio de incidencias
+  # ----------------------------------------------------------------
 
   /incidencias:
     get:
       tags:
         - Incidencias
-      summary: Listar incidencias con filtros opcionales
-      description: |
-        Devuelve las incidencias en orden descendente por fecha de creación.
-        Cada incidencia incluye su estado actual (último registro del historial).
+      summary: Listar incidencias
       operationId: listarIncidencias
       parameters:
         - name: id_activo
           in: query
           required: false
-          description: Filtrar por UUID del activo asociado.
+          description: Filtra las incidencias de un activo.
           schema:
             type: string
             format: uuid
         - name: id_estado
           in: query
           required: false
-          description: Filtrar por id del estado de incidencia.
+          description: Filtra por el estado actual de la incidencia (1 Reportada, 2 Asignada, 3 Resuelta, 5 Rechazada).
+          schema:
+            type: integer
+        - name: prioridad
+          in: query
+          required: false
+          description: Filtra por nivel de prioridad de la incidencia.
+          schema:
+            type: string
+            enum:
+              - baja
+              - media
+              - alta
+              - critica
+        - name: id_tecnico
+          in: query
+          required: false
+          description: Filtra por el tecnico asignado en la orden de trabajo vigente.
+          schema:
+            type: string
+            format: uuid
+        - name: id_reportante
+          in: query
+          required: false
+          description: Filtra por el usuario que reporto la incidencia.
+          schema:
+            type: string
+            format: uuid
+        - name: pagina
+          in: query
+          required: false
+          description: Numero de pagina (tambien acepta page).
           schema:
             type: integer
             minimum: 1
+            default: 1
         - name: limite
           in: query
           required: false
-          description: Cantidad máxima de resultados.
+          description: Cantidad maxima de resultados.
           schema:
             type: integer
             minimum: 1
@@ -226,7 +601,7 @@ paths:
             default: 20
       responses:
         '200':
-          description: Lista de incidencias. Lista vacía si no hay coincidencias.
+          description: Incidencias que coinciden.
           content:
             application/json:
               schema:
@@ -239,32 +614,44 @@ paths:
           $ref: '#/components/responses/NoAutenticado'
         '500':
           $ref: '#/components/responses/ErrorServidor'
-
     post:
       tags:
         - Incidencias
-      summary: Reportar una nueva incidencia
+      summary: Registrar una incidencia sobre un activo
       description: |
-        Crea la incidencia y registra automáticamente el estado inicial "Reportada"
-        en el historial. El reportante se obtiene del token JWT.
-      operationId: crearIncidencia
+        El reportante es el usuario del token. La incidencia nace en el primer estado
+        del ciclo de vida (Pendiente). Cualquier rol autenticado puede reportar (RF3).
+        Las evidencias se adjuntan despues con POST /incidencias/{id_incidencia}/evidencias.
+      operationId: registrarIncidencia
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CrearIncidenciaRequest'
+              $ref: '#/components/schemas/NuevaIncidencia'
       responses:
         '201':
-          description: Incidencia creada.
+          description: Incidencia registrada en estado Pendiente.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Incidencia'
         '400':
-          $ref: '#/components/responses/DatosInvalidos'
+          description: |
+            Faltan id_activo, titulo o descripcion, superan el largo maximo,
+            o id_activo no es un UUID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '401':
           $ref: '#/components/responses/NoAutenticado'
+        '404':
+          description: El activo indicado en id_activo no existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           $ref: '#/components/responses/ErrorServidor'
 
@@ -272,15 +659,10 @@ paths:
     get:
       tags:
         - Incidencias
-      summary: Obtener una incidencia por su id
+      summary: Obtener una incidencia por su identificador
       operationId: obtenerIncidencia
       parameters:
-        - name: id_incidencia
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/IdIncidencia'
       responses:
         '200':
           description: Incidencia encontrada.
@@ -303,29 +685,20 @@ paths:
         - Incidencias
       summary: Cambiar el estado de una incidencia
       description: |
-        Transiciones permitidas y roles que las ejecutan:
-        - Reportada → Asignada: SUPERVISOR
-        - Asignada → Resuelta: TECNICO
-
-        Cualquier otra transición devuelve 400.
-        Un rol distinto al requerido devuelve 403.
-      operationId: actualizarEstadoIncidencia
+        Registra el cambio en el historial con el usuario del token.
+        Solo para los roles SUPERVISOR y TECNICO, segun la etapa del ciclo de vida.
+      operationId: cambiarEstadoIncidencia
       parameters:
-        - name: id_incidencia
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/IdIncidencia'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ActualizarEstadoRequest'
+              $ref: '#/components/schemas/CambioEstado'
       responses:
         '200':
-          description: Estado actualizado. Devuelve la incidencia con el nuevo estado.
+          description: Incidencia con su nuevo estado.
           content:
             application/json:
               schema:
@@ -335,7 +708,93 @@ paths:
         '401':
           $ref: '#/components/responses/NoAutenticado'
         '403':
-          $ref: '#/components/responses/Prohibido'
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /incidencias/{id_incidencia}/prioridad:
+    patch:
+      tags:
+        - Incidencias
+      summary: Clasificar la prioridad de una incidencia
+      description: Requiere permiso incidencias:clasificar_prioridad.
+      operationId: clasificarPrioridadIncidencia
+      parameters:
+        - $ref: '#/components/parameters/IdIncidencia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prioridad
+              properties:
+                prioridad:
+                  type: string
+                  enum:
+                    - baja
+                    - media
+                    - alta
+                    - critica
+      responses:
+        '200':
+          description: Incidencia actualizada con su nueva prioridad.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incidencia'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /incidencias/{id_incidencia}/clasificacion:
+    patch:
+      tags:
+        - Incidencias
+      summary: Alias movil para clasificar la prioridad de una incidencia (homologado TI-IV)
+      description: Equivalente a PATCH /incidencias/{id_incidencia}/prioridad. Requiere permiso incidencias:clasificar_prioridad.
+      operationId: clasificarIncidenciaAliasMovil
+      parameters:
+        - $ref: '#/components/parameters/IdIncidencia'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - prioridad
+              properties:
+                prioridad:
+                  type: string
+                  enum:
+                    - baja
+                    - media
+                    - alta
+                    - critica
+      responses:
+        '200':
+          description: Incidencia actualizada con su nueva prioridad.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Incidencia'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
         '404':
           $ref: '#/components/responses/NoEncontrado'
         '500':
@@ -345,25 +804,19 @@ paths:
     get:
       tags:
         - Incidencias
-      summary: Obtener el historial de estados de una incidencia
-      description: Devuelve todos los registros de cambio de estado en orden cronológico ascendente.
+      summary: Listar el historial de estados de una incidencia
       operationId: listarHistorialIncidencia
       parameters:
-        - name: id_incidencia
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/IdIncidencia'
       responses:
         '200':
-          description: Historial de estados.
+          description: Cambios de estado, del mas antiguo al mas reciente.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/HistorialIncidencia'
+                  $ref: '#/components/schemas/HistorialEstado'
         '400':
           $ref: '#/components/responses/DatosInvalidos'
         '401':
@@ -378,18 +831,12 @@ paths:
       tags:
         - Incidencias
       summary: Listar las evidencias de una incidencia
-      description: Devuelve las evidencias en orden cronológico ascendente.
       operationId: listarEvidencias
       parameters:
-        - name: id_incidencia
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/IdIncidencia'
       responses:
         '200':
-          description: Lista de evidencias. Lista vacía si no hay evidencias.
+          description: Evidencias adjuntas.
           content:
             application/json:
               schema:
@@ -404,32 +851,133 @@ paths:
           $ref: '#/components/responses/NoEncontrado'
         '500':
           $ref: '#/components/responses/ErrorServidor'
-
     post:
       tags:
         - Incidencias
-      summary: Agregar una evidencia a una incidencia
-      operationId: crearEvidencia
+      summary: Adjuntar una evidencia a una incidencia
+      description: |
+        La app sube el archivo a Cloudinary y envia aqui la direccion resultante (RF4).
+        Se envia una peticion por cada foto. Una incidencia admite como maximo 5 evidencias.
+      operationId: adjuntarEvidencia
       parameters:
-        - name: id_incidencia
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
+        - $ref: '#/components/parameters/IdIncidencia'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CrearEvidenciaRequest'
+              $ref: '#/components/schemas/NuevaEvidencia'
       responses:
         '201':
-          description: Evidencia creada.
+          description: Evidencia adjuntada.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Evidencia'
+        '400':
+          description: Falta url_evidencia, no es una direccion valida o id_tipo_evidencia no existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '404':
+          description: La incidencia indicada no existe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: La incidencia ya tiene el maximo de 5 evidencias.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /ordenes-trabajo:
+    get:
+      tags:
+        - Incidencias
+      summary: Listar ordenes de trabajo
+      operationId: listarOrdenesTrabajo
+      parameters:
+        - name: id_incidencia
+          in: query
+          required: false
+          description: Filtra las ordenes de una incidencia.
+          schema:
+            type: string
+            format: uuid
+        - name: id_tecnico
+          in: query
+          required: false
+          description: Filtra las ordenes asignadas a un tecnico.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Ordenes de trabajo que coinciden.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrdenTrabajo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+    post:
+      tags:
+        - Incidencias
+      summary: Crear una orden de trabajo y asignarla a un tecnico
+      description: Solo para el rol SUPERVISOR.
+      operationId: crearOrdenTrabajo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NuevaOrdenTrabajo'
+      responses:
+        '201':
+          description: Orden de trabajo creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdenTrabajo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /ordenes-trabajo/{id_orden}:
+    get:
+      tags:
+        - Incidencias
+      summary: Obtener una orden de trabajo por su identificador
+      operationId: obtenerOrdenTrabajo
+      parameters:
+        - $ref: '#/components/parameters/IdOrden'
+      responses:
+        '200':
+          description: Orden de trabajo encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdenTrabajo'
         '400':
           $ref: '#/components/responses/DatosInvalidos'
         '401':
@@ -439,20 +987,48 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorServidor'
 
-  # ─────────────────────────────────────────────────────
-  # RF3 – Catálogos
-  # ─────────────────────────────────────────────────────
+  /ordenes-trabajo/{id_orden}/diagnostico:
+    patch:
+      tags:
+        - Incidencias
+      summary: Registrar el diagnostico tecnico de una orden de trabajo
+      description: Solo para el rol TECNICO, y solo el tecnico asignado a la orden.
+      operationId: registrarDiagnosticoTecnico
+      parameters:
+        - $ref: '#/components/parameters/IdOrden'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NuevoDiagnostico'
+      responses:
+        '200':
+          description: Orden de trabajo con su diagnostico.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrdenTrabajo'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '404':
+          $ref: '#/components/responses/NoEncontrado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
 
   /estados-incidencia:
     get:
       tags:
-        - Catalogos
-      summary: Listar todos los estados de incidencia
-      description: Devuelve el catálogo completo, ordenado por id_estado ascendente.
+        - Incidencias
+      summary: Listar los estados del ciclo de vida de una incidencia
       operationId: listarEstadosIncidencia
       responses:
         '200':
-          description: Lista de estados de incidencia.
+          description: Estados registrados.
           content:
             application/json:
               schema:
@@ -467,13 +1043,12 @@ paths:
   /tipos-evidencia:
     get:
       tags:
-        - Catalogos
-      summary: Listar todos los tipos de evidencia
-      description: Devuelve el catálogo completo, ordenado por id_tipo_evidencia ascendente.
+        - Incidencias
+      summary: Listar los tipos de evidencia
       operationId: listarTiposEvidencia
       responses:
         '200':
-          description: Lista de tipos de evidencia.
+          description: Tipos registrados.
           content:
             application/json:
               schema:
@@ -485,31 +1060,256 @@ paths:
         '500':
           $ref: '#/components/responses/ErrorServidor'
 
+  /sincronizacion/lote:
+    post:
+      tags:
+        - Incidencias
+      summary: Sincronización masiva en lote de acciones offline
+      description: |
+        Procesa hasta 50 acciones realizadas sin conexión en una sola llamada HTTP.
+        Cada acción se ejecuta de forma aislada: si una falla (validación o permiso),
+        las acciones válidas sí se aplican y persisten. Responde 207 con reporte
+        por ítem cuando hay errores parciales, 200 si todas son exitosas.
+      operationId: sincronizarLote
+      security:
+        - autenticacionJwt: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchSyncRequest'
+      responses:
+        '200':
+          description: Todas las acciones se procesaron con éxito.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchSyncResponse'
+        '207':
+          description: Procesamiento con errores parciales (al menos una acción falló).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchSyncResponse'
+        '400':
+          $ref: '#/components/responses/DatosInvalidos'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /estadisticas/tiempo-resolucion:
+    get:
+      tags:
+        - Incidencias
+      summary: Metricas de tiempo de resolucion promedio (MTTR) e indicadores globales
+      description: |
+        Calcula el MTTR a partir de la fecha del paso mas reciente a estado Resuelta en el historial
+        de estados respecto a la orden de trabajo vigente. Requiere rol ADMINISTRADOR y permiso estadisticas:ver.
+      operationId: obtenerEstadisticasTiempoResolucion
+      security:
+        - autenticacionJwt: []
+      responses:
+        '200':
+          description: Metricas e indicadores de incidencias obtenidos exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadisticasTiempoResolucion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  /incidencias/estadisticas/tiempo-resolucion:
+    get:
+      tags:
+        - Incidencias
+      summary: Metricas de tiempo de resolucion promedio (MTTR) e indicadores (ruta en incidencias)
+      description: |
+        Ruta equivalente bajo /incidencias para consultar el MTTR e indicadores globales.
+        Requiere rol ADMINISTRADOR y permiso estadisticas:ver.
+      operationId: obtenerEstadisticasTiempoResolucionIncidencias
+      security:
+        - autenticacionJwt: []
+      responses:
+        '200':
+          description: Metricas e indicadores de incidencias obtenidos exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EstadisticasTiempoResolucion'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
+  # ----------------------------------------------------------------
+  # Auditoria y monitoreo administrativo en API Gateway (TAL-178)
+  # ----------------------------------------------------------------
+
+  /auditoria:
+    get:
+      tags:
+        - Auditoria
+      summary: Consultar bitacora paginada de auditoria y salud de microservicios
+      description: |
+        Entrega los registros estructurados de operaciones mutantes (POST, PUT, PATCH, DELETE)
+        capturados en el API Gateway dentro de un buffer circular acotado en memoria (sin alterar
+        el MER ni depender del sistema de archivos del contenedor) junto con el estado de salud
+        en vivo de los cuatro microservicios. Exige JWT valido con permisos administrativos PBAC
+        (usuarios:gestionar, estadisticas:ver o auditoria:ver).
+      operationId: listarRegistrosAuditoria
+      security:
+        - autenticacionJwt: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Numero de pagina a consultar.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Cantidad maxima de registros por pagina (maximo 100).
+        - name: metodo
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filtro por metodo HTTP (ej. POST, PUT, PATCH, DELETE o lista separada por comas).
+        - name: servicio
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - ms-auth
+              - ms-incidencias
+              - ms-activos
+              - ms-notificaciones
+              - api-gateway
+          description: Filtro por microservicio destino.
+        - name: usuario
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filtro parcial por ID, correo o rol del usuario responsable.
+        - name: statusCode
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filtro por codigo HTTP exacto (ej. 201, 403, 503) o familia (2xx, 4xx, 5xx, error, exito).
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Busqueda libre sobre ruta, entidad, usuario, accion o servicio.
+        - name: includeHealth
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: Si es true, incluye la verificacion en vivo de los 4 microservicios.
+      responses:
+        '200':
+          description: Bitacora de auditoria y salud de microservicios obtenidas exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BitacoraAuditoriaResponse'
+        '401':
+          $ref: '#/components/responses/NoAutenticado'
+        '403':
+          $ref: '#/components/responses/SinPermiso'
+        '500':
+          $ref: '#/components/responses/ErrorServidor'
+
 components:
 
   securitySchemes:
-    bearerAuth:
+    autenticacionJwt:
       type: http
       scheme: bearer
       bearerFormat: JWT
       description: |
-        Token que devuelve POST /auth/login. Se envía en cada petición protegida:
+        Token que devuelve POST /autenticacion/inicio-sesion. Se envia en cada peticion protegida:
         Authorization: Bearer <token>
 
-        El payload del token debe incluir:
+        El contenido del token debe incluir:
         - sub: id_usuario (UUID).
         - rol: nombre_rol, con los mismos valores del esquema Rol.
-        - exp: fecha de expiración (segundos Unix).
+        - exp: fecha de expiracion, en segundos.
+
+        Los nombres sub y exp estan fijados por el estandar del JWT y por eso no se traducen.
+
+  parameters:
+    IdActivo:
+      name: id_activo
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdIncidencia:
+      name: id_incidencia
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdOrden:
+      name: id_orden
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
 
   responses:
     DatosInvalidos:
-      description: La petición tiene datos faltantes o con formato incorrecto.
+      description: La peticion tiene datos faltantes o con formato incorrecto.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 400
+            mensaje: Los datos enviados no son validos.
+            message: "titulo must be shorter than or equal to 255 characters"
+            timestamp: '2026-10-31T18:00:00.000Z'
+            path: /api/v1/incidencias
     NoAutenticado:
-      description: Falta el token, es inválido o expiró. La app debe cerrar la sesión.
+      description: Falta el token, es invalido o expiro. La app debe cerrar la sesion.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 401
+            mensaje: Falta el token, es invalido o expiro.
+            message: No autorizado
+            timestamp: '2026-10-31T18:00:00.000Z'
+            path: /api/v1/incidencias
+    SinPermiso:
+      description: El rol del usuario no permite esta accion.
       content:
         application/json:
           schema:
@@ -520,46 +1320,87 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-    Prohibido:
-      description: El rol del usuario no tiene permiso para esta operación.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
     ErrorServidor:
       description: Error interno del servidor.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 500
+            mensaje: Error interno del servidor.
+            message: Internal server error
+            timestamp: '2026-10-31T18:00:00.000Z'
+            path: /api/v1/incidencias
+    DemasiadasSolicitudes:
+      description: Se excedio el limite de 5 intentos de inicio de sesion por 15 minutos.
+      headers:
+        Retry-After:
+          description: Segundos antes de que vuelva a admitir solicitudes.
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            statusCode: 429
+            mensaje: Demasiados intentos
+            message: Rate limit exceeded, retry in 900 seconds
+            timestamp: '2026-10-31T18:00:00.000Z'
+            path: /api/v1/auth/login
 
   schemas:
 
     Error:
       type: object
-      description: Formato único de todos los errores.
+      description: |
+        Formato unico de todos los errores, generado por el filtro global de TI2.
+        La app muestra mensaje; los demas campos son para monitoreo y registro.
       required:
+        - statusCode
         - mensaje
+        - message
+        - timestamp
+        - path
       properties:
+        statusCode:
+          type: integer
+          description: Codigo HTTP de la respuesta.
         mensaje:
           type: string
-          description: Explicación del error, apta para mostrar al usuario.
+          description: Explicacion del error, apta para mostrar al usuario.
+        message:
+          type: string
+          description: Mismo texto de mensaje. Se mantiene por compatibilidad con las herramientas de TI2.
+        timestamp:
+          type: string
+          format: date-time
+          description: Momento en que ocurrio el error.
+        path:
+          type: string
+          description: Ruta que fallo.
 
-    LoginRequest:
+    CredencialesAcceso:
       type: object
       required:
-        - correo
+        - email
         - password
       properties:
-        correo:
+        email:
           type: string
           format: email
+          example: tecnico@scgi.cl
         password:
           type: string
           format: password
           writeOnly: true
+          example: Admin123!
+      example:
+        email: tecnico@scgi.cl
+        password: Admin123!
 
-    LoginResponse:
+    SesionIniciada:
       type: object
       required:
         - token
@@ -567,9 +1408,28 @@ components:
       properties:
         token:
           type: string
-          description: JWT firmado. Su contenido se describe en bearerAuth.
+          description: JWT firmado. Su contenido se describe en autenticacionJwt.
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.example.signature
+        refreshToken:
+          type: string
+          description: Incluido en el cuerpo JSON solo cuando se envia la cabecera X-Client-Type: mobile.
         usuario:
           $ref: '#/components/schemas/Usuario'
+
+    Permiso:
+      type: object
+      description: Permiso asignable a un rol (tabla PERMISOS).
+      required:
+        - id_permiso
+        - nombre_permiso
+      properties:
+        id_permiso:
+          type: integer
+        nombre_permiso:
+          type: string
+        descripcion:
+          type: string
+          nullable: true
 
     Rol:
       type: object
@@ -587,10 +1447,15 @@ components:
             - SUPERVISOR
             - TECNICO
             - ADMINISTRADOR
+        permisos:
+          type: array
+          description: Permisos del rol (tabla ROLES_PERMISOS). Solo se envia en la ruta de roles.
+          items:
+            $ref: '#/components/schemas/Permiso'
 
     Usuario:
       type: object
-      description: Usuario del sistema (tabla USUARIOS). No incluye password_hash.
+      description: Usuario del sistema (tabla USUARIOS). No incluye la contrasena.
       required:
         - id_usuario
         - rut_o_id
@@ -598,7 +1463,7 @@ components:
         - apellido
         - correo
         - rol
-        - created_at
+        - fecha_creacion
       properties:
         id_usuario:
           type: string
@@ -614,14 +1479,14 @@ components:
           format: email
         rol:
           $ref: '#/components/schemas/Rol'
-        created_at:
+        fecha_creacion:
           type: string
           format: date-time
           readOnly: true
 
     Edificio:
       type: object
-      description: Edificio de la institución (tabla EDIFICIOS).
+      description: Edificio de la institucion (tabla EDIFICIOS).
       required:
         - id_edificio
         - nombre_edificio
@@ -648,7 +1513,7 @@ components:
 
     Categoria:
       type: object
-      description: Categoría del activo (tabla CATEGORIAS).
+      description: Categoria del activo (tabla CATEGORIAS).
       required:
         - id_categoria
         - nombre_categoria
@@ -672,7 +1537,7 @@ components:
 
     Activo:
       type: object
-      description: Activo de infraestructura (tabla ACTIVOS). No incluye deleted_at.
+      description: Activo de infraestructura (tabla ACTIVOS).
       required:
         - id_activo
         - codigo_qr
@@ -680,7 +1545,7 @@ components:
         - estado
         - categoria
         - ubicacion
-        - created_at
+        - fecha_creacion
       properties:
         id_activo:
           type: string
@@ -707,16 +1572,50 @@ components:
           $ref: '#/components/schemas/Categoria'
         ubicacion:
           $ref: '#/components/schemas/Ubicacion'
-        created_at:
+        fecha_creacion:
           type: string
           format: date-time
           readOnly: true
 
-    # ─── Incidencias ───────────────────────────────────
+    MantenimientoPreventivo:
+      type: object
+      description: Mantenimiento programado para un activo (tabla MANTENIMIENTOS_PREVENTIVOS).
+      required:
+        - id_mantenimiento
+        - id_activo
+        - fecha_programada
+        - fecha_creacion
+      properties:
+        id_mantenimiento:
+          type: string
+          format: uuid
+        id_activo:
+          type: string
+          format: uuid
+        fecha_programada:
+          type: string
+          format: date
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+
+    NuevoMantenimiento:
+      type: object
+      required:
+        - id_activo
+        - fecha_programada
+      properties:
+        id_activo:
+          type: string
+          format: uuid
+        fecha_programada:
+          type: string
+          format: date
 
     EstadoIncidencia:
       type: object
-      description: Estado de una incidencia (tabla ESTADOS_INCIDENCIA).
+      description: Estado del ciclo de vida de una incidencia (tabla ESTADOS_INCIDENCIA).
       required:
         - id_estado
         - nombre_estado
@@ -725,25 +1624,15 @@ components:
           type: integer
         nombre_estado:
           type: string
-          description: |
-            Valores conocidos: Reportada, Asignada, Resuelta.
-            El catálogo completo se obtiene con GET /estados-incidencia.
-
-    TipoEvidencia:
-      type: object
-      description: Tipo de evidencia (tabla TIPOS_EVIDENCIA).
-      required:
-        - id_tipo_evidencia
-        - nombre_tipo
-      properties:
-        id_tipo_evidencia:
-          type: integer
-        nombre_tipo:
-          type: string
 
     Incidencia:
       type: object
-      description: Incidencia reportada sobre un activo (tabla Incidencias).
+      description: |
+        Falla reportada sobre un activo (tabla INCIDENCIAS).
+        id_activo e id_reportante viven en otras bases de datos, por eso solo viaja su identificador.
+        estado es el ultimo registro del historial, no una columna de la tabla.
+        evidencias solo se incluye cuando la respuesta las trae adjuntas; tambien se obtienen con
+        GET /incidencias/{id_incidencia}/evidencias.
       required:
         - id_incidencia
         - id_activo
@@ -759,27 +1648,55 @@ components:
         id_activo:
           type: string
           format: uuid
-          description: UUID del activo afectado.
         id_reportante:
           type: string
           format: uuid
-          description: UUID del usuario que reportó la incidencia.
         titulo:
           type: string
-          maxLength: 255
         descripcion:
           type: string
         estado:
           $ref: '#/components/schemas/EstadoIncidencia'
-          description: Estado actual (último registro del historial).
+        evidencias:
+          type: array
+          items:
+            $ref: '#/components/schemas/Evidencia'
         fecha_creacion:
           type: string
           format: date-time
           readOnly: true
 
-    HistorialIncidencia:
+    NuevaIncidencia:
       type: object
-      description: Registro de un cambio de estado de una incidencia (tabla HistorialIncidencia).
+      description: Datos requeridos para registrar una incidencia.
+      required:
+        - id_activo
+        - titulo
+        - descripcion
+      properties:
+        id_activo:
+          type: string
+          format: uuid
+        titulo:
+          type: string
+          minLength: 1
+          maxLength: 255
+        descripcion:
+          type: string
+          minLength: 1
+
+    CambioEstado:
+      type: object
+      required:
+        - id_estado
+      properties:
+        id_estado:
+          type: integer
+          description: Estado al que pasa la incidencia.
+
+    HistorialEstado:
+      type: object
+      description: Cambio de estado de una incidencia (tabla HISTORIAL_ESTADOS).
       required:
         - id_historial
         - id_incidencia
@@ -798,15 +1715,75 @@ components:
         id_usuario_cambio:
           type: string
           format: uuid
-          description: UUID del usuario que realizó el cambio de estado.
         fecha_creacion:
           type: string
           format: date-time
           readOnly: true
 
+    OrdenTrabajo:
+      type: object
+      description: Trabajo asignado a un tecnico para resolver una incidencia (tabla ORDENES_TRABAJO).
+      required:
+        - id_orden
+        - id_incidencia
+        - id_tecnico
+        - fecha_creacion
+      properties:
+        id_orden:
+          type: string
+          format: uuid
+        id_incidencia:
+          type: string
+          format: uuid
+        id_tecnico:
+          type: string
+          format: uuid
+        diagnostico_tecnico:
+          type: string
+          nullable: true
+          description: Diagnostico que escribe el tecnico. Vacio mientras no lo registre.
+        fecha_creacion:
+          type: string
+          format: date-time
+          readOnly: true
+
+    NuevaOrdenTrabajo:
+      type: object
+      required:
+        - id_incidencia
+        - id_tecnico
+      properties:
+        id_incidencia:
+          type: string
+          format: uuid
+        id_tecnico:
+          type: string
+          format: uuid
+
+    NuevoDiagnostico:
+      type: object
+      required:
+        - diagnostico_tecnico
+      properties:
+        diagnostico_tecnico:
+          type: string
+          minLength: 1
+
+    TipoEvidencia:
+      type: object
+      description: Tipo de evidencia adjunta (tabla TIPOS_EVIDENCIA).
+      required:
+        - id_tipo_evidencia
+        - nombre_tipo
+      properties:
+        id_tipo_evidencia:
+          type: integer
+        nombre_tipo:
+          type: string
+
     Evidencia:
       type: object
-      description: Evidencia adjunta a una incidencia (tabla Evidencia).
+      description: Archivo adjunto a una incidencia (tabla EVIDENCIAS).
       required:
         - id_evidencia
         - id_incidencia
@@ -824,41 +1801,13 @@ components:
           $ref: '#/components/schemas/TipoEvidencia'
         url_evidencia:
           type: string
-          description: URL de Cloudinary donde está almacenada la evidencia.
+          description: Direccion del archivo en Cloudinary (columna url_cloudinary).
         fecha_creacion:
           type: string
           format: date-time
           readOnly: true
 
-    CrearIncidenciaRequest:
-      type: object
-      required:
-        - id_activo
-        - titulo
-        - descripcion
-      properties:
-        id_activo:
-          type: string
-          format: uuid
-          description: UUID del activo afectado.
-        titulo:
-          type: string
-          maxLength: 255
-        descripcion:
-          type: string
-
-    ActualizarEstadoRequest:
-      type: object
-      description: Nuevo estado al que se desea mover la incidencia.
-      required:
-        - id_estado
-      properties:
-        id_estado:
-          type: integer
-          minimum: 1
-          description: id_estado del EstadoIncidencia destino.
-
-    CrearEvidenciaRequest:
+    NuevaEvidencia:
       type: object
       required:
         - id_tipo_evidencia
@@ -866,7 +1815,367 @@ components:
       properties:
         id_tipo_evidencia:
           type: integer
-          minimum: 1
         url_evidencia:
           type: string
-          description: URL de Cloudinary de la evidencia subida.
+          format: uri
+          description: secure_url que devuelve Cloudinary (HTTPS, RNF3).
+
+    BatchSyncRequest:
+      type: object
+      required:
+        - acciones
+      properties:
+        acciones:
+          type: array
+          minItems: 1
+          maxItems: 50
+          description: Acciones offline a sincronizar (maximo 50 por llamada).
+          items:
+            $ref: '#/components/schemas/SyncAction'
+
+    SyncAction:
+      type: object
+      required:
+        - id_accion_local
+        - tipo
+        - timestamp_local
+      properties:
+        id_accion_local:
+          type: string
+          description: Identificador local generado por el cliente mientras estuvo offline.
+        tipo:
+          type: string
+          enum:
+            - crear_incidencia
+            - subir_evidencia
+            - actualizar_estado
+          description: Tipo de accion a ejecutar.
+        payload:
+          type: object
+          description: Payload de la accion. Su estructura depende del tipo.
+        timestamp_local:
+          type: string
+          format: date-time
+          description: Timestamp local ISO 8601 del dispositivo cliente.
+
+    ItemResultado:
+      type: object
+      required:
+        - id_accion_local
+        - estado
+      properties:
+        id_accion_local:
+          type: string
+        estado:
+          type: string
+          enum:
+            - OK
+            - ERROR
+        recurso_id:
+          type: string
+          format: uuid
+          description: ID del recurso creado o actualizado (cuando estado es OK).
+        motivo:
+          type: string
+          description: Motivo del error (cuando estado es ERROR).
+
+    ResumenLote:
+      type: object
+      required:
+        - total
+        - exitosos
+        - errores
+      properties:
+        total:
+          type: integer
+        exitosos:
+          type: integer
+        errores:
+          type: integer
+
+    BatchSyncResponse:
+      type: object
+      required:
+        - statusCode
+        - message
+        - resumen
+        - detalle
+      properties:
+        statusCode:
+          type: integer
+          enum:
+            - 200
+            - 207
+        message:
+          type: string
+        resumen:
+          $ref: '#/components/schemas/ResumenLote'
+        detalle:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItemResultado'
+
+    EstadisticasTiempoResolucion:
+      type: object
+      required:
+        - promedioHorasTotal
+        - totalOrdenesCerradas
+        - desglosePorTecnico
+        - desglosePorActivo
+        - conteoPorEstado
+        - conteoPorPrioridad
+      properties:
+        promedioHorasTotal:
+          type: number
+          format: float
+          description: Promedio global de resolucion en horas redondeado a 2 decimales (0 si no hay ordenes cerradas).
+          example: 12.5
+        totalOrdenesCerradas:
+          type: integer
+          description: Total de ordenes resueltas consideradas en el calculo de MTTR.
+          example: 8
+        desglosePorTecnico:
+          type: array
+          description: MTTR y total de ordenes agrupado por tecnico.
+          items:
+            type: object
+            required:
+              - id_tecnico
+              - nombre_tecnico
+              - totalOrdenesCerradas
+              - promedioHoras
+            properties:
+              id_tecnico:
+                type: string
+                nullable: true
+                format: uuid
+              nombre_tecnico:
+                type: string
+                nullable: true
+              totalOrdenesCerradas:
+                type: integer
+              promedioHoras:
+                type: number
+                format: float
+        desglosePorActivo:
+          type: array
+          description: MTTR y total de ordenes agrupado por activo.
+          items:
+            type: object
+            required:
+              - id_activo
+              - nombre_activo
+              - totalOrdenesCerradas
+              - promedioHoras
+            properties:
+              id_activo:
+                type: string
+                format: uuid
+              nombre_activo:
+                type: string
+                nullable: true
+              totalOrdenesCerradas:
+                type: integer
+              promedioHoras:
+                type: number
+                format: float
+        conteoPorEstado:
+          type: object
+          description: Conteo global de incidencias agrupadas por su estado actual en HISTORIAL_ESTADOS.
+          additionalProperties:
+            type: integer
+          example:
+            Reportada: 5
+            Asignada: 2
+            Resuelta: 8
+            Cerrada: 3
+        conteoPorPrioridad:
+          type: object
+          description: Conteo global de incidencias agrupadas por prioridad.
+          additionalProperties:
+            type: integer
+          example:
+            baja: 4
+            media: 8
+            alta: 5
+            critica: 1
+
+    RegistroAuditoria:
+      type: object
+      required:
+        - id_auditoria
+        - timestamp
+        - metodo
+        - ruta
+        - servicio_destino
+        - accion
+        - entidad
+        - id_entidad
+        - status_code
+        - latencia_ms
+        - ip_origen
+        - usuario
+      properties:
+        id_auditoria:
+          type: string
+          format: uuid
+        timestamp:
+          type: string
+          format: date-time
+        metodo:
+          type: string
+          enum:
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+        ruta:
+          type: string
+          description: Ruta normalizada bajo /api/v1/* con parametros sensibles redactados.
+        servicio_destino:
+          type: string
+          enum:
+            - ms-auth
+            - ms-incidencias
+            - ms-activos
+            - ms-notificaciones
+            - api-gateway
+        accion:
+          type: string
+          enum:
+            - CREACION
+            - ACTUALIZACION
+            - ELIMINACION
+            - CAMBIO_ESTADO
+            - LOGIN
+            - LOGOUT
+            - EVENTO_SISTEMA
+        entidad:
+          type: string
+        id_entidad:
+          type: string
+        status_code:
+          type: integer
+        latencia_ms:
+          type: number
+          format: float
+        ip_origen:
+          type: string
+        usuario:
+          type: object
+          required:
+            - id
+            - rol
+            - autenticado
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+              nullable: true
+            rol:
+              type: string
+            autenticado:
+              type: boolean
+
+    SaludMicroservicio:
+      type: object
+      required:
+        - nombre
+        - estado
+        - operativo
+      properties:
+        nombre:
+          type: string
+        estado:
+          type: string
+          enum:
+            - UP
+            - DEGRADED
+            - DOWN
+        operativo:
+          type: boolean
+        codigo_http:
+          type: integer
+          nullable: true
+        latencia_ms:
+          type: number
+          format: float
+          nullable: true
+        detalle:
+          type: string
+          nullable: true
+
+    BitacoraAuditoriaResponse:
+      type: object
+      required:
+        - data
+        - paginacion
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RegistroAuditoria'
+        paginacion:
+          type: object
+          required:
+            - total
+            - page
+            - limit
+            - total_paginas
+            - capacidad_buffer
+            - registros_en_buffer
+            - almacenamiento_efimero
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+            total_paginas:
+              type: integer
+            capacidad_buffer:
+              type: integer
+            registros_en_buffer:
+              type: integer
+            almacenamiento_efimero:
+              type: boolean
+        servicios:
+          type: object
+          nullable: true
+          required:
+            - estado_general
+            - timestamp
+            - gateway
+            - microservicios
+          properties:
+            estado_general:
+              type: string
+              enum:
+                - UP
+                - DEGRADED
+                - DOWN
+            timestamp:
+              type: string
+              format: date-time
+            gateway:
+              type: object
+              required:
+                - nombre
+                - estado
+                - operativo
+                - uptime_segundos
+              properties:
+                nombre:
+                  type: string
+                estado:
+                  type: string
+                operativo:
+                  type: boolean
+                uptime_segundos:
+                  type: integer
+            microservicios:
+              type: array
+              items:
+                $ref: '#/components/schemas/SaludMicroservicio'

@@ -20,6 +20,7 @@ import NetworkStatusContext from '../context/NetworkStatusContext';
 import OfflineActionModal, { ACTION_TYPES } from './OfflineActionModal';
 import api from '../services/api';
 import { hasPermission } from '../services/authService';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 // Lista de materiales e insumos comunes para selección rápida táctil en tablets
 const MATERIALES_FRECUENTES = [
@@ -107,6 +108,13 @@ const ModalCierreMantenimiento = ({
   const networkContext = useContext(NetworkStatusContext);
   const isOnline = networkContext?.isOnline ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
   const isServerReachable = networkContext?.isServerReachable ?? (typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  // TAL-204 (WCAG 2.1 AA): Focus trap + cierre con Escape (pausado si el submodal offline está abierto)
+  const dialogRef = useFocusTrap(Boolean(isOpen && orden && !isOfflineModalOpen), {
+    onClose: () => {
+      if (!isSubmitting && !isOfflineModalOpen) onClose();
+    },
+  });
 
   // Reiniciar estado cuando se abre para una nueva orden
   useEffect(() => {
@@ -333,6 +341,7 @@ const ModalCierreMantenimiento = ({
 
         if (onCierreExitoso) {
           onCierreExitoso({
+            estado: 'Resuelta',
             resolucion: resolucion.trim(),
             horasInvertidas: Number(horasInvertidas),
             materialesUsados: sinMateriales ? [] : materialesUsados,
@@ -367,7 +376,7 @@ const ModalCierreMantenimiento = ({
           }
         );
 
-        showToast('Incidencia rechazada en PostgreSQL. El motivo ha sido registrado.', 'info');
+        showToast('Incidencia rechazada correctamente. El motivo ha sido registrado.', 'info');
 
         if (onCierreExitoso) {
           onCierreExitoso({
@@ -407,7 +416,7 @@ const ModalCierreMantenimiento = ({
     if (onCierreExitoso) {
       onCierreExitoso({
         resolucion: resolucion.trim() || `[RECHAZADO]: ${motivoRechazo.trim()}`,
-        estado: pendingActionType === 'RECHAZAR' ? 'Rechazada' : 'Completada',
+        estado: pendingActionType === 'RECHAZAR' ? 'Rechazada' : 'Resuelta',
         esOffline: true,
       });
     }
@@ -429,8 +438,10 @@ const ModalCierreMantenimiento = ({
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         id="modal-cierre-contenedor"
-        className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] transform transition-all"
+        className="bg-white w-full max-w-2xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[88vh] transform transition-all focus:outline-none"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-cierre-titulo"
@@ -540,11 +551,11 @@ const ModalCierreMantenimiento = ({
                     <span className="text-gray-600 block text-[10px] uppercase font-semibold">Nuevo Estado</span>
                     {esModoRechazar ? (
                       <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-red-100 text-red-800 border border-red-300">
-                        RECHAZADO
+                        Rechazada
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        Completada
+                        Resuelta
                       </span>
                     )}
                   </div>
@@ -854,11 +865,11 @@ const ModalCierreMantenimiento = ({
                                     type="button"
                                     onClick={() => eliminarMaterial(idx)}
                                     disabled={isSubmitting}
-                                    className="text-gray-400 hover:text-red-600 p-1 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring cursor-pointer"
+                                    className="text-gray-500 hover:text-red-700 p-1 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 cursor-pointer"
                                     title="Eliminar material"
-                                    aria-label="Eliminar"
+                                    aria-label={`Eliminar material ${m.nombre}`}
                                   >
-                                    <FiTrash2 className="w-3.5 h-3.5" />
+                                    <FiTrash2 className="w-3.5 h-3.5" aria-hidden="true" />
                                   </button>
                                 </div>
                               ))}
@@ -885,12 +896,12 @@ const ModalCierreMantenimiento = ({
               {esModoRechazar ? (
                 <>
                   <LuTriangleAlert className="w-4 h-4 text-red-600" />
-                  <span>Al confirmar, la tarea pasará a <strong>RECHAZADO</strong></span>
+                  <span>Al confirmar, la incidencia pasará a <strong>Rechazada</strong></span>
                 </>
               ) : (
                 <>
                   <FiCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Al confirmar, la tarea pasará a <strong>Completada</strong></span>
+                  <span>Al confirmar, la incidencia pasará a <strong>Resuelta</strong></span>
                 </>
               )}
             </div>

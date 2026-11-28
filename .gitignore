@@ -12,6 +12,7 @@ out/
 .env
 .env.test
 .env.production
+seed.local.json
 .DS_Store
 *.log
 coverage/

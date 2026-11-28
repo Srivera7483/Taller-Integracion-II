@@ -5,13 +5,12 @@ dotenv.config();
 const prisma = new PrismaClient();
 
 async function main() {
+  // Catálogo oficial de 4 estados del ciclo de vida de incidencias
   const estados = [
     { id_estado: 1, nombre_estado: 'Reportada' },
     { id_estado: 2, nombre_estado: 'Asignada' },
     { id_estado: 3, nombre_estado: 'Resuelta' },
-    { id_estado: 4, nombre_estado: 'Cerrada' },
     { id_estado: 5, nombre_estado: 'Rechazada' },
-    { id_estado: 6, nombre_estado: 'Completada' },
   ];
 
   for (const estado of estados) {
@@ -21,6 +20,15 @@ async function main() {
       create: estado,
     });
   }
+
+  // Normalizar registros históricos residuales de estados retirados (4: Cerrada, 6: Completada -> 3: Resuelta)
+  await prisma.historialEstados.updateMany({
+    where: { id_estado: { in: [4, 6] } },
+    data: { id_estado: 3 },
+  });
+  await prisma.estadoIncidencia.deleteMany({
+    where: { id_estado: { in: [4, 6] } },
+  });
 
   const tiposEvidencia = [
     { id_tipo_evidencia: 1, nombre_tipo: 'Imagen' },

@@ -45,13 +45,12 @@ export {
 
 /**
  * Componente NotificacionesDropdown (TAL-190).
- * Integra campana en el Header, badge dinámico, sincronización instantánea vía WebSocket,
- * animación de rebote y visualización de las últimas 5 notificaciones.
- * Inicialmente vacía hasta registrarse un suceso reciente, con deduplicación estricta para evitar repeticiones.
+ * Integra campana en el Header, badge dinámico sincronizado 1:1 con la lista desplazable,
+ * sincronización instantánea vía WebSocket y animación de rebote.
  */
 const NotificacionesDropdown = ({
   initialNotifications = NOTIFICACIONES_INICIALES,
-  maxDisplay = 5,
+  maxDisplay = 50,
   wsSalas = ['incidencias'],
 }) => {
   const [abierto, setAbierto] = useState(false);
@@ -83,8 +82,17 @@ const NotificacionesDropdown = ({
     notificacionesRef.current = notificaciones;
   }, [notificaciones]);
 
-  // Cuenta notificaciones no leídas
-  const noLeidas = notificaciones.filter((n) => !n.leida).length;
+  // Lista acotada sincronizada 1:1 con el contador del badge y la persistencia local
+  const ultimasNotificaciones = useMemo(
+    () => (typeof maxDisplay === 'number' && maxDisplay > 0 ? notificaciones.slice(0, maxDisplay) : notificaciones),
+    [notificaciones, maxDisplay],
+  );
+
+  // Cuenta notificaciones no leídas exclusivamente sobre las notificaciones accesibles en la lista
+  const noLeidas = useMemo(
+    () => ultimasNotificaciones.filter((n) => !n.leida).length,
+    [ultimasNotificaciones],
+  );
   const prevNoLeidasRef = useRef(noLeidas);
 
   // Sincronizar notificaciones en caso de cambio de usuario en la misma sesión
@@ -158,12 +166,12 @@ const NotificacionesDropdown = ({
       const usuario = getUsuarioActual();
       const storageKey = obtenerStorageKeyNotificaciones(usuario);
       if (storageKey && typeof localStorage !== 'undefined') {
-        localStorage.setItem(storageKey, JSON.stringify(notificaciones.slice(0, 30)));
+        localStorage.setItem(storageKey, JSON.stringify(notificaciones.slice(0, maxDisplay)));
       }
     } catch {
       // Ignorar errores de cuota o serialización
     }
-  }, [notificaciones]);
+  }, [notificaciones, maxDisplay]);
 
   // Forzar actualización periódica para que los tiempos relativos avancen (Ahora mismo -> 1 minuto -> n minutos)
   const [, setRelojTick] = useState(0);
@@ -346,20 +354,28 @@ const NotificacionesDropdown = ({
     }
   }, [idUsuarioActual, esCoordinador, unirseSala, dejarSala]);
 
-  // Cierra el menú al hacer clic afuera (ClickAway listener)
+  // Cierra el menú al hacer clic afuera o pulsar Escape (WCAG 2.1 AA — TAL-204)
   useEffect(() => {
     const handleClickAfuera = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setAbierto(false);
       }
     };
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setAbierto(false);
+        dropdownRef.current?.querySelector('[data-testid="notification-bell-btn"]')?.focus();
+      }
+    };
 
     if (abierto) {
       document.addEventListener('mousedown', handleClickAfuera);
+      document.addEventListener('keydown', handleEscape);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickAfuera);
+      document.removeEventListener('keydown', handleEscape);
     };
   }, [abierto]);
 
@@ -372,9 +388,6 @@ const NotificacionesDropdown = ({
   const marcarTodasLeidas = () => {
     setNotificaciones((prev) => marcarTodasComoLeidas(prev));
   };
-
-  // Últimas 5 notificaciones para desplegar en el menú según descripción
-  const ultimasNotificaciones = notificaciones.slice(0, maxDisplay);
 
   return (
     <div className="relative inline-block text-left" ref={dropdownRef}>
@@ -390,9 +403,10 @@ const NotificacionesDropdown = ({
             : 'Abrir notificaciones'
         }
         aria-expanded={abierto}
+        aria-haspopup="true"
         data-testid="notification-bell-btn"
       >
-        <FiBell className="w-5 h-5 transition-transform duration-200 hover:rotate-6" />
+        <FiBell className="w-5 h-5 transition-transform duration-200 hover:rotate-6" aria-hidden="true" />
 
         {/* Badge numérico en tiempo real con animación CSS ligera de rebote (Criterios 1 y 3 — TAL-203) */}
         {noLeidas > 0 && (
@@ -421,12 +435,12 @@ const NotificacionesDropdown = ({
                 {noLeidas > 0 ? (
                   <span
                     data-testid="badge-contador-dropdown"
-                    className="px-2 py-0.5 text-[11px] font-black bg-red-50 text-red-600 rounded-full border border-red-100 shadow-2xs"
+                    className="px-2 py-0.5 text-[11px] font-black bg-red-50 text-red-700 rounded-full border border-red-100 shadow-2xs"
                   >
                     {formatBadgeCount(noLeidas)} nuevas
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+                  <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200">
                     Al día
                   </span>
                 )}
@@ -444,8 +458,11 @@ const NotificacionesDropdown = ({
               )}
             </div>
 
-            {/* Lista con las últimas 5 notificaciones desplegadas con enlaces navegables */}
-            <div className="max-h-80 overflow-y-auto divide-y divide-gray-100/80 p-1.5">
+            {/* Lista desplazable con todas las notificaciones sincronizadas y enlaces navegables */}
+            <div
+              data-testid="notification-scroll-list"
+              className="max-h-80 overflow-y-auto overscroll-contain scroll-smooth divide-y divide-gray-100/80 p-1.5"
+            >
               {ultimasNotificaciones.length === 0 ? (
                 <div className="py-8 px-4 text-center">
                   <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
@@ -466,7 +483,7 @@ const NotificacionesDropdown = ({
                         setAbierto(false);
                       }}
                       data-testid={`notif-item-${item.id}`}
-                      className={`group relative flex items-start gap-3 p-3 rounded-xl transition-all duration-150 cursor-pointer ${
+                      className={`group relative flex items-start gap-3 p-3 rounded-xl transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                         item.leida
                           ? 'bg-transparent hover:bg-gray-50/80 opacity-75'
                           : 'bg-primary-50/40 hover:bg-primary-50/80'
@@ -536,15 +553,20 @@ const NotificacionesDropdown = ({
               )}
             </div>
 
-            {/* Pie del popover con enlace global a incidencias */}
-            <div className="px-4 py-2.5 bg-gray-50/90 border-t border-gray-100 flex items-center justify-end text-xs">
+            {/* Pie del popover con resumen de cantidad y enlace global a incidencias */}
+            <div className="px-4 py-2.5 bg-gray-50/90 border-t border-gray-100 flex items-center justify-between text-xs">
+              <span className="text-[11px] text-gray-500 font-medium">
+                {ultimasNotificaciones.length > 0
+                  ? `${ultimasNotificaciones.length} ${ultimasNotificaciones.length === 1 ? 'notificación' : 'notificaciones'}`
+                  : ''}
+              </span>
               <Link
                 to="/incidencias"
                 onClick={() => setAbierto(false)}
-                className="text-[11px] text-primary hover:text-primary-hover font-bold flex items-center gap-1 transition-colors"
+                className="text-[11px] text-primary hover:text-primary-hover font-bold flex items-center gap-1 transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <span>Ver incidencias</span>
-                <FiArrowRight className="w-3 h-3" />
+                <FiArrowRight className="w-3 h-3" aria-hidden="true" />
               </Link>
             </div>
         </div>
