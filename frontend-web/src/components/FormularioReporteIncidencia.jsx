@@ -655,7 +655,7 @@ const FormularioReporteIncidencia = ({ onCancel }) => {
               </p>
             ) : (
               <p className="mt-1 text-xs text-gray-600">
-                UUID v4 de la base de datos o código de inventario formateado del activo.
+                Identificador del activo a reportar.
               </p>
             )}
           </div>
